@@ -131,7 +131,7 @@ const DEFAULT_FONT = 28;
 // Fallback scroll speeds (px/s) when no duration is set
 const FALLBACK_SPEEDS = [10, 20, 36, 60];
 
-export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate }) {
+export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true }) {
   const { theme, chordColor: prefsChordColor, metronomeMode, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
@@ -399,14 +399,16 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           );
         })()}
 
-        {/* Edit current song */}
-        <button
-          className={btn}
-          onClick={() => onEdit?.(songs[index], index)}
-          title="Edit this song"
-        >
-          Edit
-        </button>
+        {/* Edit current song — hidden on shared/read-only routes */}
+        {showEdit && (
+          <button
+            className={btn}
+            onClick={() => onEdit?.(songs[index], index)}
+            title="Edit this song"
+          >
+            Edit
+          </button>
+        )}
 
         {/* Exit */}
         <button

@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2 } from 'lucide-react';
 import { saveSong, saveSet, deleteSet } from '../utils/storage.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { parseHtmlSet, matchSong } from '../utils/importHtmlSet.js';
 import OnboardingTour from '../components/OnboardingTour.jsx';
 import AuthControl from '../components/AuthControl.jsx';
+import PublishSetDialog from '../components/PublishSetDialog.jsx';
+import ShareSetDialog from '../components/ShareSetDialog.jsx';
+
+const PUBLISHED_SETS_KEY = 'cue:published_sets';
+function loadPublishedSets() {
+  try { return JSON.parse(localStorage.getItem(PUBLISHED_SETS_KEY) || '{}'); } catch { return {}; }
+}
 
 function parseDuration(dur) {
   if (!dur) return 0;
@@ -66,6 +74,7 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
 
 function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }) {
   const { theme } = usePrefs();
+  const { user }  = useAuth();
   const dark = theme === 'dark';
   const [listSort, setListSort] = useState(() => sessionStorage.getItem('cue:set_sort') || 'newest');
   const [setSearch, setSetSearch] = useState(() => sessionStorage.getItem('cue:set_search') || '');
@@ -76,6 +85,22 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
   const [selectedSets, setSelectedSets] = useState(new Set());
   const [editingSetId, setEditingSetId]     = useState(null);
   const [editingSetName, setEditingSetName] = useState('');
+
+  // Publish/share state
+  const [publishedSets, setPublishedSets] = useState(loadPublishedSets);
+  const [publishDialog, setPublishDialog] = useState(null); // { set, songs }
+  const [shareDialogSet, setShareDialogSet] = useState(null);
+
+  function handlePublishClick(set) {
+    const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+    setPublishDialog({ set, songs: setSongs });
+  }
+
+  function handlePublishSuccess(setId, isoString) {
+    const updated = { ...publishedSets, [setId]: isoString };
+    setPublishedSets(updated);
+    localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(updated));
+  }
 
   function startRename(set, e) {
     e.stopPropagation();
@@ -325,43 +350,103 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                 }
               }}
             >
-              <div className="flex-1 min-w-0">
-                {editingSetId === set.id ? (
-                  <input
-                    autoFocus
-                    value={editingSetName}
-                    onChange={e => setEditingSetName(e.target.value)}
-                    onBlur={() => commitRename(set)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') { e.preventDefault(); commitRename(set); }
-                      if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
-                    }}
-                    onClick={e => e.stopPropagation()}
-                    className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5"
-                  />
-                ) : (
-                  <div className="flex items-center gap-1 group/name">
-                    <p className={`font-medium truncate ${isActive && !selectMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
-                    {!selectMode && (
-                      <button
-                        onClick={e => startRename(set, e)}
-                        title="Rename set"
-                        className="opacity-0 group-hover/name:opacity-100 p-0.5 text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
-                      >
-                        <Pencil size={11} />
-                      </button>
+              {(() => {
+                const lastPub = publishedSets[set.id] ?? null;
+                const isPublished = !!lastPub;
+                const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+                const newestLocalAt = [set.updatedAt, ...setSongs.map(s => s.updatedAt)].filter(Boolean).sort().at(-1) ?? '';
+                const isStale = isPublished && newestLocalAt > lastPub;
+                return (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      {editingSetId === set.id ? (
+                        <input
+                          autoFocus
+                          value={editingSetName}
+                          onChange={e => setEditingSetName(e.target.value)}
+                          onBlur={() => commitRename(set)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { e.preventDefault(); commitRename(set); }
+                            if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1 group/name">
+                          <p className={`font-medium truncate ${isActive && !selectMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
+                          {!selectMode && (
+                            <button
+                              onClick={e => startRename(set, e)}
+                              title="Rename set"
+                              className="opacity-0 group-hover/name:opacity-100 p-0.5 text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-400 dark:text-gray-600">{count} {count === 1 ? 'song' : 'songs'}</p>
+                    </div>
+                    {/* Cloud controls — signed-in users only */}
+                    {user && !selectMode && editingSetId !== set.id && (
+                      <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+                        {/* Stale indicator — always visible when cloud copy is outdated */}
+                        {isStale && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-0.5 shrink-0"
+                            title="Local changes not yet published — republish to sync"
+                          />
+                        )}
+                        {/* Publish / Republish button */}
+                        <button
+                          onClick={() => handlePublishClick(set)}
+                          title={isPublished ? 'Republish' : 'Publish to cloud'}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                        >
+                          <UploadCloud size={13} />
+                        </button>
+                        {/* Share button — only after at least one publish */}
+                        {isPublished && (
+                          <button
+                            onClick={() => setShareDialogSet(set)}
+                            title="Share link"
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                          >
+                            <Link2 size={13} />
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
-                <p className="text-xs text-gray-400 dark:text-gray-600">{count} {count === 1 ? 'song' : 'songs'}</p>
-              </div>
-              {!selectMode && editingSetId !== set.id && (
-                <ChevronRight size={14} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-300 dark:text-gray-700 group-hover:text-gray-500'}`} />
-              )}
+                    {!selectMode && editingSetId !== set.id && (
+                      <ChevronRight size={14} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-300 dark:text-gray-700 group-hover:text-gray-500'}`} />
+                    )}
+                  </>
+                );
+              })()}
             </div>
           );
         })}
       </div>
+
+      {/* Publish dialog */}
+      {publishDialog && (
+        <PublishSetDialog
+          set={publishDialog.set}
+          songs={publishDialog.songs}
+          userId={user?.id}
+          onSuccess={isoString => handlePublishSuccess(publishDialog.set.id, isoString)}
+          onClose={() => setPublishDialog(null)}
+        />
+      )}
+
+      {/* Share dialog */}
+      {shareDialogSet && (
+        <ShareSetDialog
+          set={shareDialogSet}
+          onClose={() => setShareDialogSet(null)}
+        />
+      )}
 
       {/* Import summary modal */}
       {summary && (
