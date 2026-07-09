@@ -7,6 +7,7 @@ import { openManualPDF } from '../utils/manualExport.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { parseHtmlSet, matchSong } from '../utils/importHtmlSet.js';
 import OnboardingTour from '../components/OnboardingTour.jsx';
+import AuthControl from '../components/AuthControl.jsx';
 
 function parseDuration(dur) {
   if (!dur) return 0;
@@ -797,6 +798,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           >
             {dark ? '☀' : '☾'}
           </button>
+          <AuthControl btnBorder={btnBorder} />
           <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${btnBorder}`}>
             <Download size={14} /> Import
           </button>
