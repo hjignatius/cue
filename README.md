@@ -64,7 +64,7 @@ All export functions read fresh data from IndexedDB at export time, so recently 
 - **Song JSON** (`.json`, type `cue-song`) — single song with conflict prompt (overwrite / duplicate / skip)
 - **Set JSON** (`.json`, type `cue-set`) — set + songs + custom chords; always imports as new entries
 - **Multi-set JSON** (`.json`, type `cue-sets`) — multiple sets + songs + custom chords; prompts to **skip duplicates** (reuse existing songs by title match) or **allow duplicates** (import everything as new)
-- **Backup JSON** (`.json`, type `cue-backup`) — prompts to replace library or merge alongside existing data
+- **Backup JSON** (`.json`, type `cue-backup`) — prompts to replace library (preserves original UUIDs and timestamps) or merge: merge resolves conflicts by UUID, keeping the copy with the newer `updatedAt`; shows a summary of added / updated / unchanged records
 - Multi-file import: select multiple files at once; each is processed in turn
 
 ### Onboarding Tour
@@ -87,13 +87,23 @@ A 7-step spotlight tour runs on first launch, covering the library, import, sets
 ### Storage layout
 | Store | Key | Contents |
 |---|---|---|
-| IndexedDB `songs` | song id | `{ id, metadata, text, chordStyle, diagramScale, chordPrefs, displayKey, savedAt }` |
-| IndexedDB `sets` | set id | `{ id, name, songIds[], sortMode, savedAt }` |
+| IndexedDB `songs` | song id | `{ id, metadata, text, chordStyle, diagramScale, chordPrefs, displayKey, createdAt, updatedAt }` |
+| IndexedDB `sets` | set id | `{ id, name, songIds[], sortMode, createdAt, updatedAt }` |
 | `localStorage` | `cue_custom_chords` | Custom guitar chord fingerings |
+| `localStorage` | `cue:schema_version` | Current schema version (integer) |
 | `localStorage` | `cue:onboarding_done` | Flag — tour has been seen |
 | `localStorage` | `cue_prefs` | Theme and other user preferences |
 | `sessionStorage` | `cue:setlist_selected_id` | Highlighted song in Setlist panel |
 | `sessionStorage` | `cue:lib_highlighted_id` | Highlighted song in Library panel |
+
+### Schema versioning & migrations
+
+The current schema version is **2**. Migrations run automatically on app load, guarded by `cue:schema_version` in `localStorage`.
+
+| Version | Change |
+|---|---|
+| 1 | Initial IndexedDB schema; songs and sets identified by `crypto.randomUUID()` IDs; sets reference songs by UUID in `songIds[]` |
+| 2 | Added `createdAt` / `updatedAt` ISO-8601 timestamps to every song and set. Existing records are stamped at migration time using the legacy `savedAt` field where available. Backup exports include `schemaVersion`; backup merge resolves conflicts by UUID, keeping whichever copy has the newer `updatedAt`. |
 
 ---
 

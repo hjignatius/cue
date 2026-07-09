@@ -2,6 +2,7 @@ import { openDB } from 'idb';
 
 const DB_NAME    = 'cue-db';
 const DB_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 // Singleton — opened once, reused everywhere
 let _db = null;
@@ -19,6 +20,7 @@ async function getDB() {
       },
     });
     await migrateFromLocalStorage(_db);
+    await runMigrations(_db);
   }
   return _db;
 }
@@ -51,6 +53,44 @@ async function migrateFromLocalStorage(database) {
   localStorage.setItem('cue:idb_migrated', '1');
 }
 
+// Schema migrations — guarded by cue:schema_version in localStorage.
+// Each version block is idempotent: safe to re-run if the version flag is lost.
+async function runMigrations(database) {
+  const v = parseInt(localStorage.getItem('cue:schema_version') || '0', 10);
+  if (v >= SCHEMA_VERSION) return;
+
+  if (v < 2) {
+    // v2: add createdAt / updatedAt ISO strings to every record that lacks them.
+    const now = new Date().toISOString();
+
+    const songs = await database.getAll('songs');
+    if (songs.length) {
+      const tx = database.transaction('songs', 'readwrite');
+      for (const song of songs) {
+        if (!song.createdAt) {
+          const t = song.savedAt ? new Date(song.savedAt).toISOString() : now;
+          tx.store.put({ ...song, createdAt: t, updatedAt: t });
+        }
+      }
+      await tx.done;
+    }
+
+    const sets = await database.getAll('sets');
+    if (sets.length) {
+      const tx = database.transaction('sets', 'readwrite');
+      for (const set of sets) {
+        if (!set.createdAt) {
+          const t = set.savedAt ? new Date(set.savedAt).toISOString() : now;
+          tx.store.put({ ...set, createdAt: t, updatedAt: t });
+        }
+      }
+      await tx.done;
+    }
+  }
+
+  localStorage.setItem('cue:schema_version', String(SCHEMA_VERSION));
+}
+
 // ---- Songs ------------------------------------------------------------------
 
 export async function loadSongs() {
@@ -61,10 +101,20 @@ export async function loadSong(id) {
   return (await getDB()).get('songs', id);
 }
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey }) {
+// createdAt / updatedAt may be passed explicitly when importing backup data so
+// that original edit times are preserved rather than reset to import time.
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
-  const entry  = { id: songId, metadata, text, savedAt: Date.now() };
+  const now = new Date().toISOString();
+  const existing = id ? await d.get('songs', id) : null;
+  const entry = {
+    id: songId,
+    metadata,
+    text,
+    createdAt: existing?.createdAt ?? givenCreatedAt ?? now,
+    updatedAt: givenUpdatedAt ?? now,
+  };
   if (chordStyle   !== undefined) entry.chordStyle   = chordStyle;
   if (previewMode  !== undefined) entry.previewMode  = previewMode;
   if (diagramScale !== undefined) entry.diagramScale = diagramScale;
@@ -84,15 +134,19 @@ export async function loadSets() {
   return (await getDB()).getAll('sets');
 }
 
-export async function saveSet({ id, name, songIds, sortMode = 'custom' }) {
+// createdAt / updatedAt may be passed explicitly when importing backup data.
+export async function saveSet({ id, name, songIds, sortMode = 'custom', createdAt: givenCreatedAt, updatedAt: givenUpdatedAt }) {
   const d   = await getDB();
   const sid = id || crypto.randomUUID();
+  const now = new Date().toISOString();
+  const existing = id ? await d.get('sets', id) : null;
   const entry = {
     id:      sid,
     name:    name?.trim() || 'Untitled Set',
     songIds: songIds || [],
     sortMode,
-    savedAt: Date.now(),
+    createdAt: existing?.createdAt ?? givenCreatedAt ?? now,
+    updatedAt: givenUpdatedAt ?? now,
   };
   await d.put('sets', entry);
   return entry;
@@ -112,10 +166,11 @@ export async function clearLibrary() {
 export async function removeSongFromAllSets(songId) {
   const d    = await getDB();
   const sets = await d.getAll('sets');
+  const now  = new Date().toISOString();
   await Promise.all(
     sets
       .filter(s => s.songIds.includes(songId))
-      .map(s => d.put('sets', { ...s, songIds: s.songIds.filter(id => id !== songId) }))
+      .map(s => d.put('sets', { ...s, songIds: s.songIds.filter(id => id !== songId), updatedAt: now }))
   );
 }
 

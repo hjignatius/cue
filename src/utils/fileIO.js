@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import { saveFilePicker } from './filePicker.js';
-import { loadSongs, loadSets } from './storage.js';
+import { loadSongs, loadSets, SCHEMA_VERSION } from './storage.js';
 
 // ---- Custom chord library (localStorage) ------------------------------------
 
@@ -185,7 +185,7 @@ export async function exportBackup() {
   const [songs, sets] = await Promise.all([loadSongs(), loadSets()]);
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
-  const payload = JSON.stringify({ type: 'cue-backup', version: 1, exportedAt: new Date().toISOString(), songs, sets, customChords }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-backup', version: 2, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, customChords }, null, 2);
   download(`cue-backup-${date}.json`, payload, 'application/json');
 }
 

@@ -139,20 +139,86 @@ export default function App() {
           } else if (data.type === 'cue-backup' && data.songs && data.sets) {
             const mode = await askBackupMode();
             if (mode === 'cancel') continue;
-            if (mode === 'replace') await clearLibrary();
-            const idMap = {};
-            for (const s of data.songs) {
-              const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale });
-              idMap[s.id] = newId;
+
+            if (mode === 'replace') {
+              await clearLibrary();
+              // Preserve original UUIDs and timestamps from the backup.
+              // Build an idMap for the rare case of old files where a song has no id.
+              const idMap = {};
+              for (const s of data.songs) {
+                const savedId = await saveSong({ id: s.id || null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                if (s.id) idMap[s.id] = savedId;
+              }
+              for (const set of data.sets) {
+                const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
+                await saveSet({ id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+              }
+            } else {
+              // Merge: keep whichever version of each song/set has the newer updatedAt.
+              const [existingSongs, existingSets] = await Promise.all([loadSongs(), loadSets()]);
+              const songById = new Map(existingSongs.map(s => [s.id, s]));
+              const setById  = new Map(existingSets.map(s => [s.id, s]));
+
+              let songsAdded = 0, songsUpdated = 0, songsSkipped = 0;
+              const idMap = {};
+
+              for (const s of data.songs) {
+                if (!s.id) {
+                  // Old file without UUID — always add as new
+                  const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                  idMap[s.id] = newId;
+                  songsAdded++;
+                  continue;
+                }
+                const existing = songById.get(s.id);
+                if (!existing) {
+                  await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                  idMap[s.id] = s.id;
+                  songsAdded++;
+                } else {
+                  const existingMs = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.savedAt || 0);
+                  const incomingMs = s.updatedAt       ? new Date(s.updatedAt).getTime()        : (s.savedAt || 0);
+                  if (incomingMs > existingMs) {
+                    await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                    songsUpdated++;
+                  } else {
+                    songsSkipped++;
+                  }
+                  idMap[s.id] = s.id;
+                }
+              }
+
+              let setsAdded = 0, setsUpdated = 0, setsSkipped = 0;
+
+              for (const set of data.sets) {
+                const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
+                if (!set.id) {
+                  await saveSet({ id: null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+                  setsAdded++;
+                  continue;
+                }
+                const existing = setById.get(set.id);
+                if (!existing) {
+                  await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+                  setsAdded++;
+                } else {
+                  const existingMs = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.savedAt || 0);
+                  const incomingMs = set.updatedAt      ? new Date(set.updatedAt).getTime()       : (set.savedAt || 0);
+                  if (incomingMs > existingMs) {
+                    await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+                    setsUpdated++;
+                  } else {
+                    setsSkipped++;
+                  }
+                }
+              }
+
+              const parts = [];
+              if (data.songs.length)  parts.push(`Songs: ${songsAdded} added, ${songsUpdated} updated, ${songsSkipped} unchanged`);
+              if (data.sets.length)   parts.push(`Sets: ${setsAdded} added, ${setsUpdated} updated, ${setsSkipped} unchanged`);
+              alert(`Backup merged.\n${parts.join('\n')}`);
             }
-            for (const set of data.sets) {
-              await saveSet({
-                id: null,
-                name: set.name,
-                songIds: set.songIds.map(id => idMap[id]).filter(Boolean),
-                sortMode: set.sortMode || 'custom',
-              });
-            }
+
             if (Array.isArray(data.customChords) && data.customChords.length > 0) {
               if (mode === 'replace') replaceCustomChords(data.customChords);
               else mergeCustomChords(data.customChords);
