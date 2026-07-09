@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2 } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2, CloudOff } from 'lucide-react';
 import { saveSong, saveSet, deleteSet } from '../utils/storage.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
@@ -11,6 +11,7 @@ import OnboardingTour from '../components/OnboardingTour.jsx';
 import AuthControl from '../components/AuthControl.jsx';
 import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
+import { unpublishSet } from '../lib/cloud.js';
 
 const PUBLISHED_SETS_KEY = 'cue:published_sets';
 function loadPublishedSets() {
@@ -100,6 +101,28 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
     const updated = { ...publishedSets, [setId]: isoString };
     setPublishedSets(updated);
     localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(updated));
+  }
+
+  // Unpublish dialog state: null | { set, phase: 'confirm'|'running'|'success'|'error', error: string }
+  const [unpublishDialog, setUnpublishDialog] = useState(null);
+
+  function handleUnpublishClick(set) {
+    setUnpublishDialog({ set, phase: 'confirm', error: '' });
+  }
+
+  async function runUnpublish() {
+    const { set } = unpublishDialog;
+    setUnpublishDialog(d => ({ ...d, phase: 'running', error: '' }));
+    try {
+      await unpublishSet(set.id, user.id);
+      const updated = { ...publishedSets };
+      delete updated[set.id];
+      setPublishedSets(updated);
+      localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(updated));
+      setUnpublishDialog(d => ({ ...d, phase: 'success' }));
+    } catch (err) {
+      setUnpublishDialog(d => ({ ...d, phase: 'error', error: err.message || 'Unpublish failed. Please try again.' }));
+    }
   }
 
   function startRename(set, e) {
@@ -406,15 +429,24 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                         >
                           <UploadCloud size={13} />
                         </button>
-                        {/* Share button — only after at least one publish */}
+                        {/* Share / Unpublish — only after at least one publish */}
                         {isPublished && (
-                          <button
-                            onClick={() => setShareDialogSet(set)}
-                            title="Share link"
-                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
-                          >
-                            <Link2 size={13} />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setShareDialogSet(set)}
+                              title="Share link"
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                            >
+                              <Link2 size={13} />
+                            </button>
+                            <button
+                              onClick={() => handleUnpublishClick(set)}
+                              title="Remove from cloud"
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                            >
+                              <CloudOff size={13} />
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
@@ -447,6 +479,70 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
           onClose={() => setShareDialogSet(null)}
         />
       )}
+
+      {/* Unpublish dialog */}
+      {unpublishDialog && (() => {
+        const { set, phase, error } = unpublishDialog;
+        const h2  = `text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`;
+        const sub = `text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`;
+        const em  = `font-medium ${dark ? 'text-gray-200' : 'text-gray-800'}`;
+        const btnRed    = `w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors`;
+        const btnIndigo = `w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors`;
+        const btnGhost  = `text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`;
+        const panel = `w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={phase !== 'running' ? () => setUnpublishDialog(null) : undefined}
+          >
+            <div className={panel} onClick={e => e.stopPropagation()}>
+              {phase === 'confirm' && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <h2 className={h2}>Remove from cloud?</h2>
+                    <p className={sub}>
+                      <span className={em}>"{set.name}"</span> will be deleted from the cloud and all its share links will stop working.
+                      Your local copy is not affected.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button onClick={runUnpublish} className={btnRed}>Remove from cloud</button>
+                    <button onClick={() => setUnpublishDialog(null)} className={btnGhost}>Cancel</button>
+                  </div>
+                </>
+              )}
+              {phase === 'running' && (
+                <div className="text-center py-2">
+                  <p className={sub}>Removing from cloud…</p>
+                </div>
+              )}
+              {phase === 'success' && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <h2 className={h2}>Removed</h2>
+                    <p className={sub}>
+                      <span className={em}>"{set.name}"</span> has been removed from the cloud. All share links are now inactive.
+                    </p>
+                  </div>
+                  <button onClick={() => setUnpublishDialog(null)} className={btnIndigo}>Done</button>
+                </>
+              )}
+              {phase === 'error' && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <h2 className={h2}>Failed</h2>
+                    <p className="text-xs text-red-500">{error}</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button onClick={runUnpublish} className={btnRed}>Retry</button>
+                    <button onClick={() => setUnpublishDialog(null)} className={btnGhost}>Cancel</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Import summary modal */}
       {summary && (
