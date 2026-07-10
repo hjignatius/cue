@@ -21,15 +21,31 @@ function loadSavedShares() {
 }
 function persistSavedShares(arr) { localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(arr)); }
 
-// Build a map of cloud song ID → local song ID for duplicate detection.
-async function buildSourceIdMap() {
-  const localSongs = await loadSongs();
+// ---- Title-based duplicate helpers -------------------------------------------
+
+function normalizeTitle(str) {
+  return (str || '').toLowerCase().trim();
+}
+
+// Returns Map<normalizedTitle, localSong> from the user's library.
+function buildTitleMap(localSongs) {
   const map = new Map();
   for (const s of localSongs) {
-    if (s.copiedFrom?.songId) map.set(s.copiedFrom.songId, s.id);
+    const key = normalizeTitle(s.metadata?.title);
+    if (key && !map.has(key)) map.set(key, s);
   }
   return map;
 }
+
+// Find the lowest available "(N)" suffix so the new title is unique.
+function makeUniqueTitle(baseTitle, existingTitlesSet) {
+  const cleanBase = (baseTitle || 'Untitled').replace(/ \(\d+\)$/, '');
+  let n = 2;
+  while (existingTitlesSet.has(normalizeTitle(`${cleanBase} (${n})`))) n++;
+  return `${cleanBase} (${n})`;
+}
+
+// ---- Main component ----------------------------------------------------------
 
 export default function SharedSetView() {
   const { token }       = useParams();
@@ -48,9 +64,10 @@ export default function SharedSetView() {
   const isBookmarked = savedShares.some(s => s.token === token);
 
   // Copy-to-library state
-  const [copying, setCopying]       = useState(false);
-  const [copyResult, setCopyResult] = useState(null); // { type, ... }
-  const [hasCopied, setHasCopied]   = useState(false); // true once any copy succeeds this session
+  const [copying, setCopying]           = useState(false);
+  const [copyResult, setCopyResult]     = useState(null);  // { type, ... }
+  const [hasCopied, setHasCopied]       = useState(false); // true once any copy/duplicate succeeds
+  const [conflictDialog, setConflictDialog] = useState(null); // { conflicts, resolve } | null
 
   // Leave prompt: shown when navigating away before bookmarking/copying
   const [leavePrompt, setLeavePrompt] = useState(false);
@@ -122,8 +139,7 @@ export default function SharedSetView() {
     setSavedShares(updated);
   }
 
-  // Navigate to the main app. If the viewer hasn't bookmarked or copied anything,
-  // offer a lightweight "save before leaving?" prompt first.
+  // Navigate to the main app. Prompt to save if not yet bookmarked/copied.
   function handleOpenCue() {
     if (status !== 'ok' || isBookmarked || hasCopied) {
       navigate('/');
@@ -132,22 +148,53 @@ export default function SharedSetView() {
     }
   }
 
+  // ---- Conflict dialog (Promise-based) ----------------------------------------
+
+  // Shows the conflict dialog and returns a Promise that resolves with:
+  //   { [cloudSongId]: 'duplicate' | 'skip' }  when user clicks Proceed
+  //   null                                       when user cancels
+  function askConflicts(conflicts) {
+    return new Promise(resolve => setConflictDialog({ conflicts, resolve }));
+  }
+
   // ---- Copy-to-library actions ------------------------------------------------
 
   async function handleCopySong(song) {
     if (copying) return;
     setCopying(true);
     try {
-      const sourceMap = await buildSourceIdMap();
-      const title = song.metadata?.title || 'Untitled';
-      if (sourceMap.has(song.id)) {
-        setCopyResult({ type: 'song_exists', title });
+      const localSongs = await loadSongs();
+      const titleMap   = buildTitleMap(localSongs);
+      const titleKey   = normalizeTitle(song.metadata?.title);
+      const title      = song.metadata?.title || 'Untitled';
+      const hasConflict = titleMap.has(titleKey);
+
+      let outcome = 'copied';
+      let newTitle = title;
+
+      if (hasConflict) {
+        const choices = await askConflicts([{ cloudSong: song, localSong: titleMap.get(titleKey) }]);
+        setConflictDialog(null);
+        if (choices === null) return; // cancelled
+        outcome = choices[song.id] ?? 'skip';
+      }
+
+      const now = new Date().toISOString();
+      const copiedFrom = { songId: song.id, setName: setData?.set?.name || '', copiedAt: now };
+
+      if (outcome === 'skip') {
+        setCopyResult({ type: 'song', title, outcome: 'skipped' });
         return;
       }
-      const now = new Date().toISOString();
+
+      if (outcome === 'duplicate') {
+        const allTitles = new Set(localSongs.map(s => normalizeTitle(s.metadata?.title)));
+        newTitle = makeUniqueTitle(title, allTitles);
+      }
+
       await saveSong({
         id: null,
-        metadata: song.metadata,
+        metadata: { ...song.metadata, title: newTitle },
         text: song.text,
         chordStyle: song.chordStyle,
         previewMode: song.previewMode,
@@ -156,10 +203,11 @@ export default function SharedSetView() {
         displayKey: song.displayKey,
         createdAt: now,
         updatedAt: now,
-        copiedFrom: { songId: song.id, setName: setData?.set?.name || '', copiedAt: now },
+        copiedFrom,
       });
+
       setHasCopied(true);
-      setCopyResult({ type: 'song', title });
+      setCopyResult({ type: 'song', title, outcome, newTitle: outcome === 'duplicate' ? newTitle : undefined });
     } catch (err) {
       console.error('Copy song failed:', err);
     } finally {
@@ -172,17 +220,33 @@ export default function SharedSetView() {
     setCopying(true);
     try {
       const { set, songs } = setData;
-      // Always rebuild from DB so previously copied songs are correctly detected
-      const sourceMap = await buildSourceIdMap();
-      let copied = 0, alreadyHad = 0;
+      const localSongs = await loadSongs();
+      const titleMap   = buildTitleMap(localSongs);
+
+      // Collect conflicts: cloud songs whose title already exists locally
+      const conflicts = songs
+        .filter(s => titleMap.has(normalizeTitle(s.metadata?.title)))
+        .map(s => ({ cloudSong: s, localSong: titleMap.get(normalizeTitle(s.metadata?.title)) }));
+
+      let choices = {};
+      if (conflicts.length > 0) {
+        const resolved = await askConflicts(conflicts);
+        setConflictDialog(null);
+        if (resolved === null) return; // cancelled
+        choices = resolved;
+      }
+
+      // Running set of normalized titles (grows as we add songs, prevents suffix collisions)
+      const allTitles = new Set(localSongs.map(s => normalizeTitle(s.metadata?.title)));
+      let copied = 0, duplicated = 0, skipped = 0;
       const newSongIds = [];
       const now = new Date().toISOString();
 
       for (const song of songs) {
-        if (sourceMap.has(song.id)) {
-          newSongIds.push(sourceMap.get(song.id));
-          alreadyHad++;
-        } else {
+        const titleKey    = normalizeTitle(song.metadata?.title);
+        const hasConflict = titleMap.has(titleKey);
+
+        if (!hasConflict) {
           const newId = await saveSong({
             id: null,
             metadata: song.metadata,
@@ -196,15 +260,40 @@ export default function SharedSetView() {
             updatedAt: now,
             copiedFrom: { songId: song.id, setName: set.name, copiedAt: now },
           });
+          allTitles.add(titleKey);
           newSongIds.push(newId);
-          sourceMap.set(song.id, newId); // prevent double-counting if song appears twice in set
           copied++;
+        } else {
+          const choice = choices[song.id] ?? 'skip';
+          if (choice === 'duplicate') {
+            const newTitle = makeUniqueTitle(song.metadata?.title || 'Untitled', allTitles);
+            allTitles.add(normalizeTitle(newTitle));
+            const newId = await saveSong({
+              id: null,
+              metadata: { ...song.metadata, title: newTitle },
+              text: song.text,
+              chordStyle: song.chordStyle,
+              previewMode: song.previewMode,
+              diagramScale: song.diagramScale,
+              chordPrefs: song.chordPrefs,
+              displayKey: song.displayKey,
+              createdAt: now,
+              updatedAt: now,
+              copiedFrom: { songId: song.id, setName: set.name, copiedAt: now },
+            });
+            newSongIds.push(newId);
+            duplicated++;
+          } else {
+            // Skip: reference the existing local song so the set is complete
+            newSongIds.push(titleMap.get(titleKey).id);
+            skipped++;
+          }
         }
       }
 
       await saveSet({ id: null, name: set.name, songIds: newSongIds, sortMode: 'custom' });
-      setHasCopied(true);
-      setCopyResult({ type: 'set', setName: set.name, copied, alreadyHad });
+      if (copied + duplicated > 0) setHasCopied(true);
+      setCopyResult({ type: 'set', setName: set.name, copied, duplicated, skipped });
     } catch (err) {
       console.error('Copy set failed:', err);
     } finally {
@@ -247,9 +336,7 @@ export default function SharedSetView() {
             <p className={`text-lg font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
               This shared set isn't available
             </p>
-            <p className={`text-sm ${muted}`}>
-              The link may have been revoked or doesn't exist.
-            </p>
+            <p className={`text-sm ${muted}`}>The link may have been revoked or doesn't exist.</p>
             {bookmarked && (
               <button
                 onClick={handleRemoveBookmark}
@@ -386,6 +473,15 @@ export default function SharedSetView() {
         </div>
       </div>
 
+      {/* Conflict dialog — shown before any writes when title matches are found */}
+      {conflictDialog && (
+        <ConflictDialog
+          conflicts={conflictDialog.conflicts}
+          dark={dark}
+          onResolve={conflictDialog.resolve}
+        />
+      )}
+
       {/* Leave prompt — shown when navigating away before saving/copying */}
       {leavePrompt && (
         <div
@@ -433,70 +529,186 @@ export default function SharedSetView() {
             className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}
             onClick={e => e.stopPropagation()}
           >
-            {copyResult.type === 'set' && (
-              <>
-                <div className="flex flex-col gap-1">
-                  <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Copied to your library</h2>
-                  <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Created set <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>"{copyResult.setName}"</span>.{' '}
-                    {copyResult.copied > 0 && (
-                      <span className="text-indigo-500 font-medium">
-                        {copyResult.copied} {copyResult.copied === 1 ? 'song' : 'songs'} copied
-                      </span>
-                    )}
-                    {copyResult.copied > 0 && copyResult.alreadyHad > 0 && ', '}
-                    {copyResult.alreadyHad > 0 && (
-                      <span>{copyResult.alreadyHad} already in your library</span>
-                    )}
-                    .
-                  </p>
-                </div>
-                <button
-                  onClick={() => setCopyResult(null)}
-                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
-                >
-                  Done
-                </button>
-              </>
-            )}
-            {copyResult.type === 'song' && (
-              <>
-                <div className="flex flex-col gap-1">
-                  <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Song copied</h2>
-                  <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>"{copyResult.title}"</span> has been added to your library.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setCopyResult(null)}
-                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
-                >
-                  Done
-                </button>
-              </>
-            )}
-            {copyResult.type === 'song_exists' && (
-              <>
-                <div className="flex flex-col gap-1">
-                  <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Already in your library</h2>
-                  <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>"{copyResult.title}"</span> was previously copied and is already in your library.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setCopyResult(null)}
-                  className={`w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
-                >
-                  OK
-                </button>
-              </>
-            )}
+            {copyResult.type === 'set' && <SetCopyResult result={copyResult} dark={dark} onDone={() => setCopyResult(null)} />}
+            {copyResult.type === 'song' && <SongCopyResult result={copyResult} dark={dark} onDone={() => setCopyResult(null)} />}
           </div>
         </div>
       )}
     </div>
   );
 }
+
+// ---- Copy result sub-views ---------------------------------------------------
+
+function SetCopyResult({ result, dark, onDone }) {
+  const { setName, copied, duplicated, skipped } = result;
+  const parts = [];
+  if (copied)     parts.push(`${copied} copied`);
+  if (duplicated) parts.push(`${duplicated} duplicated`);
+  if (skipped)    parts.push(`${skipped} skipped`);
+
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+          Added to your library
+        </h2>
+        <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+          Created set{' '}
+          <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>"{setName}"</span>.
+          {parts.length > 0 && (
+            <span className="block mt-1">{parts.join(', ')}.</span>
+          )}
+        </p>
+      </div>
+      <button
+        onClick={onDone}
+        className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+      >
+        Done
+      </button>
+    </>
+  );
+}
+
+function SongCopyResult({ result, dark, onDone }) {
+  const { title, outcome, newTitle } = result;
+  const em = `font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`;
+  const sub = `text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`;
+
+  let heading, body, btnClass;
+
+  if (outcome === 'copied') {
+    heading  = 'Song added';
+    body     = <><span className={em}>"{title}"</span> has been added to your library.</>;
+    btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
+  } else if (outcome === 'duplicated') {
+    heading  = 'Song added as duplicate';
+    body     = <>Added as <span className={em}>"{newTitle}"</span> so it stays separate from the existing version.</>;
+    btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
+  } else {
+    heading  = 'Song skipped';
+    body     = <><span className={em}>"{title}"</span> is already in your library — nothing was changed.</>;
+    btnClass = dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700';
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{heading}</h2>
+        <p className={sub}>{body}</p>
+      </div>
+      <button onClick={onDone} className={`w-full py-2 text-sm font-medium rounded-xl transition-colors ${btnClass}`}>
+        Done
+      </button>
+    </>
+  );
+}
+
+// ---- Conflict dialog ---------------------------------------------------------
+
+function ConflictDialog({ conflicts, dark, onResolve }) {
+  const [choices, setChoices] = useState(
+    () => Object.fromEntries(conflicts.map(c => [c.cloudSong.id, 'skip']))
+  );
+
+  const allSkip      = conflicts.every(c => choices[c.cloudSong.id] === 'skip');
+  const allDuplicate = conflicts.every(c => choices[c.cloudSong.id] === 'duplicate');
+
+  function applyToAll(choice) {
+    setChoices(Object.fromEntries(conflicts.map(c => [c.cloudSong.id, choice])));
+  }
+
+  const bdr = dark ? 'border-gray-700' : 'border-gray-200';
+  const btnToggle = (active) =>
+    `flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+      active
+        ? 'bg-indigo-600 border-indigo-600 text-white'
+        : dark
+          ? 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
+          : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
+    }`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={() => onResolve(null)}
+    >
+      <div
+        className={`w-96 max-h-[80vh] rounded-2xl shadow-2xl flex flex-col ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={`px-6 pt-5 pb-4 shrink-0 border-b ${bdr}`}>
+          <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+            {conflicts.length === 1
+              ? 'Song already in your library'
+              : `${conflicts.length} songs already in your library`}
+          </h2>
+          <p className={`text-sm mt-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+            Choose what to do with each one.
+          </p>
+          {/* Apply-to-all shortcuts — only useful when multiple conflicts */}
+          {conflicts.length > 1 && (
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => applyToAll('skip')}      className={btnToggle(allSkip)}>Skip all</button>
+              <button onClick={() => applyToAll('duplicate')} className={btnToggle(allDuplicate)}>Duplicate all</button>
+            </div>
+          )}
+        </div>
+
+        {/* Per-song rows */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {conflicts.map(({ cloudSong }, i) => {
+            const choice = choices[cloudSong.id];
+            return (
+              <div
+                key={cloudSong.id}
+                className={`px-6 py-4 ${i < conflicts.length - 1 ? `border-b ${bdr}` : ''}`}
+              >
+                <p className={`text-sm font-medium truncate mb-2.5 ${dark ? 'text-white' : 'text-gray-900'}`}>
+                  {cloudSong.metadata?.title || 'Untitled'}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setChoices(prev => ({ ...prev, [cloudSong.id]: 'skip' }))}
+                    className={btnToggle(choice === 'skip')}
+                  >
+                    Skip
+                  </button>
+                  <button
+                    onClick={() => setChoices(prev => ({ ...prev, [cloudSong.id]: 'duplicate' }))}
+                    className={btnToggle(choice === 'duplicate')}
+                  >
+                    Duplicate
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className={`px-6 py-4 shrink-0 border-t ${bdr} flex gap-2`}>
+          <button
+            onClick={() => onResolve(choices)}
+            className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+          >
+            Proceed
+          </button>
+          <button
+            onClick={() => onResolve(null)}
+            className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Song row ----------------------------------------------------------------
 
 function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange, onPresent, onCopy, copying }) {
   const meta = song.metadata || {};
@@ -513,15 +725,9 @@ function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange,
             <p className={`text-sm mt-0.5 truncate ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{meta.artist}</p>
           )}
           <div className="flex flex-wrap items-center gap-3 mt-2">
-            {meta.key && (
-              <span className={`text-xs ${muted}`}>Key: {meta.key}</span>
-            )}
-            {meta.tempo && (
-              <span className={`text-xs ${muted}`}>{meta.tempo} BPM</span>
-            )}
-            {meta.duration && (
-              <span className={`text-xs ${muted}`}>{meta.duration}</span>
-            )}
+            {meta.key    && <span className={`text-xs ${muted}`}>Key: {meta.key}</span>}
+            {meta.tempo  && <span className={`text-xs ${muted}`}>{meta.tempo} BPM</span>}
+            {meta.duration && <span className={`text-xs ${muted}`}>{meta.duration}</span>}
             {/* Viewer-local View Key — stored in localStorage, never sent to server */}
             <label className={`flex items-center gap-1 text-xs ${muted}`}>
               View key
