@@ -293,20 +293,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <div className="flex gap-3">
           <button
             onClick={() => { handleSave(); setShowBackConfirm(false); onBack(); }}
-            className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+            className="flex-1 py-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
           >
             Save
           </button>
           <button
             onClick={() => { setShowBackConfirm(false); onBack(); }}
-            className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            className={`flex-1 py-3 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
           >
             Discard
           </button>
         </div>
         <button
           onClick={() => setShowBackConfirm(false)}
-          className={`text-xs text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`text-xs text-center transition-colors min-h-[44px] flex items-center justify-center w-full ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
         >
           Keep editing
         </button>
@@ -333,14 +333,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <button
                 onClick={() => hasPrev && requestNav(setlistIdx - 1)}
                 disabled={!hasPrev}
-                className={`px-2 py-1.5 text-sm border rounded-lg transition-colors ${hasPrev ? btnBorder : `border-transparent ${mutedText} cursor-not-allowed`}`}
+                className={`h-11 px-3 text-sm border rounded-lg transition-colors ${hasPrev ? btnBorder : `border-transparent ${mutedText} cursor-not-allowed`}`}
                 title="Previous song"
               >← Prev</button>
               <span className={`text-xs ${mutedText}`}>{setlistIdx + 1}/{setlistSongs.length}</span>
               <button
                 onClick={() => hasNext && requestNav(setlistIdx + 1)}
                 disabled={!hasNext}
-                className={`px-2 py-1.5 text-sm border rounded-lg transition-colors ${hasNext ? btnBorder : `border-transparent ${mutedText} cursor-not-allowed`}`}
+                className={`h-11 px-3 text-sm border rounded-lg transition-colors ${hasNext ? btnBorder : `border-transparent ${mutedText} cursor-not-allowed`}`}
                 title="Next song"
               >Next →</button>
             </>
@@ -352,7 +352,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 onClick={() => hasYT && openPlayer(metadata.youtubeUrl, metadata.title)}
                 disabled={!hasYT}
                 title={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
-                className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${hasYT ? `${btnBorder} text-red-500 dark:text-red-400 hover:text-red-400` : `border-transparent ${mutedText} cursor-not-allowed opacity-40`}`}
+                className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-colors ${hasYT ? `${btnBorder} text-red-500 dark:text-red-400 hover:text-red-400` : `border-transparent ${mutedText} cursor-not-allowed opacity-40`}`}
               >
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
               </button>
@@ -361,14 +361,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           {onReturn ? (
             <button
               onClick={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: sizeLevel, chordPrefs, displayKey })}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors ${btnBorder}`}
+              className={`flex items-center gap-1.5 h-11 px-4 text-sm border rounded-lg transition-colors ${btnBorder}`}
             >
               ↩ Return to Performance
             </button>
           ) : (
             <button
               onClick={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey }], 0)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors ${btnBorder}`}
+              className={`flex items-center gap-1.5 h-11 px-4 text-sm border rounded-lg transition-colors ${btnBorder}`}
             >
               ▶ Present
             </button>
@@ -376,7 +376,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
           <button
             onClick={() => updatePref('theme', dark ? 'light' : 'dark')}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${btnBorder}`}
+            className={`w-11 h-11 flex items-center justify-center rounded-lg border transition-colors ${btnBorder}`}
             title="Toggle theme"
           >
             {dark ? '☀' : '☾'}
@@ -384,7 +384,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
           <button
             onClick={() => isDirty ? setShowBackConfirm(true) : onBack()}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors shrink-0"
+            className="w-11 h-11 flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors shrink-0"
             title="Back to Library"
           >
             <X size={18} />
@@ -418,7 +418,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           {displayKey && displayKey !== metadata.key && (
             <button
               onClick={handleMakePermanent}
-              className={`text-xs px-2 py-0.5 border rounded transition-colors ${dark ? 'border-indigo-700 text-indigo-400 hover:bg-indigo-900' : 'border-indigo-400 text-indigo-600 hover:bg-indigo-50'}`}
+              className={`text-xs h-9 px-3 border rounded-lg transition-colors ${dark ? 'border-indigo-700 text-indigo-400 hover:bg-indigo-900' : 'border-indigo-400 text-indigo-600 hover:bg-indigo-50'}`}
             >
               Make permanent
             </button>
@@ -440,7 +440,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Find */}
         <button
           onClick={showFR ? closeFR : openFR}
-          className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md font-medium border transition-colors ${
+          className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
             showFR
               ? 'bg-indigo-600 border-indigo-600 text-white'
               : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
@@ -454,7 +454,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <button
           onClick={handleSave}
           disabled={!isDirty}
-          className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md font-medium border transition-colors ${
+          className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
             isDirty
               ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
               : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
@@ -467,7 +467,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <div className="flex items-center gap-1">
           <button
             onClick={toggleEditorFormat}
-            className={`px-3 py-1 text-xs rounded-md font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
+            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
             title="Editor text format — click to convert"
           >
             {displayMode === 'over' ? 'Over Lyrics' : 'Brackets'}
@@ -475,7 +475,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <span className={`text-xs px-0.5 ${mutedText}`}>→</span>
           <button
             onClick={togglePreviewFormat}
-            className={`px-3 py-1 text-xs rounded-md font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
+            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
             title="Preview display format — click to change"
           >
             {previewFormat === 'over' ? 'Over Lyrics' : 'Brackets'}
@@ -492,7 +492,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <button
                 key={tab}
                 onClick={() => setNarrowTab(tab)}
-                className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
+                className={`h-9 px-3 text-xs rounded-md font-medium transition-colors ${
                   narrowTab === tab
                     ? 'bg-indigo-600 text-white'
                     : dark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'
@@ -504,7 +504,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowPreview(v => !v)}
-              className={`px-3 py-1 text-xs rounded-md font-medium border transition-colors ${
+              className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
                 showPreview
                   ? 'bg-indigo-600 border-indigo-600 text-white'
                   : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
@@ -515,7 +515,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </button>
             <button
               onClick={() => setShowChordPanel(v => !v)}
-              className={`px-3 py-1 text-xs rounded-md font-medium border transition-colors ${
+              className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
                 showChordPanel
                   ? 'bg-indigo-600 border-indigo-600 text-white'
                   : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'

@@ -123,7 +123,7 @@ export default function OnboardingTour({ onDone }) {
           </div>
           <button
             onClick={onDone}
-            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0 mt-0.5 transition-colors"
+            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0 transition-colors h-9 px-2 flex items-center rounded-lg"
           >
             Skip
           </button>
@@ -148,14 +148,14 @@ export default function OnboardingTour({ onDone }) {
           {step > 0 && (
             <button
               onClick={back}
-              className="flex-1 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="flex-1 py-3 text-sm border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               Back
             </button>
           )}
           <button
             onClick={advance}
-            className="flex-1 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors"
+            className="flex-1 py-3 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors"
           >
             {step < STEPS.length - 1 ? 'Next' : 'Get started'}
           </button>

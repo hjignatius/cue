@@ -66,7 +66,7 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
         {tempo && <span className="text-xs text-gray-400 dark:text-gray-600">{tempo}</span>}
         <button
           onClick={e => { e.stopPropagation(); onDuplicate(song); }}
-          className="p-1 rounded text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+          className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"
           title="Duplicate song"
         >
           <Copy size={13} />
@@ -233,23 +233,23 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
         <div className="flex items-center gap-1">
           <button
             onClick={handleImportSet}
-            className="p-1 rounded text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+            className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             title="Import set from HTML file"
           >
             <Download size={16} />
           </button>
           {!selectMode ? (
-            <button onClick={() => { setSelectMode(true); setSelectedSets(new Set()); }} className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}>
+            <button onClick={() => { setSelectMode(true); setSelectedSets(new Set()); }} className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg transition-colors border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}>
               <CheckSquare size={12} /> Select
             </button>
           ) : (
-            <button onClick={() => { setSelectMode(false); setSelectedSets(new Set()); }} className={`px-2 py-1 text-xs rounded-lg transition-colors border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}>
+            <button onClick={() => { setSelectMode(false); setSelectedSets(new Set()); }} className={`h-9 px-3 text-xs rounded-lg transition-colors border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}>
               Done
             </button>
           )}
           <button
             onClick={() => setCreating(v => !v)}
-            className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+            className="flex items-center gap-1 h-9 px-3 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
           >
             <Plus size={12} /> New Set
           </button>
@@ -428,7 +428,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                             <button
                               onClick={e => startRename(set, e)}
                               title="Rename set"
-                              className="opacity-0 group-hover/name:opacity-100 p-0.5 text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
+                              className="opacity-0 group-hover/name:opacity-100 h-8 w-8 flex items-center justify-center rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
                             >
                               <Pencil size={11} />
                             </button>
@@ -451,7 +451,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                         <button
                           onClick={() => handlePublishClick(set)}
                           title={isPublished ? 'Republish' : 'Publish to cloud'}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                          className="opacity-0 group-hover:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
                         >
                           <UploadCloud size={13} />
                         </button>
@@ -461,14 +461,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                             <button
                               onClick={() => setShareDialogSet(set)}
                               title="Share link"
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
                             >
                               <Link2 size={13} />
                             </button>
                             <button
                               onClick={() => handleUnpublishClick(set)}
                               title="Remove from cloud"
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                             >
                               <CloudOff size={13} />
                             </button>
@@ -761,14 +761,14 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
         <p className="font-semibold text-gray-900 dark:text-white truncate mb-1.5">{set.name}</p>
         <div className="flex items-center gap-1.5 flex-wrap">
           <div className="flex items-center gap-0.5 bg-gray-200 dark:bg-gray-800 rounded p-0.5 text-xs">
-            <button onClick={() => applySort('custom')} className={`px-2 py-0.5 rounded transition-colors ${sortMode === 'custom' ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>Custom</button>
-            <button onClick={() => applySort('alpha')}  className={`px-2 py-0.5 rounded transition-colors ${sortMode === 'alpha'  ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>A–Z</button>
+            <button onClick={() => applySort('custom')} className={`h-8 px-3 rounded transition-colors ${sortMode === 'custom' ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>Custom</button>
+            <button onClick={() => applySort('alpha')}  className={`h-8 px-3 rounded transition-colors ${sortMode === 'alpha'  ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>A–Z</button>
           </div>
           {displaySongs.length > 0 && (
             <button
               onClick={() => canAct && onPresent(displaySongs, selectedIdx)}
               disabled={!canAct}
-              className={`text-xs px-2 py-0.5 rounded transition-colors ${canAct ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'}`}
+              className={`text-xs h-9 px-3 rounded-lg transition-colors ${canAct ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'}`}
               title={canAct ? 'Present from selected song' : 'Select a song first'}
             >▶ Present</button>
           )}
@@ -776,13 +776,13 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
             <button
               onClick={() => canAct && selectedSong && onEdit?.(selectedSong, selectedIdx, displaySongs)}
               disabled={!canAct}
-              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors ${canAct ? 'border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-600 dark:hover:border-gray-400' : 'border border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'}`}
+              className={`flex items-center gap-1 text-xs h-9 px-3 rounded-lg transition-colors ${canAct ? 'border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-600 dark:hover:border-gray-400' : 'border border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'}`}
               title={canAct ? 'Edit selected song' : 'Select a song first'}
             ><Pencil size={11} /> Edit</button>
           )}
           {displaySongs.length > 0 && (
             <div className="relative ml-auto">
-              <button onClick={() => setExportOpen(v => !v)} className="flex items-center gap-1 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"><Upload size={12} /> Export ▾</button>
+              <button onClick={() => setExportOpen(v => !v)} className="flex items-center gap-1 h-9 px-1 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"><Upload size={12} /> Export ▾</button>
               {exportOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
@@ -811,12 +811,12 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
             <button
               onClick={() => adjustBuffer(-15)}
               disabled={bufferSec === 0}
-              className="w-9 h-9 flex items-center justify-center rounded text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
+              className="w-11 h-11 flex items-center justify-center rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
             >−</button>
             <span className="text-xs text-gray-500 dark:text-gray-400 w-7 text-center tabular-nums">{bufferLabel}</span>
             <button
               onClick={() => adjustBuffer(15)}
-              className="w-9 h-9 flex items-center justify-center rounded text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+              className="w-11 h-11 flex items-center justify-center rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             >+</button>
           </div>
         )}
@@ -848,7 +848,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
             {song.metadata?.key && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{song.metadata.key}</span>}
             <button
               onClick={e => { e.stopPropagation(); handleRemove(song.id); }}
-              className="text-gray-400 dark:text-gray-400 hover:text-red-500 transition-colors shrink-0"
+              className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-400 hover:text-red-500 transition-colors shrink-0"
               title="Remove from set"
             >
               <Trash2 size={13} />
@@ -1031,23 +1031,23 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div className="flex items-center gap-2">
           <button
             onClick={openManualPDF}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm font-bold ${btnBorder}`}
+            className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors text-sm font-bold ${btnBorder}`}
             title="Open user manual"
           >
             ?
           </button>
           <button
             onClick={() => updatePref('theme', dark ? 'light' : 'dark')}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${btnBorder}`}
+            className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors ${btnBorder}`}
             title="Toggle theme"
           >
             {dark ? '☀' : '☾'}
           </button>
           <AuthControl btnBorder={btnBorder} />
-          <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${btnBorder}`}>
+          <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 h-11 px-4 text-sm rounded-lg transition-colors ${btnBorder}`}>
             <Download size={14} /> Import
           </button>
-          <button onClick={() => exportBackup()} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${btnBorder}`}>
+          <button onClick={() => exportBackup()} className={`flex items-center gap-1.5 h-11 px-4 text-sm rounded-lg transition-colors ${btnBorder}`}>
             Backup
           </button>
         </div>
@@ -1062,10 +1062,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Library</span>
             <div className="flex items-center gap-2">
               {selectMode
-                ? <button onClick={toggleSelectMode} className={`px-2 py-1 text-xs rounded-lg transition-colors ${btnBorder}`}>Done</button>
-                : <button onClick={toggleSelectMode} className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${btnBorder}`}><CheckSquare size={12} /> Select</button>
+                ? <button onClick={toggleSelectMode} className={`h-9 px-3 text-xs rounded-lg transition-colors ${btnBorder}`}>Done</button>
+                : <button onClick={toggleSelectMode} className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg transition-colors ${btnBorder}`}><CheckSquare size={12} /> Select</button>
               }
-              <button data-onboard="new-song-btn" onClick={onNewSong} className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
+              <button data-onboard="new-song-btn" onClick={onNewSong} className="flex items-center gap-1 h-9 px-3 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
                 <Plus size={12} /> New Song
               </button>
             </div>

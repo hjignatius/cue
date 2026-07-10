@@ -49,7 +49,7 @@ export default function AuthControl({ btnBorder }) {
         <button
           onClick={() => setDropdownOpen(v => !v)}
           title={user.email}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${btnBorder}`}
+          className={`flex items-center gap-1.5 h-11 px-4 text-sm rounded-lg transition-colors ${btnBorder}`}
         >
           <User size={14} />
           <span className="hidden sm:inline max-w-[130px] truncate">{user.email}</span>
@@ -79,7 +79,7 @@ export default function AuthControl({ btnBorder }) {
     <>
       <button
         onClick={openModal}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${btnBorder}`}
+        className={`flex items-center gap-1.5 h-11 px-4 text-sm rounded-lg transition-colors ${btnBorder}`}
       >
         <User size={14} />
         <span>Sign in</span>
@@ -108,7 +108,7 @@ export default function AuthControl({ btnBorder }) {
                 </div>
                 <button
                   onClick={closeModal}
-                  className={`w-full py-2 text-sm rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                  className={`w-full py-3 text-sm rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
                 >
                   Done
                 </button>
@@ -139,7 +139,7 @@ export default function AuthControl({ btnBorder }) {
                   <button
                     type="submit"
                     disabled={status === 'sending' || !email.trim()}
-                    className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
+                    className="w-full py-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors"
                   >
                     {status === 'sending' ? 'Sending…' : 'Send magic link'}
                   </button>
@@ -147,7 +147,7 @@ export default function AuthControl({ btnBorder }) {
 
                 <button
                   onClick={closeModal}
-                  className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
+                  className={`text-xs min-h-[44px] flex items-center justify-center w-full text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
                 >
                   Cancel
                 </button>

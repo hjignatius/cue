@@ -146,9 +146,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   });
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
+  const [barCanScrollRight, setBarCanScrollRight] = useState(false);
   const { url: ytUrl, collapsed: ytCollapsed, openPlayer, collapsePlayer, expandPlayer } = useYouTube();
   const ytWasExpandedRef = useRef(false);
   const scrollRef      = useRef(null);
+  const barRef         = useRef(null);
   const rafRef         = useRef(0);
   const flashTimers    = useRef([]);
 
@@ -212,6 +214,23 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   // Clear flash timers on unmount
   useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
+
+  // Track whether the toolbar can scroll right (for fade affordance)
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const check = () => setBarCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check);
+    return () => { el.removeEventListener('scroll', check); window.removeEventListener('resize', check); };
+  }, []);
+  // Re-check overflow when song changes (metronome buttons may appear/disappear)
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    setBarCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+  }, [index]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -287,7 +306,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const barBg   = dark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-gray-50/95 border-gray-200';
   const muted   = dark ? 'text-neutral-400' : 'text-gray-500';
   const textCol = dark ? 'text-white' : 'text-gray-900';
-  const btn     = `flex items-center justify-center rounded-lg border transition-colors px-2 h-8 text-xs font-semibold ${
+  const btn     = `relative flex items-center justify-center rounded-lg border transition-colors px-2 h-8 text-xs font-semibold after:absolute after:-inset-1.5 after:content-[''] ${
     dark ? 'border-neutral-700 text-neutral-200 hover:bg-neutral-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
   }`;
 
@@ -297,7 +316,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   return (
     <div className={`fixed inset-0 z-50 flex flex-col ${bg}`}>
       {/* Top bar */}
-      <div className={`relative flex items-center gap-2 px-4 py-2 border-b ${barBg} backdrop-blur shrink-0 overflow-hidden`}>
+      <div className="relative shrink-0">
+      <div ref={barRef} className={`relative flex items-center gap-2 px-4 py-2 border-b ${barBg} backdrop-blur overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [justify-content:safe_center]`}>
         {/* Silent-mode beat flash overlay — accent beats brighter than regular beats */}
         <div
           className={`absolute inset-0 pointer-events-none ${dark ? 'bg-white' : 'bg-black'}`}
@@ -422,12 +442,21 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
         {/* Exit */}
         <button
-          className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors"
+          className="flex items-center justify-center w-11 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors"
           onClick={onExit}
           title="Exit (Esc)"
         >
           <X size={18} />
         </button>
+      </div>
+      {/* Right-edge fade — visible only when more buttons are scrolled off-screen */}
+      {barCanScrollRight && (
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-10 pointer-events-none bg-gradient-to-l to-transparent ${
+            dark ? 'from-neutral-900/90' : 'from-gray-50/90'
+          }`}
+        />
+      )}
       </div>
 
       {/* Song content + optional chord sidebar */}
@@ -453,7 +482,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   <span className={`text-xs font-semibold uppercase tracking-wide ${dark ? 'text-neutral-500' : 'text-gray-500'}`}>Chords</span>
                   <button
                     onClick={() => setShowChords(false)}
-                    className={`text-sm leading-none ${dark ? 'text-neutral-500 hover:text-neutral-200' : 'text-gray-400 hover:text-gray-700'}`}
+                    className={`h-11 w-11 flex items-center justify-center rounded-lg text-sm transition-colors ${dark ? 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
                   >✕</button>
                 </div>
                 <div className="flex-1 overflow-hidden">

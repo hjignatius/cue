@@ -340,7 +340,7 @@ export default function SharedSetView() {
             {bookmarked && (
               <button
                 onClick={handleRemoveBookmark}
-                className={`px-4 py-2 text-sm rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-800' : 'border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300'}`}
+                className={`h-11 px-4 text-sm rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-800' : 'border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300'}`}
               >
                 Remove from Shared with me
               </button>
@@ -371,7 +371,7 @@ export default function SharedSetView() {
             <p className={`text-sm ${muted}`}>Try again later.</p>
             <button
               onClick={() => setRetryCount(c => c + 1)}
-              className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+              className="h-11 px-4 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
             >
               Retry
             </button>
@@ -415,7 +415,7 @@ export default function SharedSetView() {
           <button
             onClick={isBookmarked ? handleRemoveBookmark : handleSaveBookmark}
             title={isBookmarked ? 'Remove from Shared with me' : 'Save to Shared with me'}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isBookmarked ? 'border border-indigo-500 text-indigo-500 hover:text-indigo-400 hover:border-indigo-400' : btnOutline}`}
+            className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors ${isBookmarked ? 'border border-indigo-500 text-indigo-500 hover:text-indigo-400 hover:border-indigo-400' : btnOutline}`}
           >
             {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
           </button>
@@ -425,7 +425,7 @@ export default function SharedSetView() {
               onClick={handleCopySet}
               disabled={copying}
               title="Copy all songs to my library"
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-40 ${btnOutline}`}
+              className={`flex items-center gap-1.5 h-11 px-4 text-sm rounded-lg transition-colors disabled:opacity-40 ${btnOutline}`}
             >
               <Library size={14} /> Copy to library
             </button>
@@ -434,14 +434,14 @@ export default function SharedSetView() {
           <button
             onClick={() => enriched.length > 0 && setPresenting({ songs: enriched, startIndex: 0 })}
             disabled={enriched.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg transition-colors"
+            className="flex items-center gap-1.5 h-11 px-4 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg transition-colors"
           >
             ▶ Present All
           </button>
           {/* Theme toggle */}
           <button
             onClick={() => updatePref('theme', dark ? 'light' : 'dark')}
-            className={`w-8 h-8 flex items-center justify-center ${btnOutline}`}
+            className={`w-11 h-11 flex items-center justify-center rounded-lg ${btnOutline}`}
             title="Toggle theme"
           >
             {dark ? '☀' : '☾'}

@@ -6,7 +6,7 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 const SIZES    = { compact: { w: 320, h: 180 }, large: { w: 480, h: 270 } };
-const HEADER_H = 36;
+const HEADER_H = 44;
 const POS_KEY  = 'cue:yt_player_pos';
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -134,7 +134,7 @@ export default function YouTubePlayer() {
   const border = dark ? 'border-gray-700' : 'border-gray-200';
   const text   = dark ? 'text-gray-100'   : 'text-gray-800';
   const hover  = dark ? 'hover:bg-white/10' : 'hover:bg-black/10';
-  const iconBtn = `flex items-center justify-center w-7 h-7 rounded-lg transition-colors shrink-0 ${text} ${hover}`;
+  const iconBtn = `flex items-center justify-center w-11 h-11 rounded-lg transition-colors shrink-0 ${text} ${hover}`;
 
   return (
     <div
