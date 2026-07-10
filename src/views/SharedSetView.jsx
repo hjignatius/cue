@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getSharedSet } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { KEY_NAMES } from '../utils/transpose.js';
@@ -33,6 +33,7 @@ async function buildSourceIdMap() {
 
 export default function SharedSetView() {
   const { token }       = useParams();
+  const navigate        = useNavigate();
   const { theme, updatePref } = usePrefs();
   const dark = theme === 'dark';
 
@@ -49,6 +50,10 @@ export default function SharedSetView() {
   // Copy-to-library state
   const [copying, setCopying]       = useState(false);
   const [copyResult, setCopyResult] = useState(null); // { type, ... }
+  const [hasCopied, setHasCopied]   = useState(false); // true once any copy succeeds this session
+
+  // Leave prompt: shown when navigating away before bookmarking/copying
+  const [leavePrompt, setLeavePrompt] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +122,16 @@ export default function SharedSetView() {
     setSavedShares(updated);
   }
 
+  // Navigate to the main app. If the viewer hasn't bookmarked or copied anything,
+  // offer a lightweight "save before leaving?" prompt first.
+  function handleOpenCue() {
+    if (status !== 'ok' || isBookmarked || hasCopied) {
+      navigate('/');
+    } else {
+      setLeavePrompt(true);
+    }
+  }
+
   // ---- Copy-to-library actions ------------------------------------------------
 
   async function handleCopySong(song) {
@@ -143,6 +158,7 @@ export default function SharedSetView() {
         updatedAt: now,
         copiedFrom: { songId: song.id, setName: setData?.set?.name || '', copiedAt: now },
       });
+      setHasCopied(true);
       setCopyResult({ type: 'song', title });
     } catch (err) {
       console.error('Copy song failed:', err);
@@ -187,6 +203,7 @@ export default function SharedSetView() {
       }
 
       await saveSet({ id: null, name: set.name, songIds: newSongIds, sortMode: 'custom' });
+      setHasCopied(true);
       setCopyResult({ type: 'set', setName: set.name, copied, alreadyHad });
     } catch (err) {
       console.error('Copy set failed:', err);
@@ -215,22 +232,33 @@ export default function SharedSetView() {
   if (status === 'not_found') {
     const bookmarked = savedShares.some(s => s.token === token);
     return (
-      <div className={`min-h-dvh flex items-center justify-center ${bg}`}>
-        <div className="text-center space-y-3 px-6 max-w-sm">
-          <p className={`text-lg font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
-            This shared set isn't available
-          </p>
-          <p className={`text-sm ${muted}`}>
-            The link may have been revoked or doesn't exist.
-          </p>
-          {bookmarked && (
-            <button
-              onClick={handleRemoveBookmark}
-              className={`px-4 py-2 text-sm rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-800' : 'border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300'}`}
-            >
-              Remove from Shared with me
-            </button>
-          )}
+      <div className={`min-h-dvh flex flex-col ${bg}`}>
+        <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
+          <button
+            onClick={() => navigate('/')}
+            className={`text-base font-bold tracking-tight transition-colors ${dark ? 'text-white hover:text-indigo-400' : 'text-gray-900 hover:text-indigo-600'}`}
+            title="Open Cue"
+          >
+            Cue
+          </button>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-3 px-6 max-w-sm">
+            <p className={`text-lg font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+              This shared set isn't available
+            </p>
+            <p className={`text-sm ${muted}`}>
+              The link may have been revoked or doesn't exist.
+            </p>
+            {bookmarked && (
+              <button
+                onClick={handleRemoveBookmark}
+                className={`px-4 py-2 text-sm rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-800' : 'border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300'}`}
+              >
+                Remove from Shared with me
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -238,18 +266,29 @@ export default function SharedSetView() {
 
   if (status === 'error') {
     return (
-      <div className={`min-h-dvh flex items-center justify-center ${bg}`}>
-        <div className="text-center space-y-3 px-6 max-w-sm">
-          <p className={`text-lg font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
-            This shared set is temporarily unavailable
-          </p>
-          <p className={`text-sm ${muted}`}>Try again later.</p>
+      <div className={`min-h-dvh flex flex-col ${bg}`}>
+        <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
           <button
-            onClick={() => setRetryCount(c => c + 1)}
-            className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+            onClick={() => navigate('/')}
+            className={`text-base font-bold tracking-tight transition-colors ${dark ? 'text-white hover:text-indigo-400' : 'text-gray-900 hover:text-indigo-600'}`}
+            title="Open Cue"
           >
-            Retry
+            Cue
           </button>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-3 px-6 max-w-sm">
+            <p className={`text-lg font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+              This shared set is temporarily unavailable
+            </p>
+            <p className={`text-sm ${muted}`}>Try again later.</p>
+            <button
+              onClick={() => setRetryCount(c => c + 1)}
+              className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -274,7 +313,13 @@ export default function SharedSetView() {
       {/* Header */}
       <header className={`px-6 py-4 border-b ${bdr} flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3 min-w-0">
-          <span className={`text-base font-bold tracking-tight shrink-0 ${dark ? 'text-white' : 'text-gray-900'}`}>Cue</span>
+          <button
+            onClick={handleOpenCue}
+            title="Open Cue"
+            className={`text-base font-bold tracking-tight shrink-0 transition-colors ${dark ? 'text-white hover:text-indigo-400' : 'text-gray-900 hover:text-indigo-600'}`}
+          >
+            Cue
+          </button>
           <span className={`shrink-0 ${muted}`}>·</span>
           <h1 className={`text-base font-semibold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{set.name}</h1>
         </div>
@@ -340,6 +385,43 @@ export default function SharedSetView() {
           )}
         </div>
       </div>
+
+      {/* Leave prompt — shown when navigating away before saving/copying */}
+      {leavePrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setLeavePrompt(false)}
+        >
+          <div
+            className={`w-full sm:w-80 rounded-t-2xl sm:rounded-2xl shadow-2xl px-5 pt-5 pb-6 flex flex-col gap-3 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>
+              Save this shared set before leaving?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { handleSaveBookmark(); navigate('/'); }}
+                className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+              >
+                Save &amp; go
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                Just go
+              </button>
+            </div>
+            <button
+              onClick={() => setLeavePrompt(false)}
+              className={`text-xs text-center py-0.5 transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Copy result modal */}
       {copyResult && (
