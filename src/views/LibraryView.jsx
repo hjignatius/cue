@@ -285,60 +285,73 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
         </select>
       </div>
 
-      <div className={`px-3 py-1.5 border-b ${border} flex items-center gap-2 shrink-0`}>
-        <p className="text-xs text-gray-400 dark:text-gray-600">
-          {filtered.length} {filtered.length === 1 ? 'set' : 'sets'}
-          {setSearch.trim() && ` matching "${setSearch.trim()}"`}
-        </p>
+      {/* Count row: action buttons left (select mode only), count right */}
+      <div className={`px-3 border-b ${border} flex items-center gap-2 shrink-0 min-h-[44px]`}>
+        <div className={selectMode ? 'flex items-center gap-2 shrink-0' : 'flex-1'}>
+          {selectMode ? (
+            <>
+              <button
+                onClick={selectedSets.size > 0 ? () => exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs) : undefined}
+                disabled={selectedSets.size === 0}
+                className={`flex items-center gap-1.5 text-sm px-4 h-11 rounded-lg font-medium transition-colors border whitespace-nowrap ${
+                  selectedSets.size > 0
+                    ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
+                    : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
+                }`}
+              >
+                <Upload size={14} /> Export
+              </button>
+              <button
+                onClick={selectedSets.size > 0 ? handleDeleteSelected : undefined}
+                disabled={selectedSets.size === 0}
+                title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
+                className={`flex items-center justify-center px-4 h-11 rounded-lg transition-colors ${
+                  selectedSets.size > 0
+                    ? 'bg-red-600 hover:bg-red-500 text-white'
+                    : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-600">
+              {filtered.length} {filtered.length === 1 ? 'set' : 'sets'}
+              {setSearch.trim() && ` matching "${setSearch.trim()}"`}
+            </p>
+          )}
+        </div>
+        {selectMode && <div className="flex-1" />}
+        {selectMode && (
+          <p className="text-xs text-gray-400 dark:text-gray-600 shrink-0">
+            {filtered.length} {filtered.length === 1 ? 'set' : 'sets'}
+            {setSearch.trim() && ` matching "${setSearch.trim()}"`}
+          </p>
+        )}
       </div>
 
-      <div className={`px-3 py-2 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-2 shrink-0`}>
-        {selectedSets.size > 0 ? (
-          <>
-            <button
-              onClick={() => setSelectedSets(selectedSets.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map(s => s.id)))}
-              className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors shrink-0"
-            >
-              {selectedSets.size === filtered.length && filtered.length > 0 ? 'Deselect all' : 'Select all'}
-            </button>
-            <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
-              {selectedSets.size} selected ·{' '}
-              <button onClick={() => setSelectedSets(new Set())} className="text-indigo-500 hover:text-indigo-400">✕ Clear</button>
-            </span>
-          </>
-        ) : selectMode ? (
+      {/* Selection controls row: only visible in select mode */}
+      {selectMode && (
+        <div className={`px-3 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-3 shrink-0 min-h-[44px]`}>
           <button
-            onClick={() => setSelectedSets(new Set(filtered.map(s => s.id)))}
-            className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors shrink-0"
+            onClick={() => setSelectedSets(selectedSets.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map(s => s.id)))}
+            className="h-11 px-4 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
           >
-            Select all
+            {selectedSets.size === filtered.length && filtered.length > 0 ? 'Deselect all' : 'Select all'}
           </button>
-        ) : null}
-        <div className="flex-1" />
-        <button
-          onClick={selectedSets.size > 0 ? () => exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs) : undefined}
-          disabled={selectedSets.size === 0}
-          className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded font-medium transition-colors border ${
-            selectedSets.size > 0
-              ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
-              : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
-          }`}
-        >
-          <Upload size={11} /> Export
-        </button>
-        <button
-          onClick={selectedSets.size > 0 ? handleDeleteSelected : undefined}
-          disabled={selectedSets.size === 0}
-          title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
-          className={`flex items-center justify-center px-2 py-1 rounded transition-colors ${
-            selectedSets.size > 0
-              ? 'bg-red-600 hover:bg-red-500 text-white cursor-pointer'
-              : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-          }`}
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
+          {selectedSets.size > 0 && (
+            <>
+              <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums shrink-0 min-w-[6rem]">
+                {selectedSets.size} selected
+              </span>
+              <span className="text-gray-400 dark:text-gray-600 shrink-0">·</span>
+              <button onClick={() => setSelectedSets(new Set())} className="h-11 px-3 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
+                ✕ Clear
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {creating && (
         <form onSubmit={handleCreate} className={`px-3 py-2 border-b ${border} shrink-0`}>
@@ -1098,14 +1111,78 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </select>
           </div>
 
-          <div className={`px-4 py-1.5 border-b ${border} flex items-center gap-2`}>
-            {artistFilter !== null && sortBy === 'artist' ? (
-              <>
-                <button onClick={() => setArtistFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400">← All artists</button>
-                <span className="text-xs text-gray-400 dark:text-gray-600">/ {artistFilter || 'No artist'}</span>
-              </>
-            ) : (
-              <p className="text-xs text-gray-400 dark:text-gray-600 flex-1">
+          {/* Count row: action buttons left (select mode only), count right */}
+          <div className={`px-4 border-b ${border} flex items-center gap-2 min-h-[44px]`}>
+            <div className={selectMode ? 'flex items-center gap-2 shrink-0' : artistFilter !== null && sortBy === 'artist' ? 'flex items-center gap-2' : 'flex-1'}>
+              {selectMode ? (
+                <>
+                  <div className="relative">
+                    <button
+                      onClick={() => selected.size > 0 && setExportDropOpen(v => !v)}
+                      disabled={selected.size === 0}
+                      className={`flex items-center gap-1.5 text-sm px-4 h-11 rounded-lg font-medium transition-colors border whitespace-nowrap ${
+                        selected.size > 0
+                          ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
+                          : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
+                      }`}
+                    >
+                      <Upload size={14} /> Export ▾
+                    </button>
+                    {exportDropOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
+                        <div className="absolute left-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelected}>
+                            {selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'}
+                          </button>
+                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelectedJson}>
+                            JSON
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={selected.size > 0 && activeSetId ? handleAddSelectedToSet : undefined}
+                    disabled={!(selected.size > 0 && activeSetId)}
+                    title={selected.size === 0 ? undefined : !activeSetId ? 'Select a set in the Sets panel first' : `Add to "${activeSet?.name}"`}
+                    className={`flex items-center gap-1.5 text-sm px-4 h-11 rounded-lg font-medium transition-colors whitespace-nowrap ${
+                      selected.size > 0 && activeSetId
+                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                    }`}
+                  >
+                    Add to Set
+                  </button>
+                  <button
+                    onClick={selected.size > 0 ? handleDeleteSelected : undefined}
+                    disabled={selected.size === 0}
+                    title={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
+                    className={`flex items-center justify-center px-4 h-11 rounded-lg transition-colors ${
+                      selected.size > 0
+                        ? 'bg-red-600 hover:bg-red-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                    }`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
+              ) : artistFilter !== null && sortBy === 'artist' ? (
+                <>
+                  <button onClick={() => setArtistFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400">← All artists</button>
+                  <span className="text-xs text-gray-400 dark:text-gray-600">/ {artistFilter || 'No artist'}</span>
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 dark:text-gray-600">
+                  {sorted.length} {sorted.length === 1 ? 'song' : 'songs'}
+                  {search && ` matching "${search}"`}
+                  {keyFilter && ` in ${keyFilter}`}
+                </p>
+              )}
+            </div>
+            {selectMode && <div className="flex-1" />}
+            {selectMode && (
+              <p className="text-xs text-gray-400 dark:text-gray-600 shrink-0">
                 {sorted.length} {sorted.length === 1 ? 'song' : 'songs'}
                 {search && ` matching "${search}"`}
                 {keyFilter && ` in ${keyFilter}`}
@@ -1116,73 +1193,28 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             )}
           </div>
 
-          <div className={`px-4 py-2 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-2 shrink-0`}>
-            {selectMode && (
+          {/* Selection controls row: only visible in select mode */}
+          {selectMode && (
+            <div className={`px-4 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-3 shrink-0 min-h-[44px]`}>
               <button
                 onClick={allVisibleSelected ? deselectAll : selectAll}
-                className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors shrink-0"
+                className="h-11 px-4 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
               >
                 {allVisibleSelected ? 'Deselect all' : 'Select all'}
               </button>
-            )}
-            {selected.size > 0 && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                {selected.size} selected ·{' '}
-                <button onClick={deselectAll} className="text-indigo-500 hover:text-indigo-400">✕ Clear</button>
-              </span>
-            )}
-            {!selectMode && selected.size === 0 && (
-              <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0">Tap a song to select</span>
-            )}
-            <div className="flex-1" />
-            <div className="relative">
-              <button
-                onClick={() => selected.size > 0 && setExportDropOpen(v => !v)}
-                className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded font-medium transition-colors border ${
-                  selected.size > 0
-                    ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
-                    : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
-                }`}
-              >
-                <Upload size={11} /> Export ▾
-              </button>
-              {exportDropOpen && (
+              {selected.size > 0 && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
-                  <div className="absolute right-0 bottom-8 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelected}>
-                      {selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'}
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelectedJson}>
-                      JSON
-                    </button>
-                  </div>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums shrink-0 min-w-[6rem]">
+                    {selected.size} selected
+                  </span>
+                  <span className="text-gray-400 dark:text-gray-600 shrink-0">·</span>
+                  <button onClick={deselectAll} className="h-11 px-3 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
+                    ✕ Clear
+                  </button>
                 </>
               )}
             </div>
-            <button
-              onClick={selected.size > 0 && activeSetId ? handleAddSelectedToSet : undefined}
-              title={selected.size === 0 ? undefined : !activeSetId ? 'Select a set in the Sets panel first' : `Add to "${activeSet?.name}"`}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded font-medium transition-colors ${
-                selected.size > 0 && activeSetId
-                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
-                  : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-              }`}
-            >
-              Add to Set
-            </button>
-            <button
-              onClick={selected.size > 0 ? handleDeleteSelected : undefined}
-              title={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
-              className={`flex items-center justify-center px-2 py-1 rounded transition-colors ${
-                selected.size > 0
-                  ? 'bg-red-600 hover:bg-red-500 text-white cursor-pointer'
-                  : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-              }`}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+          )}
 
           {sortBy === 'artist' && artistFilter === null && !search && artists && (
             <div className="flex-1 overflow-y-auto">
