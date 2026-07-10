@@ -306,9 +306,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
               <button onClick={() => setSelectedSets(new Set())} className="text-indigo-500 hover:text-indigo-400">✕ Clear</button>
             </span>
           </>
-        ) : (
-          <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0">{selectMode ? 'Tap a set to select' : ''}</span>
-        )}
+        ) : selectMode ? (
+          <button
+            onClick={() => setSelectedSets(new Set(filtered.map(s => s.id)))}
+            className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors shrink-0"
+          >
+            Select all
+          </button>
+        ) : null}
         <div className="flex-1" />
         <button
           onClick={selectedSets.size > 0 ? () => exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs) : undefined}
@@ -1112,11 +1117,23 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           </div>
 
           <div className={`px-4 py-2 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-2 shrink-0`}>
-            {selected.size > 0
-              ? <><span className="text-xs text-indigo-500 font-medium shrink-0">{selected.size} selected</span>
-                  <button onClick={deselectAll} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors shrink-0">✕ Clear</button></>
-              : <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0">Tap a song to select</span>
-            }
+            {selectMode && (
+              <button
+                onClick={allVisibleSelected ? deselectAll : selectAll}
+                className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors shrink-0"
+              >
+                {allVisibleSelected ? 'Deselect all' : 'Select all'}
+              </button>
+            )}
+            {selected.size > 0 && (
+              <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                {selected.size} selected ·{' '}
+                <button onClick={deselectAll} className="text-indigo-500 hover:text-indigo-400">✕ Clear</button>
+              </span>
+            )}
+            {!selectMode && selected.size === 0 && (
+              <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0">Tap a song to select</span>
+            )}
             <div className="flex-1" />
             <div className="relative">
               <button
