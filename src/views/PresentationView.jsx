@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import YouTubePlayer from '../components/YouTubePlayer.jsx';
+import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import { parseChordPro, attachSectionLabels, expandSections, splitAnnotations } from '../utils/chordPro.js';
 import { transposeText, semitonesBetween } from '../utils/transpose.js';
@@ -146,7 +146,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   });
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
-  const [showYT, setShowYT] = useState(false);
+  const { url: ytUrl, collapsed: ytCollapsed, openPlayer, collapsePlayer, expandPlayer } = useYouTube();
+  const ytWasExpandedRef = useRef(false);
   const scrollRef      = useRef(null);
   const rafRef         = useRef(0);
   const flashTimers    = useRef([]);
@@ -167,11 +168,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const prev = useCallback(() => goTo(index - 1), [goTo, index]);
   const next = useCallback(() => goTo(index + 1), [goTo, index]);
 
-  // Notify parent and close YouTube player whenever the displayed song changes
+  // Notify parent whenever the displayed song changes
   useEffect(() => {
     if (onNavigate && songs[index]) onNavigate(songs[index]);
-    setShowYT(false);
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-collapse the floating player when entering present mode; restore on exit
+  useEffect(() => {
+    const wasExpanded = !!ytUrl && !ytCollapsed;
+    ytWasExpandedRef.current = wasExpanded;
+    if (wasExpanded) collapsePlayer();
+    return () => {
+      if (ytWasExpandedRef.current) expandPlayer();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Metronome helpers
   function triggerVisualMetronome(bpm, sig) {
@@ -390,7 +400,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           return (
             <button
               className={`${btn} ${hasYT ? 'text-red-400 dark:text-red-400' : 'opacity-30 cursor-not-allowed'}`}
-              onClick={() => hasYT && setShowYT(true)}
+              onClick={() => hasYT && openPlayer(meta.youtubeUrl, meta.title)}
               disabled={!hasYT}
               title={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}
             >
@@ -481,7 +491,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         )}
       </div>
 
-      {showYT && <YouTubePlayer url={meta.youtubeUrl} onClose={() => setShowYT(false)} />}
     </div>
   );
 }

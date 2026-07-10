@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Save, Search, X } from 'lucide-react';
-import YouTubePlayer from '../components/YouTubePlayer.jsx';
+import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
 import SongPreview from '../components/SongPreview.jsx';
@@ -58,7 +58,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [showBackConfirm, setShowBackConfirm] = useState(false);
   const [showFR, setShowFR]           = useState(false);
   const [pendingNav, setPendingNav]   = useState(null); // new setlist index to navigate to
-  const [showYT, setShowYT]           = useState(false);
+  const { openPlayer } = useYouTube();
   const [findText, setFindText]     = useState('');
   const [replaceText, setReplaceText] = useState('');
   const [previewWidth, previewHandleProps] = useResizePanel(400, 200, 700, 'cue:editor_preview_px');
@@ -349,7 +349,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             const hasYT = !!youtubeEmbedUrl(metadata.youtubeUrl);
             return (
               <button
-                onClick={() => hasYT && setShowYT(true)}
+                onClick={() => hasYT && openPlayer(metadata.youtubeUrl, metadata.title)}
                 disabled={!hasYT}
                 title={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
                 className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${hasYT ? `${btnBorder} text-red-500 dark:text-red-400 hover:text-red-400` : `border-transparent ${mutedText} cursor-not-allowed opacity-40`}`}
@@ -611,7 +611,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {navConfirm}
       </div>
 
-      {showYT && <YouTubePlayer url={metadata.youtubeUrl} onClose={() => setShowYT(false)} />}
     </div>
   );
 }

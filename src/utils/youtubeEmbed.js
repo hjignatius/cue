@@ -4,7 +4,7 @@ export function youtubeEmbedUrl(rawUrl) {
   try {
     const u = new URL(rawUrl.trim());
     const host = u.hostname.replace(/^www\./, '').replace(/^m\./, '');
-    const params = new URLSearchParams({ rel: '0', autoplay: '1' });
+    const params = new URLSearchParams({ rel: '0', autoplay: '1', enablejsapi: '1' });
 
     if (host === 'youtu.be') {
       const videoId = u.pathname.slice(1).split('/')[0];

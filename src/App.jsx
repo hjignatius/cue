@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { YouTubeProvider } from './context/YouTubeContext.jsx';
+import YouTubePlayer from './components/YouTubePlayer.jsx';
 import LibraryView from './views/LibraryView.jsx';
 import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
@@ -324,7 +326,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <YouTubeProvider>
       {view === 'library' && (
         <LibraryView
           songs={songs}
@@ -479,6 +481,7 @@ export default function App() {
           </div>
         </div>
       )}
-    </>
+      <YouTubePlayer />
+    </YouTubeProvider>
   );
 }
