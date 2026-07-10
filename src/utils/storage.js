@@ -103,7 +103,7 @@ export async function loadSong(id) {
 
 // createdAt / updatedAt may be passed explicitly when importing backup data so
 // that original edit times are preserved rather than reset to import time.
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -120,6 +120,7 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   if (diagramScale !== undefined) entry.diagramScale = diagramScale;
   if (chordPrefs   !== undefined) entry.chordPrefs   = chordPrefs;
   if (displayKey   !== undefined) entry.displayKey   = displayKey;
+  if (copiedFrom   !== undefined) entry.copiedFrom   = copiedFrom;
   await d.put('songs', entry);
   return songId;
 }

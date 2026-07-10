@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2, CloudOff } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2, CloudOff, ExternalLink } from 'lucide-react';
 import { saveSong, saveSet, deleteSet } from '../utils/storage.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
@@ -16,6 +16,11 @@ import { unpublishSet } from '../lib/cloud.js';
 const PUBLISHED_SETS_KEY = 'cue:published_sets';
 function loadPublishedSets() {
   try { return JSON.parse(localStorage.getItem(PUBLISHED_SETS_KEY) || '{}'); } catch { return {}; }
+}
+
+const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
+function loadSharedWithMe() {
+  try { return JSON.parse(localStorage.getItem(SHARED_WITH_ME_KEY) || '[]'); } catch { return []; }
 }
 
 function parseDuration(dur) {
@@ -91,6 +96,9 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
   const [publishedSets, setPublishedSets] = useState(loadPublishedSets);
   const [publishDialog, setPublishDialog] = useState(null); // { set, songs }
   const [shareDialogSet, setShareDialogSet] = useState(null);
+
+  // Shared-with-me bookmarks (viewer-side, localStorage only)
+  const [savedShares, setSavedShares] = useState(loadSharedWithMe);
 
   function handlePublishClick(set) {
     const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
@@ -459,6 +467,44 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
             </div>
           );
         })}
+
+        {/* Shared with me — only shown when the viewer has saved share bookmarks */}
+        {savedShares.length > 0 && (
+          <div className={`border-t-2 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
+            <div className={`flex items-center gap-2 px-3 pt-3 pb-1.5`}>
+              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Shared with me</span>
+              <span className="text-xs text-gray-300 dark:text-gray-700">{savedShares.length}</span>
+            </div>
+            {savedShares.map(share => (
+              <div
+                key={share.token}
+                className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20`}
+              >
+                <div className="flex-1 min-w-0">
+                  <a
+                    href={`/shared/${share.token}`}
+                    className={`font-medium truncate block text-sm transition-colors ${dark ? 'text-gray-300 hover:text-indigo-400' : 'text-gray-700 hover:text-indigo-600'}`}
+                  >
+                    {share.setName || 'Shared set'}
+                  </a>
+                  <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">Shared link</p>
+                </div>
+                <ExternalLink size={12} className={`shrink-0 ${dark ? 'text-gray-700' : 'text-gray-300'} group-hover:opacity-60 transition-opacity`} />
+                <button
+                  onClick={() => {
+                    const updated = savedShares.filter(s => s.token !== share.token);
+                    setSavedShares(updated);
+                    localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(updated));
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
+                  title="Remove from Shared with me"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Publish dialog */}
