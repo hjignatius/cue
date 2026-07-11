@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2, CloudOff, ExternalLink } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2, CloudOff, ExternalLink, Settings } from 'lucide-react';
 import { saveSong, saveSet, deleteSet } from '../utils/storage.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
@@ -8,8 +8,8 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { parseHtmlSet, matchSong } from '../utils/importHtmlSet.js';
 import OnboardingTour from '../components/OnboardingTour.jsx';
-import AuthControl from '../components/AuthControl.jsx';
 import PublishSetDialog from '../components/PublishSetDialog.jsx';
+import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import { unpublishSet } from '../lib/cloud.js';
 
@@ -880,6 +880,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [selectMode, setSelectMode]   = useState(false);
   const [selected, setSelected]       = useState(new Set());
   const [exportDropOpen, setExportDropOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
 
   useEffect(() => { sessionStorage.setItem('cue:lib_search', search); }, [search]);
@@ -1037,13 +1038,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             ?
           </button>
           <button
-            onClick={() => updatePref('theme', dark ? 'light' : 'dark')}
+            onClick={() => setSettingsOpen(true)}
             className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${btnBorder}`}
-            title="Toggle theme"
+            title="Settings"
           >
-            {dark ? '☀' : '☾'}
+            <Settings size={16} />
           </button>
-          <AuthControl btnBorder={btnBorder} />
           <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors ${btnBorder}`}>
             <Download size={14} /> Import
           </button>
@@ -1297,6 +1297,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       </div>
 
       {showTour && <OnboardingTour onDone={finishTour} />}
+
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

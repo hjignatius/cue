@@ -10,25 +10,15 @@ import { saveSong, saveDraft } from '../utils/storage.js';
 import { transposeText, KEY_NAMES, semitonesBetween } from '../utils/transpose.js';
 import { detectKey } from '../utils/keyDetect.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
-import { detectChords } from '../utils/chordDetect.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
 
-function autoSizeLevel(text) {
-  const n = detectChords(convertToBrackets(text || '')).length;
-  if (n <= 4)  return 4;
-  if (n <= 8)  return 3;
-  if (n <= 14) return 2;
-  if (n <= 20) return 1;
-  return 0;
-}
-
 
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate }) {
-  const { theme, chordColor, updatePref } = usePrefs();
+  const { theme, chordDiagramSize, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
 
@@ -48,7 +38,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   );
   const linkedRef = useRef(!song?.previewMode);
 
-  const [sizeLevel, setSizeLevel]           = useState(song?.diagramScale !== undefined ? song.diagramScale : autoSizeLevel(song?.text));
   const [chordPrefs, setChordPrefs]         = useState(song?.chordPrefs ?? {});
   const [showPreview, setShowPreview]       = useState(true);
   const [showChordPanel, setShowChordPanel] = useState(true);
@@ -70,14 +59,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   useEffect(() => {
     if (!hydrated.current) { hydrated.current = true; return; }
-    saveDraft({ songId, text, metadata, chordStyle: displayMode, previewMode: previewFormat, diagramScale: sizeLevel, chordPrefs, displayKey });
-  }, [text, metadata, displayMode, previewFormat, sizeLevel, chordPrefs]);
+    saveDraft({ songId, text, metadata, chordStyle: displayMode, previewMode: previewFormat, chordPrefs, displayKey });
+  }, [text, metadata, displayMode, previewFormat, chordPrefs]);
 
   async function handleSave() {
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: sizeLevel, chordPrefs, displayKey });
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
     setSongId(id);
     setIsDirty(false);
-    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: sizeLevel, chordPrefs, displayKey });
+    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
   }
 
   function handleMakePermanent() {
@@ -241,8 +230,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     <SongChordPanel
       text={text}
       semitones={chordSemitones}
-      sizeLevel={sizeLevel}
-      onSizeLevelChange={level => { setSizeLevel(level); setIsDirty(true); }}
+      sizeLevel={chordDiagramSize}
+      onSizeLevelChange={level => updatePref('chordDiagramSize', level)}
       readonly={false}
       chordPrefs={chordPrefs}
       onChordPrefsChange={prefs => { setChordPrefs(prefs); setIsDirty(true); }}
@@ -360,7 +349,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           })()}
           {onReturn ? (
             <button
-              onClick={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: sizeLevel, chordPrefs, displayKey })}
+              onClick={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey })}
               className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm border rounded-lg transition-colors ${btnBorder}`}
             >
               ↩ Return to Performance
@@ -373,14 +362,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               ▶ Present
             </button>
           )}
-
-          <button
-            onClick={() => updatePref('theme', dark ? 'light' : 'dark')}
-            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg border transition-colors ${btnBorder}`}
-            title="Toggle theme"
-          >
-            {dark ? '☀' : '☾'}
-          </button>
 
           <button
             onClick={() => isDirty ? setShowBackConfirm(true) : onBack()}
@@ -423,18 +404,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               Make permanent
             </button>
           )}
-        </div>
-
-        {/* Chord Color */}
-        <div className="flex items-center gap-1.5">
-          <span className={`text-xs ${mutedText}`}>Chord:</span>
-          <input
-            type="color"
-            value={chordColor}
-            onChange={e => updatePref('chordColor', e.target.value)}
-            className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent"
-            title="Chord color"
-          />
         </div>
 
         {/* Find */}

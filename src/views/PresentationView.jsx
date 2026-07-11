@@ -132,7 +132,7 @@ const DEFAULT_FONT = 28;
 const FALLBACK_SPEEDS = [10, 20, 36, 60];
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true }) {
-  const { theme, chordColor: prefsChordColor, metronomeMode, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, metronomeMode, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
   const [index, setIndex]       = useState(Math.max(0, Math.min(startIndex, songs.length - 1)));
@@ -140,10 +140,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [scrolling, setScrolling] = useState(false);
   const [speedIdx, setSpeedIdx]   = useState(0);
   const [showChords, setShowChords] = useState(true);
-  const [sizeLevel, setSizeLevel]   = useState(() => {
-    const stored = localStorage.getItem('cue:present_chord_size');
-    return stored !== null ? parseInt(stored, 10) : 2;
-  });
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
   const [barCanScrollRight, setBarCanScrollRight] = useState(false);
@@ -489,8 +485,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   <SongChordPanel
                     text={song?.text || ''}
                     semitones={semitones}
-                    sizeLevel={sizeLevel}
-                    onSizeLevelChange={level => { setSizeLevel(level); localStorage.setItem('cue:present_chord_size', level); }}
+                    sizeLevel={chordDiagramSize}
+                    onSizeLevelChange={level => updatePref('chordDiagramSize', level)}
                     readonly
                     chordPrefs={song?.chordPrefs ?? {}}
                   />
@@ -508,8 +504,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   <SongChordPanel
                     text={song?.text || ''}
                     semitones={semitones}
-                    sizeLevel={sizeLevel}
-                    onSizeLevelChange={level => { setSizeLevel(level); localStorage.setItem('cue:present_chord_size', level); }}
+                    sizeLevel={chordDiagramSize}
+                    onSizeLevelChange={level => updatePref('chordDiagramSize', level)}
                     readonly
                     chordPrefs={song?.chordPrefs ?? {}}
                   />
