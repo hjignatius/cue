@@ -481,7 +481,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
         {/* Exit */}
         <button
-          className="flex items-center justify-center w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+          className="relative flex items-center justify-center h-8 w-9 shrink-0 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors after:absolute after:-inset-1.5 after:content-['']"
           onClick={onExit}
           title="Exit (Esc)"
         >
