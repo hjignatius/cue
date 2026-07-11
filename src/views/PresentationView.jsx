@@ -458,7 +458,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
           return (
             <button
-              className={`${btn} !px-1.5 ${hasYT ? '' : 'opacity-30 cursor-not-allowed'}`}
+              className={`${btn} !px-1.5 ${hasYT ? 'text-red-500 dark:text-red-400' : 'opacity-30 cursor-not-allowed'}`}
               onClick={() => hasYT && openPlayer(meta.youtubeUrl, meta.title)}
               disabled={!hasYT}
               title={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}

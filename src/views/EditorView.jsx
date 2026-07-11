@@ -308,7 +308,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   return (
     <div className={`h-dvh ${rootBg} flex flex-col`}>
       {/* Header */}
-      <header className={`px-4 py-3 border-b ${border} flex items-center gap-3 shrink-0`}>
+      <header className={`px-4 py-2 border-b ${border} flex items-center gap-3 shrink-0`}>
         <input
           value={metadata.title}
           onChange={e => { setMetadata(m => ({ ...m, title: e.target.value })); setIsDirty(true); }}
