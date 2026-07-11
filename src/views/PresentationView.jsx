@@ -339,28 +339,15 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           </div>
         </div>
 
-        {/* Metronome — tap to play/flash, toggle button to switch mode */}
+        {/* Metronome tap */}
         {meta.tempo && (
-          <div className="flex items-center gap-0.5">
-            <button
-              className={btn}
-              onClick={handleMetronomeTap}
-              title={`${metronomeMode === 'sound' ? 'Play' : 'Flash'} ${meta.tempo} BPM`}
-            >
-              ♩ {meta.tempo}
-            </button>
-            <button
-              className={`${btn} px-2 text-[10px] font-bold tracking-wide ${
-                metronomeMode === 'silent'
-                  ? (dark ? 'bg-indigo-900 border-indigo-600 text-indigo-300' : 'bg-indigo-100 border-indigo-400 text-indigo-700')
-                  : ''
-              }`}
-              onClick={() => updatePref('metronomeMode', metronomeMode === 'sound' ? 'silent' : 'sound')}
-              title={`Metronome mode: ${metronomeMode} — click to switch`}
-            >
-              {metronomeMode === 'sound' ? 'SND' : 'VIS'}
-            </button>
-          </div>
+          <button
+            className={btn}
+            onClick={handleMetronomeTap}
+            title={`${metronomeMode === 'sound' ? 'Play' : 'Flash'} ${meta.tempo} BPM`}
+          >
+            ♩ {meta.tempo}
+          </button>
         )}
 
         {/* Prev / Next */}
@@ -403,11 +390,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           title="Toggle chord diagrams"
         >
           Chords
-        </button>
-
-        {/* Dark/light toggle */}
-        <button className={`${btn} w-8`} onClick={() => updatePref('theme', dark ? 'light' : 'dark')} title="Toggle theme">
-          {dark ? '☀' : '☾'}
         </button>
 
         {/* YouTube playback */}

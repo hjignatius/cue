@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
 export default function SettingsPanel({ open, onClose }) {
-  const { theme, chordColor, chordLabelScale, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, signOut } = useAuth();
 
@@ -132,6 +132,29 @@ export default function SettingsPanel({ open, onClose }) {
                 ))}
               </div>
               <p className={`text-[11px] ${muted}`}>Applies to chord names above lyrics only.</p>
+            </div>
+          </section>
+
+          {/* Metronome */}
+          <section className="flex flex-col gap-4">
+            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Metronome</h3>
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>BPM tap mode</span>
+              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                {[['sound', '♪ Sound'], ['silent', '⚡ Visual']].map(([val, text], i) => (
+                  <button
+                    key={val}
+                    onClick={() => updatePref('metronomeMode', val)}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i === 1 ? `border-l ${border}` : ''} ${
+                      metronomeMode === val
+                        ? 'bg-indigo-600 text-white'
+                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                    }`}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
 
