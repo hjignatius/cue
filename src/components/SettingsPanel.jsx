@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
-export default function SettingsPanel({ open, onClose }) {
+export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const { theme, chordColor, chordLabelScale, metronomeMode, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, signOut } = useAuth();
@@ -159,7 +159,7 @@ export default function SettingsPanel({ open, onClose }) {
           </section>
 
           {/* Account */}
-          {isConfigured && (
+          {isConfigured && !hideAccount && (
             <section className="flex flex-col gap-4">
               <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Account</h3>
 

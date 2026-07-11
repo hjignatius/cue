@@ -5,7 +5,8 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { KEY_NAMES } from '../utils/transpose.js';
 import { saveSong, saveSet, loadSongs } from '../utils/storage.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings } from 'lucide-react';
+import SettingsPanel from '../components/SettingsPanel.jsx';
 
 // Viewer-local key overrides: stored in localStorage, never written to any Supabase table.
 const VIEWER_KEYS_KEY = 'cue:viewer_keys';
@@ -71,6 +72,7 @@ export default function SharedSetView() {
 
   // Leave prompt: shown when navigating away before bookmarking/copying
   const [leavePrompt, setLeavePrompt] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -438,6 +440,14 @@ export default function SharedSetView() {
           >
             ▶ Present All
           </button>
+          {/* Settings */}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${btnOutline}`}
+            title="Settings"
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </header>
 
@@ -510,6 +520,8 @@ export default function SharedSetView() {
           </div>
         </div>
       )}
+
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} hideAccount />
 
       {/* Copy result modal */}
       {copyResult && (
