@@ -141,47 +141,75 @@ function manualHTML() {
   <div class="toc-title">Contents</div>
   <ul>
     <li class="toc-h1">1. Overview</li>
-    <li class="toc-h1">2. The Library</li>
+    <li class="toc-h1">2. Settings</li>
+    <li class="toc-h2">Appearance</li>
+    <li class="toc-h2">Metronome</li>
+    <li class="toc-h2">Account</li>
+    <li class="toc-h1">3. The Library</li>
     <li class="toc-h2">Song List, Search &amp; Filter</li>
+    <li class="toc-h2">Backup &amp; Restore</li>
     <li class="toc-h2">Importing Songs</li>
     <li class="toc-h2">Select Mode</li>
-    <li class="toc-h1">3. Sets &amp; Setlist</li>
+    <li class="toc-h1">4. Sets &amp; Setlist</li>
     <li class="toc-h2">Creating &amp; Managing Sets</li>
     <li class="toc-h2">Sets Select Mode</li>
     <li class="toc-h2">Searching &amp; Sorting Sets</li>
     <li class="toc-h2">Importing a Set from HTML</li>
     <li class="toc-h2">The Setlist Column</li>
-    <li class="toc-h1">4. The Editor</li>
+    <li class="toc-h1">5. The Editor</li>
     <li class="toc-h2">Metadata Bar</li>
     <li class="toc-h2">Text Editor &amp; Chord Formats</li>
     <li class="toc-h2">Toolbar Controls</li>
     <li class="toc-h2">Find &amp; Replace</li>
     <li class="toc-h2">Saving &amp; Exporting</li>
     <li class="toc-h2">PDF Export &amp; Chord Charts</li>
-    <li class="toc-h1">5. Chord Diagram Sidebar</li>
+    <li class="toc-h1">6. Chord Diagram Sidebar</li>
     <li class="toc-h2">Adding Custom Chord Shapes</li>
     <li class="toc-h2">Exporting &amp; Importing Custom Chords</li>
-    <li class="toc-h1">6. Present Mode</li>
+    <li class="toc-h1">7. Present Mode</li>
     <li class="toc-h2">Top Bar Controls</li>
+    <li class="toc-h2">Ghost Overlay Controls</li>
     <li class="toc-h2">Metronome</li>
     <li class="toc-h2">Auto-Scroll</li>
     <li class="toc-h2">Navigating a Set</li>
     <li class="toc-h2">Editing During Performance</li>
-    <li class="toc-h2">Backup &amp; Restore</li>
-    <li class="toc-h1">7. File Formats</li>
-    <li class="toc-h1">8. Keyboard Shortcuts</li>
-    <li class="toc-h1">9. Tips</li>
+    <li class="toc-h1">8. Shared Sets</li>
+    <li class="toc-h1">9. File Formats</li>
+    <li class="toc-h1">10. Keyboard Shortcuts</li>
+    <li class="toc-h1">11. Tips</li>
   </ul>
 </div>
 
 <!-- 1 -->
 <h1>1. Overview</h1>
-<p>Cue is a web-based chord and lyric app built for live performance. It stores songs in your browser, lets you edit them on any device, and presents them full-screen on a TV or projector via screen mirroring. Nothing is sent to a server — all your songs and sets are stored locally on the device.</p>
-<p>Cue is designed to be fast to set up, with no accounts or subscriptions. Open it in Safari on an iPad, mirror to an Apple TV, and you're ready to go.</p>
+<p>Cue is a web-based chord and lyric app built for live performance. It stores songs in your browser and presents them full-screen on a TV or projector via screen mirroring. All songs and sets are stored locally on the device — no account is needed to create and perform songs.</p>
+<p>Cue is designed to be fast to set up. Open it in Safari on an iPad, mirror to an Apple TV, and you are ready to go. An optional account lets you share sets with other Cue users via a private link — see <em>Shared Sets</em>.</p>
+<p>Appearance preferences (theme, chord color) are controlled from the <strong>Settings</strong> panel, opened with the gear icon (⚙) in the top-right of the Library header. Settings persist in your browser and apply immediately across all views.</p>
 
 <!-- 2 -->
-<h1>2. The Library</h1>
-<p>The Library is the home screen. It is divided into three equal columns: <strong>Library</strong> (songs), <strong>Sets</strong>, and <strong>Setlist</strong>.</p>
+<h1>2. Settings</h1>
+<p>Tap the <strong>⚙ gear icon</strong> in the top-right of the Library header to open Settings. The same gear icon appears in the shared-set viewer. Settings are stored in your browser's local storage and apply globally — changes take effect immediately.</p>
+
+<h2>Appearance</h2>
+<table>
+  <tr><th>Setting</th><th>Description</th></tr>
+  <tr><td><strong>Theme</strong></td><td>Switch between <strong>Light</strong> and <strong>Dark</strong> mode. The theme applies to every view including the editor, Present mode, and the shared-set viewer.</td></tr>
+  <tr><td><strong>Chord color</strong></td><td>Tap the color swatch to choose any color for chord names. Applied in the editor preview and Present mode. Default is black.</td></tr>
+  <tr><td><strong>Chord label size</strong></td><td>Seven-step scale from −30% to +30% that adjusts the size of chord names above lyrics (<strong>Over Lyrics</strong> format only). The center step (0) is the default size. Has no effect on the Brackets format.</td></tr>
+</table>
+
+<h2>Metronome</h2>
+<table>
+  <tr><th>Setting</th><th>Description</th></tr>
+  <tr><td><strong>BPM tap mode</strong></td><td><strong>Sound</strong> — plays audio clicks when you tap the BPM button in Present mode. The downbeat of each measure is a higher pitch; other beats are lower. <strong>Visual</strong> — no sound; the top bar flashes once per beat instead.</td></tr>
+</table>
+
+<h2>Account</h2>
+<p>The Account section appears only when cloud sharing is configured. Enter your email address to receive a magic sign-in link. Once signed in, your email is shown with a <strong>Sign out</strong> button. An account is needed only to <em>publish</em> a shared set link — viewing a shared link requires no account.</p>
+
+<!-- 3 -->
+<h1>3. The Library</h1>
+<p>The Library is the home screen. It is divided into three columns: <strong>Library</strong> (songs), <strong>Sets</strong>, and <strong>Setlist</strong>.</p>
 
 <h2>Song List &amp; Search</h2>
 <p>The <strong>Library</strong> column on the left lists all your songs. Use the <strong>search bar</strong> to filter by title, artist, or key. Use the <strong>sort menu</strong> to order by:</p>
@@ -232,8 +260,8 @@ function manualHTML() {
 </ul>
 <p>Tap <strong>Done</strong> in the Library panel header to exit selection mode.</p>
 
-<!-- 3 -->
-<h1>3. Sets &amp; Setlist</h1>
+<!-- 4 -->
+<h1>4. Sets &amp; Setlist</h1>
 <p>The <strong>Sets</strong> column (middle) lists all your sets. The <strong>Setlist</strong> column (right) shows the songs inside whichever set is currently selected.</p>
 
 <h2>Creating &amp; Managing Sets</h2>
@@ -285,8 +313,8 @@ function manualHTML() {
   <li><strong>Trash icon</strong> — removes a song from the set without deleting it from the library</li>
 </ul>
 
-<!-- 4 -->
-<h1>4. The Editor</h1>
+<!-- 5 -->
+<h1>5. The Editor</h1>
 <p>Tap a song in the Library to open it. Tap <strong>New Song</strong> in the Library panel header to start a blank song.</p>
 
 <h2>Metadata Bar</h2>
@@ -321,15 +349,14 @@ Here comes the sun, little darlin</pre>
 <table>
   <tr><th>Control</th><th>What it does</th></tr>
   <tr><td><strong>View Key</strong></td><td>Transposes the display to a different key without changing the source text. Use <em>Make permanent</em> to bake the transposition into the text.</td></tr>
-  <tr><td><strong>Chord color</strong></td><td>Sets the color used for chord names in the preview and Present mode.</td></tr>
   <tr><td><strong>Preview</strong></td><td>Toggles the live preview panel that renders the song with chords above lyrics.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar.</td></tr>
-  <tr><td><strong>☀ / ☾</strong></td><td>Switches between dark and light theme.</td></tr>
   <tr><td><strong>▶ Present</strong></td><td>Launches the current song in full-screen Present mode. When you arrive here via the <strong>Edit</strong> button in Present mode, this button changes to <strong>↩ Return to Performance</strong> — see <em>Editing During Performance</em> below.</td></tr>
   <tr><td><strong>← Prev / Next →</strong></td><td>Moves to the previous or next song. Appears when the editor is opened via the <strong>✎ Edit</strong> button in the Setlist column, or by double-tapping a song in the Library or Setlist panel. Navigation order follows the list you opened from. If there are unsaved changes, a confirmation dialog appears before navigating.</td></tr>
-  <tr><td><strong>YouTube ▶</strong></td><td>Opens the song's YouTube URL in an overlay player. Only shown when a YouTube URL is saved in the metadata bar. The button is grayed out if no URL is set.</td></tr>
-  <tr><td><strong>✕ (red)</strong></td><td>Returns to the Library. If there are unsaved changes, a confirmation dialog appears first.</td></tr>
+  <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Only shown when a YouTube URL is saved in the metadata bar. The button is grayed out if no URL is set.</td></tr>
+  <tr><td><strong>✕</strong></td><td>Returns to the Library. If there are unsaved changes, a confirmation dialog appears first.</td></tr>
 </table>
+<div class="tip"><strong>Tip:</strong> Theme and chord color are set in the <strong>Settings</strong> panel (⚙ gear icon in the Library header) and apply globally — you do not need to change them per song.</div>
 
 <h2>Find &amp; Replace</h2>
 <p>Tap the <strong>Find</strong> button in the toolbar, or press <strong>Cmd+F</strong> (Mac) / <strong>Ctrl+F</strong> (PC), to open the Find &amp; Replace bar. The button highlights indigo while the bar is open. Buttons: <em>Find next</em>, <em>Replace</em> (one at a time), and <em>Replace all</em>. Press <strong>Escape</strong>, tap ✕, or tap <strong>Find</strong> again to close.</p>
@@ -342,7 +369,7 @@ Here comes the sun, little darlin</pre>
 
 <h2>Saving &amp; Exporting</h2>
 <p>The <strong>Save</strong> button is grayed out until you make a change. Once any field is edited — lyrics, chords, title, artist, key, tempo, duration, or time signature — Save activates and turns indigo.</p>
-<p>To return to the Library, tap the <strong>red ✕ button</strong> in the top-right corner of the editor header. If there are unsaved changes, a dialog appears with three choices:</p>
+<p>To return to the Library, tap the <strong>✕ button</strong> in the top-right corner of the editor header. If there are unsaved changes, a dialog appears with three choices:</p>
 <ul>
   <li><strong>Save</strong> — saves your changes and returns to the library</li>
   <li><strong>Discard</strong> — drops changes and returns to the library</li>
@@ -360,8 +387,8 @@ Here comes the sun, little darlin</pre>
 </ul>
 <div class="tip"><strong>Tip:</strong> If you are using View Key to transpose in the editor, the exported PDF uses the transposed key. Tap <em>Make permanent</em> first if you want that key saved back to the song file.</div>
 
-<!-- 5 -->
-<h1>5. Chord Diagram Sidebar</h1>
+<!-- 6 -->
+<h1>6. Chord Diagram Sidebar</h1>
 <p>The <strong>Chords</strong> panel (toggle in the toolbar) shows a ukulele chord diagram for every chord detected in the current song.</p>
 <ul>
   <li>Use <strong>−</strong> / <strong>+</strong> at the top to scale diagrams smaller or larger (5 size levels)</li>
@@ -393,30 +420,37 @@ Bb,8-10-11-10,1243</pre>
 <p>Frets are dash-separated numbers in G · C · E · A string order. Use <code>0</code> for open, <code>X</code> for muted. Fingers are optional (no dashes): 1=index, 2=middle, 3=ring, 4=pinky.</p>
 <div class="tip"><strong>Tip:</strong> Download the <strong>Starter</strong> CSV to see the built-in chord shapes in spreadsheet form. Edit them in any spreadsheet app and import your changes back into Cue. Export to iCloud Drive or email to yourself before switching devices.</div>
 
-<!-- 6 -->
-<h1>6. Present Mode</h1>
+<!-- 7 -->
+<h1>7. Present Mode</h1>
 <p>Present mode is full-screen. It is designed to be mirrored to a TV or projector while you perform.</p>
 
 <h2>Top Bar Controls</h2>
 <table>
   <tr><th>Control</th><th>Action</th></tr>
-  <tr><td><strong>♩ {BPM}</strong></td><td>Triggers the metronome (8 beats for 4/4, 6 beats for 3/4)</td></tr>
-  <tr><td><strong>SND / VIS</strong></td><td>Switches metronome between audio clicks and silent bar flashes</td></tr>
-  <tr><td><strong>− / + (semitones)</strong></td><td>Transposes the display up or down without changing the source</td></tr>
-  <tr><td><strong>A− / A+</strong></td><td>Makes the text smaller or larger</td></tr>
-  <tr><td><strong>▶ / ❚❚</strong></td><td>Starts or pauses auto-scroll</td></tr>
+  <tr><td><strong>♩ {BPM}</strong></td><td>Triggers the metronome (8 beats for 4/4, 6 beats for 3/4). The metronome mode (Sound or Visual) is set in the <strong>Settings</strong> panel.</td></tr>
+  <tr><td><strong>▶ {duration} / ❚❚</strong></td><td>Starts or pauses auto-scroll. When a duration is set, the button shows the song length (e.g. <code>▶ 3:30</code>). Without a duration it shows <code>▶ Scroll</code>.</td></tr>
   <tr><td><strong>1× / 2× / 3× / 4×</strong></td><td>Scroll speed multiplier — always visible. In duration mode, 1× scrolls at the exact pace needed to finish by the end of the song; higher values scroll proportionally faster. Without a duration set, cycles through a set of fixed speeds.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar</td></tr>
-  <tr><td><strong>☀ / ☾</strong></td><td>Switches between dark and light theme</td></tr>
-  <tr><td><strong>Edit</strong></td><td>Opens the current song in the editor — see <em>Editing During Performance</em> below</td></tr>
-  <tr><td><strong>✕</strong></td><td>Exits Present mode</td></tr>
+  <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Shown in red when a URL is saved; grayed out otherwise.</td></tr>
+  <tr><td><strong>Edit</strong></td><td>Opens the current song in the editor — see <em>Editing During Performance</em> below. Hidden on shared-set viewer.</td></tr>
+  <tr><td><strong>✕</strong></td><td>Exits Present mode (also <code>Escape</code> on keyboard)</td></tr>
 </table>
 
+<h2>Ghost Overlay Controls</h2>
+<p>Three semi-transparent controls are overlaid on the song content. They are visible at low opacity when active and fade to nearly invisible after 4 seconds of inactivity. Tap or touch anywhere on the content to wake them.</p>
+<table>
+  <tr><th>Control</th><th>Location</th><th>Action</th></tr>
+  <tr><td><strong>‹ (left chevron)</strong></td><td>Full-height strip on the left edge</td><td>Go to the previous song. Only shown when presenting a set. Bounces gently if already at the first song.</td></tr>
+  <tr><td><strong>› (right chevron)</strong></td><td>Full-height strip on the right edge</td><td>Go to the next song. Only shown when presenting a set. Bounces gently if already at the last song.</td></tr>
+  <tr><td><strong>A− / A+</strong></td><td>Upper area of the content, right of center</td><td>Shrink or enlarge the text. Persists for the current session.</td></tr>
+</table>
+<p>Vertical scrolling works normally through all ghost zones — only a tap (not a drag) triggers the control. The keyboard shortcuts <code>+</code> / <code>−</code> and <code>←</code> / <code>→</code> also control font size and navigation respectively.</p>
+
 <h2>Metronome</h2>
-<p>Tap <strong>♩ {BPM}</strong> to trigger the metronome. The mode is set with the <strong>SND / VIS</strong> toggle:</p>
+<p>Tap <strong>♩ {BPM}</strong> to trigger the metronome. The mode is set in <strong>Settings → Metronome → BPM tap mode</strong>:</p>
 <ul>
-  <li><strong>SND</strong> — plays audio clicks. The downbeat of each measure is a higher pitch; other beats are lower.</li>
-  <li><strong>VIS</strong> — no sound. The top bar flashes white (dark theme) or black (light theme) once per beat. Downbeats flash at full intensity; other beats flash softer.</li>
+  <li><strong>Sound</strong> — plays audio clicks. The downbeat of each measure is a higher pitch; other beats are lower.</li>
+  <li><strong>Visual</strong> — no sound. The top bar flashes white (dark theme) or black (light theme) once per beat. Downbeats flash at full intensity; other beats flash softer.</li>
 </ul>
 <p>The time signature is read directly from the song — 4/4 plays 8 beats across 2 measures, 3/4 plays 6 beats across 2 measures. Set the time signature in the editor and it is automatically used when presenting.</p>
 
@@ -431,17 +465,37 @@ Bb,8-10-11-10,1243</pre>
 <div class="tip"><strong>Screen wake lock:</strong> Cue requests a screen wake lock when entering Present mode so the display does not dim or sleep during a performance.</div>
 
 <h2>Navigating a Set</h2>
-<p>When presenting a set, <strong>← Prev</strong> and <strong>→ Next</strong> buttons appear. You can also use keyboard arrow keys or Page Up / Page Down.</p>
+<p>When presenting a set, semi-transparent <strong>‹</strong> and <strong>›</strong> chevrons appear on the left and right edges of the content area. Tap the left edge to go back one song; tap the right edge to go forward. You can also use the keyboard arrow keys or Page Up / Page Down.</p>
 <p><strong>Starting from any song:</strong> select a song in the Setlist column by tapping its row, then tap <strong>▶ Present</strong>. Presentation starts from that song and continues forward through the rest of the set.</p>
 
 <h2>Editing During Performance</h2>
 <p>Tap <strong>Edit</strong> in the top bar to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
 <p>While in this edit session, the <strong>▶ Present</strong> button in the editor header changes to <strong>↩ Return to Performance</strong>. Tap it to go straight back to Present mode — the song content updates immediately to reflect any changes you made, with no save required.</p>
-<p>If you tap <strong>← Library</strong> instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>▶ Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
+<p>If you tap <strong>✕ Library</strong> instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>▶ Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
 <div class="tip"><strong>Tip:</strong> Use this to fix a wrong chord or lyric mid-rehearsal without interrupting the flow. Edits are reflected immediately when you return — save the song separately when you are ready to make the change permanent.</div>
 
-<!-- 7 -->
-<h1>7. File Formats</h1>
+<!-- 8 -->
+<h1>8. Shared Sets</h1>
+<p>You can share a set with anyone using a private link — they can view the songs and present them without needing a Cue account.</p>
+
+<h2>Publishing a Shared Set</h2>
+<p>In the Sets column, tap the <strong>share icon</strong> on a set row to open the Publish dialog. You must be signed in (via Settings → Account) to publish. Once published, a private link is generated that you can copy and share.</p>
+<p>The link stays live until you revoke it. Recipients see the set in a read-only viewer — they cannot edit songs or see your full library. If you update the set after publishing, tap the share icon again to republish with the latest content.</p>
+
+<h2>Viewing a Shared Set</h2>
+<p>Open the shared link on any device. The viewer shows the set name and song list. From the viewer you can:</p>
+<ul>
+  <li><strong>▶ Present All</strong> — launches Present mode starting from the first song, or from any song you tap <strong>▶</strong> on in the list</li>
+  <li><strong>View Key</strong> — transpose the display for any individual song (stored locally, never sent to the server)</li>
+  <li><strong>Copy to library</strong> — copy an individual song or the entire set to your local Cue library</li>
+  <li><strong>Bookmark</strong> — save the shared link to a <em>Shared with me</em> list in your local Cue install for quick access later</li>
+  <li><strong>⚙ Settings</strong> — open the Settings panel to change theme, chord color, and chord label size. Changes apply immediately to the viewer and persist across sessions.</li>
+  <li><strong>Open Cue</strong> — navigate to the main Cue app</li>
+</ul>
+<div class="tip"><strong>Note:</strong> Viewing a shared set is entirely read-only. Nothing the viewer does (key changes, bookmarks, copies) is written back to the shared set or the publisher's account.</div>
+
+<!-- 9 -->
+<h1>9. File Formats</h1>
 
 <h2>ChordPro (.cho / .chopro)</h2>
 <p>The standard ChordPro format. Cue reads and writes these directives at the top of the file:</p>
@@ -470,8 +524,8 @@ Bb,8-10-11-10,1243</pre>
 <pre>{ "type": "cue-chords", "version": 1, "chords": [ ... ] }</pre>
 <p>The CSV format has one shape per row: <code>Name,Frets,Fingers</code> (Fingers optional). Import either format via <strong>Import ▾</strong> in the Chords panel footer. Song and set imports (via the main header Import button) do not accept chord library files — use the Chords panel Import button instead.</p>
 
-<!-- 8 -->
-<h1>8. Keyboard Shortcuts</h1>
+<!-- 10 -->
+<h1>10. Keyboard Shortcuts</h1>
 <table>
   <tr><th>Key</th><th>Action</th></tr>
   <tr><td><code>Cmd / Ctrl + F</code></td><td>Open Find &amp; Replace in the editor (also available via the <strong>Find</strong> toolbar button)</td></tr>
@@ -483,13 +537,16 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><code>Escape</code></td><td>Exit Present mode / close Find bar</td></tr>
 </table>
 
-<!-- 9 -->
-<h1>9. Tips</h1>
+<!-- 11 -->
+<h1>11. Tips</h1>
 <ul>
   <li><strong>Auto-detect key</strong> — tap the wand icon next to the Key field in the metadata bar to score all chords in the song against every major and minor key. If the result is clear (≥90% match), the key fills in automatically. If the song is ambiguous, a small popover lets you pick from the top candidates with their match percentage shown.</li>
+  <li><strong>Theme and chord color</strong> — open Settings (⚙ gear in the Library header) to switch between Light and Dark mode and to choose a chord color. These settings apply everywhere including Present mode and the shared-set viewer.</li>
+  <li><strong>Chord label size</strong> — use the Chord label size control in Settings to make chord names above lyrics larger or smaller. This is useful if your display is small or if you are mirroring to a screen from a distance.</li>
   <li><strong>YouTube URL</strong> — paste a YouTube link into the metadata bar to keep a reference track alongside the song. Tap the YouTube button in the editor or Present mode toolbar to open it in an overlay player. Useful for learning a song or playing along during rehearsal. The button is grayed out when no URL is set.</li>
   <li><strong>Non-destructive key changes</strong> — use View Key in the editor to try a song in a different key. Your bandmates can experiment without altering the master file. Use <em>Make permanent</em> only when you're sure.</li>
   <li><strong>3/4 songs</strong> — tap the <strong>4/4</strong> button in the Tempo row to switch to <strong>3/4</strong>. Save the song. The metronome and flash mode will automatically use 6 beats when you present it.</li>
+  <li><strong>Ghost controls in Present mode</strong> — the A−/A+ text-size buttons and the Prev/Next chevrons are ghost overlays that fade after 4 seconds. Tap anywhere on the content to wake them. They won't interfere with vertical scrolling.</li>
   <li><strong>Starting a set at any song</strong> — tap a song row in the Setlist column to select it (highlighted in indigo), then tap <strong>▶ Present</strong>. Presentation starts from that song and continues forward; the set does not restart from the top.</li>
   <li><strong>iPad editing space</strong> — use the <strong>Preview</strong> and <strong>Chords</strong> toggle buttons to hide panels and give the text editor more room.</li>
   <li><strong>Set PDF with chord charts</strong> — select the set in the Sets panel, then tap <strong>Export ▾ → PDF + Chord Charts</strong> in the Setlist column. Every song becomes a page, and a single chord reference page listing all unique chords across the set is added at the end — useful as a printed reference for rehearsals.</li>
