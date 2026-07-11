@@ -257,8 +257,12 @@ export default function AnnotationCanvas({
           // always-draw-with-pen regardless of toggle can be added by keeping
           // pointer-events:auto always, but it blocks ghost taps when inactive.
           pointerEvents: annotating && !readOnly ? 'auto' : 'none',
-          // pan-y: two-finger scroll still works — second touch isn't captured.
-          touchAction:   annotating && !readOnly ? 'pan-y' : 'auto',
+          // 'none' is required on iOS Safari: pan-y still lets the browser claim the
+          // gesture as a scroll and fire pointercancel before a stroke can be drawn.
+          // With touch-action:none the canvas owns all touch input while annotating.
+          // Two-finger scroll is unavailable while the pencil toggle is active;
+          // the user turns it off to scroll, then back on to resume drawing.
+          touchAction:   annotating && !readOnly ? 'none' : 'auto',
           zIndex: 15,
           cursor: tool === 'eraser' ? 'crosshair' : 'crosshair',
         }}
