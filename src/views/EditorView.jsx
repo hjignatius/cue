@@ -365,7 +365,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
           <button
             onClick={() => isDirty ? setShowBackConfirm(true) : onBack()}
-            className="w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors shrink-0"
+            className="w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shrink-0"
             title="Back to Library"
           >
             <X size={18} />

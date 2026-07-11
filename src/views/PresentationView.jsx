@@ -481,9 +481,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
         {/* Exit */}
         <button
-          className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-colors ${
-            dark ? 'border-neutral-700 text-neutral-200 hover:bg-neutral-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-          }`}
+          className="flex items-center justify-center w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
           onClick={onExit}
           title="Exit (Esc)"
         >
@@ -562,8 +560,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             );
           })()}
 
-          {/* Ghost: A−/A+ font size — top center, below toolbar */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+          {/* Ghost: A−/A+ font size — top, shifted right of center */}
+          <div className="absolute top-3 left-[55%] flex gap-2 z-10">
             {[
               { ghost: smallerGhost, label: 'A−', title: 'Smaller text' },
               { ghost: largerGhost,  label: 'A+', title: 'Larger text' },
@@ -577,7 +575,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   onPointerUp={ghost.onPointerUp}
                   onPointerCancel={ghost.onPointerCancel}
                   title={title}
-                  className={`w-11 h-11 flex items-center justify-center cursor-pointer select-none rounded-lg text-sm font-bold transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
+                  className={`w-16 h-16 flex items-center justify-center cursor-pointer select-none rounded-xl text-xl font-bold transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
                   style={{ touchAction: 'pan-y' }}
                 >
                   {label}
