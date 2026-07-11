@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import { parseChordPro, attachSectionLabels, expandSections, splitAnnotations } from '../utils/chordPro.js';
@@ -131,6 +131,37 @@ const DEFAULT_FONT = 28;
 // Fallback scroll speeds (px/s) when no duration is set
 const FALLBACK_SPEEDS = [10, 20, 36, 60];
 
+// Tap-only handler: fires onTap only when pointer didn't move >10 px.
+// touch-action: pan-y on the element lets the browser handle vertical
+// scroll natively; pointercancel fires when the browser takes over.
+function useGhostTap(onTap) {
+  const [pressed, setPressed] = useState(false);
+  const s = useRef({ startX: 0, startY: 0, isDrag: false });
+  const tapRef = useRef(onTap);
+  tapRef.current = onTap;
+  return {
+    pressed,
+    onPointerDown(e) {
+      s.current = { startX: e.clientX, startY: e.clientY, isDrag: false };
+      setPressed(true);
+    },
+    onPointerMove(e) {
+      if (s.current.isDrag) return;
+      const d = Math.hypot(e.clientX - s.current.startX, e.clientY - s.current.startY);
+      if (d > 10) { s.current.isDrag = true; setPressed(false); }
+    },
+    onPointerUp() {
+      if (!s.current.isDrag) tapRef.current();
+      s.current.isDrag = true;
+      setPressed(false);
+    },
+    onPointerCancel() {
+      s.current.isDrag = true;
+      setPressed(false);
+    },
+  };
+}
+
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, updatePref } = usePrefs();
   const dark = theme === 'dark';
@@ -149,6 +180,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const barRef         = useRef(null);
   const rafRef         = useRef(0);
   const flashTimers    = useRef([]);
+  const [ghostsIdle, setGhostsIdle] = useState(false);
+  const [prevBounce, setPrevBounce] = useState(false);
+  const [nextBounce, setNextBounce] = useState(false);
+  const ghostTimerRef  = useRef(null);
 
   const song  = songs[index];
   const total = songs.length;
@@ -165,6 +200,32 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   const prev = useCallback(() => goTo(index - 1), [goTo, index]);
   const next = useCallback(() => goTo(index + 1), [goTo, index]);
+
+  const wakeGhosts = useCallback(() => {
+    setGhostsIdle(false);
+    clearTimeout(ghostTimerRef.current);
+    ghostTimerRef.current = setTimeout(() => setGhostsIdle(true), 4000);
+  }, []);
+
+  const handlePrev = useCallback(() => {
+    wakeGhosts();
+    if (index === 0) { setPrevBounce(true); setTimeout(() => setPrevBounce(false), 300); }
+    else prev();
+  }, [wakeGhosts, index, prev]);
+
+  const handleNext = useCallback(() => {
+    wakeGhosts();
+    if (index === total - 1) { setNextBounce(true); setTimeout(() => setNextBounce(false), 300); }
+    else next();
+  }, [wakeGhosts, index, total, next]);
+
+  const smallerAction = useCallback(() => { wakeGhosts(); setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)); }, [wakeGhosts]);
+  const largerAction  = useCallback(() => { wakeGhosts(); setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)); }, [wakeGhosts]);
+
+  const prevGhost    = useGhostTap(handlePrev);
+  const nextGhost    = useGhostTap(handleNext);
+  const smallerGhost = useGhostTap(smallerAction);
+  const largerGhost  = useGhostTap(largerAction);
 
   // Notify parent whenever the displayed song changes
   useEffect(() => {
@@ -211,6 +272,18 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear flash timers on unmount
   useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
 
+  // Start the ghost idle timer on mount; wake on scroll
+  useEffect(() => {
+    ghostTimerRef.current = setTimeout(() => setGhostsIdle(true), 4000);
+    return () => clearTimeout(ghostTimerRef.current);
+  }, []);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', wakeGhosts, { passive: true });
+    return () => el.removeEventListener('scroll', wakeGhosts);
+  }, [wakeGhosts]);
+
   // Track whether the toolbar can scroll right (for fade affordance)
   useEffect(() => {
     const el = barRef.current;
@@ -234,13 +307,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       if      (e.key === 'ArrowRight' || e.key === 'PageDown') next();
       else if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   prev();
       else if (e.key === 'Escape')  onExit();
-      else if (e.key === '+' || e.key === '=') setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP));
-      else if (e.key === '-' || e.key === '_') setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP));
+      else if (e.key === '+' || e.key === '=') { setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)); wakeGhosts(); }
+      else if (e.key === '-' || e.key === '_') { setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)); wakeGhosts(); }
       else if (e.key === ' ') { e.preventDefault(); setScrolling(s => !s); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [next, prev, onExit]);
+  }, [next, prev, onExit, wakeGhosts]);
 
   // Screen wake lock
   useEffect(() => {
@@ -350,18 +423,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           </button>
         )}
 
-        {/* Prev / Next */}
-        {total > 1 && (
-          <>
-            <button className={`${btn} px-3 disabled:opacity-30`} onClick={prev} disabled={index === 0} title="Previous song">← Prev</button>
-            <button className={`${btn} px-3 disabled:opacity-30`} onClick={next} disabled={index === total - 1} title="Next song">Next →</button>
-          </>
-        )}
-
-        {/* Font size */}
-        <button className={`${btn} w-8`} onClick={() => setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP))} title="Smaller">A−</button>
-        <button className={`${btn} w-8`} onClick={() => setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP))} title="Larger">A+</button>
-
         {/* Scroll control */}
         <button
           className={`${btn} gap-1 ${scrolling ? (dark ? 'bg-indigo-700 border-indigo-700 text-white' : 'bg-indigo-600 border-indigo-600 text-white') : ''}`}
@@ -439,14 +500,88 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
       {/* Song content + optional chord sidebar */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        <div ref={scrollRef} className="flex-1 min-w-0 overflow-y-auto px-6 py-6 md:px-12">
-          <div className="pb-32">
-            {meta.title?.trim() && (
-              <h1 className={`font-sans font-bold mb-6 ${textCol}`} style={{ fontSize: fontPx * 1.4 }}>
-                {meta.title.trim()}
-              </h1>
-            )}
-            <SongBody text={song?.text || ''} semitones={semitones} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
+
+        {/* Scrollable content column — ghost zones are absolute children here */}
+        <div
+          className="flex-1 min-w-0 relative"
+          onPointerMove={wakeGhosts}
+          onPointerDown={wakeGhosts}
+        >
+          <div ref={scrollRef} className="absolute inset-0 overflow-y-auto px-6 py-6 md:px-12">
+            <div className="pb-32">
+              {meta.title?.trim() && (
+                <h1 className={`font-sans font-bold mb-6 ${textCol}`} style={{ fontSize: fontPx * 1.4 }}>
+                  {meta.title.trim()}
+                </h1>
+              )}
+              <SongBody text={song?.text || ''} semitones={semitones} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
+            </div>
+          </div>
+
+          {/* Ghost: Previous song — left edge, full height */}
+          {total > 1 && (() => {
+            const opacity = ghostsIdle ? 'opacity-[0.04]' : prevGhost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
+            return (
+              <div
+                onPointerDown={prevGhost.onPointerDown}
+                onPointerMove={prevGhost.onPointerMove}
+                onPointerUp={prevGhost.onPointerUp}
+                onPointerCancel={prevGhost.onPointerCancel}
+                className={`absolute left-0 inset-y-0 w-16 flex items-center justify-center z-10 cursor-pointer select-none transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
+                style={{
+                  touchAction: 'pan-y',
+                  transform: prevBounce ? 'translateX(5px)' : 'none',
+                  transition: 'transform 150ms ease-out, opacity 400ms',
+                }}
+              >
+                <ChevronLeft size={36} strokeWidth={1.2} />
+              </div>
+            );
+          })()}
+
+          {/* Ghost: Next song — right edge, full height */}
+          {total > 1 && (() => {
+            const opacity = ghostsIdle ? 'opacity-[0.04]' : nextGhost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
+            return (
+              <div
+                onPointerDown={nextGhost.onPointerDown}
+                onPointerMove={nextGhost.onPointerMove}
+                onPointerUp={nextGhost.onPointerUp}
+                onPointerCancel={nextGhost.onPointerCancel}
+                className={`absolute right-0 inset-y-0 w-16 flex items-center justify-center z-10 cursor-pointer select-none transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
+                style={{
+                  touchAction: 'pan-y',
+                  transform: nextBounce ? 'translateX(-5px)' : 'none',
+                  transition: 'transform 150ms ease-out, opacity 400ms',
+                }}
+              >
+                <ChevronRight size={36} strokeWidth={1.2} />
+              </div>
+            );
+          })()}
+
+          {/* Ghost: A−/A+ font size — bottom-left, clear of prev zone */}
+          <div className="absolute bottom-6 left-20 flex gap-1 z-10">
+            {[
+              { ghost: smallerGhost, label: 'A−', title: 'Smaller text' },
+              { ghost: largerGhost,  label: 'A+', title: 'Larger text' },
+            ].map(({ ghost, label, title }) => {
+              const opacity = ghostsIdle ? 'opacity-[0.04]' : ghost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
+              return (
+                <div
+                  key={label}
+                  onPointerDown={ghost.onPointerDown}
+                  onPointerMove={ghost.onPointerMove}
+                  onPointerUp={ghost.onPointerUp}
+                  onPointerCancel={ghost.onPointerCancel}
+                  title={title}
+                  className={`w-11 h-11 flex items-center justify-center cursor-pointer select-none rounded-lg text-sm font-bold transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
+                  style={{ touchAction: 'pan-y' }}
+                >
+                  {label}
+                </div>
+              );
+            })}
           </div>
         </div>
 
