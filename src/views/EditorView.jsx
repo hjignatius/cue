@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X } from 'lucide-react';
+import { Save, Search, X, Pencil } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -7,6 +7,8 @@ import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
+import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
+import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { transposeText, KEY_NAMES, semitonesBetween } from '../utils/transpose.js';
 import { detectKey } from '../utils/keyDetect.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
@@ -53,9 +55,22 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [previewWidth, previewHandleProps] = useResizePanel(400, 200, 700, 'cue:editor_preview_px');
   const [chordsWidth,  chordsHandleProps]  = useResizePanel(208, 150, 450, 'cue:editor_chords_px');
 
+  // Annotation overlay state
+  const [hasAnnotation, setHasAnnotation]     = useState(false);
+  const [showAnnotations, setShowAnnotations] = useState(false);
+  const [clearAnnotConfirm, setClearAnnotConfirm] = useState(false);
+
   const hydrated      = useRef(false);
   const textareaRef   = useRef(null);
   const findInputRef  = useRef(null);
+
+  // Check for annotations whenever the song being edited changes.
+  useEffect(() => {
+    if (!songId) return;
+    loadAnnotation(songId).then(ann => {
+      setHasAnnotation((ann?.strokes?.length ?? 0) > 0);
+    });
+  }, [songId]);
 
   useEffect(() => {
     if (!hydrated.current) { hydrated.current = true; return; }
@@ -76,6 +91,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setMetadata(m => ({ ...m, key: displayKey }));
     setDisplayKey('');
     setIsDirty(true);
+  }
+
+  async function handleClearAnnotations() {
+    if (!songId) return;
+    await deleteAnnotation(songId);
+    setHasAnnotation(false);
+    setShowAnnotations(false);
+    setClearAnnotConfirm(false);
   }
 
   function toggleEditorFormat() {
@@ -432,6 +455,37 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <Save size={11} /> Save
         </button>
 
+        {/* Annotation controls — only shown when the song has Present-mode annotations */}
+        {hasAnnotation && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowAnnotations(v => !v)}
+              title={showAnnotations ? 'Hide annotation overlay' : 'Show ink annotations from Present mode'}
+              className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
+                showAnnotations
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Pencil size={11} />
+              {showAnnotations ? 'Ink' : 'Ink'}
+            </button>
+            {clearAnnotConfirm ? (
+              <>
+                <span className={`text-xs ${mutedText}`}>Clear ink?</span>
+                <button onClick={handleClearAnnotations} className="h-9 px-2 text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors">Yes</button>
+                <button onClick={() => setClearAnnotConfirm(false)} className={`h-9 px-2 text-xs rounded-lg transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>No</button>
+              </>
+            ) : (
+              <button
+                onClick={() => setClearAnnotConfirm(true)}
+                title="Delete all annotations for this song"
+                className={`h-9 px-2 text-xs rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-400 hover:text-red-400' : 'border-gray-300 text-gray-500 hover:text-red-500'}`}
+              >Clear ink</button>
+            )}
+          </div>
+        )}
+
         {/* Format toggles: [Editor Format] → [Preview Format] */}
         <div className="flex items-center gap-1">
           <button
@@ -513,8 +567,18 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </div>
 
             {narrowTab === 'preview' && (
-              <div className="flex-1 min-h-0 overflow-y-auto p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 relative">
                 <SongPreview text={text} metadata={metadata} displayMode={previewFormat} displayKey={effectiveDisplayKey} />
+                {showAnnotations && songId && (
+                  <AnnotationCanvas
+                    key={`editor-annot-narrow-${songId}`}
+                    songId={songId}
+                    annotating={false}
+                    dark={dark}
+                    readOnly
+                    onHasStrokes={has => setHasAnnotation(has)}
+                  />
+                )}
               </div>
             )}
 
@@ -551,8 +615,19 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
             {/* Preview panel */}
             {showPreview && (
-              <div className="shrink-0 min-h-0 p-4 overflow-y-auto" style={{ width: previewWidth }}>
+              <div className="shrink-0 min-h-0 p-4 overflow-y-auto relative" style={{ width: previewWidth }}>
                 <SongPreview text={text} metadata={metadata} displayMode={previewFormat} displayKey={effectiveDisplayKey} />
+                {/* Read-only annotation overlay: best-effort positioning via same normalised coords */}
+                {showAnnotations && songId && (
+                  <AnnotationCanvas
+                    key={`editor-annot-${songId}`}
+                    songId={songId}
+                    annotating={false}
+                    dark={dark}
+                    readOnly
+                    onHasStrokes={has => setHasAnnotation(has)}
+                  />
+                )}
               </div>
             )}
 

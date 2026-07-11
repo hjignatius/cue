@@ -1,6 +1,10 @@
 import { zipSync } from 'fflate';
 import { saveFilePicker } from './filePicker.js';
 import { loadSongs, loadSets, SCHEMA_VERSION } from './storage.js';
+// ANNOTATION SAFETY: all export functions below read exclusively from loadSongs()
+// and loadSets() (the 'songs'/'sets' IndexedDB stores). Ink annotations live in
+// a separate 'annotations' store and are intentionally never read here, so they
+// can never appear in .cho, .json, .zip, or backup exports.
 
 // ---- Custom chord library (localStorage) ------------------------------------
 

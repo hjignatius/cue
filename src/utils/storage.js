@@ -1,13 +1,15 @@
 import { openDB } from 'idb';
 
 const DB_NAME    = 'cue-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 export const SCHEMA_VERSION = 2;
 
 // Singleton — opened once, reused everywhere
 let _db = null;
 
-async function getDB() {
+// Exported so that annotation utilities (annotations.js) can share the same
+// connection rather than opening a competing one at a different version.
+export async function getDB() {
   if (!_db) {
     _db = await openDB(DB_NAME, DB_VERSION, {
       upgrade(database) {
@@ -16,6 +18,11 @@ async function getDB() {
         }
         if (!database.objectStoreNames.contains('sets')) {
           database.createObjectStore('sets', { keyPath: 'id' });
+        }
+        // v2: local-only ink annotations, keyed by song ID.
+        // NEVER included in export/backup/publish paths — see annotations.js.
+        if (!database.objectStoreNames.contains('annotations')) {
+          database.createObjectStore('annotations', { keyPath: 'songId' });
         }
       },
     });

@@ -1,6 +1,11 @@
 import { supabase } from './supabase.js';
 
 // All Supabase cloud operations live here so the rest of the app stays decoupled.
+//
+// ANNOTATION SAFETY: ink annotations are stored in the separate 'annotations'
+// IndexedDB store and are NEVER included in song objects (see annotations.js).
+// The content column below serialises song objects from the 'songs' store only,
+// so annotation data can never reach the cloud through this path.
 
 // Publish a set (and all its songs) to the cloud.
 // songs must be the resolved song objects (not just IDs).

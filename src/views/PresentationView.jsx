@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import { parseChordPro, attachSectionLabels, expandSections, splitAnnotations } from '../utils/chordPro.js';
@@ -174,9 +175,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
   const [barCanScrollRight, setBarCanScrollRight] = useState(false);
+  const [annotating, setAnnotating] = useState(false);
   const { url: ytUrl, collapsed: ytCollapsed, openPlayer, collapsePlayer, expandPlayer } = useYouTube();
   const ytWasExpandedRef = useRef(false);
   const scrollRef      = useRef(null);
+  const contentWrapRef = useRef(null);
   const barRef         = useRef(null);
   const rafRef         = useRef(0);
   const flashTimers    = useRef([]);
@@ -453,6 +456,15 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           Chords
         </button>
 
+        {/* Annotate toggle */}
+        <button
+          className={`${btn} !px-2 ${annotating ? (dark ? 'bg-indigo-900 border-indigo-700' : 'bg-indigo-100 border-indigo-400') : ''}`}
+          onClick={() => setAnnotating(v => !v)}
+          title={annotating ? 'Exit annotation mode' : 'Draw annotations over the song (finger or stylus)'}
+        >
+          <Pencil size={15} />
+        </button>
+
         {/* YouTube playback */}
         {(() => {
           const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
@@ -508,18 +520,29 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           onPointerDown={wakeGhosts}
         >
           <div ref={scrollRef} className="absolute inset-0 overflow-y-auto px-6 py-6 md:px-12">
-            <div className="pb-32">
+            {/* relative wrapper so the canvas can use position:absolute inset-0 */}
+            <div ref={contentWrapRef} className="pb-32 relative">
               {meta.title?.trim() && (
                 <h1 className={`font-sans font-bold mb-6 ${textCol}`} style={{ fontSize: fontPx * 1.4 }}>
                   {meta.title.trim()}
                 </h1>
               )}
               <SongBody text={song?.text || ''} semitones={semitones} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
+              {/* Ink annotation canvas — local only, never synced to cloud */}
+              {song?.id && (
+                <AnnotationCanvas
+                  key={song.id}
+                  songId={song.id}
+                  annotating={annotating}
+                  dark={dark}
+                />
+              )}
             </div>
           </div>
 
           {/* Ghost: Previous song — left edge, full height */}
-          {total > 1 && (() => {
+          {/* Suppressed while annotating to prevent accidental navigation while drawing */}
+          {total > 1 && !annotating && (() => {
             const opacity = ghostsIdle ? 'opacity-[0.04]' : prevGhost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
             return (
               <div
@@ -540,7 +563,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           })()}
 
           {/* Ghost: Next song — right edge, full height */}
-          {total > 1 && (() => {
+          {total > 1 && !annotating && (() => {
             const opacity = ghostsIdle ? 'opacity-[0.04]' : nextGhost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
             return (
               <div
@@ -560,29 +583,31 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             );
           })()}
 
-          {/* Ghost: A−/A+ font size — top, shifted right of center */}
-          <div className="absolute top-3 left-[55%] flex gap-2 z-10">
-            {[
-              { ghost: smallerGhost, label: 'A−', title: 'Smaller text' },
-              { ghost: largerGhost,  label: 'A+', title: 'Larger text' },
-            ].map(({ ghost, label, title }) => {
-              const opacity = ghostsIdle ? 'opacity-[0.04]' : ghost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
-              return (
-                <div
-                  key={label}
-                  onPointerDown={ghost.onPointerDown}
-                  onPointerMove={ghost.onPointerMove}
-                  onPointerUp={ghost.onPointerUp}
-                  onPointerCancel={ghost.onPointerCancel}
-                  title={title}
-                  className={`w-16 h-16 flex items-center justify-center cursor-pointer select-none rounded-xl text-xl font-bold transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
-                  style={{ touchAction: 'pan-y' }}
-                >
-                  {label}
-                </div>
-              );
-            })}
-          </div>
+          {/* Ghost: A−/A+ font size — top, shifted right of center. Hidden while annotating. */}
+          {!annotating && (
+            <div className="absolute top-3 left-[55%] flex gap-2 z-10">
+              {[
+                { ghost: smallerGhost, label: 'A−', title: 'Smaller text' },
+                { ghost: largerGhost,  label: 'A+', title: 'Larger text' },
+              ].map(({ ghost, label, title }) => {
+                const opacity = ghostsIdle ? 'opacity-[0.04]' : ghost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
+                return (
+                  <div
+                    key={label}
+                    onPointerDown={ghost.onPointerDown}
+                    onPointerMove={ghost.onPointerMove}
+                    onPointerUp={ghost.onPointerUp}
+                    onPointerCancel={ghost.onPointerCancel}
+                    title={title}
+                    className={`w-16 h-16 flex items-center justify-center cursor-pointer select-none rounded-xl text-xl font-bold transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
+                    style={{ touchAction: 'pan-y' }}
+                  >
+                    {label}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Chord diagram — sidebar on wide screens, slide-in overlay on narrow */}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2, CloudOff, ExternalLink, Settings } from 'lucide-react';
 import { saveSong, saveSet, deleteSet } from '../utils/storage.js';
+import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
@@ -44,7 +45,7 @@ function formatDuration(totalSec) {
 
 // ---- Song row ---------------------------------------------------------------
 
-function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highlighted }) {
+function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highlighted, hasAnnotation }) {
   const { title, artist, key, tempo } = song.metadata || {};
 
   return (
@@ -62,6 +63,15 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
         {artist && <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{artist}</p>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        {/* Pencil dot: this song has local ink annotations from Present mode */}
+        {hasAnnotation && (
+          <span
+            title="This song has ink annotations (visible in the editor)"
+            className="flex items-center justify-center w-4 h-4 rounded-full bg-indigo-400 dark:bg-indigo-500 shrink-0"
+          >
+            <Pencil size={9} className="text-white" strokeWidth={2.5} />
+          </span>
+        )}
         {key   && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{key}</span>}
         {tempo && <span className="text-xs text-gray-400 dark:text-gray-600">{tempo}</span>}
         <button
@@ -870,6 +880,20 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('cue:onboarding_done'));
   function finishTour() { localStorage.setItem('cue:onboarding_done', '1'); setShowTour(false); }
 
+  // Track which songs have local ink annotations (for pencil badge in song rows).
+  // Reloaded on mount and whenever the document regains focus (e.g. after a Present session).
+  const [annotatedSongIds, setAnnotatedSongIds] = useState(() => new Set());
+  useEffect(() => {
+    function reload() { loadAnnotatedSongIds().then(ids => setAnnotatedSongIds(ids)); }
+    reload();
+    document.addEventListener('visibilitychange', reload);
+    window.addEventListener('focus', reload);
+    return () => {
+      document.removeEventListener('visibilitychange', reload);
+      window.removeEventListener('focus', reload);
+    };
+  }, []);
+
   const [highlightedSongId, setHighlightedSongId] = useState(() => sessionStorage.getItem('cue:lib_highlighted_id') || null);
 
   const [search, setSearch]             = useState(() => sessionStorage.getItem('cue:lib_search') || '');
@@ -1262,6 +1286,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   selected={selected.has(song.id)}
                   onToggleSelect={toggleSelect}
                   highlighted={!selected.has(song.id) && song.id === highlightedSongId}
+                  hasAnnotation={annotatedSongIds.has(song.id)}
                 />
               ))}
             </div>
