@@ -458,12 +458,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
           return (
             <button
-              className={`${btn} ${hasYT ? 'text-red-400 dark:text-red-400' : 'opacity-30 cursor-not-allowed'}`}
+              className={`${btn} !px-1.5 ${hasYT ? '' : 'opacity-30 cursor-not-allowed'}`}
               onClick={() => hasYT && openPlayer(meta.youtubeUrl, meta.title)}
               disabled={!hasYT}
               title={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
             </button>
           );
         })()}
@@ -481,7 +481,9 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
         {/* Exit */}
         <button
-          className="flex items-center justify-center w-11 h-11 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors"
+          className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-colors ${
+            dark ? 'border-neutral-700 text-neutral-200 hover:bg-neutral-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+          }`}
           onClick={onExit}
           title="Exit (Esc)"
         >
