@@ -118,11 +118,11 @@ function CustomChordForm({ onSave, onCancel, theme, initialName = '', initialFre
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={!name.trim() || !isValidFretStr(fretsStr.toUpperCase())}
-          className="flex-1 py-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors">
+          className="flex-1 py-3 pointer-fine:py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors">
           Save
         </button>
         <button type="button" onClick={onCancel}
-          className={`flex-1 py-3 text-sm rounded-lg transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+          className={`flex-1 py-3 pointer-fine:py-2 text-sm rounded-lg transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
           Cancel
         </button>
       </div>
@@ -548,7 +548,7 @@ export default function SongChordPanel({ text, semitones = 0, sizeLevel = 2, onS
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => { setAddingCustom(''); setEditingChord(null); }}
                     title="Add"
-                    className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
+                    className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
                     <Plus size={18} />
                   </button>
                   <button
@@ -562,7 +562,7 @@ export default function SongChordPanel({ text, semitones = 0, sizeLevel = 2, onS
                   <div className="relative">
                     <button onClick={() => setImportFmtOpen(v => !v)}
                       title="Import"
-                      className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
+                      className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
                       <Download size={18} />
                     </button>
                     {importFmtOpen && (
@@ -576,7 +576,7 @@ export default function SongChordPanel({ text, semitones = 0, sizeLevel = 2, onS
                     )}
                   </div>
                   <button onClick={handleExportChordsCsv} title="Export"
-                    className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
+                    className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
                     <Upload size={18} />
                   </button>
                 </div>

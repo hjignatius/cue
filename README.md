@@ -84,6 +84,19 @@ A 7-step spotlight tour runs on first launch, covering the library, import, sets
 | Zip export | `fflate` |
 | Deploy | Vercel |
 
+### Platform-adaptive UI
+
+Cue uses CSS pointer/hover media queries — not user-agent sniffing — to serve appropriate sizing for each input type:
+
+| Tailwind variant | CSS | Behaviour |
+|---|---|---|
+| `pointer-coarse:` | `@media (pointer: coarse)` | Touch primary (phone, iPad without Pencil): 44 px+ targets, no hover reliance |
+| `pointer-fine:` | `@media (pointer: fine)` | Mouse/trackpad: denser toolbar sizing (h-8/h-9), hover states meaningful |
+
+**Convention:** write the base class at touch size (44 px), add a `pointer-fine:` shrink for desktop density.  Any button hidden by `opacity-0 group-hover:opacity-100` must also carry `pointer-coarse:opacity-100` so it remains reachable on touch.
+
+Variants are defined in [`src/index.css`](src/index.css).
+
 ### Storage layout
 | Store | Key | Contents |
 |---|---|---|

@@ -3,6 +3,28 @@
 /* Class-based dark mode for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ── Platform-adaptive pointer variants ────────────────────────────────────
+   Use CSS pointer/hover media queries — NOT user-agent sniffing — to
+   distinguish input precision:
+
+   pointer-coarse  Touch primary (phone, tablet without Pencil).
+                   Requires 44 px+ touch targets on all interactive elements.
+                   No functionality may depend solely on hover — any
+                   hover-revealed control must be always visible via
+                   pointer-coarse:opacity-100.
+
+   pointer-fine    Mouse / trackpad. Hover states are meaningful and
+                   reliable. Denser UI is acceptable: toolbar and panel
+                   buttons can return to h-8/h-9 where 44 px feels oversized.
+
+   Convention: write the base class at touch size (44 px), then use
+   pointer-fine: to shrink for desktop density.  New controls that need
+   adaptive sizing should follow the same pattern rather than adding
+   breakpoint overrides.
+   ───────────────────────────────────────────────────────────────────────── */
+@custom-variant pointer-coarse (@media (pointer: coarse));
+@custom-variant pointer-fine   (@media (pointer: fine));
+
 *, *::before, *::after {
   box-sizing: border-box;
 }

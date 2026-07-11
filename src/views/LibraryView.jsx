@@ -66,7 +66,7 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
         {tempo && <span className="text-xs text-gray-400 dark:text-gray-600">{tempo}</span>}
         <button
           onClick={e => { e.stopPropagation(); onDuplicate(song); }}
-          className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+          className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-all shrink-0"
           title="Duplicate song"
         >
           <Copy size={13} />
@@ -293,7 +293,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
               <button
                 onClick={selectedSets.size > 0 ? () => exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs) : undefined}
                 disabled={selectedSets.size === 0}
-                className={`flex items-center gap-1.5 text-sm px-4 h-11 rounded-lg font-medium transition-colors border whitespace-nowrap ${
+                className={`flex items-center gap-1.5 text-sm px-4 h-11 pointer-fine:h-9 rounded-lg font-medium transition-colors border whitespace-nowrap ${
                   selectedSets.size > 0
                     ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
                     : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
@@ -305,7 +305,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                 onClick={selectedSets.size > 0 ? handleDeleteSelected : undefined}
                 disabled={selectedSets.size === 0}
                 title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
-                className={`flex items-center justify-center px-4 h-11 rounded-lg transition-colors ${
+                className={`flex items-center justify-center px-4 h-11 pointer-fine:h-9 rounded-lg transition-colors ${
                   selectedSets.size > 0
                     ? 'bg-red-600 hover:bg-red-500 text-white'
                     : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
@@ -335,7 +335,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
         <div className={`px-3 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-3 shrink-0 min-h-[44px]`}>
           <button
             onClick={() => setSelectedSets(selectedSets.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map(s => s.id)))}
-            className="h-11 px-4 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
+            className="h-11 px-4 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
           >
             {selectedSets.size === filtered.length && filtered.length > 0 ? 'Deselect all' : 'Select all'}
           </button>
@@ -345,7 +345,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                 {selectedSets.size} selected
               </span>
               <span className="text-gray-400 dark:text-gray-600 shrink-0">·</span>
-              <button onClick={() => setSelectedSets(new Set())} className="h-11 px-3 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
+              <button onClick={() => setSelectedSets(new Set())} className="h-11 px-3 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
                 ✕ Clear
               </button>
             </>
@@ -428,7 +428,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                             <button
                               onClick={e => startRename(set, e)}
                               title="Rename set"
-                              className="opacity-0 group-hover/name:opacity-100 h-8 w-8 flex items-center justify-center rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
+                              className="opacity-0 group-hover/name:opacity-100 pointer-coarse:opacity-100 h-8 w-8 flex items-center justify-center rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
                             >
                               <Pencil size={11} />
                             </button>
@@ -451,7 +451,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                         <button
                           onClick={() => handlePublishClick(set)}
                           title={isPublished ? 'Republish' : 'Publish to cloud'}
-                          className="opacity-0 group-hover:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                          className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
                         >
                           <UploadCloud size={13} />
                         </button>
@@ -461,14 +461,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                             <button
                               onClick={() => setShareDialogSet(set)}
                               title="Share link"
-                              className="opacity-0 group-hover:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
                             >
                               <Link2 size={13} />
                             </button>
                             <button
                               onClick={() => handleUnpublishClick(set)}
                               title="Remove from cloud"
-                              className="opacity-0 group-hover:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                             >
                               <CloudOff size={13} />
                             </button>
@@ -514,7 +514,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
                     setSavedShares(updated);
                     localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(updated));
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
+                  className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
                   title="Remove from Shared with me"
                 >
                   <Trash2 size={13} />
@@ -811,12 +811,12 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
             <button
               onClick={() => adjustBuffer(-15)}
               disabled={bufferSec === 0}
-              className="w-11 h-11 flex items-center justify-center rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
+              className="w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
             >−</button>
             <span className="text-xs text-gray-500 dark:text-gray-400 w-7 text-center tabular-nums">{bufferLabel}</span>
             <button
               onClick={() => adjustBuffer(15)}
-              className="w-11 h-11 flex items-center justify-center rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+              className="w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             >+</button>
           </div>
         )}
@@ -1031,23 +1031,23 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div className="flex items-center gap-2">
           <button
             onClick={openManualPDF}
-            className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors text-sm font-bold ${btnBorder}`}
+            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors text-sm font-bold ${btnBorder}`}
             title="Open user manual"
           >
             ?
           </button>
           <button
             onClick={() => updatePref('theme', dark ? 'light' : 'dark')}
-            className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors ${btnBorder}`}
+            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${btnBorder}`}
             title="Toggle theme"
           >
             {dark ? '☀' : '☾'}
           </button>
           <AuthControl btnBorder={btnBorder} />
-          <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 h-11 px-4 text-sm rounded-lg transition-colors ${btnBorder}`}>
+          <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors ${btnBorder}`}>
             <Download size={14} /> Import
           </button>
-          <button onClick={() => exportBackup()} className={`flex items-center gap-1.5 h-11 px-4 text-sm rounded-lg transition-colors ${btnBorder}`}>
+          <button onClick={() => exportBackup()} className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors ${btnBorder}`}>
             Backup
           </button>
         </div>
@@ -1120,7 +1120,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     <button
                       onClick={() => selected.size > 0 && setExportDropOpen(v => !v)}
                       disabled={selected.size === 0}
-                      className={`flex items-center gap-1.5 text-sm px-4 h-11 rounded-lg font-medium transition-colors border whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 text-sm px-4 h-11 pointer-fine:h-9 rounded-lg font-medium transition-colors border whitespace-nowrap ${
                         selected.size > 0
                           ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
                           : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
@@ -1146,7 +1146,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     onClick={selected.size > 0 && activeSetId ? handleAddSelectedToSet : undefined}
                     disabled={!(selected.size > 0 && activeSetId)}
                     title={selected.size === 0 ? undefined : !activeSetId ? 'Select a set in the Sets panel first' : `Add to "${activeSet?.name}"`}
-                    className={`flex items-center gap-1.5 text-sm px-4 h-11 rounded-lg font-medium transition-colors whitespace-nowrap ${
+                    className={`flex items-center gap-1.5 text-sm px-4 h-11 pointer-fine:h-9 rounded-lg font-medium transition-colors whitespace-nowrap ${
                       selected.size > 0 && activeSetId
                         ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                         : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
@@ -1158,7 +1158,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     onClick={selected.size > 0 ? handleDeleteSelected : undefined}
                     disabled={selected.size === 0}
                     title={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
-                    className={`flex items-center justify-center px-4 h-11 rounded-lg transition-colors ${
+                    className={`flex items-center justify-center px-4 h-11 pointer-fine:h-9 rounded-lg transition-colors ${
                       selected.size > 0
                         ? 'bg-red-600 hover:bg-red-500 text-white'
                         : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
@@ -1198,7 +1198,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             <div className={`px-4 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-3 shrink-0 min-h-[44px]`}>
               <button
                 onClick={allVisibleSelected ? deselectAll : selectAll}
-                className="h-11 px-4 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
+                className="h-11 px-4 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
               >
                 {allVisibleSelected ? 'Deselect all' : 'Select all'}
               </button>
@@ -1208,7 +1208,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     {selected.size} selected
                   </span>
                   <span className="text-gray-400 dark:text-gray-600 shrink-0">·</span>
-                  <button onClick={deselectAll} className="h-11 px-3 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
+                  <button onClick={deselectAll} className="h-11 px-3 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
                     ✕ Clear
                   </button>
                 </>
