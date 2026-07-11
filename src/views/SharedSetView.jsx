@@ -50,7 +50,7 @@ function makeUniqueTitle(baseTitle, existingTitlesSet) {
 export default function SharedSetView() {
   const { token }       = useParams();
   const navigate        = useNavigate();
-  const { theme, updatePref } = usePrefs();
+  const { theme } = usePrefs();
   const dark = theme === 'dark';
 
   const [status, setStatus]         = useState('loading'); // loading | ok | not_found | error
@@ -437,14 +437,6 @@ export default function SharedSetView() {
             className="flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg transition-colors"
           >
             ▶ Present All
-          </button>
-          {/* Theme toggle */}
-          <button
-            onClick={() => updatePref('theme', dark ? 'light' : 'dark')}
-            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg ${btnOutline}`}
-            title="Toggle theme"
-          >
-            {dark ? '☀' : '☾'}
           </button>
         </div>
       </header>
