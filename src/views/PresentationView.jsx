@@ -560,8 +560,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             );
           })()}
 
-          {/* Ghost: A−/A+ font size — bottom-left, clear of prev zone */}
-          <div className="absolute bottom-6 left-20 flex gap-1 z-10">
+          {/* Ghost: A−/A+ font size — top center, below toolbar */}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-1 z-10">
             {[
               { ghost: smallerGhost, label: 'A−', title: 'Smaller text' },
               { ghost: largerGhost,  label: 'A+', title: 'Larger text' },
