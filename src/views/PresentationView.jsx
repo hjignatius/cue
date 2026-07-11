@@ -375,7 +375,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const barBg   = dark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-gray-50/95 border-gray-200';
   const muted   = dark ? 'text-neutral-400' : 'text-gray-500';
   const textCol = dark ? 'text-white' : 'text-gray-900';
-  const btn     = `relative flex items-center justify-center rounded-lg border transition-colors px-2 h-8 text-xs font-semibold after:absolute after:-inset-1.5 after:content-[''] ${
+  const btn     = `relative flex items-center justify-center rounded-lg border transition-colors px-2 h-11 pointer-fine:h-9 text-xs font-semibold after:absolute after:-inset-1.5 after:content-[''] ${
     dark ? 'border-neutral-700 text-neutral-200 hover:bg-neutral-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
   }`;
 
@@ -481,7 +481,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
         {/* Exit */}
         <button
-          className="relative flex items-center justify-center h-8 w-9 shrink-0 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors after:absolute after:-inset-1.5 after:content-['']"
+          className="flex items-center justify-center w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 shrink-0 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
           onClick={onExit}
           title="Exit (Esc)"
         >
