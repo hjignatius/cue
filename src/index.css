@@ -4,8 +4,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Platform-adaptive pointer variants ────────────────────────────────────
-   Use CSS pointer/hover media queries — NOT user-agent sniffing — to
-   distinguish input precision:
+   Tailwind 4.3+ ships pointer-coarse: and pointer-fine: as built-in variants
+   (backed by @media (pointer: coarse/fine)). No @custom-variant needed.
 
    pointer-coarse  Touch primary (phone, tablet without Pencil).
                    Requires 44 px+ touch targets on all interactive elements.
@@ -22,8 +22,6 @@
    adaptive sizing should follow the same pattern rather than adding
    breakpoint overrides.
    ───────────────────────────────────────────────────────────────────────── */
-@custom-variant pointer-coarse (@media (pointer: coarse));
-@custom-variant pointer-fine   (@media (pointer: fine));
 
 *, *::before, *::after {
   box-sizing: border-box;
