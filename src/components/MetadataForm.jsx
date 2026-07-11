@@ -25,6 +25,13 @@ function playMetronome(bpmVal, timeSig = '4/4') {
   }
 }
 
+// Shared height reference: matches DurationStepper -/+ buttons (py-2.5 text-sm border)
+const fieldCls = 'border border-gray-300 dark:border-gray-700 rounded outline-none transition-colors';
+const fieldFocus = 'focus:border-indigo-500';
+const fieldHover = 'hover:border-indigo-400 dark:hover:border-indigo-500';
+const fieldText  = 'text-sm text-gray-900 dark:text-white';
+const fieldMuted = 'placeholder-gray-400 dark:placeholder-gray-600';
+
 function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
   const tapsRef = useRef([]);
   const timerRef = useRef(null);
@@ -44,13 +51,14 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
   }
 
   const previewBpm = Number(display || bpm || 120);
+  const tapBtnCls = `px-2 py-2.5 font-medium ${fieldCls} ${fieldHover} text-gray-600 dark:text-gray-300 hover:text-indigo-400 select-none touch-none text-sm`;
 
   return (
-    <div className="flex gap-1">
+    <div className="flex items-center gap-1">
       <button
         type="button"
         onPointerDown={handleTap}
-        className="px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-500 hover:text-indigo-400 select-none touch-none transition-colors"
+        className={tapBtnCls}
         title="Tap in rhythm to set BPM"
       >
         {display === null ? 'Tap' : display === '...' ? '...' : `${display}`}
@@ -58,7 +66,7 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
       <button
         type="button"
         onClick={() => playMetronome(previewBpm, timeSig)}
-        className="px-2 py-1 text-xs font-medium rounded border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-500 hover:text-indigo-400 transition-colors"
+        className={tapBtnCls}
         title={`Preview tempo (${timeSig})`}
       >
         ▶
@@ -66,7 +74,7 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
       <button
         type="button"
         onClick={() => onTimeSig(timeSig === '4/4' ? '3/4' : '4/4')}
-        className="px-2 py-1 text-xs font-mono font-bold rounded border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-400 transition-colors"
+        className={`px-2 py-2.5 font-mono font-bold ${fieldCls} ${fieldHover} text-gray-500 dark:text-gray-400 hover:text-indigo-400 text-sm`}
         title="Toggle time signature"
       >
         {timeSig}
@@ -114,7 +122,7 @@ function DurationStepper({ value, onChange }) {
     clearInterval(intervalRef.current);
   }
 
-  const btnCls = 'px-3 py-2.5 text-sm font-bold rounded border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-500 hover:text-indigo-400 select-none touch-none transition-colors';
+  const btnCls = `px-3 py-2.5 text-sm font-bold ${fieldCls} ${fieldHover} text-gray-600 dark:text-gray-300 hover:text-indigo-400 select-none touch-none`;
 
   return (
     <div className="flex items-center gap-1">
@@ -124,7 +132,7 @@ function DurationStepper({ value, onChange }) {
         onChange={e => onChange(e.target.value)}
         placeholder="3:30"
         size={5}
-        className="bg-transparent border-b border-gray-300 dark:border-gray-700 focus:border-indigo-500 outline-none text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 py-0.5 text-center transition-colors"
+        className={`bg-transparent ${fieldCls} ${fieldFocus} px-1 py-2.5 text-sm ${fieldText} ${fieldMuted} text-center`}
       />
       <button type="button" onPointerDown={e => startHold(e, 1)} onPointerUp={stopHold} onPointerLeave={stopHold} onPointerCancel={stopHold} className={btnCls} title="Increase duration">+</button>
     </div>
@@ -160,7 +168,7 @@ export default function MetadataForm({ metadata, onChange, onDetectKey }) {
     }
   }
 
-  const inputCls = 'bg-transparent border-b border-gray-300 dark:border-gray-700 focus:border-indigo-500 outline-none text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 py-0.5 w-full transition-colors';
+  const inputCls = `bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 ${fieldText} ${fieldMuted} w-full`;
 
   return (
     <div className="flex flex-wrap items-end gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
@@ -182,7 +190,7 @@ export default function MetadataForm({ metadata, onChange, onDetectKey }) {
           <select
             value={metadata.key || ''}
             onChange={e => set('key', e.target.value)}
-            className="bg-gray-50 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700 focus:border-indigo-500 outline-none text-sm text-gray-900 dark:text-white py-0.5 pr-4 transition-colors cursor-pointer"
+            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
           >
             <option value="">—</option>
             {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
@@ -228,7 +236,7 @@ export default function MetadataForm({ metadata, onChange, onDetectKey }) {
             onChange={e => set('tempo', e.target.value)}
             placeholder="120"
             size={4}
-            className="bg-transparent border-b border-gray-300 dark:border-gray-700 focus:border-indigo-500 outline-none text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 py-0.5 transition-colors"
+            className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm ${fieldText} ${fieldMuted}`}
           />
           <TapTempo
             bpm={metadata.tempo}
@@ -252,7 +260,7 @@ export default function MetadataForm({ metadata, onChange, onDetectKey }) {
           value={metadata.youtubeUrl || ''}
           onChange={e => set('youtubeUrl', e.target.value)}
           placeholder="https://youtube.com/watch?v=…"
-          className={`${inputCls}`}
+          className={inputCls}
         />
       </div>
     </div>
