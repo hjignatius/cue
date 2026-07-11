@@ -12,7 +12,7 @@ function LyricText({ text }) {
   );
 }
 
-function OverLyricsLine({ segments, semitones, chordColor }) {
+function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13 }) {
   return (
     <div className="flex flex-wrap font-mono mb-1" style={{ lineHeight: 1 }}>
       {segments.map((seg, i) => {
@@ -21,7 +21,7 @@ function OverLyricsLine({ segments, semitones, chordColor }) {
           <div key={i} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
             <span
               className="font-bold leading-tight cursor-default select-none"
-              style={{ color: displayed ? chordColor : 'transparent', fontSize: 13, minHeight: '1.2em' }}
+              style={{ color: displayed ? chordColor : 'transparent', fontSize: chordFontSize, minHeight: '1.2em' }}
             >
               {displayed ? displayed + ' ' : ' '}
             </span>
@@ -56,8 +56,9 @@ function BracketsLine({ segments, semitones, chordColor }) {
 }
 
 export default function SongPreview({ text, metadata, displayMode = 'over', displayKey }) {
-  const { theme, chordColor } = usePrefs();
+  const { theme, chordColor, chordLabelScale } = usePrefs();
   const dark = theme === 'dark';
+  const chordFontSize = 13 * (1 + chordLabelScale / 100);
   const semitones = semitonesBetween(metadata?.key, displayKey);
   // Always convert to ChordPro brackets before parsing — safe for all input
   // formats since convertToBrackets leaves already-bracketed text unchanged.
@@ -125,7 +126,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                 return null;
               } else if (line.type === 'chords') {
                 content = displayMode === 'over'
-                  ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} />
+                  ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} />
                   : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} />;
               } else {
                 content = (

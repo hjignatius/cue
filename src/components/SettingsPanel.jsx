@@ -3,10 +3,10 @@ import { X } from 'lucide-react';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
-const SIZE_LABELS = ['XS', 'S', 'M', 'L', 'XL'];
+const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
 export default function SettingsPanel({ open, onClose }) {
-  const { theme, chordColor, chordDiagramSize, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, signOut } = useAuth();
 
@@ -108,24 +108,30 @@ export default function SettingsPanel({ open, onClose }) {
               </div>
             </div>
 
-            {/* Chord diagram size */}
+            {/* Chord label size (Over Lyrics format only) */}
             <div className="flex flex-col gap-2">
-              <span className={`text-sm ${label}`}>Chord diagram size</span>
+              <div className="flex items-baseline justify-between">
+                <span className={`text-sm ${label}`}>Chord label size</span>
+                <span className={`text-xs ${muted}`}>
+                  {chordLabelScale === 0 ? 'default' : chordLabelScale > 0 ? `+${chordLabelScale}%` : `${chordLabelScale}%`}
+                </span>
+              </div>
               <div className="flex gap-1">
-                {SIZE_LABELS.map((sz, i) => (
+                {CHORD_SCALE_STEPS.map(step => (
                   <button
-                    key={i}
-                    onClick={() => updatePref('chordDiagramSize', i)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-xs rounded-lg border transition-colors ${
-                      chordDiagramSize === i
+                    key={step}
+                    onClick={() => updatePref('chordLabelScale', step)}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-[11px] rounded-lg border transition-colors ${
+                      chordLabelScale === step
                         ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : `border ${dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-200 text-gray-500 hover:text-gray-900'}`
+                        : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-200 text-gray-500 hover:text-gray-900'
                     }`}
                   >
-                    {sz}
+                    {step === 0 ? '0' : step > 0 ? `+${step}` : step}
                   </button>
                 ))}
               </div>
+              <p className={`text-[11px] ${muted}`}>Applies to chord names above lyrics only.</p>
             </div>
           </section>
 

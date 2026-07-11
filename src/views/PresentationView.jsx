@@ -51,12 +51,12 @@ function LyricText({ text, accentColor }) {
   );
 }
 
-function SongBody({ text, semitones, fontPx, dark, chordColor, displayMode = 'over' }) {
+function SongBody({ text, semitones, fontPx, dark, chordColor, chordLabelScale = 0, displayMode = 'over' }) {
   const transposed = transposeText(convertToBrackets(text), semitones);
   const lines = attachSectionLabels(expandSections(parseChordPro(transposed)));
   const lyricColor = dark ? '#f3f4f6' : '#1f2937';
   const labelColor = dark ? '#818cf8' : '#4f46e5';
-  const chordPx = fontPx * 0.85;
+  const chordPx = fontPx * 0.85 * (1 + chordLabelScale / 100);
 
   return (
     <div className="font-mono" style={{ color: lyricColor }}>
@@ -132,7 +132,7 @@ const DEFAULT_FONT = 28;
 const FALLBACK_SPEEDS = [10, 20, 36, 60];
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, metronomeMode, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
   const [index, setIndex]       = useState(Math.max(0, Math.min(startIndex, songs.length - 1)));
@@ -464,7 +464,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                 {meta.title.trim()}
               </h1>
             )}
-            <SongBody text={song?.text || ''} semitones={semitones} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
+            <SongBody text={song?.text || ''} semitones={semitones} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
           </div>
         </div>
 
