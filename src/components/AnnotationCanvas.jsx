@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Eraser, Undo2, Trash2 } from 'lucide-react';
-import { loadAnnotation, saveAnnotation, deleteAnnotation } from '../utils/annotations.js';
+import { loadAnnotation, saveAnnotation, deleteAnnotation, flushAnnotationQueue } from '../utils/annotations.js';
 
 // Available ink colours / modes.
 const INKS = [
@@ -88,6 +88,25 @@ export default function AnnotationCanvas({
   const [clearConfirm, setClearConfirm] = useState(false);
   // Drive toolbar undo button enabled/disabled state without storing strokes in state.
   const [strokeCount, setStrokeCount]   = useState(0);
+
+  // Ref so flush effects can read the current songId after potential unmount.
+  const songIdRef = useRef(songId);
+  useEffect(() => { songIdRef.current = songId; }, [songId]);
+
+  // Flush write queue on unmount and tab-hide so fast exits (navigate away,
+  // close tab, iOS home-button) don't drop the last in-flight mutation.
+  useEffect(() => {
+    function onVisibility() {
+      if (document.visibilityState === 'hidden') {
+        flushAnnotationQueue(songIdRef.current).catch(() => {});
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      flushAnnotationQueue(songIdRef.current).catch(() => {});
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- helpers ---------------------------------------------------------------
 

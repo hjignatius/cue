@@ -10,27 +10,95 @@
 
 import { getDB } from './storage.js';
 
+// ---------------------------------------------------------------------------
+// Write queue — one promise chain per song.
+//
+// Ordering: every enqueue() call chains onto the existing tail promise so
+// writes execute strictly in call order; a slow earlier write can never
+// overwrite a faster later one.
+//
+// Coalescing: if a write is queued but has not yet started, subsequent
+// enqueue() calls for the same song only update the payload slot — they do
+// not add another link to the chain. The single queued write reads the
+// latest payload when it actually runs, so rapid undo / stroke / clear
+// sequences collapse to one idb operation instead of stacking N.
+//
+// Deletes route through the same queue (DELETE sentinel) so a delete that
+// races an in-flight save always wins if it was enqueued later.
+// ---------------------------------------------------------------------------
+
+const writeQueues   = new Map(); // songId → tail of promise chain
+const pendingPayload = new Map(); // songId → strokes[] | DELETE (latest staged)
+const hasPending    = new Map(); // songId → bool (write queued, not yet started)
+
+const DELETE = Symbol('delete');
+
+function enqueue(songId, payload) {
+  // Always update the payload slot so the next write picks up the latest.
+  pendingPayload.set(songId, payload);
+
+  if (hasPending.get(songId)) {
+    // A write is already waiting in the chain. It will read the updated
+    // payload when it runs — no need to add another chain link.
+    return;
+  }
+
+  hasPending.set(songId, true);
+  const chain = writeQueues.get(songId) ?? Promise.resolve();
+
+  writeQueues.set(songId, chain.then(async () => {
+    // Transition: pending → running. New enqueues after this point will
+    // chain a fresh write rather than coalescing into this one.
+    hasPending.set(songId, false);
+
+    const p = pendingPayload.get(songId);
+    pendingPayload.delete(songId);
+    if (p === undefined) return;
+
+    try {
+      const db = await getDB();
+      if (p === DELETE) {
+        await db.delete('annotations', songId);
+      } else {
+        await db.put('annotations', {
+          songId,
+          strokes:   p,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      // Swallow so one failed write does not wedge the queue for this song.
+      console.error('[annotations] write error:', err);
+    }
+  }));
+}
+
+// Returns the tail promise of the write queue for a song. Resolves once all
+// writes enqueued up to this point have completed (or errored). Call on
+// unmount / visibilitychange so fast exits do not drop the last mutation.
+export function flushAnnotationQueue(songId) {
+  return writeQueues.get(songId) ?? Promise.resolve();
+}
+
 // Load the annotation record for a song. Returns null if none exists.
 export async function loadAnnotation(songId) {
   if (!songId) return null;
   return (await getDB()).get('annotations', songId);
 }
 
-// Write (replace) the full strokes array for a song.
+// Enqueue a full strokes-array write for a song. Synchronous — the actual
+// idb operation runs in the background queue.
 // strokes: Array<{ id, color, width, tool, captureWidth, points: [{nx, y}] }>
-export async function saveAnnotation(songId, strokes) {
+export function saveAnnotation(songId, strokes) {
   if (!songId) return;
-  return (await getDB()).put('annotations', {
-    songId,
-    strokes,
-    updatedAt: new Date().toISOString(),
-  });
+  enqueue(songId, strokes);
 }
 
-// Delete the annotation record for a song.
-export async function deleteAnnotation(songId) {
+// Enqueue a delete for a song through the same queue as saveAnnotation so
+// ordering is guaranteed regardless of which call site triggers the delete.
+export function deleteAnnotation(songId) {
   if (!songId) return;
-  return (await getDB()).delete('annotations', songId);
+  enqueue(songId, DELETE);
 }
 
 // Return a Set of song IDs that have at least one stored stroke.
