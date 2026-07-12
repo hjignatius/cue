@@ -142,8 +142,12 @@ export async function loadSets() {
   return (await getDB()).getAll('sets');
 }
 
-// createdAt / updatedAt may be passed explicitly when importing backup data.
-export async function saveSet({ id, name, songIds, sortMode = 'custom', createdAt: givenCreatedAt, updatedAt: givenUpdatedAt }) {
+// Any save counts as a modification and bumps updatedAt to now, so editing a
+// set's contents (add/remove/reorder songs, rename) re-floats it under the
+// "Newest" sort. Edit callers commonly spread `{ ...set }`, which carries the
+// stale updatedAt; that value is ignored unless preserveTimestamps is set.
+// Backup/restore passes preserveTimestamps: true to keep original edit times.
+export async function saveSet({ id, name, songIds, sortMode = 'custom', createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, preserveTimestamps = false }) {
   const d   = await getDB();
   const sid = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -154,7 +158,7 @@ export async function saveSet({ id, name, songIds, sortMode = 'custom', createdA
     songIds: songIds || [],
     sortMode,
     createdAt: existing?.createdAt ?? givenCreatedAt ?? now,
-    updatedAt: givenUpdatedAt ?? now,
+    updatedAt: preserveTimestamps && givenUpdatedAt ? givenUpdatedAt : now,
   };
   await d.put('sets', entry);
   return entry;

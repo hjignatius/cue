@@ -154,7 +154,7 @@ export default function App() {
               }
               for (const set of data.sets) {
                 const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
-                await saveSet({ id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+                await saveSet({ id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
               }
             } else {
               // Merge: keep whichever version of each song/set has the newer updatedAt.
@@ -196,19 +196,19 @@ export default function App() {
               for (const set of data.sets) {
                 const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
                 if (!set.id) {
-                  await saveSet({ id: null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+                  await saveSet({ id: null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
                   setsAdded++;
                   continue;
                 }
                 const existing = setById.get(set.id);
                 if (!existing) {
-                  await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+                  await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
                   setsAdded++;
                 } else {
                   const existingMs = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.savedAt || 0);
                   const incomingMs = set.updatedAt      ? new Date(set.updatedAt).getTime()       : (set.savedAt || 0);
                   if (incomingMs > existingMs) {
-                    await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt });
+                    await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
                     setsUpdated++;
                   } else {
                     setsSkipped++;
