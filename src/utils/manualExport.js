@@ -364,7 +364,7 @@ Here comes the sun, little darlin</pre>
 <h2>Toolbar Controls</h2>
 <table>
   <tr><th>Control</th><th>What it does</th></tr>
-  <tr><td><strong>View Key</strong></td><td>Transposes the display to a different key without changing the source text. Use <em>Make permanent</em> to bake the transposition into the text.</td></tr>
+  <tr><td><strong>View Key</strong></td><td>Sets a saved <em>display key</em> for the song. The preview and Present mode render transposed to this key, without ever changing the source text or the song's real key. Your choice is saved with the song, so it reopens the same way; choose the top option (the song's own key) to render untransposed.</td></tr>
   <tr><td><strong>Preview</strong></td><td>Toggles the live preview panel that renders the song with chords above lyrics.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar.</td></tr>
   <tr><td><strong>✎ Ink</strong></td><td>Shows or hides ink annotations drawn in Present mode, overlaid on the preview (read-only here). Only appears when the song has saved annotations. A <strong>Clear ink</strong> button beside it deletes them — see <em>Annotation Overlay</em> below.</td></tr>
@@ -410,7 +410,7 @@ Here comes the sun, little darlin</pre>
   <li><strong>JSON bundle</strong> — the set and all its songs in one portable file.</li>
   <li><strong>Setlist</strong> — a plain-text numbered list of song titles, suitable for printing or sharing.</li>
 </ul>
-<div class="tip"><strong>Tip:</strong> If you are using View Key to transpose in the editor, the exported PDF uses the transposed key. Tap <em>Make permanent</em> first if you want that key saved back to the song file.</div>
+<div class="tip"><strong>Tip:</strong> View Key is a display-only setting and does not affect PDF export — a set PDF renders each song in its written key. To change the actual key of a song, edit its chords in the editor.</div>
 
 <!-- 6 -->
 <h1>6. Chord Diagram Sidebar</h1>
@@ -584,7 +584,7 @@ Bb,8-10-11-10,1243</pre>
   <li><strong>Theme and chord color</strong> — open Settings (⚙ gear in the Library header) to switch between Light and Dark mode and to choose a chord color. These settings apply everywhere including Present mode and the shared-set viewer.</li>
   <li><strong>Chord label size</strong> — use the Chord label size control in Settings to make chord names above lyrics larger or smaller. This is useful if your display is small or if you are mirroring to a screen from a distance.</li>
   <li><strong>YouTube URL</strong> — paste a YouTube link into the metadata bar to keep a reference track alongside the song. Tap the YouTube button in the editor or Present mode toolbar to open it in an overlay player. Useful for learning a song or playing along during rehearsal. The button is grayed out when no URL is set.</li>
-  <li><strong>Non-destructive key changes</strong> — use View Key in the editor to try a song in a different key. Your bandmates can experiment without altering the master file. Use <em>Make permanent</em> only when you're sure.</li>
+  <li><strong>Non-destructive key changes</strong> — use View Key in the editor to render a song in a different key for you or your bandmates. It changes only how the song displays in the preview and Present mode, never the stored chords, and is saved per song so it reopens the same way.</li>
   <li><strong>3/4 songs</strong> — tap the <strong>4/4</strong> button in the Tempo row to switch to <strong>3/4</strong>. Save the song. The metronome and flash mode will automatically use 6 beats when you present it.</li>
   <li><strong>Ghost controls in Present mode</strong> — the A−/A+ text-size buttons and the Prev/Next chevrons are ghost overlays that fade after 4 seconds. Tap anywhere on the content to wake them. They won't interfere with vertical scrolling.</li>
   <li><strong>Starting a set at any song</strong> — tap a song row in the Setlist column to select it (highlighted in indigo), then tap <strong>▶ Present</strong>. Presentation starts from that song and continues forward; the set does not restart from the top.</li>
