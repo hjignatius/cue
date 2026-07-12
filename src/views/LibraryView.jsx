@@ -394,7 +394,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
             <div
               key={set.id}
               className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors cursor-pointer ${
-                selectMode && isSelected ? 'bg-indigo-100 dark:bg-indigo-950/60' : isActive ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
+                selectMode && isSelected ? 'bg-indigo-100 dark:bg-indigo-950/60' : !selectMode && isActive ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
               }`}
               onClick={() => {
                 if (editingSetId === set.id) return;
