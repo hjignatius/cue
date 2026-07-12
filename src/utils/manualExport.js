@@ -89,6 +89,18 @@ function manualHTML() {
   }
   .tip strong { color: #1d4ed8; }
 
+  /* Save-as-PDF hint (screen only) */
+  .save-hint {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 28px;
+    font-size: 12.5px;
+    color: #3730a3;
+  }
+  .save-hint strong { color: #312e81; }
+
   /* TOC */
   .toc { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
          padding: 18px 22px; margin-bottom: 32px; page-break-inside: avoid; }
@@ -98,13 +110,29 @@ function manualHTML() {
   .toc .toc-h1 { font-weight: 600; margin-top: 6px; }
   .toc .toc-h2 { padding-left: 16px; color: #6b7280; font-size: 12px; }
 
-  /* Print */
+  /* Print — the manual opens as its own standalone document, so there is no app
+     chrome or viewport-locked (100vh / overflow) ancestor to escape here. These
+     rules are defensive (in case this markup is ever embedded) and set page
+     hygiene so the document flows cleanly across pages. */
+  @page { margin: 1.6cm; }
   @media print {
-    body { padding: 0; max-width: 100%; }
-    h1   { page-break-before: always; }
-    h1:first-of-type { page-break-before: avoid; }
-    .cover { page-break-after: always; }
-    .toc   { page-break-after: always; }
+    /* Never let any wrapper trap the flow inside a single screen-height box. */
+    html, body { height: auto !important; max-height: none !important; overflow: visible !important; }
+    body { padding: 0; max-width: 100%; color: #1a1a1a; background: #fff; }
+
+    /* Keep chosen colors (indigo headings, code/table shading) in the PDF. */
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* Screen-only chrome must not print. */
+    .print-btn, .save-hint { display: none !important; }
+
+    /* Start each major section on a fresh page; keep headings with their body. */
+    h1 { page-break-before: always; break-before: page; }
+    h1:first-of-type { page-break-before: avoid; break-before: avoid; }
+    h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
+    .cover { page-break-after: always; break-after: page; }
+    .toc   { page-break-after: always; break-after: page; }
+    tr, li { page-break-inside: avoid; break-inside: avoid; }
   }
 
   /* Print button (screen only) */
@@ -123,7 +151,6 @@ function manualHTML() {
     box-shadow: 0 2px 8px rgba(99,102,241,0.3);
   }
   .print-btn:hover { background: #4f46e5; }
-  @media print { .print-btn { display: none; } }
 </style>
 </head>
 <body>
@@ -134,6 +161,11 @@ function manualHTML() {
   <div class="cover-title">Cue</div>
   <div class="cover-sub">User Manual</div>
   <div class="cover-meta">Chord &amp; Lyric App for Live Performance</div>
+</div>
+
+<!-- SAVE HINT (screen only) -->
+<div class="save-hint">
+  <strong>To save this manual as a PDF:</strong> tap <strong>Save as PDF</strong> above, or open your browser's Print command (<strong>Cmd/Ctrl&nbsp;+&nbsp;P</strong>) and choose <strong>Save as PDF</strong> as the destination. The manual flows across multiple pages.
 </div>
 
 <!-- TOC -->
