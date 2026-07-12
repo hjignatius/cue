@@ -19,7 +19,7 @@ import { useIsNarrow } from '../hooks/useIsNarrow.js';
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
 
 
-export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate }) {
+export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0 }) {
   const { theme, chordDiagramSize, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
@@ -64,13 +64,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const textareaRef   = useRef(null);
   const findInputRef  = useRef(null);
 
-  // Check for annotations whenever the song being edited changes.
+  // Re-check annotation existence whenever the song changes OR when returning from
+  // PresentationView (annotationStamp increments so the effect re-fires even when
+  // EditorView stayed mounted behind PresentationView and songId didn't change).
   useEffect(() => {
     if (!songId) return;
     loadAnnotation(songId).then(ann => {
       setHasAnnotation((ann?.strokes?.length ?? 0) > 0);
     });
-  }, [songId]);
+  }, [songId, annotationStamp]);
 
   useEffect(() => {
     if (!hydrated.current) { hydrated.current = true; return; }
@@ -95,10 +97,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   async function handleClearAnnotations() {
     if (!songId) return;
-    await deleteAnnotation(songId);
+    // Update UI immediately so the button vanishes before the async delete completes.
     setHasAnnotation(false);
     setShowAnnotations(false);
     setClearAnnotConfirm(false);
+    await deleteAnnotation(songId);
   }
 
   function toggleEditorFormat() {
@@ -567,18 +570,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </div>
 
             {narrowTab === 'preview' && (
-              <div className="flex-1 min-h-0 overflow-y-auto p-4 relative">
-                <SongPreview text={text} metadata={metadata} displayMode={previewFormat} displayKey={effectiveDisplayKey} />
-                {showAnnotations && songId && (
-                  <AnnotationCanvas
-                    key={`editor-annot-narrow-${songId}`}
-                    songId={songId}
-                    annotating={false}
-                    dark={dark}
-                    readOnly
-                    onHasStrokes={has => setHasAnnotation(has)}
-                  />
-                )}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                <SongPreview
+                  text={text}
+                  metadata={metadata}
+                  displayMode={previewFormat}
+                  displayKey={effectiveDisplayKey}
+                  overlay={showAnnotations && songId ? (
+                    <AnnotationCanvas
+                      key={`editor-annot-narrow-${songId}`}
+                      songId={songId}
+                      annotating={false}
+                      dark={dark}
+                      readOnly
+                      onHasStrokes={has => setHasAnnotation(has)}
+                    />
+                  ) : null}
+                />
               </div>
             )}
 
@@ -615,19 +623,26 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
             {/* Preview panel */}
             {showPreview && (
-              <div className="shrink-0 min-h-0 p-4 overflow-y-auto relative" style={{ width: previewWidth }}>
-                <SongPreview text={text} metadata={metadata} displayMode={previewFormat} displayKey={effectiveDisplayKey} />
-                {/* Read-only annotation overlay: best-effort positioning via same normalised coords */}
-                {showAnnotations && songId && (
-                  <AnnotationCanvas
-                    key={`editor-annot-${songId}`}
-                    songId={songId}
-                    annotating={false}
-                    dark={dark}
-                    readOnly
-                    onHasStrokes={has => setHasAnnotation(has)}
-                  />
-                )}
+              <div className="shrink-0 min-h-0 p-4 overflow-y-auto" style={{ width: previewWidth }}>
+                <SongPreview
+                  text={text}
+                  metadata={metadata}
+                  displayMode={previewFormat}
+                  displayKey={effectiveDisplayKey}
+                  overlay={showAnnotations && songId ? (
+                    // Canvas is mounted inside SongPreview's scrollable content wrapper
+                    // so its origin is below the "PREVIEW" header bar and it scrolls
+                    // with the lyrics — much closer to PresentationView's coordinate origin.
+                    <AnnotationCanvas
+                      key={`editor-annot-${songId}`}
+                      songId={songId}
+                      annotating={false}
+                      dark={dark}
+                      readOnly
+                      onHasStrokes={has => setHasAnnotation(has)}
+                    />
+                  ) : null}
+                />
               </div>
             )}
 

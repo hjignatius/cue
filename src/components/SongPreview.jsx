@@ -55,7 +55,7 @@ function BracketsLine({ segments, semitones, chordColor }) {
   );
 }
 
-export default function SongPreview({ text, metadata, displayMode = 'over', displayKey }) {
+export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay }) {
   const { theme, chordColor, chordLabelScale } = usePrefs();
   const dark = theme === 'dark';
   const chordFontSize = 13 * (1 + chordLabelScale / 100);
@@ -84,67 +84,73 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
         )}
       </div>
 
-      {/* Content */}
+      {/* Content — the scroll-content wrapper is `position: relative; min-h-full`
+          so that an annotation overlay (canvas, position:absolute inset:0) is
+          anchored to the content origin (below the PREVIEW header bar) and
+          scrolls with the lyrics rather than being fixed to the panel top. */}
       <div className="flex-1 overflow-y-auto p-4">
-        {isEmpty ? (
-          <p className={`text-sm text-center mt-8 italic ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
-            Start typing to see a preview…
-          </p>
-        ) : (
-          <>
-            {/* Song header */}
-            {(metadata?.title || metadata?.artist) && (
-              <div className={`mb-4 pb-3 border-b text-center ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
-                {metadata.title && (
-                  <h2 className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{metadata.title}</h2>
-                )}
-                {metadata.artist && (
-                  <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{metadata.artist}</p>
-                )}
-                {(metadata?.key || metadata?.tempo) && (
-                  <p className={`text-xs mt-1 ${dark ? 'text-gray-600' : 'text-gray-500'}`}>
-                    {metadata.key && <>Key: <span className="text-indigo-400">{displayKey || metadata.key}</span></>}
-                    {metadata.key && metadata.tempo && ' · '}
-                    {metadata.tempo && <>{metadata.tempo} BPM</>}
-                  </p>
-                )}
-              </div>
-            )}
+        <div className="relative min-h-full">
+          {isEmpty ? (
+            <p className={`text-sm text-center mt-8 italic ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
+              Start typing to see a preview…
+            </p>
+          ) : (
+            <>
+              {/* Song header */}
+              {(metadata?.title || metadata?.artist) && (
+                <div className={`mb-4 pb-3 border-b text-center ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
+                  {metadata.title && (
+                    <h2 className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{metadata.title}</h2>
+                  )}
+                  {metadata.artist && (
+                    <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{metadata.artist}</p>
+                  )}
+                  {(metadata?.key || metadata?.tempo) && (
+                    <p className={`text-xs mt-1 ${dark ? 'text-gray-600' : 'text-gray-500'}`}>
+                      {metadata.key && <>Key: <span className="text-indigo-400">{displayKey || metadata.key}</span></>}
+                      {metadata.key && metadata.tempo && ' · '}
+                      {metadata.tempo && <>{metadata.tempo} BPM</>}
+                    </p>
+                  )}
+                </div>
+              )}
 
-            {/* Lines */}
-            {lines.map((line, i) => {
-              const label = line.label ? (
-                <p key={`lbl-${i}`} className="text-xs font-bold text-indigo-500 uppercase tracking-wider mt-4 mb-1">
-                  {line.label}
-                </p>
-              ) : null;
-
-              let content = null;
-              if (line.type === 'empty') {
-                content = <div className="h-3" />;
-              } else if (line.type === 'directive' || line.type === 'comment') {
-                return null;
-              } else if (line.type === 'chords') {
-                content = displayMode === 'over'
-                  ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} />
-                  : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} />;
-              } else {
-                content = (
-                  <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>
-                    <LyricText text={line.segments?.[0]?.text || ''} />
+              {/* Lines */}
+              {lines.map((line, i) => {
+                const label = line.label ? (
+                  <p key={`lbl-${i}`} className="text-xs font-bold text-indigo-500 uppercase tracking-wider mt-4 mb-1">
+                    {line.label}
                   </p>
+                ) : null;
+
+                let content = null;
+                if (line.type === 'empty') {
+                  content = <div className="h-3" />;
+                } else if (line.type === 'directive' || line.type === 'comment') {
+                  return null;
+                } else if (line.type === 'chords') {
+                  content = displayMode === 'over'
+                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} />
+                    : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} />;
+                } else {
+                  content = (
+                    <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>
+                      <LyricText text={line.segments?.[0]?.text || ''} />
+                    </p>
+                  );
+                }
+
+                return (
+                  <Fragment key={i}>
+                    {label}
+                    {content}
+                  </Fragment>
                 );
-              }
-
-              return (
-                <Fragment key={i}>
-                  {label}
-                  {content}
-                </Fragment>
-              );
-            })}
-          </>
-        )}
+              })}
+            </>
+          )}
+          {overlay}
+        </div>
       </div>
 
     </div>

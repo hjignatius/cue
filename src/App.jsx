@@ -26,6 +26,9 @@ export default function App() {
   const [setlistContext, setSetlistContext]     = useState(null); // { songs, idx } when editing from setlist
   const [libraryContext, setLibraryContext]     = useState(null); // { songs, idx } when editing from library list
   const [editorKey, setEditorKey]             = useState(0);
+  // Incremented whenever the editor becomes visible after a presentation session,
+  // so EditorView re-checks annotation status even when it stayed mounted.
+  const [editorAnnotStamp, setEditorAnnotStamp] = useState(0);
   const [loading, setLoading]                 = useState(true);
   const [conflictDialog, setConflictDialog]   = useState(null);
   // conflictDialog: { title: string, resolve: (choice: 'overwrite'|'duplicate'|'cancel') => void }
@@ -297,6 +300,7 @@ export default function App() {
     setReturnToPresenting({ songs: presenting.songs, startIndex: currentIndex });
     setPresenting(null);
     setActiveSong(currentSong);
+    setEditorAnnotStamp(s => s + 1); // EditorView may have stayed mounted — force annotation re-check
     setView('editor');
   }
 
@@ -343,6 +347,7 @@ export default function App() {
         <EditorView
           key={editorKey}
           song={activeSong}
+          annotationStamp={editorAnnotStamp}
           onBack={() => { refresh(); setReturnToPresenting(null); setSetlistContext(null); setLibraryContext(null); setView('library'); }}
           onSaved={savedSong => {
             clearDraft();
@@ -371,6 +376,7 @@ export default function App() {
             const dest = presentEntryView || 'library';
             setPresentEntryView(null);
             if (dest === 'library') refresh();
+            if (dest === 'editor') setEditorAnnotStamp(s => s + 1);
             setView(dest);
           }}
           onEdit={handleEditFromPresentation}
