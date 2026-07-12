@@ -133,7 +133,7 @@ export function SetDocument({ songs, chordDiagrams, chordColor }) {
   return (
     <Document>
       {songs.map((song, i) => (
-        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={0} scale={1} chordColor={chordColor} />
+        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} scale={1} chordColor={chordColor} />
       ))}
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} />}
     </Document>

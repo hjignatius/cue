@@ -1,6 +1,6 @@
 import { pdf } from '@react-pdf/renderer';
 import { parseChordPro, expandSections } from './chordPro.js';
-import { semitonesBetween } from './transpose.js';
+import { semitonesBetween, transposeChord } from './transpose.js';
 import { convertToBrackets } from './chordStyle.js';
 import { detectChords } from './chordDetect.js';
 import { lookupChordDiagrams } from './chordLookup.js';
@@ -34,6 +34,10 @@ export async function exportSetToPdf(set, allSongs, { includeChords = false, cho
       metadata:    song.metadata,
       parsedLines: expandSections(parseChordPro(convertToBrackets(song.text || ''))),
       text:        song.text || '',
+      // Same render-time lens as Preview/Present: transpose to the saved
+      // displayKey when set. 0 (no displayKey, or equal to the real key)
+      // prints in the written key.
+      semitones:   semitonesBetween(song.metadata?.key, song.displayKey),
     }));
 
   let chordDiagrams = null;
@@ -42,7 +46,9 @@ export async function exportSetToPdf(set, allSongs, { includeChords = false, cho
     const allNames = [];
     for (const song of songs) {
       for (const name of detectChords(convertToBrackets(song.text))) {
-        if (!seen.has(name)) { seen.add(name); allNames.push(name); }
+        // Reference diagrams must match the transposed song bodies.
+        const displayed = song.semitones ? transposeChord(name, song.semitones) : name;
+        if (!seen.has(displayed)) { seen.add(displayed); allNames.push(displayed); }
       }
     }
     chordDiagrams = lookupChordDiagrams(allNames);
