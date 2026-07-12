@@ -174,6 +174,7 @@ function manualHTML() {
     <li class="toc-h2">Metadata Bar</li>
     <li class="toc-h2">Text Editor &amp; Chord Formats</li>
     <li class="toc-h2">Toolbar Controls</li>
+    <li class="toc-h2">Annotation Overlay</li>
     <li class="toc-h2">Find &amp; Replace</li>
     <li class="toc-h2">Saving &amp; Exporting</li>
     <li class="toc-h2">PDF Export &amp; Chord Charts</li>
@@ -183,6 +184,7 @@ function manualHTML() {
     <li class="toc-h1">7. Present Mode</li>
     <li class="toc-h2">Top Bar Controls</li>
     <li class="toc-h2">Ghost Overlay Controls</li>
+    <li class="toc-h2">Annotations</li>
     <li class="toc-h2">Metronome</li>
     <li class="toc-h2">Auto-Scroll</li>
     <li class="toc-h2">Navigating a Set</li>
@@ -365,12 +367,21 @@ Here comes the sun, little darlin</pre>
   <tr><td><strong>View Key</strong></td><td>Transposes the display to a different key without changing the source text. Use <em>Make permanent</em> to bake the transposition into the text.</td></tr>
   <tr><td><strong>Preview</strong></td><td>Toggles the live preview panel that renders the song with chords above lyrics.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar.</td></tr>
+  <tr><td><strong>✎ Ink</strong></td><td>Shows or hides ink annotations drawn in Present mode, overlaid on the preview (read-only here). Only appears when the song has saved annotations. A <strong>Clear ink</strong> button beside it deletes them — see <em>Annotation Overlay</em> below.</td></tr>
   <tr><td><strong>▶ Present</strong></td><td>Launches the current song in full-screen Present mode. When you arrive here via the <strong>Edit</strong> button in Present mode, this button changes to <strong>↩ Return to Performance</strong> — see <em>Editing During Performance</em> below.</td></tr>
   <tr><td><strong>← Prev / Next →</strong></td><td>Moves to the previous or next song. Appears when the editor is opened via the <strong>✎ Edit</strong> button in the Setlist column, or by double-tapping a song in the Library or Setlist panel. Navigation order follows the list you opened from. If there are unsaved changes, a confirmation dialog appears before navigating.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Only shown when a YouTube URL is saved in the metadata bar. The button is grayed out if no URL is set.</td></tr>
   <tr><td><strong>✕</strong></td><td>Returns to the Library. If there are unsaved changes, a confirmation dialog appears first.</td></tr>
 </table>
 <div class="tip"><strong>Tip:</strong> Theme and chord color are set in the <strong>Settings</strong> panel (⚙ gear icon in the Library header) and apply globally — you do not need to change them per song.</div>
+
+<h2>Annotation Overlay</h2>
+<p>Ink drawn over a song in <strong>Present mode</strong> can be reviewed in the editor. When a song has saved annotations, an <strong>✎ Ink</strong> button appears in the toolbar:</p>
+<ul>
+  <li><strong>Ink</strong> — overlays the saved ink on the preview panel. The overlay is read-only here; drawing is done in Present mode. Tap again to hide it.</li>
+  <li><strong>Clear ink</strong> — deletes all annotations for the song. A <em>Clear ink?</em> confirmation appears first; once cleared, both buttons disappear.</li>
+</ul>
+<p>The ink is drawn on the preview, so keep the <strong>Preview</strong> panel visible to see it.</p>
 
 <h2>Find &amp; Replace</h2>
 <p>Tap the <strong>Find</strong> button in the toolbar, or press <strong>Cmd+F</strong> (Mac) / <strong>Ctrl+F</strong> (PC), to open the Find &amp; Replace bar. The button highlights indigo while the bar is open. Buttons: <em>Find next</em>, <em>Replace</em> (one at a time), and <em>Replace all</em>. Press <strong>Escape</strong>, tap ✕, or tap <strong>Find</strong> again to close.</p>
@@ -445,6 +456,7 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>▶ {duration} / ❚❚</strong></td><td>Starts or pauses auto-scroll. When a duration is set, the button shows the song length (e.g. <code>▶ 3:30</code>). Without a duration it shows <code>▶ Scroll</code>.</td></tr>
   <tr><td><strong>1× / 2× / 3× / 4×</strong></td><td>Scroll speed multiplier — always visible. In duration mode, 1× scrolls at the exact pace needed to finish by the end of the song; higher values scroll proportionally faster. Without a duration set, cycles through a set of fixed speeds.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar</td></tr>
+  <tr><td><strong>✎ Annotate</strong></td><td>Toggles annotation mode so you can draw over the song with a finger, mouse, or stylus. A floating tool strip appears — see <em>Annotations</em> below. An Apple Pencil always draws even when this is off. Hidden on the shared-set viewer.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Shown in red when a URL is saved; grayed out otherwise.</td></tr>
   <tr><td><strong>Edit</strong></td><td>Opens the current song in the editor — see <em>Editing During Performance</em> below. Hidden on shared-set viewer.</td></tr>
   <tr><td><strong>✕</strong></td><td>Exits Present mode (also <code>Escape</code> on keyboard)</td></tr>
@@ -459,6 +471,20 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>A− / A+</strong></td><td>Upper area of the content, right of center</td><td>Shrink or enlarge the text. Persists for the current session.</td></tr>
 </table>
 <p>Vertical scrolling works normally through all ghost zones — only a tap (not a drag) triggers the control. The keyboard shortcuts <code>+</code> / <code>−</code> and <code>←</code> / <code>→</code> also control font size and navigation respectively.</p>
+
+<h2>Annotations</h2>
+<p>Tap the <strong>✎ pencil</strong> button in the top bar to draw over the song. A floating tool strip appears at the bottom of the screen with these tools:</p>
+<table>
+  <tr><th>Tool</th><th>What it does</th></tr>
+  <tr><td><strong>Red / Blue pen</strong></td><td>Draw freehand ink in red or blue.</td></tr>
+  <tr><td><strong>Highlighter</strong></td><td>Draw a translucent yellow highlight over lyrics or chords.</td></tr>
+  <tr><td><strong>Eraser</strong></td><td>Tap any stroke to remove that whole stroke.</td></tr>
+  <tr><td><strong>Undo</strong></td><td>Removes the last stroke drawn.</td></tr>
+  <tr><td><strong>Clear</strong></td><td>Removes all ink for the current song, after a confirmation.</td></tr>
+</table>
+<p>An <strong>Apple Pencil</strong> (or other stylus) always draws, even when annotation mode is off — so you can jot a quick note with the pencil and still tap with a finger to navigate. While annotation mode is on, the Prev/Next edge chevrons are suppressed to prevent accidental navigation while drawing.</p>
+<p>Ink is saved automatically per song and scales with the text as you resize or change the font size. To review a song's ink later without entering Present mode, open it in the editor and tap <strong>Ink</strong> — see <em>The Editor → Annotation Overlay</em>.</p>
+<div class="tip"><strong>Note:</strong> Annotations are stored only on this device and are tied to the song. They are never included in PDF exports, JSON bundles, backups, or shared-set links — a shared set shows no ink to its viewers.</div>
 
 <h2>Metronome</h2>
 <p>Tap <strong>♩ {BPM}</strong> to trigger the metronome. The mode is set in <strong>Settings → Metronome → BPM tap mode</strong>:</p>
