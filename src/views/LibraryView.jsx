@@ -88,7 +88,7 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
 
 // ---- Sets column (middle) ---------------------------------------------------
 
-function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }) {
+function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, border }) {
   const { theme } = usePrefs();
   const { user }  = useAuth();
   const dark = theme === 'dark';
@@ -101,6 +101,11 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
   const [selectedSets, setSelectedSets] = useState(new Set());
   const [editingSetId, setEditingSetId]     = useState(null);
   const [editingSetName, setEditingSetName] = useState('');
+
+  // Report select-mode changes up so the parent can blank the Setlist column
+  // (the active set's highlight is suppressed in select mode, so its setlist
+  // should clear too rather than look like it's tied to the selection).
+  useEffect(() => { onSelectModeChange?.(selectMode); }, [selectMode, onSelectModeChange]);
 
   // Publish/share state
   const [publishedSets, setPublishedSets] = useState(loadPublishedSets);
@@ -906,6 +911,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [exportDropOpen, setExportDropOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
+  const [setsSelectMode, setSetsSelectMode] = useState(false); // mirrors SetsColumn select mode
 
   useEffect(() => { sessionStorage.setItem('cue:lib_search', search); }, [search]);
   useEffect(() => { sessionStorage.setItem('cue:lib_sort', sortBy); }, [sortBy]);
@@ -1301,6 +1307,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             activeSetId={activeSetId}
             onSelectSet={handleSelectSet}
             onRefresh={onRefresh}
+            onSelectModeChange={setSetsSelectMode}
             border={border}
           />
         </div>
@@ -1309,7 +1316,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div data-onboard="setlist-panel" className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden`}>
           <SetlistColumn
             key={activeSetId}
-            set={activeSet}
+            set={setsSelectMode ? null : activeSet}
             songs={songs}
             onUpdateSet={handleUpdateSet}
             onDeleteSet={handleDeleteSet}
