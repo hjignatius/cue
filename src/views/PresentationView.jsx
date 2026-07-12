@@ -163,7 +163,7 @@ function useGhostTap(onTap) {
   };
 }
 
-export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true }) {
+export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true, disableAnnotations = false }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
@@ -456,14 +456,16 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           Chords
         </button>
 
-        {/* Annotate toggle */}
-        <button
-          className={`${btn} !px-2 ${annotating ? (dark ? 'bg-indigo-900 border-indigo-700' : 'bg-indigo-100 border-indigo-400') : ''}`}
-          onClick={() => setAnnotating(v => !v)}
-          title={annotating ? 'Exit annotation mode' : 'Draw annotations over the song (finger or stylus)'}
-        >
-          <Pencil size={15} />
-        </button>
+        {/* Annotate toggle — hidden in shared viewer; annotations are local-only */}
+        {!disableAnnotations && (
+          <button
+            className={`${btn} !px-2 ${annotating ? (dark ? 'bg-indigo-900 border-indigo-700' : 'bg-indigo-100 border-indigo-400') : ''}`}
+            onClick={() => setAnnotating(v => !v)}
+            title={annotating ? 'Exit annotation mode' : 'Draw annotations over the song (finger or stylus)'}
+          >
+            <Pencil size={15} />
+          </button>
+        )}
 
         {/* YouTube playback */}
         {(() => {
@@ -528,8 +530,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                 </h1>
               )}
               <SongBody text={song?.text || ''} semitones={semitones} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
-              {/* Ink annotation canvas — local only, never synced to cloud */}
-              {song?.id && (
+              {/* Ink annotation canvas — omitted entirely in shared viewer */}
+              {song?.id && !disableAnnotations && (
                 <AnnotationCanvas
                   key={song.id}
                   songId={song.id}

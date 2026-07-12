@@ -393,6 +393,7 @@ export default function SharedSetView() {
         startIndex={presenting.startIndex}
         onExit={() => setPresenting(null)}
         showEdit={false}
+        disableAnnotations
       />
     );
   }
