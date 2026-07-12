@@ -124,7 +124,7 @@ function manualHTML() {
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
     /* Screen-only chrome must not print. */
-    .print-btn, .save-hint { display: none !important; }
+    .save-hint { display: none !important; }
 
     /* Start each major section on a fresh page; keep headings with their body. */
     h1 { page-break-before: always; break-before: page; }
@@ -135,27 +135,9 @@ function manualHTML() {
     tr, li { page-break-inside: avoid; break-inside: avoid; }
   }
 
-  /* Print button (screen only) */
-  .print-btn {
-    position: fixed;
-    top: 18px;
-    right: 22px;
-    background: #6366f1;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 18px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(99,102,241,0.3);
-  }
-  .print-btn:hover { background: #4f46e5; }
 </style>
 </head>
 <body>
-<button class="print-btn" onclick="window.print()">Save as PDF</button>
-
 <!-- COVER -->
 <div class="cover">
   <div class="cover-title">Cue</div>
@@ -165,7 +147,7 @@ function manualHTML() {
 
 <!-- SAVE HINT (screen only) -->
 <div class="save-hint">
-  <strong>To save this manual as a PDF:</strong> tap <strong>Save as PDF</strong> above, or open your browser's Print command (<strong>Cmd/Ctrl&nbsp;+&nbsp;P</strong>) and choose <strong>Save as PDF</strong> as the destination. The manual flows across multiple pages.
+  <strong>To save this manual as a PDF:</strong> open your browser's Print command (<strong>Cmd/Ctrl&nbsp;+&nbsp;P</strong>) and choose <strong>Save as PDF</strong> as the destination. The manual flows across multiple pages.
 </div>
 
 <!-- TOC -->
