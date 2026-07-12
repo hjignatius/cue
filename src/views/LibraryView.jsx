@@ -167,8 +167,8 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, border }
 
   const sorted = [...sets].sort((a, b) => {
     if (listSort === 'alpha')  return a.name.localeCompare(b.name);
-    if (listSort === 'oldest') return a.savedAt - b.savedAt;
-    return b.savedAt - a.savedAt;
+    if (listSort === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
+    return (b.updatedAt || '').localeCompare(a.updatedAt || '');
   });
 
   const filtered = setSearch.trim()
@@ -939,8 +939,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   const sorted = [...keyFiltered].sort((a, b) => {
     if (sortBy === 'title')  return (a.metadata?.title  || '').localeCompare(b.metadata?.title  || '');
-    if (sortBy === 'newest') return b.savedAt - a.savedAt;
-    if (sortBy === 'oldest') return a.savedAt - b.savedAt;
+    if (sortBy === 'newest') return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+    if (sortBy === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
     if (sortBy === 'artist') return (a.metadata?.artist || '').localeCompare(b.metadata?.artist || '');
     if (sortBy === 'key')    return (a.metadata?.key    || '').localeCompare(b.metadata?.key    || '');
     return 0;
