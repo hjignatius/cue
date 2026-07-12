@@ -84,13 +84,13 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
         )}
       </div>
 
-      {/* Content — the scroll-content wrapper is `position: relative; min-h-full`
-          so that an annotation overlay (canvas, position:absolute inset:0) is
-          anchored to the content origin (below the PREVIEW header bar) and
-          scrolls with the lyrics rather than being fixed to the panel top. */}
+      {/* Content — when an overlay canvas is provided, the scroll-content wrapper
+          gains `position: relative; min-h-full` so the canvas (position:absolute
+          inset:0) is anchored below the PREVIEW header and scrolls with lyrics.
+          Without an overlay the wrapper is omitted to avoid spurious blank space. */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="relative min-h-full">
-          {isEmpty ? (
+        {(() => {
+          const body = isEmpty ? (
             <p className={`text-sm text-center mt-8 italic ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
               Start typing to see a preview…
             </p>
@@ -148,9 +148,12 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                 );
               })}
             </>
-          )}
-          {overlay}
-        </div>
+          );
+
+          return overlay != null
+            ? <div className="relative min-h-full">{body}{overlay}</div>
+            : body;
+        })()}
       </div>
 
     </div>
