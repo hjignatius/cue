@@ -5,26 +5,39 @@
 // parent via ResizeObserver. The floating tool strip is `position: fixed`.
 //
 // Coordinate scheme (stored per stroke):
-//   nx  = pointerX / canvasWidth at capture time  (0–1, normalised)
-//   y   = pointerY in canvas-space pixels (absolute from top of content element)
-//   captureWidth = canvas.width at time of capture, so strokes can be rescaled
-//                  if the container width changes (multiply nx by new width).
-// Drift note: font-size or transpose re-layout shifts lyric positions; stored y
-// coordinates do not update, so annotations drift after layout changes. Acceptable for v1.
+//   nx          = pointerX / captureWidth  (0–1, normalised to width at draw time)
+//   y           = pointerY in canvas-space pixels at draw time
+//   captureWidth = canvas.width at draw time
+//
+// Rendering:
+//   widthRatio = currentCanvasWidth / captureWidth
+//   screenX    = nx * currentCanvasWidth          (= original x scaled by widthRatio)
+//   screenY    = y  * widthRatio                  (uniform: same ratio applied to both axes)
+// → shapes (circles, arrows) stay geometrically correct after resize.
+//   Positional drift relative to re-wrapped lyrics is expected and acceptable in v1.
+//
+// Pointer-event strategy:
+//   • canvas z-index 8 — below ghost overlay elements (z-index 10).
+//     Ghost-area events go to ghost elements; content-area events go to canvas.
+//   • pointer-events: auto always (except readOnly) so Apple Pencil (pointerType='pen')
+//     reaches the canvas even when the Annotate toggle is off.
+//   • touch-action: none while annotating (required on iOS to prevent browser claiming
+//     the gesture as scroll before setPointerCapture can lock in the stroke).
+//   • touch-action: auto when not annotating: canvas sees the event but doesn't capture
+//     it for touch/mouse → browser scrolls the overflow container naturally.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Eraser, Undo2, Trash2 } from 'lucide-react';
 import { loadAnnotation, saveAnnotation, deleteAnnotation } from '../utils/annotations.js';
 
 // Available ink colours / modes.
-// 'hl' (highlighter) uses a wide semi-transparent stroke.
 const INKS = [
   { id: 'red',  color: '#ef4444',               width: 3,  label: 'Red pen' },
   { id: 'blue', color: '#3b82f6',               width: 3,  label: 'Blue pen' },
   { id: 'hl',   color: 'rgba(253,224,71,0.40)', width: 22, label: 'Highlighter' },
 ];
 
-// Distance from a point (px, py) to the closest point on line segment (ax,ay)–(bx,by).
+// Distance from point (px, py) to segment (ax,ay)–(bx,by).
 function pointSegDist(px, py, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay;
   const lenSq = dx * dx + dy * dy;
@@ -33,10 +46,12 @@ function pointSegDist(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-// Draw a single stroke onto a 2D context.
+// Render one stroke with uniform scaling so shapes stay undistorted on resize.
+// widthRatio = currentCanvasWidth / stroke.captureWidth is applied to both axes.
 function renderStroke(ctx, stroke, canvasWidth) {
   if (!stroke.points || stroke.points.length < 2) return;
   const ink = INKS.find(i => i.id === stroke.color) ?? INKS[0];
+  const ratio = stroke.captureWidth > 0 ? canvasWidth / stroke.captureWidth : 1;
   ctx.save();
   ctx.strokeStyle = ink.color;
   ctx.lineWidth   = stroke.width;
@@ -44,9 +59,9 @@ function renderStroke(ctx, stroke, canvasWidth) {
   ctx.lineJoin    = 'round';
   ctx.globalCompositeOperation = 'source-over';
   ctx.beginPath();
-  ctx.moveTo(stroke.points[0].nx * canvasWidth, stroke.points[0].y);
+  ctx.moveTo(stroke.points[0].nx * canvasWidth, stroke.points[0].y * ratio);
   for (let i = 1; i < stroke.points.length; i++) {
-    ctx.lineTo(stroke.points[i].nx * canvasWidth, stroke.points[i].y);
+    ctx.lineTo(stroke.points[i].nx * canvasWidth, stroke.points[i].y * ratio);
   }
   ctx.stroke();
   ctx.restore();
@@ -54,20 +69,25 @@ function renderStroke(ctx, stroke, canvasWidth) {
 
 export default function AnnotationCanvas({
   songId,
-  annotating,    // true = finger/pointer draws; false = pointer-events:none (pen always draws when true)
+  annotating,   // true = finger/mouse/pen draws; false = only pen draws
   dark,
   readOnly = false,
-  onHasStrokes,  // (bool) → called when stroke count transitions empty ↔ non-empty
+  onHasStrokes, // (bool) → called when stroke count transitions empty ↔ non-empty
 }) {
-  const canvasRef          = useRef(null);
-  const strokesRef         = useRef([]);       // persisted completed strokes
-  const currentRef         = useRef(null);     // stroke currently being drawn
-  const activePointersRef  = useRef(new Set()); // pointerId values currently down
-  const [inkId, setInkId]  = useState('red');
-  const [tool, setTool]    = useState('pen');  // 'pen' | 'eraser'
+  const canvasRef = useRef(null);
+  const strokesRef = useRef([]);      // completed, persisted strokes
+  const currentRef = useRef(null);   // stroke currently being drawn
+
+  // FIX 1: Track the pointerId that owns the current stroke. Any other pointer
+  // arriving while this is non-null is treated as a multi-touch event: the
+  // in-progress stroke is discarded and drawing state is reset cleanly.
+  const activeStrokePointerIdRef = useRef(null);
+
+  const [inkId, setInkId]   = useState('red');
+  const [tool, setTool]     = useState('pen');   // 'pen' | 'eraser'
   const [clearConfirm, setClearConfirm] = useState(false);
-  // Force re-render so toolbar undo button reflects stroke count changes
-  const [strokeCount, setStrokeCount] = useState(0);
+  // Drive toolbar undo button enabled/disabled state without storing strokes in state.
+  const [strokeCount, setStrokeCount]   = useState(0);
 
   // ---- helpers ---------------------------------------------------------------
 
@@ -93,7 +113,7 @@ export default function AnnotationCanvas({
   useEffect(() => {
     strokesRef.current = [];
     currentRef.current = null;
-    activePointersRef.current.clear();
+    activeStrokePointerIdRef.current = null;
     setStrokeCount(0);
     if (!songId) { redraw(); return; }
     loadAnnotation(songId).then(ann => {
@@ -127,12 +147,13 @@ export default function AnnotationCanvas({
     return () => obs.disconnect();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- pointer event helpers -------------------------------------------------
+  // ---- pointer helpers -------------------------------------------------------
 
   function canvasPoint(e) {
-    const rect = canvasRef.current.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    const rect   = canvas.getBoundingClientRect();
     return {
-      nx: (e.clientX - rect.left) / canvasRef.current.width,
+      nx: (e.clientX - rect.left) / canvas.width,
       y:   e.clientY - rect.top,
     };
   }
@@ -150,38 +171,51 @@ export default function AnnotationCanvas({
 
   function onPointerDown(e) {
     if (readOnly) return;
-    // Pen always draws; touch/mouse draws only when annotating mode is on.
+
+    // FIX 2: Pen (Apple Pencil / stylus) always draws regardless of the Annotate
+    // toggle. Touch and mouse only draw when annotating is on.
     const shouldDraw = e.pointerType === 'pen' || annotating;
     if (!shouldDraw) return;
-    // Two-finger touch: don't capture — let second finger scroll (with touch-action:pan-y).
-    if (e.pointerType === 'touch' && activePointersRef.current.size >= 1) return;
 
-    activePointersRef.current.add(e.pointerId);
+    // FIX 1: A second pointer arrived while a stroke is active → multi-touch.
+    // Discard the in-progress stroke (do not save) and reset drawing state.
+    // The next single-finger/pen down will start a fresh stroke.
+    if (activeStrokePointerIdRef.current !== null) {
+      currentRef.current = null;
+      activeStrokePointerIdRef.current = null;
+      redraw();
+      return;
+    }
+
     e.currentTarget.setPointerCapture(e.pointerId);
     e.preventDefault();
+    activeStrokePointerIdRef.current = e.pointerId;
 
     const pt = canvasPoint(e);
 
     if (tool === 'eraser') {
-      // Stroke-level eraser: find the closest stroke within 20 px and remove it.
+      // Stroke-level eraser: find the closest stroke within 20 px (in current canvas
+      // coordinates, accounting for uniform scale) and remove it entirely.
       const w   = canvasRef.current.width;
-      const hit = strokesRef.current.findLastIndex(stroke =>
-        stroke.points.some((p, j) => {
+      const hit = strokesRef.current.findLastIndex(stroke => {
+        const ratio = stroke.captureWidth > 0 ? w / stroke.captureWidth : 1;
+        return stroke.points.some((p, j) => {
           if (j === 0) return false;
           const prev = stroke.points[j - 1];
           return pointSegDist(
-            pt.nx * w, pt.y,
-            prev.nx * w, prev.y,
-            p.nx * w, p.y,
+            pt.nx * w,       pt.y,
+            prev.nx * w,     prev.y * ratio,
+            p.nx * w,        p.y * ratio,
           ) < 20;
-        })
-      );
+        });
+      });
       if (hit !== -1) {
         const updated = strokesRef.current.filter((_, i) => i !== hit);
         strokesRef.current = updated;
         redraw();
         persistStrokes(updated);
       }
+      // currentRef stays null for eraser; onPointerUp detects this and returns early.
       return;
     }
 
@@ -197,16 +231,17 @@ export default function AnnotationCanvas({
   }
 
   function onPointerMove(e) {
+    // Only respond to the pointer that owns the current stroke (FIX 1).
+    if (e.pointerId !== activeStrokePointerIdRef.current) return;
     if (readOnly || !currentRef.current) return;
-    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     currentRef.current.points.push(...coalescedPoints(e));
     redraw();
   }
 
   function onPointerUp(e) {
-    activePointersRef.current.delete(e.pointerId);
+    if (e.pointerId !== activeStrokePointerIdRef.current) return;
+    activeStrokePointerIdRef.current = null;
     if (readOnly || !currentRef.current) return;
-    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const stroke = currentRef.current;
     currentRef.current = null;
     if (stroke.points.length < 2) { redraw(); return; }
@@ -217,8 +252,10 @@ export default function AnnotationCanvas({
   }
 
   function onPointerCancel(e) {
-    activePointersRef.current.delete(e.pointerId);
-    if (currentRef.current) { currentRef.current = null; redraw(); }
+    if (e.pointerId !== activeStrokePointerIdRef.current) return;
+    activeStrokePointerIdRef.current = null;
+    currentRef.current = null;
+    redraw();
   }
 
   // ---- toolbar actions -------------------------------------------------------
@@ -234,6 +271,7 @@ export default function AnnotationCanvas({
   async function handleClear() {
     strokesRef.current = [];
     currentRef.current = null;
+    activeStrokePointerIdRef.current = null;
     redraw();
     setClearConfirm(false);
     setStrokeCount(0);
@@ -247,24 +285,22 @@ export default function AnnotationCanvas({
 
   return (
     <>
-      {/* Ink canvas — absolute, covers its positioned parent */}
+      {/* Ink canvas — absolute, covers its positioned parent.
+          z-index 8 keeps it below ghost overlay elements (z-index 10) so ghost
+          taps still fire in edge zones when annotating is off. Canvas remains
+          pointer-events:auto so Apple Pencil events reach it even when the
+          Annotate toggle is off. */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
         style={{
-          // pointer-events:none passes all input through when not drawing.
-          // pen (pointerType==='pen') drawing requires annotating=true in v1;
-          // always-draw-with-pen regardless of toggle can be added by keeping
-          // pointer-events:auto always, but it blocks ghost taps when inactive.
-          pointerEvents: annotating && !readOnly ? 'auto' : 'none',
-          // 'none' is required on iOS Safari: pan-y still lets the browser claim the
-          // gesture as a scroll and fire pointercancel before a stroke can be drawn.
-          // With touch-action:none the canvas owns all touch input while annotating.
-          // Two-finger scroll is unavailable while the pencil toggle is active;
-          // the user turns it off to scroll, then back on to resume drawing.
-          touchAction:   annotating && !readOnly ? 'none' : 'auto',
-          zIndex: 15,
-          cursor: tool === 'eraser' ? 'crosshair' : 'crosshair',
+          pointerEvents: readOnly ? 'none' : 'auto',
+          // touch-action:none is required on iOS: pan-y lets the browser claim
+          // the gesture as scroll and fire pointercancel before the stroke locks
+          // in. When not annotating, auto lets touch scroll the container.
+          touchAction: annotating && !readOnly ? 'none' : 'auto',
+          zIndex: 8,
+          cursor: 'crosshair',
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -280,8 +316,8 @@ export default function AnnotationCanvas({
               ? 'bg-neutral-900/95 border border-neutral-700'
               : 'bg-white/95 border border-gray-200'
           }`}
-          style={{ touchAction: 'none' }} // prevent toolbar area from triggering canvas draw
-          onPointerDown={e => e.stopPropagation()} // don't let toolbar taps reach canvas
+          style={{ touchAction: 'none' }}
+          onPointerDown={e => e.stopPropagation()}
         >
           {/* Ink swatches */}
           {INKS.map(ink => {
