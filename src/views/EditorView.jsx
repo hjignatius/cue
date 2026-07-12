@@ -576,6 +576,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
+                  showMeta={false}
                   overlay={showAnnotations && hasAnnotation && songId ? (
                     <AnnotationCanvas
                       key={`editor-annot-narrow-${songId}`}
@@ -629,6 +630,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
+                  showMeta={false}
                   overlay={showAnnotations && hasAnnotation && songId ? (
                     // Canvas is mounted inside SongPreview's scrollable content wrapper
                     // so its origin is below the "PREVIEW" header bar and it scrolls
