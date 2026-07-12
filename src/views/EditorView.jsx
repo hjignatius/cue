@@ -47,6 +47,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [displayKey, setDisplayKey]     = useState(song?.displayKey || '');
   const [isDirty, setIsDirty]           = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const [showPermanentConfirm, setShowPermanentConfirm] = useState(false);
   const [showFR, setShowFR]           = useState(false);
   const [pendingNav, setPendingNav]   = useState(null); // new setlist index to navigate to
   const { openPlayer } = useYouTube();
@@ -329,6 +330,32 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     </div>
   );
 
+  // Confirm before permanently rewriting the song's chords to the displayed key.
+  const permanentConfirm = showPermanentConfirm && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="flex flex-col gap-1">
+          <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Are you sure?</h2>
+          <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>This will permanently change the song's key to <strong className={dark ? 'text-white' : 'text-gray-900'}>{displayKey}</strong>.</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => { handleMakePermanent(); setShowPermanentConfirm(false); }}
+            className="flex-1 py-3 pointer-fine:py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors"
+          >
+            Change key
+          </button>
+          <button
+            onClick={() => setShowPermanentConfirm(false)}
+            className={`flex-1 py-3 pointer-fine:py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // --------------------------------------------------------------------------
 
   return (
@@ -410,26 +437,43 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       <div className={`px-4 py-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex flex-wrap items-center gap-3 shrink-0`}>
 
         {/* View Key */}
-        <div className="flex items-center gap-2">
-          <span className={`text-xs ${mutedText}`}>View key:</span>
-          <select
-            value={displayKey}
-            onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
-            className={`border focus:border-indigo-500 outline-none text-sm rounded px-2 py-0.5 cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-          >
-            <option value="">{metadata.key || '—'}</option>
-            {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-          {displayKey && displayKey !== metadata.key && (
-            <button
-              onClick={handleMakePermanent}
-              className={`text-xs h-9 px-3 border rounded-lg transition-colors ${dark ? 'border-indigo-700 text-indigo-400 hover:bg-indigo-900' : 'border-indigo-400 text-indigo-600 hover:bg-indigo-50'}`}
+        <div className="flex items-start gap-2">
+          <span className={`text-xs ${mutedText} mt-1.5`}>View key:</span>
+          <div className="flex flex-col items-start">
+            <select
+              value={displayKey}
+              onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
+              className={`border focus:border-indigo-500 outline-none text-sm rounded px-2 py-0.5 cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
             >
-              Make permanent
-            </button>
-          )}
+              <option value="">{metadata.key || '—'}</option>
+              {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+            {/* "Permanently?" commits the displayed key into the song via the
+                existing handleMakePermanent logic. Grayed/disabled when no
+                transposition is pending; red and active when a different View
+                key is selected. Rendered as a real button so it stays keyboard
+                and tap accessible with a proper disabled state. */}
+            {(() => {
+              const pending = !!displayKey && displayKey !== metadata.key;
+              return (
+                <button
+                  type="button"
+                  onClick={pending ? () => setShowPermanentConfirm(true) : undefined}
+                  disabled={!pending}
+                  title={pending ? `Permanently change the song's key to ${displayKey}` : 'Select a different View key to enable'}
+                  className={`text-xs h-11 pointer-fine:h-9 flex items-center rounded transition-colors ${
+                    pending
+                      ? 'text-red-600 dark:text-red-400 font-medium hover:underline cursor-pointer'
+                      : `${dark ? 'text-gray-600' : 'text-gray-400'} cursor-default`
+                  }`}
+                >
+                  Permanently?
+                </button>
+              );
+            })()}
+          </div>
         </div>
 
         {/* Find */}
@@ -670,6 +714,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Unsaved changes confirmation — fixed overlay, visible in all layouts */}
         {backConfirm}
         {navConfirm}
+        {permanentConfirm}
       </div>
 
     </div>
