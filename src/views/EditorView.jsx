@@ -9,7 +9,7 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
-import { transposeText, KEY_NAMES, semitonesBetween } from '../utils/transpose.js';
+import { KEY_NAMES, semitonesBetween } from '../utils/transpose.js';
 import { detectKey } from '../utils/keyDetect.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -84,15 +84,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setSongId(id);
     setIsDirty(false);
     onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
-  }
-
-  function handleMakePermanent() {
-    if (!displayKey || displayKey === metadata.key) return;
-    const semitones = semitonesBetween(metadata.key, displayKey);
-    setText(transposeText(text, semitones));
-    setMetadata(m => ({ ...m, key: displayKey }));
-    setDisplayKey('');
-    setIsDirty(true);
   }
 
   async function handleClearAnnotations() {
@@ -409,7 +400,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       {/* Toolbar */}
       <div className={`px-4 py-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex flex-wrap items-center gap-3 shrink-0`}>
 
-        {/* View Key */}
+        {/* View Key — a saved, display-only lens. Sets the song's displayKey so
+            Preview/Present render transposed; never rewrites the source text or
+            the real key (metadata.key). Persists on Save with the song. */}
         <div className="flex items-center gap-2">
           <span className={`text-xs ${mutedText}`}>View key:</span>
           <select
@@ -422,14 +415,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
-          {displayKey && displayKey !== metadata.key && (
-            <button
-              onClick={handleMakePermanent}
-              className={`text-xs h-9 px-3 border rounded-lg transition-colors ${dark ? 'border-indigo-700 text-indigo-400 hover:bg-indigo-900' : 'border-indigo-400 text-indigo-600 hover:bg-indigo-50'}`}
-            >
-              Make permanent
-            </button>
-          )}
         </div>
 
         {/* Find */}
