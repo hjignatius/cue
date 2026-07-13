@@ -5,6 +5,9 @@ import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
+import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { parseHtmlSet, matchSong } from '../utils/importHtmlSet.js';
@@ -671,11 +674,71 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
 
 // ---- Setlist column (right) -------------------------------------------------
 
+// One setlist row, wired for dnd-kit sortable reorder. The GripVertical handle
+// is the drag activator (listeners live on it, not the row) so tapping the rest
+// of the row still selects/opens the song. The handle carries touch-action:none
+// and user-select:none so iOS Safari initiates a drag instead of scrolling /
+// highlighting text. Handle only renders in custom sort mode.
+function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, onOpen, onRemove }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: song.id, disabled: !draggable });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 20 : undefined,
+    position: 'relative',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onClick={onSelect}
+      onDoubleClick={onOpen}
+      className={`flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-800 group transition-colors cursor-pointer ${
+        isSelected ? 'bg-indigo-50 dark:bg-indigo-950/40' : isOver ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
+      }`}
+    >
+      {draggable && (
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          onClick={e => e.stopPropagation()}
+          aria-label="Drag to reorder"
+          title="Drag to reorder"
+          className="flex items-center justify-center min-h-[44px] pointer-fine:min-h-[36px] px-1.5 -ml-1.5 shrink-0 cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-700 group-hover:text-gray-400 dark:group-hover:text-gray-500"
+          style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
+      <span className="text-xs text-gray-400 dark:text-gray-600 w-5 shrink-0">{idx + 1}.</span>
+      <span className={`flex-1 truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-900 dark:text-white'}`}>{song.metadata?.title || 'Untitled'}</span>
+      {song.metadata?.key && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{song.metadata.key}</span>}
+      <button
+        onClick={e => { e.stopPropagation(); onRemove(); }}
+        className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-400 hover:text-red-500 transition-colors shrink-0"
+        title="Remove from set"
+      >
+        <Trash2 size={13} />
+      </button>
+    </div>
+  );
+}
+
 function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit, border }) {
   const { chordColor } = usePrefs();
   const [exportOpen, setExportOpen] = useState(false);
-  const [dragOverIdx, setDragOverIdx] = useState(null);
-  const dragSrcIdx = useRef(null);
+  const [overId, setOverId] = useState(null); // dnd-kit: id of the row currently dragged over
+  const sensors = useSensors(
+    // Pointer Events cover mouse, trackpad, and touch (iOS). 8px activation
+    // distance means a short tap won't start a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
   const [selectedSongId, setSelectedSongId] = useState(() => sessionStorage.getItem('cue:setlist_selected_id') || null);
   const [bufferSec, setBufferSec] = useState(() => {
     const stored = localStorage.getItem('cue:setlist_buffer_sec');
@@ -729,26 +792,17 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
     onUpdateSet({ ...set, songIds: set.songIds.filter(id => id !== songId) });
   }
 
-  function handleDragStart(e, idx) {
-    dragSrcIdx.current = idx;
-    e.dataTransfer.effectAllowed = 'move';
-  }
-
-  function handleDragOver(e, idx) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverIdx(idx);
-  }
-
-  function handleDrop(e, idx) {
-    e.preventDefault();
-    const from = dragSrcIdx.current;
-    setDragOverIdx(null);
-    dragSrcIdx.current = null;
-    if (from === null || from === idx) return;
+  function handleDragEnd(event) {
+    setOverId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = displaySongs.findIndex(s => s.id === active.id);
+    const to   = displaySongs.findIndex(s => s.id === over.id);
+    if (from === -1 || to === -1) return;
+    // Same splice reorder as before, now driven by dnd-kit ids.
     const reordered = [...displaySongs];
     const [moved] = reordered.splice(from, 1);
-    reordered.splice(idx, 0, moved);
+    reordered.splice(to, 0, moved);
     onUpdateSet({ ...set, songIds: reordered.map(s => s.id), sortMode: 'custom' });
   }
 
@@ -841,35 +895,29 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
         {displaySongs.length === 0 && (
           <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No songs yet — select songs in the Library and use "Add to Set".</p>
         )}
-        {displaySongs.map((song, idx) => (
-          <div
-            key={song.id}
-            draggable={sortMode === 'custom'}
-            onDragStart={e => handleDragStart(e, idx)}
-            onDragOver={e => handleDragOver(e, idx)}
-            onDrop={e => handleDrop(e, idx)}
-            onDragEnd={() => { setDragOverIdx(null); dragSrcIdx.current = null; }}
-            onClick={() => selectSong(song.id)}
-            onDoubleClick={() => onPresent?.(displaySongs, idx)}
-            className={`flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-800 group transition-colors cursor-pointer ${
-              song.id === selectedSongId ? 'bg-indigo-50 dark:bg-indigo-950/40' : dragOverIdx === idx ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
-            }`}
-          >
-            {sortMode === 'custom' && (
-              <GripVertical size={14} className="text-gray-300 dark:text-gray-700 group-hover:text-gray-400 dark:group-hover:text-gray-500 cursor-grab shrink-0" />
-            )}
-            <span className="text-xs text-gray-400 dark:text-gray-600 w-5 shrink-0">{idx + 1}.</span>
-            <span className={`flex-1 truncate ${song.id === selectedSongId ? 'text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-900 dark:text-white'}`}>{song.metadata?.title || 'Untitled'}</span>
-            {song.metadata?.key && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{song.metadata.key}</span>}
-            <button
-              onClick={e => { e.stopPropagation(); handleRemove(song.id); }}
-              className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-400 hover:text-red-500 transition-colors shrink-0"
-              title="Remove from set"
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
-        ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragOver={e => setOverId(e.over?.id ?? null)}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setOverId(null)}
+        >
+          <SortableContext items={displaySongs.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            {displaySongs.map((song, idx) => (
+              <SortableSongRow
+                key={song.id}
+                song={song}
+                idx={idx}
+                draggable={sortMode === 'custom'}
+                isSelected={song.id === selectedSongId}
+                isOver={sortMode === 'custom' && song.id === overId && song.id !== selectedSongId}
+                onSelect={() => selectSong(song.id)}
+                onOpen={() => onPresent?.(displaySongs, idx)}
+                onRemove={() => handleRemove(song.id)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
 
     </div>
