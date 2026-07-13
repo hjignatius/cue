@@ -649,9 +649,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             );
           })()}
 
-          {/* Ghost: A−/A+ font size — top, shifted right of center. Hidden while annotating. */}
+          {/* Ghost: A−/A+ font size — below the toolbar overlay so it isn't covered
+              when the bar is visible. Shifted right of center. Hidden while annotating. */}
           {!annotating && (
-            <div className="absolute top-3 left-[55%] flex gap-2 z-10">
+            <div className="absolute top-16 left-[55%] flex gap-2 z-10">
               {[
                 { ghost: smallerGhost, label: 'A−', title: 'Smaller text' },
                 { ghost: largerGhost,  label: 'A+', title: 'Larger text' },
