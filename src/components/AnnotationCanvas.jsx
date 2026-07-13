@@ -4,24 +4,17 @@
 // The canvas element is `position: absolute; inset: 0` and auto-sizes to its
 // parent via ResizeObserver. The floating tool strip is `position: fixed`.
 //
-// Coordinate scheme (v2 — line-anchored). Each point stores:
-//   nx          = pointerX / captureWidth   (0–1, normalised to width at draw time)
-//   lineIndex   = index of the lyric line the point was drawn over (data-line-index)
-//   lineOffset  = pixels from that line element's top to the point at draw time
-//   y           = pointerY in canvas-space pixels at draw time (v1 fallback)
-// captureWidth is stored once per stroke (canvas.width at draw time).
+// Coordinate scheme (stored per stroke):
+//   nx          = pointerX / captureWidth  (0–1, normalised to width at draw time)
+//   y           = pointerY in canvas-space pixels at draw time
+//   captureWidth = canvas.width at draw time
 //
-// Rendering (per point):
-//   screenX = nx * currentCanvasWidth
-//   screenY = lineEl.offsetTop + lineOffset   when the line element still exists,
-//             so ink rides its lyric line as the layout reflows (font size,
-//             rotation, panel/window resize). x is unchanged from v1.
-//   Fallback: v1 strokes (no lineIndex) and v2 points whose line was removed
-//             (song edited) render at y * widthRatio, exactly as v1 did.
-// lineOffset is intentionally NOT scaled: offsetTop already absorbs reflow, so a
-// fixed within-line offset keeps the point glued to its line. Both
-// PresentationView's SongBody and SongPreview tag lyric lines with
-// data-line-index; see the selector note in each.
+// Rendering:
+//   widthRatio = currentCanvasWidth / captureWidth
+//   screenX    = nx * currentCanvasWidth          (= original x scaled by widthRatio)
+//   screenY    = y  * widthRatio                  (uniform: same ratio applied to both axes)
+// → shapes (circles, arrows) stay geometrically correct after resize.
+//   Positional drift relative to re-wrapped lyrics is expected and acceptable in v1.
 //
 // Pointer-event strategy:
 //   • canvas z-index 8 — below ghost overlay elements (z-index 10).
@@ -53,53 +46,9 @@ function pointSegDist(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-// ---- Line-anchored coordinates (scheme v2) ---------------------------------
-// Lyric-line elements are tagged with data-line-index in both PresentationView's
-// SongBody and SongPreview (i = index into the shared parsed lines array). The
-// canvas finds them within its own positioned parent, which is the nearest
-// positioned ancestor of those elements, so element.offsetTop is the y in the
-// canvas's coordinate space.
-
-// Ordered lyric-line elements under the canvas's positioned parent.
-function lineEls(canvas) {
-  return canvas?.parentElement
-    ? [...canvas.parentElement.querySelectorAll('[data-line-index]')]
-    : [];
-}
-
-// lineIndex → element, for the current layout.
-function buildLineMap(canvas) {
-  const map = new Map();
-  for (const el of lineEls(canvas)) map.set(Number(el.dataset.lineIndex), el);
-  return map;
-}
-
-// Nearest line anchor for a canvas-space y: the line whose box contains y, else
-// the closest one. Returns { lineIndex, lineOffset } or null when no lines exist.
-function anchorForY(els, y) {
-  let best = null, bestDist = Infinity;
-  for (const el of els) {
-    const top = el.offsetTop;
-    const bottom = top + el.offsetHeight;
-    const dist = y < top ? top - y : y > bottom ? y - bottom : 0;
-    if (dist < bestDist) { bestDist = dist; best = el; }
-  }
-  return best ? { lineIndex: Number(best.dataset.lineIndex), lineOffset: y - best.offsetTop } : null;
-}
-
-// Resolve a stored point to a current canvas-space y. v2 points ride their line;
-// v1 points — and v2 points whose line no longer exists — fall back to the
-// stored absolute y scaled by widthRatio, exactly as v1 rendered.
-function resolvePointY(point, ratio, lineMap) {
-  if (point.lineIndex != null && lineMap) {
-    const el = lineMap.get(point.lineIndex);
-    if (el) return el.offsetTop + (point.lineOffset ?? 0);
-  }
-  return point.y * ratio;
-}
-
-// Render one stroke. x scales by widthRatio; y is resolved per point.
-function renderStroke(ctx, stroke, canvasWidth, lineMap) {
+// Render one stroke with uniform scaling so shapes stay undistorted on resize.
+// widthRatio = currentCanvasWidth / stroke.captureWidth is applied to both axes.
+function renderStroke(ctx, stroke, canvasWidth) {
   if (!stroke.points || stroke.points.length < 2) return;
   const ink = INKS.find(i => i.id === stroke.color) ?? INKS[0];
   const ratio = stroke.captureWidth > 0 ? canvasWidth / stroke.captureWidth : 1;
@@ -110,11 +59,9 @@ function renderStroke(ctx, stroke, canvasWidth, lineMap) {
   ctx.lineJoin    = 'round';
   ctx.globalCompositeOperation = 'source-over';
   ctx.beginPath();
-  const p0 = stroke.points[0];
-  ctx.moveTo(p0.nx * canvasWidth, resolvePointY(p0, ratio, lineMap));
+  ctx.moveTo(stroke.points[0].nx * canvasWidth, stroke.points[0].y * ratio);
   for (let i = 1; i < stroke.points.length; i++) {
-    const p = stroke.points[i];
-    ctx.lineTo(p.nx * canvasWidth, resolvePointY(p, ratio, lineMap));
+    ctx.lineTo(stroke.points[i].nx * canvasWidth, stroke.points[i].y * ratio);
   }
   ctx.stroke();
   ctx.restore();
@@ -167,10 +114,9 @@ export default function AnnotationCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const lineMap = buildLineMap(canvas);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const s of strokesRef.current) renderStroke(ctx, s, canvas.width, lineMap);
-    if (currentRef.current) renderStroke(ctx, currentRef.current, canvas.width, lineMap);
+    for (const s of strokesRef.current) renderStroke(ctx, s, canvas.width);
+    if (currentRef.current) renderStroke(ctx, currentRef.current, canvas.width);
   }
 
   const persistStrokes = useCallback(async (strokes) => {
@@ -225,18 +171,19 @@ export default function AnnotationCanvas({
   function canvasPoint(e) {
     const canvas = canvasRef.current;
     const rect   = canvas.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    return { nx: (e.clientX - rect.left) / canvas.width, y, ...(anchorForY(lineEls(canvas), y) || {}) };
+    return {
+      nx: (e.clientX - rect.left) / canvas.width,
+      y:   e.clientY - rect.top,
+    };
   }
 
   function coalescedPoints(e) {
     const canvas = canvasRef.current;
     const rect   = canvas.getBoundingClientRect();
-    const els    = lineEls(canvas); // query once per move; reuse for all coalesced points
-    return (e.getCoalescedEvents?.() ?? [e]).map(ev => {
-      const y = ev.clientY - rect.top;
-      return { nx: (ev.clientX - rect.left) / canvas.width, y, ...(anchorForY(els, y) || {}) };
-    });
+    return (e.getCoalescedEvents?.() ?? [e]).map(ev => ({
+      nx: (ev.clientX - rect.left) / canvas.width,
+      y:   ev.clientY - rect.top,
+    }));
   }
 
   // ---- pointer handlers ------------------------------------------------------
@@ -266,11 +213,9 @@ export default function AnnotationCanvas({
     const pt = canvasPoint(e);
 
     if (tool === 'eraser') {
-      // Stroke-level eraser: find the closest stroke within 20 px. Resolve each
-      // stored point to its current canvas position (line-anchored, same as the
-      // renderer) before the distance test so hits land where the ink is drawn.
+      // Stroke-level eraser: find the closest stroke within 20 px (in current canvas
+      // coordinates, accounting for uniform scale) and remove it entirely.
       const w   = canvasRef.current.width;
-      const lineMap = buildLineMap(canvasRef.current);
       const hit = strokesRef.current.findLastIndex(stroke => {
         const ratio = stroke.captureWidth > 0 ? w / stroke.captureWidth : 1;
         return stroke.points.some((p, j) => {
@@ -278,8 +223,8 @@ export default function AnnotationCanvas({
           const prev = stroke.points[j - 1];
           return pointSegDist(
             pt.nx * w,       pt.y,
-            prev.nx * w,     resolvePointY(prev, ratio, lineMap),
-            p.nx * w,        resolvePointY(p, ratio, lineMap),
+            prev.nx * w,     prev.y * ratio,
+            p.nx * w,        p.y * ratio,
           ) < 20;
         });
       });
