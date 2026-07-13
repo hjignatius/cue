@@ -12,9 +12,9 @@ function LyricText({ text }) {
   );
 }
 
-function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13 }) {
+function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, lineIndex }) {
   return (
-    <div className="flex flex-wrap font-mono mb-1" style={{ lineHeight: 1 }}>
+    <div className="flex flex-wrap font-mono mb-1" style={{ lineHeight: 1 }} data-line-index={lineIndex}>
       {segments.map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones) : null;
         return (
@@ -35,9 +35,9 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13 })
   );
 }
 
-function BracketsLine({ segments, semitones, chordColor }) {
+function BracketsLine({ segments, semitones, chordColor, lineIndex }) {
   return (
-    <p className="font-mono leading-relaxed mb-1 text-gray-900 dark:text-white" style={{ fontSize: 15 }}>
+    <p className="font-mono leading-relaxed mb-1 text-gray-900 dark:text-white" style={{ fontSize: 15 }} data-line-index={lineIndex}>
       {segments.map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones) : null;
         return (
@@ -126,7 +126,10 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                 <h2 className={`text-lg font-bold text-center mb-4 ${dark ? 'text-white' : 'text-gray-900'}`}>{metadata.title}</h2>
               )}
 
-              {/* Lines */}
+              {/* Lines. Each line's CONTENT element carries data-line-index={i} so the
+                  annotation overlay can anchor ink to lyric lines. This must stay
+                  consistent with PresentationView's SongBody, which tags the same
+                  index on the equivalent content element (see AnnotationCanvas). */}
               {lines.map((line, i) => {
                 const label = line.label ? (
                   <p key={`lbl-${i}`} className="text-xs font-bold text-indigo-500 uppercase tracking-wider mt-4 mb-1">
@@ -136,16 +139,16 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
 
                 let lineContent = null;
                 if (line.type === 'empty') {
-                  lineContent = <div className="h-3" />;
+                  lineContent = <div className="h-3" data-line-index={i} />;
                 } else if (line.type === 'directive' || line.type === 'comment') {
                   return null;
                 } else if (line.type === 'chords') {
                   lineContent = displayMode === 'over'
-                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} />
-                    : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} />;
+                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} lineIndex={i} />
+                    : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} lineIndex={i} />;
                 } else {
                   lineContent = (
-                    <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>
+                    <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre-wrap' }} data-line-index={i}>
                       <LyricText text={line.segments?.[0]?.text || ''} />
                     </p>
                   );

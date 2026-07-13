@@ -62,8 +62,9 @@ function enqueue(songId, payload) {
       } else {
         await db.put('annotations', {
           songId,
-          strokes:   p,
-          updatedAt: new Date().toISOString(),
+          strokes:       p,
+          schemeVersion: 2, // v2 = line-anchored points; v1 records lack lineIndex
+          updatedAt:     new Date().toISOString(),
         });
       }
     } catch (err) {
@@ -87,8 +88,10 @@ export async function loadAnnotation(songId) {
 }
 
 // Enqueue a full strokes-array write for a song. Synchronous — the actual
-// idb operation runs in the background queue.
-// strokes: Array<{ id, color, width, tool, captureWidth, points: [{nx, y}] }>
+// idb operation runs in the background queue. The stored record carries
+// schemeVersion: 2 (line-anchored points).
+// strokes: Array<{ id, color, width, tool, captureWidth,
+//                  points: [{ nx, y, lineIndex, lineOffset }] }>
 export function saveAnnotation(songId, strokes) {
   if (!songId) return;
   enqueue(songId, strokes);

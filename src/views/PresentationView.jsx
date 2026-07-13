@@ -59,6 +59,9 @@ function SongBody({ text, semitones, fontPx, dark, chordColor, chordLabelScale =
   const labelColor = dark ? '#818cf8' : '#4f46e5';
   const chordPx = fontPx * 0.85 * (1 + chordLabelScale / 100);
 
+  // Each line's CONTENT div carries data-line-index={i} so the annotation overlay
+  // (AnnotationCanvas) can anchor ink to lyric lines. This must stay consistent
+  // with SongPreview, which tags the same index on the equivalent content element.
   return (
     <div className="font-mono" style={{ color: lyricColor }}>
       {lines.map((line, i) => {
@@ -73,14 +76,14 @@ function SongBody({ text, semitones, fontPx, dark, chordColor, chordLabelScale =
         ) : null;
 
         if (line.type === 'directive') return label;
-        if (line.type === 'empty') return <div key={i}>{label}<div style={{ height: fontPx * 0.8 }} /></div>;
+        if (line.type === 'empty') return <div key={i}>{label}<div data-line-index={i} style={{ height: fontPx * 0.8 }} /></div>;
 
         if (line.type === 'chords') {
           if (displayMode === 'brackets') {
             return (
               <div key={i}>
                 {label}
-                <div className="leading-relaxed" style={{ fontSize: fontPx, marginBottom: fontPx * 0.2 }}>
+                <div className="leading-relaxed" data-line-index={i} style={{ fontSize: fontPx, marginBottom: fontPx * 0.2 }}>
                   {line.segments.map((seg, j) => (
                     <span key={j}>
                       {seg.chord && (
@@ -96,7 +99,7 @@ function SongBody({ text, semitones, fontPx, dark, chordColor, chordLabelScale =
           return (
             <div key={i}>
               {label}
-              <div className="flex flex-wrap" style={{ marginBottom: fontPx * 0.2 }}>
+              <div className="flex flex-wrap" data-line-index={i} style={{ marginBottom: fontPx * 0.2 }}>
                 {line.segments.map((seg, j) => (
                   <div key={j} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
                     <span className="font-bold leading-tight" style={{ color: chordColor, fontSize: chordPx, height: chordPx * 1.2 }}>
@@ -115,7 +118,7 @@ function SongBody({ text, semitones, fontPx, dark, chordColor, chordLabelScale =
         return (
           <div key={i}>
             {label}
-            <div className="leading-snug" style={{ fontSize: fontPx, marginBottom: fontPx * 0.2, whiteSpace: 'pre-wrap' }}>
+            <div className="leading-snug" data-line-index={i} style={{ fontSize: fontPx, marginBottom: fontPx * 0.2, whiteSpace: 'pre-wrap' }}>
               <LyricText text={line.segments?.[0]?.text || ''} accentColor={chordColor} />
             </div>
           </div>
