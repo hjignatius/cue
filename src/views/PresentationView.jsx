@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Pencil, ChevronDown, ChevronUp } from 'lucide-react';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
@@ -188,6 +188,14 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [nextBounce, setNextBounce] = useState(false);
   const ghostTimerRef  = useRef(null);
 
+  // Auto-hiding toolbar. Visible for 3s, then slides up under the top edge.
+  // Timer lives in a ref so mouse moves / resets don't trigger re-renders.
+  const [toolbarVisible, setToolbarVisible] = useState(true);
+  const hideTimerRef = useRef(null);
+  const nearTopRef   = useRef(false); // desktop: is the cursor within the top hover band
+  const [isCompact, setIsCompact] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches);
+
   const song  = songs[index];
   const total = songs.length;
   const meta  = song?.metadata || {};
@@ -209,6 +217,37 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     clearTimeout(ghostTimerRef.current);
     ghostTimerRef.current = setTimeout(() => setGhostsIdle(true), 4000);
   }, []);
+
+  // ---- Auto-hiding toolbar controls ----------------------------------------
+  const scheduleHideToolbar = useCallback(() => {
+    clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setToolbarVisible(false), 3000);
+  }, []);
+  // Show and start the 3s auto-hide (used on open, touch reveal, touch interaction).
+  const revealToolbar = useCallback(() => {
+    setToolbarVisible(true);
+    scheduleHideToolbar();
+  }, [scheduleHideToolbar]);
+  // Show and keep open (clears the timer — used while the pointer is on/near the bar).
+  const holdToolbar = useCallback(() => {
+    clearTimeout(hideTimerRef.current);
+    setToolbarVisible(true);
+  }, []);
+  // Desktop: hovering within the top 60px holds the bar open; leaving it starts the
+  // 3s hide. Fires only on band enter/leave transitions, so it's cheap and doesn't
+  // block content scrolling or the top-edge A−/A+ ghost taps (unlike an overlay div).
+  const handleTopHover = useCallback((e) => {
+    const near = e.clientY <= 60;
+    if (near && !nearTopRef.current) { nearTopRef.current = true; holdToolbar(); }
+    else if (!near && nearTopRef.current) { nearTopRef.current = false; scheduleHideToolbar(); }
+  }, [holdToolbar, scheduleHideToolbar]);
+  const toggleToolbar = useCallback(() => {
+    setToolbarVisible(v => {
+      if (v) { clearTimeout(hideTimerRef.current); nearTopRef.current = false; return false; }
+      scheduleHideToolbar();
+      return true;
+    });
+  }, [scheduleHideToolbar]);
 
   const handlePrev = useCallback(() => {
     wakeGhosts();
@@ -279,6 +318,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   useEffect(() => {
     ghostTimerRef.current = setTimeout(() => setGhostsIdle(true), 4000);
     return () => clearTimeout(ghostTimerRef.current);
+  }, []);
+
+  // Toolbar: visible on open, then auto-hide after 3s.
+  useEffect(() => {
+    revealToolbar();
+    return () => clearTimeout(hideTimerRef.current);
+  }, [revealToolbar]);
+
+  // Track very-narrow screens (iPhone) to compact the toolbar to icons.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 480px)');
+    const on = () => setIsCompact(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
   }, []);
   useEffect(() => {
     const el = scrollRef.current;
@@ -386,9 +439,19 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const timeSig = meta.timeSig || '4/4';
 
   return (
-    <div className={`fixed inset-0 z-50 flex flex-col ${bg}`}>
-      {/* Top bar */}
-      <div className="relative shrink-0">
+    <div className={`fixed inset-0 z-50 flex flex-col ${bg}`} onMouseMove={handleTopHover}>
+      {/* Top bar — absolute overlay that slides up/down. Kept out of flex flow so
+          the song content fills the full height behind it; it animates via
+          translateY (never display:none) so the slide is visible. */}
+      <div
+        className="absolute top-0 left-0 right-0 z-30"
+        style={{
+          transform: toolbarVisible ? 'translateY(0)' : 'translateY(-100%)',
+          transition: 'transform 200ms ease',
+        }}
+        onPointerDown={holdToolbar}
+        onPointerUp={e => { if (e.pointerType !== 'mouse') scheduleHideToolbar(); }}
+      >
       <div ref={barRef} className={`relative flex items-center gap-2 px-4 py-2 border-b ${barBg} backdrop-blur overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [justify-content:safe_center]`}>
         {/* Silent-mode beat flash overlay — accent beats brighter than regular beats */}
         <div
@@ -435,7 +498,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           }}
           title={hasDuration ? `Auto-scroll over ${meta.duration}` : 'Auto-scroll (space)'}
         >
-          {scrolling ? '❚❚' : '▶'} {hasDuration ? meta.duration : 'Scroll'}
+          {/* On very narrow screens (iPhone) drop the label, keep the play icon. */}
+          {scrolling ? '❚❚' : '▶'}{!isCompact && <> {hasDuration ? meta.duration : 'Scroll'}</>}
         </button>
 
         {/* Speed multiplier — always shown */}
@@ -659,6 +723,18 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           )
         )}
       </div>
+
+      {/* Persistent reveal pill — always visible at top center, even when the
+          toolbar is hidden, so there's always a target to tap. 44px tap target. */}
+      <button
+        onClick={toggleToolbar}
+        aria-label={toolbarVisible ? 'Hide toolbar' : 'Show toolbar'}
+        title={toolbarVisible ? 'Hide toolbar' : 'Show toolbar'}
+        className="absolute top-0 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center min-h-[44px] w-12 rounded-b-lg backdrop-blur transition-colors"
+        style={{ backgroundColor: dark ? 'rgba(38,38,38,0.5)' : 'rgba(243,244,246,0.65)' }}
+      >
+        {toolbarVisible ? <ChevronUp size={16} className={muted} /> : <ChevronDown size={16} className={muted} />}
+      </button>
 
     </div>
   );
