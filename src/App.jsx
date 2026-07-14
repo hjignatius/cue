@@ -273,6 +273,9 @@ export default function App() {
     const newSong = setlistContext.songs[newIdx];
     if (!newSong) return;
     setSetlistContext(c => ({ ...c, idx: newIdx }));
+    // If editing mid-performance, keep "Return to Performance" on the song now
+    // being edited (no-op for a plain setlist edit, where there's nothing to return to).
+    setReturnToPresenting(r => (r ? { ...r, startIndex: newIdx } : r));
     setEditorKey(k => k + 1);
     setActiveSong(newSong);
     sessionStorage.setItem('cue:setlist_selected_id', newSong.id);
@@ -298,6 +301,10 @@ export default function App() {
 
   function handleEditFromPresentation(currentSong, currentIndex) {
     setReturnToPresenting({ songs: presenting.songs, startIndex: currentIndex });
+    // Give the editor the presented set so its Prev/Next buttons navigate it —
+    // lets you edit the other songs in the set without leaving the editor.
+    setSetlistContext({ songs: presenting.songs, idx: currentIndex });
+    setLibraryContext(null);
     setPresenting(null);
     setActiveSong(currentSong);
     setEditorAnnotStamp(s => s + 1); // EditorView may have stayed mounted — force annotation re-check
