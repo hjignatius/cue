@@ -212,6 +212,7 @@ function manualHTML() {
   <tr><td><strong>Theme</strong></td><td>Switch between <strong>Light</strong> and <strong>Dark</strong> mode. The theme applies to every view including the editor, Present mode, and the shared-set viewer.</td></tr>
   <tr><td><strong>Chord color</strong></td><td>Tap the color swatch to choose any color for chord names. Applied in the editor preview and Present mode. Default is black.</td></tr>
   <tr><td><strong>Chord label size</strong></td><td>Seven-step scale from −30% to +30% that adjusts the size of chord names above lyrics (<strong>Over Lyrics</strong> format only). The center step (0) is the default size. Has no effect on the Brackets format.</td></tr>
+  <tr><td><strong>Accidentals</strong></td><td>Controls how transposed chords spell the five ambiguous notes (C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭). <strong>Auto</strong> (default) matches the View Key — flat keys use flats, sharp keys use sharps; <strong>Flats</strong> and <strong>Sharps</strong> force one spelling. Whatever the mode, every chord in a transposed song is spelled consistently (no sharp/flat mix). The stored chords are never changed — this affects display only.</td></tr>
 </table>
 
 <h2>Metronome</h2>
@@ -319,7 +320,7 @@ function manualHTML() {
 <h2>The Setlist Column</h2>
 <p>With a set selected, the Setlist column shows its songs. From here you can:</p>
 <ul>
-  <li><strong>Drag songs</strong> to reorder them using the grip handle on the left (Custom sort mode)</li>
+  <li><strong>Drag songs</strong> to reorder them using the grip handle on the left, with touch or mouse (Custom sort mode)</li>
   <li><strong>Sort A–Z</strong> — permanently sorts the set alphabetically</li>
   <li><strong>Tap any song row</strong> — selects that song (highlighted in indigo). Tap the same row again to deselect it.</li>
   <li><strong>Double-tap any song row</strong> — opens it directly in the editor. The setlist highlight follows Prev/Next navigation in the editor.</li>
@@ -369,7 +370,7 @@ Here comes the sun, little darlin</pre>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar.</td></tr>
   <tr><td><strong>✎ Ink</strong></td><td>Shows or hides ink annotations drawn in Present mode, overlaid on the preview (read-only here). Only appears when the song has saved annotations. A <strong>Clear ink</strong> button beside it deletes them — see <em>Annotation Overlay</em> below.</td></tr>
   <tr><td><strong>▶ Present</strong></td><td>Launches the current song in full-screen Present mode. When you arrive here via the <strong>Edit</strong> button in Present mode, this button changes to <strong>↩ Return to Performance</strong> — see <em>Editing During Performance</em> below.</td></tr>
-  <tr><td><strong>← Prev / Next →</strong></td><td>Moves to the previous or next song. Appears when the editor is opened via the <strong>✎ Edit</strong> button in the Setlist column, or by double-tapping a song in the Library or Setlist panel. Navigation order follows the list you opened from. If there are unsaved changes, a confirmation dialog appears before navigating.</td></tr>
+  <tr><td><strong>← Prev / Next →</strong></td><td>Moves to the previous or next song. Appears when the editor is opened via the <strong>✎ Edit</strong> button in the Setlist column, the <strong>Edit</strong> button in Present mode, or by double-tapping a song in the Library or Setlist panel. Navigation order follows the list you opened from (or the set you were presenting). If there are unsaved changes, a confirmation dialog appears before navigating.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Only shown when a YouTube URL is saved in the metadata bar. The button is grayed out if no URL is set.</td></tr>
   <tr><td><strong>✕</strong></td><td>Returns to the Library. If there are unsaved changes, a confirmation dialog appears first.</td></tr>
 </table>
@@ -468,7 +469,7 @@ Bb,8-10-11-10,1243</pre>
   <tr><th>Control</th><th>Location</th><th>Action</th></tr>
   <tr><td><strong>‹ (left chevron)</strong></td><td>Full-height strip on the left edge</td><td>Go to the previous song. Only shown when presenting a set. Bounces gently if already at the first song.</td></tr>
   <tr><td><strong>› (right chevron)</strong></td><td>Full-height strip on the right edge</td><td>Go to the next song. Only shown when presenting a set. Bounces gently if already at the last song.</td></tr>
-  <tr><td><strong>A− / A+</strong></td><td>Upper area of the content, right of center</td><td>Shrink or enlarge the text. Persists for the current session.</td></tr>
+  <tr><td><strong>A− / A+</strong></td><td>Upper area of the content, right of center</td><td>Shrink or enlarge the text. Saved and restored across sessions — your size is remembered when you leave and re-enter Present mode.</td></tr>
 </table>
 <p>Vertical scrolling works normally through all ghost zones — only a tap (not a drag) triggers the control. The keyboard shortcuts <code>+</code> / <code>−</code> and <code>←</code> / <code>→</code> also control font size and navigation respectively.</p>
 
@@ -511,6 +512,7 @@ Bb,8-10-11-10,1243</pre>
 <h2>Editing During Performance</h2>
 <p>Tap <strong>Edit</strong> in the top bar to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
 <p>While in this edit session, the <strong>▶ Present</strong> button in the editor header changes to <strong>↩ Return to Performance</strong>. Tap it to go straight back to Present mode — the song content updates immediately to reflect any changes you made, with no save required.</p>
+<p>When you edit from a set, the editor also shows <strong>← Prev / Next →</strong> buttons so you can move through the other songs in the set and edit them too, without leaving the editor. Return to Performance resumes on whichever song you are editing.</p>
 <p>If you tap <strong>✕ Library</strong> instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>▶ Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
 <div class="tip"><strong>Tip:</strong> Use this to fix a wrong chord or lyric mid-rehearsal without interrupting the flow. Edits are reflected immediately when you return — save the song separately when you are ready to make the change permanent.</div>
 
