@@ -1,6 +1,6 @@
 import { Fragment, useMemo } from 'react';
 import { parseChordPro, expandSections, attachSectionLabels, splitAnnotations } from '../utils/chordPro.js';
-import { transposeChord, semitonesBetween } from '../utils/transpose.js';
+import { transposeChord, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
@@ -12,11 +12,11 @@ function LyricText({ text }) {
   );
 }
 
-function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13 }) {
+function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, useFlats }) {
   return (
     <div className="flex flex-wrap font-mono mb-1" style={{ lineHeight: 1 }}>
       {segments.map((seg, i) => {
-        const displayed = seg.chord ? transposeChord(seg.chord, semitones) : null;
+        const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
           <div key={i} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
             <span
@@ -35,11 +35,11 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13 })
   );
 }
 
-function BracketsLine({ segments, semitones, chordColor }) {
+function BracketsLine({ segments, semitones, chordColor, useFlats }) {
   return (
     <p className="font-mono leading-relaxed mb-1 text-gray-900 dark:text-white" style={{ fontSize: 15 }}>
       {segments.map((seg, i) => {
-        const displayed = seg.chord ? transposeChord(seg.chord, semitones) : null;
+        const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
           <span key={i}>
             {displayed && (
@@ -56,10 +56,12 @@ function BracketsLine({ segments, semitones, chordColor }) {
 }
 
 export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true }) {
-  const { theme, chordColor, chordLabelScale } = usePrefs();
+  const { theme, chordColor, chordLabelScale, accidentals } = usePrefs();
   const dark = theme === 'dark';
   const chordFontSize = 13 * (1 + chordLabelScale / 100);
   const semitones = semitonesBetween(metadata?.key, displayKey);
+  // Spelling of transposed accidentals: auto follows the View Key (displayKey).
+  const useFlats = useFlatsForKey(accidentals, displayKey);
   // Always convert to ChordPro brackets before parsing — safe for all input
   // formats since convertToBrackets leaves already-bracketed text unchanged.
   // This handles mixed over-lyrics/ChordPro text without rendering gaps.
@@ -141,8 +143,8 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                   return null;
                 } else if (line.type === 'chords') {
                   lineContent = displayMode === 'over'
-                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} />
-                    : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} />;
+                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} useFlats={useFlats} />
+                    : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} useFlats={useFlats} />;
                 } else {
                   lineContent = (
                     <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>

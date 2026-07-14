@@ -9,7 +9,7 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
-import { KEY_NAMES, semitonesBetween } from '../utils/transpose.js';
+import { KEY_NAMES, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { detectKey } from '../utils/keyDetect.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -20,7 +20,7 @@ const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: 
 
 
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0 }) {
-  const { theme, chordDiagramSize, updatePref } = usePrefs();
+  const { theme, chordDiagramSize, accidentals, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
 
@@ -242,11 +242,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   );
 
   const chordSemitones = semitonesBetween(metadata.key, effectiveDisplayKey);
+  // Accidental spelling for transposed diagram labels — auto follows the View Key.
+  const chordUseFlats = useFlatsForKey(accidentals, effectiveDisplayKey);
 
   const chordPanel = (
     <SongChordPanel
       text={text}
       semitones={chordSemitones}
+      useFlats={chordUseFlats}
       sizeLevel={chordDiagramSize}
       onSizeLevelChange={level => updatePref('chordDiagramSize', level)}
       readonly={false}

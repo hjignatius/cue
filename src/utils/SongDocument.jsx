@@ -37,13 +37,13 @@ function lyricRuns(text, styles) {
   );
 }
 
-function ChordLine({ segments, semitones, styles }) {
+function ChordLine({ segments, semitones, useFlats, styles }) {
   return (
     <View style={styles.lineContainer}>
       {segments.map((seg, i) => (
         <View key={i} style={styles.segment}>
           <Text style={styles.chordText}>
-            {seg.chord ? (transposeChord(seg.chord, semitones) + ' ') : ' '}
+            {seg.chord ? (transposeChord(seg.chord, semitones, useFlats) + ' ') : ' '}
           </Text>
           <Text style={styles.lyricText}>
             {seg.text ? lyricRuns(seg.text, styles) : ' '}
@@ -66,11 +66,11 @@ function BodyRow({ label, children, styles }) {
 }
 
 // Reusable song page — can be embedded in SongDocument or SetDocument
-function SongPage({ metadata, parsedLines, semitones = 0, scale = 1, chordColor }) {
+function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordColor }) {
   const styles = buildStyles(scale, chordColor);
   const { title, artist, key } = metadata;
   const lines = attachSectionLabels(parsedLines);
-  const displayKey = semitones && key ? transposeChord(key, semitones) : key;
+  const displayKey = semitones && key ? transposeChord(key, semitones, useFlats) : key;
 
   return (
     <Page size="A4" style={styles.page}>
@@ -91,7 +91,7 @@ function SongPage({ metadata, parsedLines, semitones = 0, scale = 1, chordColor 
         {lines.map((line, i) => {
           if (line.type === 'empty')     return <BodyRow key={i} label={null} styles={styles}><View style={styles.emptyLine} /></BodyRow>;
           if (line.type === 'directive') return null;
-          if (line.type === 'chords')    return <BodyRow key={i} label={line.label} styles={styles}><ChordLine segments={line.segments} semitones={semitones} styles={styles} /></BodyRow>;
+          if (line.type === 'chords')    return <BodyRow key={i} label={line.label} styles={styles}><ChordLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} /></BodyRow>;
           return <BodyRow key={i} label={line.label} styles={styles}><Text style={styles.plainLyricLine}>{lyricRuns(line.segments?.[0]?.text || '', styles)}</Text></BodyRow>;
         })}
       </View>
@@ -119,10 +119,10 @@ function ChordReferencePage({ chords }) {
 }
 
 // Single-song PDF document
-export function SongDocument({ metadata, parsedLines, semitones = 0, scale = 1, chordDiagrams, chordColor }) {
+export function SongDocument({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordDiagrams, chordColor }) {
   return (
     <Document>
-      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} scale={scale} chordColor={chordColor} />
+      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} useFlats={useFlats} scale={scale} chordColor={chordColor} />
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} />}
     </Document>
   );
@@ -133,7 +133,7 @@ export function SetDocument({ songs, chordDiagrams, chordColor }) {
   return (
     <Document>
       {songs.map((song, i) => (
-        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} scale={1} chordColor={chordColor} />
+        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} />
       ))}
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} />}
     </Document>

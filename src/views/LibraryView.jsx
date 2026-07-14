@@ -731,7 +731,7 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
 }
 
 function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit, border }) {
-  const { chordColor } = usePrefs();
+  const { chordColor, accidentals } = usePrefs();
   const [exportOpen, setExportOpen] = useState(false);
   const [overId, setOverId] = useState(null); // dnd-kit: id of the row currently dragged over
   const sensors = useSensors(
@@ -856,8 +856,8 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
                   <div className="absolute right-0 top-6 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { chordColor }); setExportOpen(false); }}>PDF</button>
-                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { includeChords: true, chordColor }); setExportOpen(false); }}>PDF + Chord Charts</button>
+                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { chordColor, accidentals }); setExportOpen(false); }}>PDF</button>
+                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { includeChords: true, chordColor, accidentals }); setExportOpen(false); }}>PDF + Chord Charts</button>
                     <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetJson(set, songs); setExportOpen(false); }}>JSON bundle</button>
                     <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetText(set, songs); setExportOpen(false); }}>Setlist</button>
                   </div>

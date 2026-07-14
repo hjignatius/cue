@@ -132,7 +132,7 @@ function CustomChordForm({ onSave, onCancel, theme, initialName = '', initialFre
 
 // ---- SongChordPanel --------------------------------------------------------
 
-export default function SongChordPanel({ text, semitones = 0, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange }) {
+export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange }) {
   const { theme, chordColor } = usePrefs();
   const dark = theme === 'dark';
 
@@ -149,12 +149,12 @@ export default function SongChordPanel({ text, semitones = 0, sizeLevel = 2, onS
     const raw = detectChords(convertToBrackets(text));
     if (!semitones) return raw;
     const seen = new Set();
-    return raw.map(name => transposeChord(name, semitones)).filter(name => {
+    return raw.map(name => transposeChord(name, semitones, useFlats)).filter(name => {
       if (seen.has(name)) return false;
       seen.add(name);
       return true;
     });
-  }, [text, semitones]);
+  }, [text, semitones, useFlats]);
 
   const groups = useMemo(() =>
     detectedNames.map(name => ({

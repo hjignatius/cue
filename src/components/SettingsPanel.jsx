@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, signOut } = useAuth();
 
@@ -132,6 +132,27 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 ))}
               </div>
               <p className={`text-[11px] ${muted}`}>Applies to chord names above lyrics only.</p>
+            </div>
+
+            {/* Accidentals — how transposed chords spell the five ambiguous pitch classes */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Accidentals</span>
+              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                {[['auto', 'Auto'], ['flats', '♭ Flats'], ['sharps', '♯ Sharps']].map(([val, text], i) => (
+                  <button
+                    key={val}
+                    onClick={() => updatePref('accidentals', val)}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
+                      accidentals === val
+                        ? 'bg-indigo-600 text-white'
+                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                    }`}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+              <p className={`text-[11px] ${muted}`}>Spelling of transposed C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭. Auto follows the View Key.</p>
             </div>
           </section>
 
