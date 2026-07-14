@@ -420,7 +420,7 @@ export default function SharedSetView() {
             title={isBookmarked ? 'Remove from Shared with me' : 'Save to Shared with me'}
             className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${isBookmarked ? 'border border-indigo-500 text-indigo-500 hover:text-indigo-400 hover:border-indigo-400' : btnOutline}`}
           >
-            {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
+            {isBookmarked ? <BookmarkCheck size={22} /> : <Bookmark size={22} />}
           </button>
           {/* Copy whole set to library */}
           {enriched.length > 0 && (
@@ -430,7 +430,7 @@ export default function SharedSetView() {
               title="Copy all songs to my library"
               className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors disabled:opacity-40 ${btnOutline}`}
             >
-              <Library size={14} /> Copy to library
+              <Library size={20} /> Copy to library
             </button>
           )}
           {/* Present All */}
@@ -447,7 +447,7 @@ export default function SharedSetView() {
             className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${btnOutline}`}
             title="Settings"
           >
-            <Settings size={16} />
+            <Settings size={23} />
           </button>
         </div>
       </header>

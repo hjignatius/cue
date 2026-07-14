@@ -75,14 +75,14 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
             <Pencil size={9} className="text-white" strokeWidth={2.5} />
           </span>
         )}
-        {key   && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{key}</span>}
+        {key   && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{key}</span>}
         {tempo && <span className="text-xs text-gray-400 dark:text-gray-600">{tempo}</span>}
         <button
           onClick={e => { e.stopPropagation(); onDuplicate(song); }}
           className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-all shrink-0"
           title="Duplicate song"
         >
-          <Copy size={13} />
+          <Copy size={19} />
         </button>
       </div>
     </div>
@@ -329,7 +329,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                     : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
                 }`}
               >
-                <Trash2 size={16} />
+                <Trash2 size={22} />
               </button>
             </>
           ) : (
@@ -448,7 +448,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                               title="Rename set"
                               className="opacity-0 group-hover/name:opacity-100 pointer-coarse:opacity-100 h-8 w-8 flex items-center justify-center rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
                             >
-                              <Pencil size={11} />
+                              <Pencil size={16} />
                             </button>
                           )}
                         </div>
@@ -471,7 +471,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                           title={isPublished ? 'Republish' : 'Publish to cloud'}
                           className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
                         >
-                          <UploadCloud size={13} />
+                          <UploadCloud size={19} />
                         </button>
                         {/* Share / Unpublish — only after at least one publish */}
                         {isPublished && (
@@ -481,14 +481,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                               title="Share link"
                               className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
                             >
-                              <Link2 size={13} />
+                              <Link2 size={19} />
                             </button>
                             <button
                               onClick={() => handleUnpublishClick(set)}
                               title="Remove from cloud"
                               className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                             >
-                              <CloudOff size={13} />
+                              <CloudOff size={19} />
                             </button>
                           </>
                         )}
@@ -535,7 +535,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                   className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
                   title="Remove from Shared with me"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={19} />
                 </button>
               </div>
             ))}
@@ -718,13 +718,13 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
       )}
       <span className="text-xs text-gray-400 dark:text-gray-600 w-5 shrink-0">{idx + 1}.</span>
       <span className={`flex-1 truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-900 dark:text-white'}`}>{song.metadata?.title || 'Untitled'}</span>
-      {song.metadata?.key && <span className="text-xs text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{song.metadata.key}</span>}
+      {song.metadata?.key && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{song.metadata.key}</span>}
       <button
         onClick={e => { e.stopPropagation(); onRemove(); }}
         className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-400 hover:text-red-500 transition-colors shrink-0"
         title="Remove from set"
       >
-        <Trash2 size={13} />
+        <Trash2 size={19} />
       </button>
     </div>
   );
@@ -1110,7 +1110,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div className="flex items-center gap-2">
           <button
             onClick={openManualPDF}
-            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors text-sm font-bold ${btnBorder}`}
+            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors text-xl font-bold ${btnBorder}`}
             title="Open user manual"
           >
             ?
@@ -1120,7 +1120,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${btnBorder}`}
             title="Settings"
           >
-            <Settings size={16} />
+            <Settings size={23} />
           </button>
           <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors ${btnBorder}`}>
             <Download size={14} /> Import
@@ -1242,7 +1242,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                         : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
                     }`}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={22} />
                   </button>
                 </>
               ) : artistFilter !== null && sortBy === 'artist' ? (
