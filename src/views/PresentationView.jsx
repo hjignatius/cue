@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
@@ -131,6 +131,31 @@ const FONT_STEP = 2;
 const DEFAULT_FONT = 28;
 // Fallback scroll speeds (px/s) when no duration is set
 const FALLBACK_SPEEDS = [10, 20, 36, 60];
+
+// Present mode targets a canonical monospace line width: the lyrics column is
+// sized to hold this many characters at the current font size, independent of
+// the chord shapes panel. Tune LYRIC_TARGET_CHARS to taste.
+const LYRIC_TARGET_CHARS = 65;
+// Horizontal padding of the scroll area inside the lyrics column (scrollRef uses
+// md:px-12 = 48px per side; the wide layout is always ≥1024px so md: is active).
+const LYRIC_COL_PADDING = 96;
+// Font stack matching SongBody's `font-mono` (Tailwind), used to measure the
+// monospace advance width so the column width tracks the real glyph metrics.
+const MONO_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+
+// Pixel width of a lyrics column that holds LYRIC_TARGET_CHARS monospace chars at
+// the given font size, plus the scroll padding. Measured via canvas; falls back
+// to the ~0.6em monospace advance if measurement is unavailable.
+function lyricColumnWidth(fontPx) {
+  let textW = LYRIC_TARGET_CHARS * fontPx * 0.6;
+  try {
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = `${fontPx}px ${MONO_FONT_STACK}`;
+    const measured = ctx.measureText('0'.repeat(LYRIC_TARGET_CHARS)).width;
+    if (measured > 0) textW = measured;
+  } catch { /* keep fallback */ }
+  return Math.round(textW + LYRIC_COL_PADDING);
+}
 
 // Tap-only handler: fires onTap only when pointer didn't move >10 px.
 // touch-action: pan-y on the element lets the browser handle vertical
@@ -385,6 +410,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const hasDuration = parseDuration(meta.duration) > 0;
   const timeSig = meta.timeSig || '4/4';
 
+  // Fixed lyrics-column width for the wide layout. Recomputes only on font-size
+  // change (A-/A+), never on chord-panel resize — so contentWrapRef.offsetWidth
+  // stays constant when the chord panel is dragged and the annotation
+  // ResizeObserver never fires.
+  const lyricColWidth = useMemo(() => lyricColumnWidth(fontPx), [fontPx]);
+
   return (
     <div className={`fixed inset-0 z-50 flex flex-col ${bg}`}>
       {/* Top bar */}
@@ -512,12 +543,19 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       )}
       </div>
 
-      {/* Song content + optional chord sidebar */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      {/* Song content + optional chord sidebar. overflow-x-auto so a wide chord
+          panel pushes the row wider (horizontal scroll) instead of shrinking the
+          fixed-width lyrics column. */}
+      <div className="flex-1 flex overflow-x-auto overflow-y-hidden min-h-0">
 
-        {/* Scrollable content column — ghost zones are absolute children here */}
+        {/* Lyrics column. Wide layout: fixed width from LYRIC_TARGET_CHARS at the
+            current font size, so the chord panel never steals its width (contentWrapRef
+            stays constant → ink never rescales on chord resize). Narrow layout keeps
+            flex-1 (the chord panel there is a fixed overlay that never takes row space).
+            Ghost zones are absolute children here. */}
         <div
-          className="flex-1 min-w-0 relative"
+          className={`relative ${isNarrow ? 'flex-1 min-w-0' : 'shrink-0'}`}
+          style={isNarrow ? undefined : { width: lyricColWidth }}
           onPointerMove={wakeGhosts}
           onPointerDown={wakeGhosts}
         >
