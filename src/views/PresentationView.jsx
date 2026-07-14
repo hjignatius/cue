@@ -8,9 +8,7 @@ import { transposeText, semitonesBetween } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { Fragment } from 'react';
 import SongChordPanel from '../components/SongChordPanel.jsx';
-import ResizeHandle from '../components/ResizeHandle.jsx';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 // Parse "3:30" or "210" → seconds
@@ -197,7 +195,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [scrolling, setScrolling] = useState(false);
   const [speedIdx, setSpeedIdx]   = useState(0);
   const [showChords, setShowChords] = useState(true);
-  const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
   const [barCanScrollRight, setBarCanScrollRight] = useState(false);
   const [annotating, setAnnotating] = useState(false);
@@ -677,8 +674,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             </>
           ) : (
             <>
-              <ResizeHandle handleProps={chordsHandleProps} dark={dark} />
-              <div className={`shrink-0 flex flex-col overflow-hidden ${dark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-200 bg-gray-50'}`} style={{ width: chordsWidth }}>
+              {/* Chord panel fills the leftover row space beside the fixed-width
+                  lyrics column — no drag handle, no fixed width. The lyrics column
+                  stays shrink-0 at its 65-char width, so a changing fill-width here
+                  never affects contentWrapRef (ink cannot rescale). */}
+              <div className={`flex-1 min-w-0 flex flex-col overflow-hidden border-l ${dark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-200 bg-gray-50'}`}>
                 <div className={`px-3 py-1.5 border-b text-xs font-semibold uppercase tracking-wide shrink-0 ${dark ? 'border-neutral-800 text-neutral-500' : 'border-gray-200 text-gray-500'}`}>
                   Chords
                 </div>
