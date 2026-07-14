@@ -127,6 +127,9 @@ const MIN_FONT = 14;
 const MAX_FONT = 56;
 const FONT_STEP = 2;
 const DEFAULT_FONT = 28;
+// Present-mode lyric font size persists across sessions (survives exiting to the
+// editor / setlist and returning, which unmounts and remounts this view).
+const FONT_KEY = 'cue:present_font_px';
 // Fallback scroll speeds (px/s) when no duration is set
 const FALLBACK_SPEEDS = [10, 20, 36, 60];
 
@@ -191,7 +194,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
   const [index, setIndex]       = useState(Math.max(0, Math.min(startIndex, songs.length - 1)));
-  const [fontPx, setFontPx]     = useState(DEFAULT_FONT);
+  const [fontPx, setFontPx]     = useState(() => {
+    try {
+      const n = parseInt(localStorage.getItem(FONT_KEY) || '', 10);
+      if (!isNaN(n)) return Math.min(MAX_FONT, Math.max(MIN_FONT, n));
+    } catch { /* ignore */ }
+    return DEFAULT_FONT;
+  });
   const [scrolling, setScrolling] = useState(false);
   const [speedIdx, setSpeedIdx]   = useState(0);
   const [showChords, setShowChords] = useState(true);
@@ -251,6 +260,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const nextGhost    = useGhostTap(handleNext);
   const smallerGhost = useGhostTap(smallerAction);
   const largerGhost  = useGhostTap(largerAction);
+
+  // Persist the lyric font size so A-/A+ changes survive leaving and re-entering.
+  useEffect(() => {
+    try { localStorage.setItem(FONT_KEY, String(fontPx)); } catch { /* ignore */ }
+  }, [fontPx]);
 
   // Notify parent whenever the displayed song changes
   useEffect(() => {
