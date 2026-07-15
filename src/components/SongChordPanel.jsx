@@ -465,7 +465,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
 
         {/* Chord diagrams */}
         <div className="flex-1 overflow-y-auto p-2">
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(auto-fill, ${Math.round(DIAG_BASE_W * scale)}px)` }}>
+          <div className="grid gap-2 justify-center" style={{ gridTemplateColumns: `repeat(auto-fill, ${Math.round(DIAG_BASE_W * scale)}px)` }}>
             {groups.map(({ name, shapes }) => {
               const selectedIdx = Math.min(chordPrefs[name] ?? 0, Math.max(0, shapes.length - 1));
 
