@@ -252,7 +252,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           <button
             onClick={handleImportSet}
             className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-            title="Import set from HTML file"
+            title="Import set from OnSong HTML"
           >
             <Download size={16} />
           </button>
