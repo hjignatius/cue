@@ -198,6 +198,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const mutedText = dark ? 'text-gray-600'                : 'text-gray-400';
   const btnBorder = dark ? 'border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white'
                          : 'border-gray-300 hover:border-gray-500 text-gray-600 hover:text-gray-900';
+  // Shared sizing for the second toolbar row (Find, Save, View Key box) so they
+  // stay the same height, padding, font-size and radius.
+  const toolCtl = 'h-9 px-3 text-xs rounded-lg font-medium border transition-colors';
 
   // Shared JSX blocks --------------------------------------------------------
 
@@ -407,11 +410,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             Preview/Present render transposed; never rewrites the source text or
             the real key (metadata.key). Persists on Save with the song. */}
         <div className="flex items-center gap-2">
-          <span className={`text-xs ${mutedText}`}>View key:</span>
+          <span className={`text-xs ${mutedText}`}>View Key:</span>
           <select
             value={displayKey}
             onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
-            className={`border focus:border-indigo-500 outline-none text-sm rounded px-2 py-0.5 cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+            className={`${toolCtl} focus:border-indigo-500 outline-none cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
           >
             <option value="">{metadata.key || '—'}</option>
             {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
@@ -423,7 +426,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Find */}
         <button
           onClick={showFR ? closeFR : openFR}
-          className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
+          className={`flex items-center gap-1 ${toolCtl} ${
             showFR
               ? 'bg-indigo-600 border-indigo-600 text-white'
               : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
@@ -437,7 +440,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <button
           onClick={handleSave}
           disabled={!isDirty}
-          className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
+          className={`flex items-center gap-1 ${toolCtl} ${
             isDirty
               ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
               : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
