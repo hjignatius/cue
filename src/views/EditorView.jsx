@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -47,6 +47,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [displayKey, setDisplayKey]     = useState(song?.displayKey || '');
   const [isDirty, setIsDirty]           = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [showFR, setShowFR]           = useState(false);
   const [pendingNav, setPendingNav]   = useState(null); // new setlist index to navigate to
   const { openPlayer } = useYouTube();
@@ -63,6 +64,18 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const hydrated      = useRef(false);
   const textareaRef   = useRef(null);
   const findInputRef  = useRef(null);
+  // Revert baseline = the last-saved editor state (the entry state until the first
+  // save this session). Revert restores it. Captured on songId change and reset
+  // after each successful Save. Annotations are a separate store — not included.
+  const baselineRef   = useRef(null);
+  const snapshotState = () => ({
+    text,
+    metadata: { ...metadata },
+    displayMode,
+    previewFormat,
+    chordPrefs: { ...chordPrefs },
+    displayKey,
+  });
 
   // Re-check annotation existence whenever the song changes OR when returning from
   // PresentationView (annotationStamp increments so the effect re-fires even when
@@ -79,11 +92,36 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     saveDraft({ songId, text, metadata, chordStyle: displayMode, previewMode: previewFormat, chordPrefs, displayKey });
   }, [text, metadata, displayMode, previewFormat, chordPrefs]);
 
+  // Reset the revert baseline whenever the edited song changes. songId changes on
+  // mount and when a new song first receives its id on save; the editor also
+  // remounts for Prev/Next and Edit-from-Present, which re-runs this on the new song.
+  useEffect(() => {
+    baselineRef.current = snapshotState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songId]);
+
   async function handleSave() {
     const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
     setSongId(id);
     setIsDirty(false);
+    baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
     onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
+  }
+
+  function handleRevert() {
+    const b = baselineRef.current;
+    setShowRevertConfirm(false);
+    if (!b) return;
+    setText(b.text);
+    setMetadata(b.metadata);
+    setDisplayMode(b.displayMode);
+    setPreviewFormat(b.previewFormat);
+    setChordPrefs(b.chordPrefs);
+    setDisplayKey(b.displayKey);
+    setIsDirty(false);
+    // Rewrite the draft to the baseline (in-memory + draft only, no song-record or
+    // cloud write) so a reload cannot resurrect the discarded edits.
+    saveDraft({ songId, text: b.text, metadata: b.metadata, chordStyle: b.displayMode, previewMode: b.previewFormat, chordPrefs: b.chordPrefs, displayKey: b.displayKey });
   }
 
   async function handleClearAnnotations() {
@@ -326,6 +364,31 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     </div>
   );
 
+  const revertConfirm = showRevertConfirm && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="flex flex-col gap-1">
+          <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Discard unsaved changes?</h2>
+          <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>This restores the song to its last saved state. Your edits since then will be lost. Ink annotations are not affected.</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleRevert}
+            className="flex-1 py-3 pointer-fine:py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors"
+          >
+            Discard
+          </button>
+          <button
+            onClick={() => setShowRevertConfirm(false)}
+            className={`flex-1 py-3 pointer-fine:py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+          >
+            Keep editing
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // --------------------------------------------------------------------------
 
   return (
@@ -447,6 +510,21 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           }`}
         >
           <Save size={11} /> Save
+        </button>
+
+        {/* Revert — discard changes since the last save (or since opening, before
+            the first save). Enabled only when dirty, symmetric with Save. */}
+        <button
+          onClick={() => setShowRevertConfirm(true)}
+          disabled={!isDirty}
+          title="Discard changes since last save"
+          className={`flex items-center gap-1 ${toolCtl} ${
+            isDirty
+              ? dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
+              : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          <RotateCcw size={11} /> Revert
         </button>
 
         {/* Annotation controls — only shown when the song has Present-mode annotations */}
@@ -661,6 +739,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Unsaved changes confirmation — fixed overlay, visible in all layouts */}
         {backConfirm}
         {navConfirm}
+        {revertConfirm}
       </div>
 
     </div>
