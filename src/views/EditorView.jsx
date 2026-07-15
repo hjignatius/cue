@@ -605,7 +605,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               }`}
               title="Toggle preview panel"
             >
-              Preview
+              {showPreview ? 'Preview On' : 'Preview Off'}
             </button>
             <button
               onClick={() => setShowChordPanel(v => !v)}
@@ -616,7 +616,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               }`}
               title="Toggle chord diagram panel"
             >
-              Chords
+              {showChordPanel ? 'Chords On' : 'Chords Off'}
             </button>
           </div>
         )}
