@@ -17,6 +17,75 @@ import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
 
+// Target lyric line width in characters. Mirrors PresentationView's
+// LYRIC_TARGET_CHARS (the column count Present wraps at). Kept as a local
+// constant for now; when the Settings-driven width lands, both read that.
+const LYRIC_TARGET_CHARS = 65;
+// Editor textarea metrics: p-4 padding (16px) and text-sm monospace (14px).
+const TA_PAD = 16;
+const TA_FONT = '14px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+
+// Passive character ruler across the top of the editor's text area. Ticks every
+// 5 columns (labels every 10), plus a distinct marker at the target width. Stays
+// aligned to the textarea columns and scrolls horizontally with it.
+function CharRuler({ textareaRef, text, target, dark }) {
+  const trackRef = useRef(null);
+  const [advance, setAdvance] = useState(8.4);
+  const [cols, setCols] = useState(target + 20);
+
+  // Measure the real monospace advance so ticks land on character cells.
+  useEffect(() => {
+    try {
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.font = TA_FONT;
+      const w = ctx.measureText('0'.repeat(50)).width / 50;
+      if (w > 0) setAdvance(w);
+    } catch { /* keep fallback */ }
+  }, []);
+
+  // Keep the ruler aligned to horizontal scroll, and widen it to cover the
+  // longest line so scrolling right never runs past the ticks.
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const sync = () => {
+      if (trackRef.current) trackRef.current.style.transform = `translateX(${-ta.scrollLeft}px)`;
+      const need = Math.ceil((ta.scrollWidth - TA_PAD) / advance) + 5;
+      setCols(c => (need > c ? need : c));
+    };
+    ta.addEventListener('scroll', sync);
+    sync();
+    return () => ta.removeEventListener('scroll', sync);
+  }, [textareaRef, advance, text]);
+
+  const tickCol   = dark ? '#4b5563' : '#cbd5e1'; // gray-600 / slate-300
+  const labelCol  = dark ? '#9ca3af' : '#6b7280'; // gray-400 / gray-500
+  const targetCol = '#6366f1';                    // indigo-500
+
+  const ticks = [];
+  for (let c = 5; c <= cols; c += 5) {
+    if (c === target) continue; // drawn as the distinct marker instead
+    const x = TA_PAD + c * advance;
+    const major = c % 10 === 0;
+    ticks.push(<div key={`t${c}`} className="absolute bottom-0" style={{ left: x, width: 1, height: major ? 9 : 5, background: tickCol }} />);
+    if (major) ticks.push(
+      <div key={`l${c}`} className="absolute top-0 text-[9px] leading-none tabular-nums" style={{ left: x, transform: 'translateX(-50%)', color: labelCol }}>{c}</div>
+    );
+  }
+  const tx = TA_PAD + target * advance;
+
+  return (
+    <div className={`relative shrink-0 h-[22px] overflow-hidden select-none border-b ${dark ? 'border-gray-800 bg-gray-950' : 'border-gray-200 bg-white'}`} aria-hidden="true">
+      <div ref={trackRef} className="absolute inset-0 will-change-transform">
+        {ticks}
+        {/* Target-width marker — the one that matters. */}
+        <div className="absolute top-0 bottom-0" style={{ left: tx, width: 2, background: targetCol }} />
+        <div className="absolute top-0 px-0.5 text-[9px] leading-none font-semibold tabular-nums rounded-sm" style={{ left: tx, transform: 'translateX(-50%)', color: '#fff', background: targetCol }}>{target}</div>
+      </div>
+    </div>
+  );
+}
+
 
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0 }) {
   const { theme, chordDiagramSize, accidentals, updatePref } = usePrefs();
@@ -275,8 +344,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       onChange={e => { setText(e.target.value); setIsDirty(true); }}
       onKeyDown={e => { if (e.key === 'Escape' && showFR) closeFR(); }}
       spellCheck={false}
+      wrap="off"
       placeholder="Paste chords-over-lyrics or ChordPro text here…"
-      className={`flex-1 resize-none font-mono text-sm p-4 outline-none leading-relaxed ${dark ? 'bg-gray-950 text-gray-100 placeholder-gray-800' : 'bg-white text-gray-900 placeholder-gray-400'}`}
+      className={`flex-1 resize-none font-mono text-sm p-4 outline-none leading-relaxed whitespace-pre overflow-auto ${dark ? 'bg-gray-950 text-gray-100 placeholder-gray-800' : 'bg-white text-gray-900 placeholder-gray-400'}`}
     />
   );
 
@@ -634,6 +704,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
               </div>
               {frBar}
+              <CharRuler textareaRef={textareaRef} text={text} target={LYRIC_TARGET_CHARS} dark={dark} />
               {textarea}
             </div>
 
@@ -679,6 +750,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
               </div>
               {frBar}
+              <CharRuler textareaRef={textareaRef} text={text} target={LYRIC_TARGET_CHARS} dark={dark} />
               {textarea}
             </div>
 
