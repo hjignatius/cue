@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { Wand2 } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { KEY_NAMES } from '../utils/transpose.js';
 
 const RESET_AFTER_MS = 3000;
@@ -139,34 +138,8 @@ function DurationStepper({ value, onChange }) {
   );
 }
 
-export default function MetadataForm({ metadata, onChange, onDetectKey }) {
+export default function MetadataForm({ metadata, onChange }) {
   function set(key, val) { onChange(prev => ({ ...prev, [key]: val })); }
-
-  const [hints, setHints]         = useState([]);
-  const [detecting, setDetecting] = useState(false);
-  const popoverRef                = useRef(null);
-
-  useEffect(() => {
-    if (!hints.length) return;
-    function handleClick(e) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target)) setHints([]);
-    }
-    document.addEventListener('pointerdown', handleClick);
-    return () => document.removeEventListener('pointerdown', handleClick);
-  }, [hints.length]);
-
-  async function handleDetect() {
-    if (!onDetectKey) return;
-    setDetecting(true);
-    const results = onDetectKey();
-    setDetecting(false);
-    if (!results.length) { alert('No chords found in this song.'); return; }
-    if (results.length === 1 || results[0].pct >= 90) {
-      set('key', results[0].name);
-    } else {
-      setHints(results);
-    }
-  }
 
   const inputCls = `bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 ${fieldText} ${fieldMuted} w-full`;
 
@@ -186,45 +159,16 @@ export default function MetadataForm({ metadata, onChange, onDetectKey }) {
       {/* Source key */}
       <div className="flex flex-col gap-0.5">
         <label className="text-xs text-gray-500 uppercase tracking-wide">Key</label>
-        <div className="flex items-center gap-1">
-          <select
-            value={metadata.key || ''}
-            onChange={e => set('key', e.target.value)}
-            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
-          >
-            <option value="">—</option>
-            {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-          {onDetectKey && (
-            <div className="relative" ref={popoverRef}>
-              <button
-                type="button"
-                onClick={handleDetect}
-                disabled={detecting}
-                title="Auto-detect key from chords"
-                className="p-0.5 text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors disabled:opacity-40"
-              >
-                <Wand2 size={13} />
-              </button>
-              {hints.length > 0 && (
-                <div className="absolute left-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-28">
-                  <p className="px-3 pt-0.5 pb-1 text-xs text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">Best matches</p>
-                  {hints.map(h => (
-                    <button
-                      key={h.name}
-                      type="button"
-                      onClick={() => { set('key', h.name); setHints([]); }}
-                      className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                    >
-                      <span className="font-medium">{h.name}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-3">{h.pct}%</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <select
+          value={metadata.key || ''}
+          onChange={e => set('key', e.target.value)}
+          // h-[42px] matches the sibling inputs exactly (a native select renders
+          // ~1px shorter than an input at the same py-2.5).
+          className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+        >
+          <option value="">—</option>
+          {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
       </div>
 
       {/* Tempo */}

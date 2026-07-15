@@ -10,7 +10,6 @@ import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
-import { detectKey } from '../utils/keyDetect.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -236,8 +235,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const mutedText = dark ? 'text-gray-600'                : 'text-gray-400';
   const btnBorder = dark ? 'border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white'
                          : 'border-gray-300 hover:border-gray-500 text-gray-600 hover:text-gray-900';
-  // Shared sizing for the second toolbar row (Find, Save, View Key box) so they
-  // stay the same height, padding, font-size and radius.
+  // Shared sizing for the Find and Save buttons.
   const toolCtl = 'h-9 px-3 text-xs rounded-lg font-medium border transition-colors';
 
   // Shared JSX blocks --------------------------------------------------------
@@ -463,7 +461,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       <MetadataForm
         metadata={metadata}
         onChange={m => { setMetadata(m); setIsDirty(true); }}
-        onDetectKey={() => detectKey(convertToBrackets(text))}
       />
 
       {/* Toolbar */}
@@ -477,7 +474,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <select
             value={displayKey}
             onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
-            className={`${toolCtl} focus:border-indigo-500 outline-none cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+            // Height matches the neighbouring buttons (h-9); other styling is the
+            // select's own (not the button size).
+            className={`h-9 px-2 text-sm rounded border focus:border-indigo-500 outline-none cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
           >
             <option value="">{metadata.key || '—'}</option>
             {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
