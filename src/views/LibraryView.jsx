@@ -1104,8 +1104,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Header */}
       <header className={`px-6 py-4 border-b ${border} flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3">
-          <Music size={20} className="text-indigo-400" />
-          <h1 className="text-xl font-bold tracking-tight">Cue</h1>
+          <Music size={28} className="text-indigo-400" />
+          <h1 className="text-3xl font-bold tracking-tight">Cue</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
