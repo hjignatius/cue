@@ -183,9 +183,9 @@ function manualHTML() {
     <li class="toc-h2">Exporting &amp; Importing Custom Chords</li>
     <li class="toc-h1">7. Present Mode</li>
     <li class="toc-h2">Top Bar Controls</li>
-    <li class="toc-h2">Ghost Overlay Controls</li>
+    <li class="toc-h2">The Floating Control Panel</li>
     <li class="toc-h2">Annotations</li>
-    <li class="toc-h2">Metronome</li>
+    <li class="toc-h2">Count-In</li>
     <li class="toc-h2">Auto-Scroll</li>
     <li class="toc-h2">Navigating a Set</li>
     <li class="toc-h2">Editing During Performance</li>
@@ -450,12 +450,11 @@ Bb,8-10-11-10,1243</pre>
 <h1>7. Present Mode</h1>
 <p>Present mode is full-screen. It is designed to be mirrored to a TV or projector while you perform.</p>
 
+<p>Text size, song navigation, count-in and auto-scroll all live on the <em>floating control panel</em> described below. The top bar holds everything else.</p>
+
 <h2>Top Bar Controls</h2>
 <table>
   <tr><th>Control</th><th>Action</th></tr>
-  <tr><td><strong>♩ {BPM}</strong></td><td>Triggers the metronome (8 beats for 4/4, 6 beats for 3/4). The metronome mode (Sound or Visual) is set in the <strong>Settings</strong> panel.</td></tr>
-  <tr><td><strong>▶ {duration} / ❚❚</strong></td><td>Starts or pauses auto-scroll. When a duration is set, the button shows the song length (e.g. <code>▶ 3:30</code>). Without a duration it shows <code>▶ Scroll</code>.</td></tr>
-  <tr><td><strong>1× / 2× / 3× / 4×</strong></td><td>Scroll speed multiplier — always visible. In duration mode, 1× scrolls at the exact pace needed to finish by the end of the song; higher values scroll proportionally faster. Without a duration set, cycles through a set of fixed speeds.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar</td></tr>
   <tr><td><strong>✎ Annotate</strong></td><td>Toggles annotation mode so you can draw over the song with a finger, mouse, or stylus. A floating tool strip appears — see <em>Annotations</em> below. An Apple Pencil always draws even when this is off. Hidden on the shared-set viewer.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Shown in red when a URL is saved; grayed out otherwise.</td></tr>
@@ -463,15 +462,24 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>✕</strong></td><td>Exits Present mode (also <code>Escape</code> on keyboard)</td></tr>
 </table>
 
-<h2>Ghost Overlay Controls</h2>
-<p>Three semi-transparent controls are overlaid on the song content. They are visible at low opacity when active and fade to nearly invisible after 4 seconds of inactivity. Tap or touch anywhere on the content to wake them.</p>
+<h2>The Floating Control Panel</h2>
+<p>A panel of large round buttons floats over the song, in the lower-right corner by default. It is sized for a fingertip on stage — no hunting for small toolbar buttons mid-song.</p>
 <table>
-  <tr><th>Control</th><th>Location</th><th>Action</th></tr>
-  <tr><td><strong>‹ (left chevron)</strong></td><td>Full-height strip on the left edge</td><td>Go to the previous song. Only shown when presenting a set. Bounces gently if already at the first song.</td></tr>
-  <tr><td><strong>› (right chevron)</strong></td><td>Full-height strip on the right edge</td><td>Go to the next song. Only shown when presenting a set. Bounces gently if already at the last song.</td></tr>
-  <tr><td><strong>A− / A+</strong></td><td>Upper area of the content, right of center</td><td>Shrink or enlarge the text. Saved and restored across sessions — your size is remembered when you leave and re-enter Present mode.</td></tr>
+  <tr><th>Button</th><th>Action</th></tr>
+  <tr><td><strong>A− / A+</strong></td><td>Shrink or enlarge the lyric text. Your size is remembered when you leave and re-enter Present mode. Dimmed at the smallest and largest sizes.</td></tr>
+  <tr><td><strong>◀ / ▶</strong></td><td>Previous / next song. Dimmed at the first and last song of the set, and when presenting a single song.</td></tr>
+  <tr><td><strong>Metronome (count-in)</strong></td><td>Plays a two-bar count-in — 8 beats in 4/4, 6 beats in 3/4 — then stops. It is a count-in, not a running metronome. Dimmed when the song has no tempo set. Sound or Visual is chosen in <strong>Settings → Metronome</strong>.</td></tr>
+  <tr><td><strong>↓ / ❚❚</strong></td><td>Starts auto-scroll; turns into a pause button and lights up while running.</td></tr>
 </table>
-<p>Vertical scrolling works normally through all ghost zones — only a tap (not a drag) triggers the control. The keyboard shortcuts <code>+</code> / <code>−</code> and <code>←</code> / <code>→</code> also control font size and navigation respectively.</p>
+
+<h3>Moving, hiding and fading</h3>
+<ul>
+  <li><strong>Drag it anywhere.</strong> Press and drag from any part of the panel — including the buttons. A tap is never mistaken for a drag. Its position is saved on this device and stays on-screen if you rotate or resize.</li>
+  <li><strong>Collapse it.</strong> The small chevron at the top shrinks the panel to a single round pill. Tap the pill to bring it back. Collapsed or expanded is remembered.</li>
+  <li><strong>It fades when idle.</strong> After about 4 seconds without input the panel dims so it does not compete with the lyrics. Any touch brings it straight back to full strength.</li>
+</ul>
+<p>The keyboard shortcuts still work too: <code>+</code> / <code>−</code> for text size, <code>←</code> / <code>→</code> for songs, and <code>space</code> for auto-scroll.</p>
+<div class="tip"><strong>Note:</strong> On a narrow screen the chord sidebar opens as a panel over the song and covers the floating controls. Close it with its <strong>✕</strong> — or the <strong>Chords</strong> button in the top bar — to reach them again.</div>
 
 <h2>Annotations</h2>
 <p>Tap the <strong>✎ pencil</strong> button in the top bar to draw over the song. A floating tool strip appears at the bottom of the screen with these tools:</p>
@@ -483,30 +491,30 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>Undo</strong></td><td>Removes the last stroke drawn.</td></tr>
   <tr><td><strong>Clear</strong></td><td>Removes all ink for the current song, after a confirmation.</td></tr>
 </table>
-<p>An <strong>Apple Pencil</strong> (or other stylus) always draws, even when annotation mode is off — so you can jot a quick note with the pencil and still tap with a finger to navigate. While annotation mode is on, the Prev/Next edge chevrons are suppressed to prevent accidental navigation while drawing.</p>
+<p>An <strong>Apple Pencil</strong> (or other stylus) always draws, even when annotation mode is off — so you can jot a quick note with the pencil and still tap with a finger to navigate. The floating control panel stays put while you draw; drag it aside or collapse it if it sits over the part of the song you want to mark up.</p>
 <p>Ink is saved automatically per song and scales with the text as you resize or change the font size. To review a song's ink later without entering Present mode, open it in the editor and tap <strong>Ink</strong> — see <em>The Editor → Annotation Overlay</em>.</p>
 <div class="tip"><strong>Note:</strong> Annotations are stored only on this device and are tied to the song. They are never included in PDF exports, JSON bundles, backups, or shared-set links — a shared set shows no ink to its viewers.</div>
 
-<h2>Metronome</h2>
-<p>Tap <strong>♩ {BPM}</strong> to trigger the metronome. The mode is set in <strong>Settings → Metronome → BPM tap mode</strong>:</p>
+<h2>Count-In</h2>
+<p>Tap the <strong>metronome</strong> button on the floating panel to hear or see a two-bar count-in. It plays a fixed number of beats and stops on its own — it does not keep running. The mode is set in <strong>Settings → Metronome → BPM tap mode</strong>:</p>
 <ul>
   <li><strong>Sound</strong> — plays audio clicks. The downbeat of each measure is a higher pitch; other beats are lower.</li>
   <li><strong>Visual</strong> — no sound. The top bar flashes white (dark theme) or black (light theme) once per beat. Downbeats flash at full intensity; other beats flash softer.</li>
 </ul>
-<p>The time signature is read directly from the song — 4/4 plays 8 beats across 2 measures, 3/4 plays 6 beats across 2 measures. Set the time signature in the editor and it is automatically used when presenting.</p>
+<p>Tempo and time signature are read directly from the song — 4/4 counts 8 beats across 2 measures, 3/4 counts 6 beats across 2 measures. Set them in the editor and they are used automatically when presenting. With no tempo set, the button is dimmed.</p>
 
 <h2>Auto-Scroll</h2>
-<p>Tap <strong>▶</strong> to start scrolling. The <strong>1× / 2× / 3× / 4×</strong> button controls scroll speed and is always visible in the top bar.</p>
+<p>Tap the <strong>↓</strong> button on the floating panel — or press <code>space</code> — to start scrolling. The button becomes <strong>❚❚</strong> while running.</p>
 <ul>
-  <li><strong>With Duration set</strong> — Cue calculates the exact speed needed to finish the song right as you reach the bottom. At 1×, scrolling takes exactly the song's duration. At 2×, it finishes in half the time; 3× in a third, and so on.</li>
-  <li><strong>Without Duration</strong> — the multiplier cycles through a set of fixed speeds from slow to fast.</li>
+  <li><strong>With Duration set</strong> — Cue scrolls at exactly the pace needed to reach the bottom as the song ends.</li>
+  <li><strong>Without Duration</strong> — a slow fixed speed is used instead. Set a Duration on the song for pacing that matches the music.</li>
 </ul>
-<p>The scroll resets to the top each time you start it.</p>
+<p><strong>Pause leaves you where you are.</strong> Tapping <strong>❚❚</strong> stops the scroll in place, and tapping <strong>↓</strong> again picks up from that same spot — it never jumps back to the top. To restart from somewhere else, scroll the lyrics there yourself and start again. Moving to another song does reset to the top.</p>
 
 <div class="tip"><strong>Screen wake lock:</strong> Cue requests a screen wake lock when entering Present mode so the display does not dim or sleep during a performance.</div>
 
 <h2>Navigating a Set</h2>
-<p>When presenting a set, semi-transparent <strong>‹</strong> and <strong>›</strong> chevrons appear on the left and right edges of the content area. Tap the left edge to go back one song; tap the right edge to go forward. You can also use the keyboard arrow keys or Page Up / Page Down.</p>
+<p>When presenting a set, use the <strong>◀</strong> and <strong>▶</strong> buttons on the floating control panel to move between songs. They dim at the first and last song. You can also use the keyboard arrow keys or Page Up / Page Down.</p>
 <p><strong>Starting from any song:</strong> select a song in the Setlist column by tapping its row, then tap <strong>▶ Present</strong>. Presentation starts from that song and continues forward through the rest of the set.</p>
 
 <h2>Editing During Performance</h2>
@@ -620,7 +628,7 @@ Pulling will discard them. Continue?</pre>
   <li><strong>YouTube URL</strong> — paste a YouTube link into the metadata bar to keep a reference track alongside the song. Tap the YouTube button in the editor or Present mode toolbar to open it in an overlay player. Useful for learning a song or playing along during rehearsal. The button is grayed out when no URL is set.</li>
   <li><strong>Non-destructive key changes</strong> — use View Key in the editor to render a song in a different key for you or your bandmates. It changes only how the song displays in the preview, Present mode, and the exported set PDF, never the stored chords, and is saved per song so it reopens the same way.</li>
   <li><strong>3/4 songs</strong> — tap the <strong>4/4</strong> button in the Tempo row to switch to <strong>3/4</strong>. Save the song. The metronome and flash mode will automatically use 6 beats when you present it.</li>
-  <li><strong>Ghost controls in Present mode</strong> — the A−/A+ text-size buttons and the Prev/Next chevrons are ghost overlays that fade after 4 seconds. Tap anywhere on the content to wake them. They won't interfere with vertical scrolling.</li>
+  <li><strong>Floating controls in Present mode</strong> — text size, song navigation, count-in and auto-scroll sit on a draggable panel of large round buttons. Drag it wherever suits your stage setup; it fades when idle and wakes on any touch. Collapse it to a single pill if you want the screen clear.</li>
   <li><strong>Starting a set at any song</strong> — tap a song row in the Setlist column to select it (highlighted in indigo), then tap <strong>▶ Present</strong>. Presentation starts from that song and continues forward; the set does not restart from the top.</li>
   <li><strong>iPad editing space</strong> — use the <strong>Preview</strong> and <strong>Chords</strong> toggle buttons to hide panels and give the text editor more room.</li>
   <li><strong>Set PDF with chord charts</strong> — select the set in the Sets panel, then tap <strong>Export ▾ → PDF + Chord Charts</strong> in the Setlist column. Every song becomes a page, and a single chord reference page listing all unique chords across the set is added at the end — useful as a printed reference for rehearsals.</li>

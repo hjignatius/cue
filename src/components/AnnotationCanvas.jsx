@@ -17,8 +17,8 @@
 //   Positional drift relative to re-wrapped lyrics is expected and acceptable in v1.
 //
 // Pointer-event strategy:
-//   • canvas z-index 8 — below ghost overlay elements (z-index 10).
-//     Ghost-area events go to ghost elements; content-area events go to canvas.
+//   • canvas z-index 8 — below the floating control panel, so its buttons stay
+//     tappable while annotating; content-area events go to canvas.
 //   • pointer-events: auto always (except readOnly) so Apple Pencil (pointerType='pen')
 //     reaches the canvas even when the Annotate toggle is off.
 //   • touch-action: none while annotating (required on iOS to prevent browser claiming
@@ -305,8 +305,7 @@ export default function AnnotationCanvas({
   return (
     <>
       {/* Ink canvas — absolute, covers its positioned parent.
-          z-index 8 keeps it below ghost overlay elements (z-index 10) so ghost
-          taps still fire in edge zones when annotating is off. Canvas remains
+          z-index 8 keeps it below the floating control panel. Canvas remains
           pointer-events:auto so Apple Pencil events reach it even when the
           Annotate toggle is off. */}
       <canvas

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { X, Pencil } from 'lucide-react';
+import PresentControls from '../components/PresentControls.jsx';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
@@ -130,8 +131,8 @@ const DEFAULT_FONT = 28;
 // Present-mode lyric font size persists across sessions (survives exiting to the
 // editor / setlist and returning, which unmounts and remounts this view).
 const FONT_KEY = 'cue:present_font_px';
-// Fallback scroll speeds (px/s) when no duration is set
-const FALLBACK_SPEEDS = [10, 20, 36, 60];
+// Fallback scroll speed (px/s) when no duration is set
+const FALLBACK_SPEED = 10;
 
 // Present mode targets a canonical monospace line width: the lyrics column is
 // sized to hold this many characters at the current font size, independent of
@@ -158,37 +159,6 @@ function lyricColumnWidth(fontPx) {
   return Math.round(textW + LYRIC_COL_PADDING);
 }
 
-// Tap-only handler: fires onTap only when pointer didn't move >10 px.
-// touch-action: pan-y on the element lets the browser handle vertical
-// scroll natively; pointercancel fires when the browser takes over.
-function useGhostTap(onTap) {
-  const [pressed, setPressed] = useState(false);
-  const s = useRef({ startX: 0, startY: 0, isDrag: false });
-  const tapRef = useRef(onTap);
-  tapRef.current = onTap;
-  return {
-    pressed,
-    onPointerDown(e) {
-      s.current = { startX: e.clientX, startY: e.clientY, isDrag: false };
-      setPressed(true);
-    },
-    onPointerMove(e) {
-      if (s.current.isDrag) return;
-      const d = Math.hypot(e.clientX - s.current.startX, e.clientY - s.current.startY);
-      if (d > 10) { s.current.isDrag = true; setPressed(false); }
-    },
-    onPointerUp() {
-      if (!s.current.isDrag) tapRef.current();
-      s.current.isDrag = true;
-      setPressed(false);
-    },
-    onPointerCancel() {
-      s.current.isDrag = true;
-      setPressed(false);
-    },
-  };
-}
-
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true, disableAnnotations = false }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, updatePref } = usePrefs();
   const dark = theme === 'dark';
@@ -202,7 +172,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     return DEFAULT_FONT;
   });
   const [scrolling, setScrolling] = useState(false);
-  const [speedIdx, setSpeedIdx]   = useState(0);
   const [showChords, setShowChords] = useState(true);
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
   const [barCanScrollRight, setBarCanScrollRight] = useState(false);
@@ -214,10 +183,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const barRef         = useRef(null);
   const rafRef         = useRef(0);
   const flashTimers    = useRef([]);
-  const [ghostsIdle, setGhostsIdle] = useState(false);
-  const [prevBounce, setPrevBounce] = useState(false);
-  const [nextBounce, setNextBounce] = useState(false);
-  const ghostTimerRef  = useRef(null);
 
   const song  = songs[index];
   const total = songs.length;
@@ -237,31 +202,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const prev = useCallback(() => goTo(index - 1), [goTo, index]);
   const next = useCallback(() => goTo(index + 1), [goTo, index]);
 
-  const wakeGhosts = useCallback(() => {
-    setGhostsIdle(false);
-    clearTimeout(ghostTimerRef.current);
-    ghostTimerRef.current = setTimeout(() => setGhostsIdle(true), 4000);
-  }, []);
+  const smallerAction = useCallback(() => setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
+  const largerAction  = useCallback(() => setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
 
-  const handlePrev = useCallback(() => {
-    wakeGhosts();
-    if (index === 0) { setPrevBounce(true); setTimeout(() => setPrevBounce(false), 300); }
-    else prev();
-  }, [wakeGhosts, index, prev]);
-
-  const handleNext = useCallback(() => {
-    wakeGhosts();
-    if (index === total - 1) { setNextBounce(true); setTimeout(() => setNextBounce(false), 300); }
-    else next();
-  }, [wakeGhosts, index, total, next]);
-
-  const smallerAction = useCallback(() => { wakeGhosts(); setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)); }, [wakeGhosts]);
-  const largerAction  = useCallback(() => { wakeGhosts(); setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)); }, [wakeGhosts]);
-
-  const prevGhost    = useGhostTap(handlePrev);
-  const nextGhost    = useGhostTap(handleNext);
-  const smallerGhost = useGhostTap(smallerAction);
-  const largerGhost  = useGhostTap(largerAction);
+  // Pause in place and resume from there — no rewind. Scroll position is only
+  // reset when the song itself changes (see goTo). Matches the spacebar toggle.
+  const toggleScroll = useCallback(() => setScrolling(s => !s), []);
 
   // Persist the lyric font size so A-/A+ changes survive leaving and re-entering.
   useEffect(() => {
@@ -313,18 +259,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear flash timers on unmount
   useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
 
-  // Start the ghost idle timer on mount; wake on scroll
-  useEffect(() => {
-    ghostTimerRef.current = setTimeout(() => setGhostsIdle(true), 4000);
-    return () => clearTimeout(ghostTimerRef.current);
-  }, []);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener('scroll', wakeGhosts, { passive: true });
-    return () => el.removeEventListener('scroll', wakeGhosts);
-  }, [wakeGhosts]);
-
   // Track whether the toolbar can scroll right (for fade affordance)
   useEffect(() => {
     const el = barRef.current;
@@ -348,13 +282,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       if      (e.key === 'ArrowRight' || e.key === 'PageDown') next();
       else if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   prev();
       else if (e.key === 'Escape')  onExit();
-      else if (e.key === '+' || e.key === '=') { setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)); wakeGhosts(); }
-      else if (e.key === '-' || e.key === '_') { setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)); wakeGhosts(); }
+      else if (e.key === '+' || e.key === '=') setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP));
+      else if (e.key === '-' || e.key === '_') setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP));
       else if (e.key === ' ') { e.preventDefault(); setScrolling(s => !s); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [next, prev, onExit, wakeGhosts]);
+  }, [next, prev, onExit]);
 
   // Screen wake lock
   useEffect(() => {
@@ -386,8 +320,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     if (scrollable <= 0) { setScrolling(false); return; }
 
     const pxPerSec = durationSec > 0
-      ? (scrollable / durationSec) * (speedIdx + 1)
-      : FALLBACK_SPEEDS[speedIdx];
+      ? scrollable / durationSec
+      : FALLBACK_SPEED;
 
     let last  = performance.now();
     let carry = 0;
@@ -409,7 +343,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     }
     rafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [scrolling, speedIdx, index, meta.duration]);
+  }, [scrolling, index, meta.duration]);
 
   // Theme helpers
   const bg      = dark ? 'bg-neutral-950' : 'bg-white';
@@ -459,37 +393,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           </div>
         </div>
 
-        {/* Metronome tap */}
-        {meta.tempo && (
-          <button
-            className={btn}
-            onClick={handleMetronomeTap}
-            title={`${metronomeMode === 'sound' ? 'Play' : 'Flash'} ${meta.tempo} BPM`}
-          >
-            ♩ {meta.tempo}
-          </button>
-        )}
-
-        {/* Scroll control */}
-        <button
-          className={`${btn} gap-1 ${scrolling ? (dark ? 'bg-indigo-700 border-indigo-700 text-white' : 'bg-indigo-600 border-indigo-600 text-white') : ''}`}
-          onClick={() => {
-            if (scrollRef.current && !scrolling) scrollRef.current.scrollTop = 0;
-            setScrolling(s => !s);
-          }}
-          title={hasDuration ? `Auto-scroll over ${meta.duration}` : 'Auto-scroll (space)'}
-        >
-          {scrolling ? '❚❚' : '▶'} {hasDuration ? meta.duration : 'Scroll'}
-        </button>
-
-        {/* Speed multiplier — always shown */}
-        <button
-          className={btn}
-          onClick={() => setSpeedIdx(i => (i + 1) % FALLBACK_SPEEDS.length)}
-          title={hasDuration ? '1× = song duration pace; 2×/3×/4× = faster' : 'Scroll speed'}
-        >
-          {speedIdx + 1}×
-        </button>
+        {/* Count-in, auto-scroll and text size now live on the floating control
+            panel — see PresentControls.jsx. */}
 
         {/* Chord panel toggle */}
         <button
@@ -564,13 +469,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         {/* Lyrics column. Wide layout: fixed width from LYRIC_TARGET_CHARS at the
             current font size, so the chord panel never steals its width (contentWrapRef
             stays constant → ink never rescales on chord resize). Narrow layout keeps
-            flex-1 (the chord panel there is a fixed overlay that never takes row space).
-            Ghost zones are absolute children here. */}
+            flex-1 (the chord panel there is a fixed overlay that never takes row space). */}
         <div
           className={`relative ${isNarrow ? 'flex-1 min-w-0' : 'shrink-0'}`}
           style={isNarrow ? undefined : { width: lyricColWidth }}
-          onPointerMove={wakeGhosts}
-          onPointerDown={wakeGhosts}
         >
           <div ref={scrollRef} className="absolute inset-0 overflow-y-auto px-6 py-6 md:px-12">
             {/* relative wrapper so the canvas can use position:absolute inset-0 */}
@@ -593,74 +495,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             </div>
           </div>
 
-          {/* Ghost: Previous song — left edge, full height */}
-          {/* Suppressed while annotating to prevent accidental navigation while drawing */}
-          {total > 1 && !annotating && (() => {
-            const opacity = ghostsIdle ? 'opacity-[0.04]' : prevGhost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
-            return (
-              <div
-                onPointerDown={prevGhost.onPointerDown}
-                onPointerMove={prevGhost.onPointerMove}
-                onPointerUp={prevGhost.onPointerUp}
-                onPointerCancel={prevGhost.onPointerCancel}
-                className={`absolute left-0 inset-y-0 w-16 flex items-center justify-center z-10 cursor-pointer select-none transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
-                style={{
-                  touchAction: 'pan-y',
-                  transform: prevBounce ? 'translateX(5px)' : 'none',
-                  transition: 'transform 150ms ease-out, opacity 400ms',
-                }}
-              >
-                <ChevronLeft size={36} strokeWidth={1.2} />
-              </div>
-            );
-          })()}
-
-          {/* Ghost: Next song — right edge, full height */}
-          {total > 1 && !annotating && (() => {
-            const opacity = ghostsIdle ? 'opacity-[0.04]' : nextGhost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
-            return (
-              <div
-                onPointerDown={nextGhost.onPointerDown}
-                onPointerMove={nextGhost.onPointerMove}
-                onPointerUp={nextGhost.onPointerUp}
-                onPointerCancel={nextGhost.onPointerCancel}
-                className={`absolute right-0 inset-y-0 w-16 flex items-center justify-center z-10 cursor-pointer select-none transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
-                style={{
-                  touchAction: 'pan-y',
-                  transform: nextBounce ? 'translateX(-5px)' : 'none',
-                  transition: 'transform 150ms ease-out, opacity 400ms',
-                }}
-              >
-                <ChevronRight size={36} strokeWidth={1.2} />
-              </div>
-            );
-          })()}
-
-          {/* Ghost: A−/A+ font size — top, shifted right of center. Hidden while annotating. */}
-          {!annotating && (
-            <div className="absolute top-3 left-[55%] flex gap-2 z-10">
-              {[
-                { ghost: smallerGhost, label: 'A−', title: 'Smaller text' },
-                { ghost: largerGhost,  label: 'A+', title: 'Larger text' },
-              ].map(({ ghost, label, title }) => {
-                const opacity = ghostsIdle ? 'opacity-[0.04]' : ghost.pressed ? 'opacity-75' : 'opacity-[0.18] pointer-fine:hover:opacity-60';
-                return (
-                  <div
-                    key={label}
-                    onPointerDown={ghost.onPointerDown}
-                    onPointerMove={ghost.onPointerMove}
-                    onPointerUp={ghost.onPointerUp}
-                    onPointerCancel={ghost.onPointerCancel}
-                    title={title}
-                    className={`w-16 h-16 flex items-center justify-center cursor-pointer select-none rounded-xl text-3xl font-bold transition-opacity duration-[400ms] ${opacity} ${dark ? 'text-white' : 'text-gray-900'}`}
-                    style={{ touchAction: 'pan-y' }}
-                  >
-                    {label}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {/* Chord diagram — sidebar on wide screens, slide-in overlay on narrow */}
@@ -715,6 +549,25 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           )
         )}
       </div>
+
+      {/* Floating control panel — the only in-view control surface for text size,
+          song navigation, count-in and auto-scroll. Always present; collapsing to
+          the pill is the only way to hide it. */}
+      <PresentControls
+        dark={dark}
+        onSmaller={smallerAction}
+        onLarger={largerAction}
+        canSmaller={fontPx > MIN_FONT}
+        canLarger={fontPx < MAX_FONT}
+        onPrev={prev}
+        onNext={next}
+        canPrev={index > 0}
+        canNext={index < total - 1}
+        onCountIn={handleMetronomeTap}
+        canCountIn={!!Number(meta.tempo)}
+        onToggleScroll={toggleScroll}
+        scrolling={scrolling}
+      />
 
     </div>
   );

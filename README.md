@@ -40,7 +40,9 @@ Title · Artist · Key · Tempo / BPM · Time Signature · Duration · YouTube U
 
 ### Present Mode
 - Full-screen, distraction-free view of chord sheets
-- Navigate between songs with on-screen arrows or keyboard left/right
+- **Floating control panel** — a draggable panel of 64px round buttons over the song: A−/A+ text size, ◀/▶ song navigation, a two-bar count-in, and auto-scroll. Position and collapsed state persist per device; it fades when idle and wakes on any touch. Collapses to a single pill; buttons dim when unavailable (first/last song, min/max size, no tempo)
+- Auto-scroll **pauses in place** and resumes from that point — only a song change resets to the top
+- Keyboard: `←`/`→` songs, `+`/`−` text size, `space` auto-scroll, `Esc` exit
 - Edit button drops back into the editor at the current song; Save returns to presentation
 - YouTube player available per song during performance
 
@@ -129,6 +131,10 @@ Variants are defined in [`src/index.css`](src/index.css).
 | `localStorage` | `cue:draft` | In-progress editor text, written on every keystroke |
 | `localStorage` | `cue:published_sets` | `{ [setId]: isoTimestamp }` — last publish/pull per set; drives the amber "unpublished changes" dot |
 | `localStorage` | `cue:shared_with_me` | Bookmarked `/shared/:token` links (viewer side) |
+| `localStorage` | `cue:present_font_px` | Present-mode lyric font size |
+| `localStorage` | `cue:present_controls_pos` | `{ x, y }` — floating control panel position |
+| `localStorage` | `cue:present_controls_collapsed` | `'1'` / `'0'` — panel collapsed to its pill |
+| `localStorage` | `cue:yt_player_pos` | `{ size, x, y }` — YouTube mini-player position |
 | `sessionStorage` | `cue:setlist_selected_id` | Highlighted song in Setlist panel |
 | `sessionStorage` | `cue:lib_highlighted_id` | Highlighted song in Library panel |
 
