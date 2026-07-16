@@ -125,7 +125,12 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
 }
 
 const MIN_FONT = 14;
-const MAX_FONT = 56;
+// 14→34 in steps of 2 is exactly 10 A+ presses. The ceiling is set by geometry,
+// not taste: the lyrics column is a fixed LYRIC_TARGET_CHARS wide, so its pixel
+// width grows with the font. Past ~34px it squeezes the chord panel off-screen
+// and the row starts scrolling sideways. A stored size above the ceiling is
+// clamped down on load (see fontPx below), so lowering this cannot strand anyone.
+const MAX_FONT = 34;
 const FONT_STEP = 2;
 const DEFAULT_FONT = 28;
 // Present-mode lyric font size persists across sessions (survives exiting to the
