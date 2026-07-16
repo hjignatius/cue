@@ -521,8 +521,15 @@ Bb,8-10-11-10,1243</pre>
 <p>You can share a set with anyone using a private link — they can view the songs and present them without needing a Cue account. If you sign in, you can also pull your own published sets back down onto your other devices.</p>
 
 <h2>Publishing a Shared Set</h2>
-<p>In the Sets column, tap the <strong>share icon</strong> on a set row to open the Publish dialog. You must be signed in (via Settings → Account) to publish. Once published, a private link is generated that you can copy and share.</p>
-<p>The link stays live until you revoke it. Recipients see the set in a read-only viewer — they cannot edit songs or see your full library. If you update the set after publishing, tap the share icon again to republish with the latest content.</p>
+<p>Sharing takes two steps: <strong>publish</strong> the set to the cloud, then <strong>generate a link</strong> to it. Publishing on its own does not create a link — nothing is shared until you generate one. You must be signed in (via Settings → Account) for both.</p>
+<table>
+  <tr><th>Icon</th><th>Step</th><th>What it does</th></tr>
+  <tr><td><strong>☁↑ Publish</strong></td><td>1. Upload</td><td>Copies the set and its songs to the cloud. Tap it again later to <strong>republish</strong> after edits. An amber dot on the row means this device has changes you have not published yet.</td></tr>
+  <tr><td><strong>🔗 Share</strong></td><td>2. Link</td><td>Appears once a set is published. Opens the Share links dialog — tap <strong>Generate new link</strong>, then copy it. You can create more than one link for the same set.</td></tr>
+  <tr><td><strong>Revoke</strong></td><td>Stop sharing</td><td>Next to any link in the Share dialog. That link stops working immediately; other links to the same set keep working.</td></tr>
+  <tr><td><strong>☁✕ Unpublish</strong></td><td>Remove</td><td>Deletes the set from the cloud and kills <em>all</em> of its links at once. Your local copy is not affected.</td></tr>
+</table>
+<p>A link stays live until you revoke it or unpublish the set. Recipients see the set in a read-only viewer — they cannot edit songs or see your full library. Republishing an already-shared set updates what its existing links show; it does not invalidate them.</p>
 
 <h2>Pulling a Set to Another Device</h2>
 <p>Publishing sends a set <em>up</em> to the cloud. Pulling brings it back <em>down</em> onto another device you own — the same set, not a copy. Use it to carry a set from your desktop to the iPad you perform from. You must be signed in on both devices with the same account.</p>
