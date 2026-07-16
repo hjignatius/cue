@@ -5,6 +5,17 @@ import { useAuth } from '../context/AuthContext.jsx';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
+// Supabase returns a 422 with wording like "Signups not allowed for otp" when
+// sign-ups are disabled. Match on content rather than the exact string, since
+// the phrasing varies. Every other error passes through unchanged.
+function friendlyAuthError(err) {
+  const msg = err?.message || '';
+  if (/signups?\s+not\s+allowed/i.test(msg)) {
+    return "Cue isn't accepting new accounts. Ask admin to add you.";
+  }
+  return msg || 'Something went wrong. Please try again.';
+}
+
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, updatePref } = usePrefs();
   const dark = theme === 'dark';
@@ -39,7 +50,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
       setStatus('sent');
     } catch (err) {
       setStatus('error');
-      setErrorMsg(err.message || 'Something went wrong. Please try again.');
+      setErrorMsg(friendlyAuthError(err));
     }
   }
 

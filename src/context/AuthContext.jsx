@@ -35,7 +35,9 @@ export function AuthProvider({ children }) {
     if (!supabase) return;
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      // shouldCreateUser is defense-in-depth: signups are disabled in the
+      // Supabase dashboard, and that setting is the real enforcement.
+      options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
     });
     if (error) throw error;
   }
