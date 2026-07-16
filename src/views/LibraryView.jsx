@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, Link2, CloudOff, ExternalLink, Settings } from 'lucide-react';
-import { saveSong, saveSet, deleteSet } from '../utils/storage.js';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings } from 'lucide-react';
+import { saveSong, saveSet, deleteSet, newestLocalAt } from '../utils/storage.js';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
@@ -15,6 +15,7 @@ import OnboardingTour from '../components/OnboardingTour.jsx';
 import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
+import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet } from '../lib/cloud.js';
 
 const PUBLISHED_SETS_KEY = 'cue:published_sets';
@@ -91,7 +92,7 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
 
 // ---- Sets column (middle) ---------------------------------------------------
 
-function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, border }) {
+function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, presenting, border }) {
   const { theme } = usePrefs();
   const { user }  = useAuth();
   const dark = theme === 'dark';
@@ -127,6 +128,17 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     const updated = { ...publishedSets, [setId]: isoString };
     setPublishedSets(updated);
     localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(updated));
+  }
+
+  // Pull dialog state: null | { setId } — setId null means "show the picker".
+  const [pullDialog, setPullDialog] = useState(null);
+
+  // A pulled set is by definition in the cloud, so record it as published (and
+  // in-sync as of the rollup we just wrote). Without this, a set pulled onto a
+  // fresh device would show no cloud controls at all.
+  function handlePullSuccess(setId, rollupIso) {
+    handlePublishSuccess(setId, rollupIso);
+    onRefresh();
   }
 
   // Unpublish dialog state: null | { set, phase: 'confirm'|'running'|'success'|'error', error: string }
@@ -249,6 +261,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
       <div className={`px-3 py-2 border-b ${border} flex items-center justify-between shrink-0`}>
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sets</span>
         <div className="flex items-center gap-1">
+          {user && (
+            <button
+              onClick={() => setPullDialog({ setId: null })}
+              disabled={presenting}
+              className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title={presenting ? 'Not available while presenting' : 'Pull a set from the cloud'}
+            >
+              <DownloadCloud size={16} />
+            </button>
+          )}
           <button
             onClick={handleImportSet}
             className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
@@ -421,8 +443,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                 const lastPub = publishedSets[set.id] ?? null;
                 const isPublished = !!lastPub;
                 const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
-                const newestLocalAt = [set.updatedAt, ...setSongs.map(s => s.updatedAt)].filter(Boolean).sort().at(-1) ?? '';
-                const isStale = isPublished && newestLocalAt > lastPub;
+                const isStale = isPublished && newestLocalAt(set, setSongs) > lastPub;
                 return (
                   <>
                     <div className="flex-1 min-w-0">
@@ -476,6 +497,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                         {/* Share / Unpublish — only after at least one publish */}
                         {isPublished && (
                           <>
+                            <button
+                              onClick={() => setPullDialog({ setId: set.id })}
+                              disabled={presenting}
+                              title={presenting ? 'Not available while presenting' : 'Pull from cloud (overwrites this local set)'}
+                              className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <DownloadCloud size={19} />
+                            </button>
                             <button
                               onClick={() => setShareDialogSet(set)}
                               title="Share link"
@@ -559,6 +588,18 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         <ShareSetDialog
           set={shareDialogSet}
           onClose={() => setShareDialogSet(null)}
+        />
+      )}
+
+      {/* Pull dialog — picker when setId is null, otherwise straight to that set */}
+      {pullDialog && (
+        <PullSetDialog
+          setId={pullDialog.setId}
+          localSets={sets}
+          localSongs={songs}
+          userId={user?.id}
+          onPulled={handlePullSuccess}
+          onClose={() => setPullDialog(null)}
         />
       )}
 
@@ -926,7 +967,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
 
 // ---- Library view -----------------------------------------------------------
 
-export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong }) {
+export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
   const { theme, updatePref } = usePrefs();
   const dark = theme === 'dark';
 
@@ -1356,6 +1397,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             onSelectSet={handleSelectSet}
             onRefresh={onRefresh}
             onSelectModeChange={setSetsSelectMode}
+            presenting={presenting}
             border={border}
           />
         </div>

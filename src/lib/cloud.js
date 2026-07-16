@@ -126,6 +126,60 @@ export async function unpublishSet(setId, userId) {
   }
 }
 
+// List the signed-in user's cloud sets, newest first. Feeds the pull picker on a
+// device that has no local copy yet.
+export async function listCloudSets(userId) {
+  if (!supabase) throw new Error('Supabase not configured');
+  const { data, error } = await supabase
+    .from('sets')
+    .select('id, name, updated_at')
+    .eq('owner_id', userId)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Fetch one cloud set and its songs, ordered by set_songs.position.
+// Returns { set, songs } — songs are raw rows whose `content` holds the full
+// Cue-native song object — or null when the set doesn't exist / isn't owned.
+//
+// Pure cloud read: this writes nothing locally. The caller applies the result
+// through the storage.js API, which keeps the annotations store untouched.
+export async function pullSet(setId, userId) {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const { data: setRow, error: setErr } = await supabase
+    .from('sets')
+    .select('id, name, created_at, updated_at')
+    .eq('id', setId)
+    .eq('owner_id', userId)
+    .maybeSingle();
+  if (setErr) throw setErr;
+  if (!setRow) return null;
+
+  const { data: links, error: linkErr } = await supabase
+    .from('set_songs')
+    .select('song_id, position')
+    .eq('set_id', setId)
+    .order('position', { ascending: true });
+  if (linkErr) throw linkErr;
+
+  const songIds = (links ?? []).map(l => l.song_id);
+  let songs = [];
+  if (songIds.length > 0) {
+    const { data: songRows, error: songErr } = await supabase
+      .from('songs')
+      .select('id, content, created_at, updated_at')
+      .in('id', songIds);
+    if (songErr) throw songErr;
+    // Re-order to match set_songs.position — .in() does not preserve order.
+    const byId = new Map((songRows ?? []).map(r => [r.id, r]));
+    songs = songIds.map(id => byId.get(id)).filter(Boolean);
+  }
+
+  return { set: setRow, songs };
+}
+
 // Fetch a shared set by token. Works without authentication (RLS security-definer RPC).
 // Returns { set, songs } or null when the token is invalid/revoked.
 export async function getSharedSet(shareToken) {

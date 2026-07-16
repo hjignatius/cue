@@ -348,6 +348,7 @@ export default function App() {
           onDeleteSong={handleDeleteSong}
           onPresent={(presentSongs, idx = 0) => { if (presentSongs?.length) { setPresentEntryView('library'); setPresenting({ songs: presentSongs, startIndex: idx }); } }}
           onEditSong={handleEditFromSetlist}
+          presenting={!!presenting}
         />
       )}
       {view === 'editor' && (

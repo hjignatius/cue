@@ -189,7 +189,7 @@ function manualHTML() {
     <li class="toc-h2">Auto-Scroll</li>
     <li class="toc-h2">Navigating a Set</li>
     <li class="toc-h2">Editing During Performance</li>
-    <li class="toc-h1">8. Shared Sets</li>
+    <li class="toc-h1">8. Shared Sets &amp; Cloud Sync</li>
     <li class="toc-h1">9. File Formats</li>
     <li class="toc-h1">10. Keyboard Shortcuts</li>
     <li class="toc-h1">11. Tips</li>
@@ -517,12 +517,37 @@ Bb,8-10-11-10,1243</pre>
 <div class="tip"><strong>Tip:</strong> Use this to fix a wrong chord or lyric mid-rehearsal without interrupting the flow. Edits are reflected immediately when you return — save the song separately when you are ready to make the change permanent.</div>
 
 <!-- 8 -->
-<h1>8. Shared Sets</h1>
-<p>You can share a set with anyone using a private link — they can view the songs and present them without needing a Cue account.</p>
+<h1>8. Shared Sets &amp; Cloud Sync</h1>
+<p>You can share a set with anyone using a private link — they can view the songs and present them without needing a Cue account. If you sign in, you can also pull your own published sets back down onto your other devices.</p>
 
 <h2>Publishing a Shared Set</h2>
 <p>In the Sets column, tap the <strong>share icon</strong> on a set row to open the Publish dialog. You must be signed in (via Settings → Account) to publish. Once published, a private link is generated that you can copy and share.</p>
 <p>The link stays live until you revoke it. Recipients see the set in a read-only viewer — they cannot edit songs or see your full library. If you update the set after publishing, tap the share icon again to republish with the latest content.</p>
+
+<h2>Pulling a Set to Another Device</h2>
+<p>Publishing sends a set <em>up</em> to the cloud. Pulling brings it back <em>down</em> onto another device you own — the same set, not a copy. Use it to carry a set from your desktop to the iPad you perform from. You must be signed in on both devices with the same account.</p>
+<table>
+  <tr><th>Control</th><th>Where</th><th>What it does</th></tr>
+  <tr><td><strong>☁ Pull icon</strong> (cloud with a down arrow)</td><td>On a set row, next to Publish and Share</td><td>Pulls that set's cloud copy onto this device, replacing the local one.</td></tr>
+  <tr><td><strong>☁ Pull icon</strong></td><td>In the <strong>Sets</strong> column header</td><td>Lists all your cloud sets so you can choose one. Use this on a new device that does not have the set yet.</td></tr>
+</table>
+<p>A pull is scoped to the one set you choose. Precisely what changes:</p>
+<ul>
+  <li><strong>The set</strong> — its name and song order are replaced with the cloud copy's.</li>
+  <li><strong>Songs in that set</strong> — replaced with the cloud copy. Songs the set references that are missing on this device are added.</li>
+  <li><strong>Everything else</strong> — untouched. Songs outside the pulled set are never modified, even if they sit in other sets. A pull is never a whole-library replace.</li>
+</ul>
+<div class="tip"><strong>Note:</strong> Your annotations stay put. Ink is stored per song on this device, so a song replaced by a pull keeps the drawings you made on it.</div>
+
+<h2>The Pull Warning</h2>
+<p>If this device holds edits that are <em>newer</em> than the cloud copy, pulling would overwrite them. Cue checks before writing anything and names what is at risk:</p>
+<pre>This device has newer changes to: Blue Moon, Five Foot Two.
+Pulling will discard them. Continue?</pre>
+<p>The check is per song, not a single date on the set — so a set that looks recent in the cloud cannot hide one song that is older there than here. It is a warning, not a block: if you know the cloud copy is the one you want, tap <strong>Pull anyway</strong>. To keep the local edits instead, cancel and <strong>Publish</strong> first, then pull.</p>
+<div class="tip"><strong>Tip:</strong> The amber dot on a set row means this device has changes you have not published yet. Publish before pulling on another device, or those changes will be the ones at risk.</div>
+
+<h2>Pull vs. Copy to Library</h2>
+<p>These look similar and are not the same. <strong>Pull</strong> is for <em>your own</em> set returning to <em>your own</em> device: it matches the set and songs by their identity and overwrites them in place, so the set stays one set across your devices. <strong>Copy to library</strong> (in the shared-set viewer) is for <em>someone else's</em> set: it always creates brand-new songs so it can never overwrite anything of yours, and prompts you when a title already exists.</p>
 
 <h2>Viewing a Shared Set</h2>
 <p>Open the shared link on any device. The viewer shows the set name and song list. From the viewer you can:</p>

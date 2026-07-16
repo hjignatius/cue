@@ -21,15 +21,15 @@ A ChordPro song sheet manager for musicians. Organize your songs into setlists, 
 - **Chord display modes:** over-lyrics or inline brackets
 - **View Key:** transpose the display without altering the saved text — choose any key and the chords render shifted in real time
 - **Make Permanent:** writes the transposed chords back into the song text
-- **Auto-detect key:** tap the wand icon next to the Key field to score your chords against all 24 major/minor keys and auto-fill (or show top candidates when ambiguous)
-- **Chord diagrams:** guitar fingering diagrams with adjustable size; supports a custom chord library
+- **Character ruler:** a passive scale above the text box — ticks every 5 columns, labels every 10, and a marked target width showing where Present wraps lyric lines. Long lines scroll horizontally rather than wrapping, and the ruler scrolls with them
+- **Chord diagrams:** fingering diagrams with adjustable size; supports a custom chord library
 - **Tap Tempo:** tap a button in rhythm to set BPM; toggle 4/4 ↔ 3/4; preview with a metronome click
 - **YouTube URL:** paste any YouTube link in the metadata bar; a YouTube button appears in the toolbar to open the embedded player in an overlay
 - **Prev / Next navigation:** when a song is opened from the library list or a setlist, arrow buttons let you move between songs without going back to the library
 - **Present** button launches full-screen performance mode for the current song or the full setlist
 
 ### Metadata fields
-Title · Artist · Key (with auto-detect) · Tempo / BPM · Time Signature · Duration · YouTube URL
+Title · Artist · Key · Tempo / BPM · Time Signature · Duration · YouTube URL
 
 ### Sets & Setlists
 - Create named Sets (one per venue, event, or rehearsal)
@@ -43,6 +43,25 @@ Title · Artist · Key (with auto-detect) · Tempo / BPM · Time Signature · Du
 - Navigate between songs with on-screen arrows or keyboard left/right
 - Edit button drops back into the editor at the current song; Save returns to presentation
 - YouTube player available per song during performance
+
+### Cloud Sync & Sharing
+Optional, and off unless Supabase env vars are set. Everything above works with no account; an account is only needed to publish or pull. Sign in via **Settings → Account** (magic link — `signInWithOtp` with `shouldCreateUser: false`; accounts are provisioned in the Supabase dashboard, not by self-signup).
+
+| Action | Control | Effect |
+|---|---|---|
+| **Publish** | ☁↑ on a set row | Upserts the set + its songs to the cloud (`sets`, `songs`, `set_songs`). Republish to sync later edits — an amber dot marks unpublished local changes |
+| **Share** | 🔗 on a published set | Generates a private `/shared/:token` link (`crypto.randomUUID()`, 32 hex chars). Multiple links per set; each can be revoked individually |
+| **Revoke** | Revoke in the Share dialog | Sets `revoked = true` on that token; the link stops resolving. Revoked links are hidden from the list |
+| **Unpublish** | ☁✕ on a set row | Deletes the cloud set; `set_songs` and `set_shares` go via `ON DELETE CASCADE`, and orphaned songs are cleaned up. The local copy is untouched |
+| **Pull** | ☁↓ on a set row, or in the Sets header | Brings your own cloud set back onto this device |
+
+**Pull** matches on **set id and overwrites in place** — it's your set returning to another of your devices, deliberately unlike the shared viewer's *Copy to library*, which mints fresh ids because it's someone else's set. The Sets-header control lists your cloud sets (`listCloudSets`) for a device that has no local copy yet.
+
+Scope of a pull: the set's name/order and the songs it references are overwritten by id; referenced songs missing locally are added; **songs outside the set are never touched** — it is never a library-wide replace. **Annotations survive** — ink lives in a separate IndexedDB store keyed by song id, and a pull only writes the `songs`/`sets` stores.
+
+**Staleness guard** — before overwriting, Cue compares **per entity**, not in aggregate: the local set's `updatedAt` against the cloud set's `updated_at`, and each shared song id against its cloud counterpart. Aggregate max-vs-max would let a newer cloud *set row* mask an older cloud *song* and silently destroy a local edit. If anything local is newer it names it — *"This device has newer changes to: Blue Moon, Five Foot Two. Pulling will discard them. Continue?"* — and is **advisory**, not a block.
+
+> The shared viewer (`/shared/:token`) is deliberately auth-free: it renders no sign-in affordance and passes `hideAccount` to the Settings panel. Annotations are never included in a shared set.
 
 ### Export
 | Command | Output | Contents |
@@ -102,10 +121,14 @@ Variants are defined in [`src/index.css`](src/index.css).
 |---|---|---|
 | IndexedDB `songs` | song id | `{ id, metadata, text, chordStyle, diagramScale, chordPrefs, displayKey, createdAt, updatedAt }` |
 | IndexedDB `sets` | set id | `{ id, name, songIds[], sortMode, createdAt, updatedAt }` |
-| `localStorage` | `cue_custom_chords` | Custom guitar chord fingerings |
+| IndexedDB `annotations` | song id | Device-local ink strokes. **Never** exported, published, or shared; survives a cloud pull overwriting its song |
+| `localStorage` | `cue_custom_chords` | Custom chord fingerings |
 | `localStorage` | `cue:schema_version` | Current schema version (integer) |
 | `localStorage` | `cue:onboarding_done` | Flag — tour has been seen |
 | `localStorage` | `cue_prefs` | Theme and other user preferences |
+| `localStorage` | `cue:draft` | In-progress editor text, written on every keystroke |
+| `localStorage` | `cue:published_sets` | `{ [setId]: isoTimestamp }` — last publish/pull per set; drives the amber "unpublished changes" dot |
+| `localStorage` | `cue:shared_with_me` | Bookmarked `/shared/:token` links (viewer side) |
 | `sessionStorage` | `cue:setlist_selected_id` | Highlighted song in Setlist panel |
 | `sessionStorage` | `cue:lib_highlighted_id` | Highlighted song in Library panel |
 

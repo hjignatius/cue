@@ -168,6 +168,17 @@ export async function deleteSet(id) {
   return (await getDB()).delete('sets', id);
 }
 
+// Newest local modification time across a set and its member songs, as an ISO
+// string ('' when unknown). ISO strings sort chronologically, so a plain sort
+// finds the newest. Shared by the publish "stale" dot and the pull staleness
+// guard so both judge freshness the same way.
+export function newestLocalAt(set, setSongs = []) {
+  return [set?.updatedAt, ...setSongs.map(s => s?.updatedAt)]
+    .filter(Boolean)
+    .sort()
+    .at(-1) ?? '';
+}
+
 export async function clearLibrary() {
   const d = await getDB();
   const tx = d.transaction(['songs', 'sets'], 'readwrite');
