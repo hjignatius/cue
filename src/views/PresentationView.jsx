@@ -142,15 +142,12 @@ const FONT_KEY = 'cue:present_font_px';
 // Fallback scroll speed (px/s) when no duration is set
 const FALLBACK_SPEED = 10;
 
-// Chord-panel size buttons: deliberately half PRESENT_CONTROL_BUTTON_SIZE. These
-// are rehearsal-time adjustments and must not read as the same class of control
-// as the 64px floating panel. RoundButton pads the hit area out to 44px, so the
-// touch target stays compliant while the button reads small.
-export const CHORD_SIZE_BUTTON_SIZE = 32;
+// Chord-panel size buttons and Present's action buttons share one size: the
+// adjustment/utility tier, smaller than PresentControls' 64px primary controls
+// but still a full MIN_TOUCH_TARGET, so RoundButton adds no padding. (The chord
+// buttons were 32 visual / 44 hit; enlarged to fill the 44 hit box.)
+export const CHORD_SIZE_BUTTON_SIZE = 44;
 // Present's action buttons (Chords / Finger drawing / YouTube / Edit / Exit).
-// A third size class on purpose: reachable mid-song but not primary, so bigger
-// than the chord strip's 32 and smaller than PresentControls' 64. It equals
-// MIN_TOUCH_TARGET, so RoundButton adds no padding around it.
 export const PRESENT_ACTION_BUTTON_SIZE = 44;
 const PRESENT_ACTION_GAP = 12;
 
@@ -552,7 +549,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                       disabled={chordDiagramSize === 0}
                       onActivate={() => updatePref('chordDiagramSize', Math.max(0, chordDiagramSize - 1))}
                     >
-                      <span className="font-bold leading-none" style={{ fontSize: 20 }}>−</span>
+                      <span className="font-bold leading-none" style={{ fontSize: 24 }}>−</span>
                     </RoundButton>
                     <RoundButton
                       size={CHORD_SIZE_BUTTON_SIZE}
@@ -561,7 +558,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                       disabled={chordDiagramSize === 4}
                       onActivate={() => updatePref('chordDiagramSize', Math.min(4, chordDiagramSize + 1))}
                     >
-                      <span className="font-bold leading-none" style={{ fontSize: 20 }}>+</span>
+                      <span className="font-bold leading-none" style={{ fontSize: 24 }}>+</span>
                     </RoundButton>
                   </div>
                   <div className="flex-1 overflow-hidden">
