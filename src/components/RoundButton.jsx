@@ -28,9 +28,16 @@ export const MIN_TOUCH_TARGET = 44;
 export const ROUND_SIZE_ACTION = 44;
 
 /**
- * A coloured circle of `size` px centred inside a transparent button whose hit
- * area is at least MIN_TOUCH_TARGET. At size >= 44 the button box and the circle
- * are the same size, so the 64px Present controls are unaffected.
+ * A coloured control with white content. Two shapes:
+ *   - circle (default): a `size` px circle centred in a transparent button whose
+ *     hit area is at least MIN_TOUCH_TARGET. At size >= 44 the button box and the
+ *     circle are the same size, so the 64px Present controls are unaffected.
+ *   - pill (`pill` set): an auto-width rounded-full bar `size` px tall, holding
+ *     the caller's children in a row (icon + label, arranged by the caller). For
+ *     labelled menu controls, where a detached label beside a circle reads as
+ *     orphaned. Hit height stays >= MIN_TOUCH_TARGET.
+ *
+ * `label` is the aria-label; `title` is the hover tooltip (menu surfaces want it).
  *
  * aria-disabled rather than the `disabled` attribute: disabled form controls
  * swallow pointer events in Safari/Chrome, which would create dead patches the
@@ -40,43 +47,54 @@ export const ROUND_SIZE_ACTION = 44;
 export default function RoundButton({
   size,
   label,
+  title,
   onActivate,
   fill,
   disabled = false,
   active = false,
+  pill = false,
   disabledOpacity = 0.3,
   touchAction = 'none',
   children,
 }) {
   const hit = Math.max(size, MIN_TOUCH_TARGET);
+  const bg = active ? ROUND_FILL_ACTIVE : fill;
+  const opacity = disabled ? disabledOpacity : 1;
   return (
     <button
       type="button"
       aria-label={label}
+      title={title}
       aria-disabled={disabled || undefined}
       onClick={disabled ? undefined : onActivate}
       className="group flex items-center justify-center shrink-0 bg-transparent"
       style={{
-        width: hit,
+        // Pill: auto width, min-width the touch target. Circle: square hit box.
+        width: pill ? undefined : hit,
+        minWidth: pill ? hit : undefined,
         height: hit,
         cursor: disabled ? 'default' : 'pointer',
         touchAction,
         WebkitTapHighlightColor: 'transparent',
       }}
     >
-      {/* The visual circle. Press-scale lives here rather than on the button so a
+      {/* The visual shape. Press-scale lives here rather than on the button so a
           padded hit area does not scale its transparent surround. */}
-      <span
-        className="flex items-center justify-center rounded-full text-white select-none transition-transform group-active:scale-95"
-        style={{
-          width: size,
-          height: size,
-          background: active ? ROUND_FILL_ACTIVE : fill,
-          opacity: disabled ? disabledOpacity : 1,
-        }}
-      >
-        {children}
-      </span>
+      {pill ? (
+        <span
+          className="flex items-center gap-2 rounded-full text-white select-none transition-transform group-active:scale-95"
+          style={{ height: size, paddingLeft: 12, paddingRight: 16, background: bg, opacity }}
+        >
+          {children}
+        </span>
+      ) : (
+        <span
+          className="flex items-center justify-center rounded-full text-white select-none transition-transform group-active:scale-95"
+          style={{ width: size, height: size, background: bg, opacity }}
+        >
+          {children}
+        </span>
+      )}
     </button>
   );
 }

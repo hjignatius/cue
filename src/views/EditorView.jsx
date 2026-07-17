@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2 } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
 import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
@@ -16,6 +17,20 @@ import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
+
+// Solid nav triangles — same glyphs as PresentControls' prev/next (paths copied
+// rather than cross-imported, to avoid an editor→Present dependency; the app
+// already inlines shared glyphs like the YouTube mark this way).
+function TriangleLeft({ size = 22 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 4.5 L16 19.5 L5.5 12 Z" /></svg>;
+}
+function TriangleRight({ size = 22 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4.5 L8 19.5 L18.5 12 Z" /></svg>;
+}
+// Visible label inside a pill button (white via RoundButton's text-white).
+function PillLabel({ children }) {
+  return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
+}
 
 // Target lyric line width in characters. Mirrors PresentationView's
 // LYRIC_TARGET_CHARS (the column count Present wraps at). Kept as a local
@@ -307,6 +322,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Shared sizing for the Find and Save buttons.
   const toolCtl = 'h-9 px-3 text-xs rounded-lg font-medium border transition-colors';
 
+  // Header round-button fill. On DARK chrome the translucent night fill composites
+  // to ~#4e5055 (~8:1) and reads well; on LIGHT chrome the translucent day fill
+  // would be muddy (~2.9:1), so the opaque slate ROUND_FILL_DAY_CHROME is used
+  // instead. Exit keeps ROUND_FILL_ACTIVE (indigo) so it stays the anchor.
+  const headerFill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
+
   // Shared JSX blocks --------------------------------------------------------
 
   const frBar = showFR && (
@@ -473,57 +494,72 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <div className="flex items-center gap-2 shrink-0">
           {inSetlist && (
             <>
-              <button
-                onClick={() => hasPrev && requestNav(setlistIdx - 1)}
-                disabled={!hasPrev}
-                className={`h-11 px-3 pointer-fine:h-9 text-sm border rounded-lg transition-colors ${hasPrev ? btnBorder : `border-transparent ${mutedText} cursor-not-allowed`}`}
-                title="Previous song"
-              >← Prev</button>
+              {/* Prev/Next: pill (icon + label) when wide, icon-only circle when
+                  narrow — the label costs width a phone header can't spare. */}
+              <RoundButton
+                size={ROUND_SIZE_ACTION} pill={!isNarrow}
+                label="Previous song" title="Previous song"
+                fill={headerFill} disabled={!hasPrev}
+                onActivate={() => requestNav(setlistIdx - 1)}
+              >
+                <TriangleLeft />{!isNarrow && <PillLabel>Prev</PillLabel>}
+              </RoundButton>
               <span className={`text-xs ${mutedText}`}>{setlistIdx + 1}/{setlistSongs.length}</span>
-              <button
-                onClick={() => hasNext && requestNav(setlistIdx + 1)}
-                disabled={!hasNext}
-                className={`h-11 px-3 pointer-fine:h-9 text-sm border rounded-lg transition-colors ${hasNext ? btnBorder : `border-transparent ${mutedText} cursor-not-allowed`}`}
-                title="Next song"
-              >Next →</button>
+              <RoundButton
+                size={ROUND_SIZE_ACTION} pill={!isNarrow}
+                label="Next song" title="Next song"
+                fill={headerFill} disabled={!hasNext}
+                onActivate={() => requestNav(setlistIdx + 1)}
+              >
+                {!isNarrow && <PillLabel>Next</PillLabel>}<TriangleRight />
+              </RoundButton>
             </>
           )}
           {(() => {
             const hasYT = !!youtubeEmbedUrl(metadata.youtubeUrl);
             return (
-              <button
-                onClick={() => hasYT && openPlayer(metadata.youtubeUrl, metadata.title)}
-                disabled={!hasYT}
+              <RoundButton
+                size={ROUND_SIZE_ACTION}
+                label={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
                 title={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
-                className={`flex items-center justify-center w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 rounded-lg border transition-colors ${hasYT ? `${btnBorder} text-red-500 dark:text-red-400 hover:text-red-400` : `border-transparent ${mutedText} cursor-not-allowed opacity-40`}`}
+                fill={headerFill} disabled={!hasYT}
+                onActivate={() => openPlayer(metadata.youtubeUrl, metadata.title)}
               >
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
-              </button>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+              </RoundButton>
             );
           })()}
           {onReturn ? (
-            <button
-              onClick={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey })}
-              className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm border rounded-lg transition-colors ${btnBorder}`}
+            // Reached only by Edit-from-Present, so the context is known: circle,
+            // icon-only, tooltip carries the meaning.
+            <RoundButton
+              size={ROUND_SIZE_ACTION}
+              label="Return to Performance" title="Return to Performance"
+              fill={headerFill}
+              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey })}
             >
-              ↩ Return to Performance
-            </button>
+              <Undo2 size={22} strokeWidth={2} />
+            </RoundButton>
           ) : (
-            <button
-              onClick={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey }], 0)}
-              className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm border rounded-lg transition-colors ${btnBorder}`}
+            <RoundButton
+              size={ROUND_SIZE_ACTION} pill
+              label="Present" title="Present"
+              fill={headerFill}
+              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey }], 0)}
             >
-              ▶ Present
-            </button>
+              <Tv size={22} strokeWidth={2} /><PillLabel>Present</PillLabel>
+            </RoundButton>
           )}
 
-          <button
-            onClick={() => isDirty ? setShowBackConfirm(true) : onBack()}
-            className="w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shrink-0"
-            title="Back to Library"
+          {/* Exit — indigo anchor. isDirty guard verbatim. */}
+          <RoundButton
+            size={ROUND_SIZE_ACTION}
+            label="Back to Library" title="Back to Library"
+            fill={ROUND_FILL_ACTIVE}
+            onActivate={() => isDirty ? setShowBackConfirm(true) : onBack()}
           >
-            <X size={26} />
-          </button>
+            <X size={24} strokeWidth={2.5} />
+          </RoundButton>
         </div>
       </header>
 
