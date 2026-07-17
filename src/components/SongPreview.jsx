@@ -1,3 +1,33 @@
+// SongPreview — renders a song's chords + lyrics.
+//
+// NOT an editor component. It is a SHARED renderer: the editor's preview pane is
+// one caller, but PDF export and the shared-viewer paths use it too (see the
+// `showMeta` default). Anything derived from the editor's pane geometry would
+// follow it into print, where there is no pane.
+//
+// ── Deferred: "Preview as a mini Present" ───────────────────────────────────
+// Idea: render this at Present's proportions so ink maps between the two views.
+// Its own task. Two findings from the investigation, so the next person starts
+// from them instead of rediscovering them:
+//
+//  1. Ink maps under PROPORTIONALITY, not identity. The stored scheme is already
+//     width-normalised (nx is 0–1; screenY scales by currentWidth/captureWidth)
+//     and tracks the font ratio to within 0.06% across fontPx 14–34 — it is built
+//     for uniform rescaling. The blocker is CHARS-PER-LINE, not width: this view
+//     wraps at ~44 chars in a 400px pane, Present always wraps at
+//     LYRIC_TARGET_CHARS = 65. Different wrap points ⇒ different line counts ⇒
+//     different vertical positions, which no uniform scale can fix. Fix the
+//     character measure and the font follows (previewFont = paneWidth / (65*0.602));
+//     fix the font alone and nothing works.
+//  2. Because this is a shared renderer, any such design needs an explicit `scale`
+//     prop with print and the shared viewer opting out — not a font quietly
+//     derived from a pane width.
+//
+// A literal 65-char column is NOT viable here: it is 1192px at the default font
+// against a pane that maxes out at 700, so the pane would scroll horizontally at
+// every size and its resize would stop meaning anything.
+// ────────────────────────────────────────────────────────────────────────────
+
 import { Fragment, useMemo } from 'react';
 import { parseChordPro, expandSections, attachSectionLabels, splitAnnotations } from '../utils/chordPro.js';
 import { transposeChord, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
@@ -100,17 +130,21 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
             );
           }
 
-          // Preview-only metadata (Artist / Key / BPM). Rendered OUTSIDE the
-          // overlay wrapper so it can never shift annotation coordinates —
-          // Present mode shows none of this in its scroll content. Gated by
+          // Preview-only metadata (Key / BPM). Rendered OUTSIDE the overlay
+          // wrapper so it can never shift annotation coordinates. Gated by
           // showMeta: the editor passes showMeta={false} (redundant with the
           // edit fields); the PDF export and other call sites keep it via the
           // default so only the editor's coordinate frame changes.
-          const metaBlock = showMeta && (metadata?.artist || metadata?.key || metadata?.tempo) ? (
+          //
+          // The ARTIST used to live here for the same reason. It now sits INSIDE
+          // the overlay wrapper, matching Present, where the artist was moved into
+          // the lyric flow. That move shifts stored ink down by one artist line,
+          // which is why annotation strokes carry a layout version: v1 strokes are
+          // corrected at render, v2 are drawn against this layout. See
+          // ANNOTATION_LAYOUT_VERSION in AnnotationCanvas.jsx. Key/BPM must stay
+          // out here — anything added inside the wrapper moves the lyrics again.
+          const metaBlock = showMeta && (metadata?.key || metadata?.tempo) ? (
             <div className={`mb-4 pb-3 border-b text-center ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
-              {metadata.artist && (
-                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{metadata.artist}</p>
-              )}
               {(metadata?.key || metadata?.tempo) && (
                 <p className={`text-xs mt-1 ${dark ? 'text-gray-600' : 'text-gray-500'}`}>
                   {metadata.key && <>Key: <span className="text-indigo-400">{displayKey || metadata.key}</span></>}
@@ -121,12 +155,16 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
             </div>
           ) : null;
 
-          // Overlay-wrapped content: song title + lines only.
+          // Overlay-wrapped content: song title + artist + lines.
           const content = (
             <>
               {metadata?.title && (
-                <h2 className={`text-lg font-bold text-center mb-4 ${dark ? 'text-white' : 'text-gray-900'}`}>{metadata.title}</h2>
+                <h2 className={`text-lg font-bold text-center mb-1 ${dark ? 'text-white' : 'text-gray-900'}`}>{metadata.title}</h2>
               )}
+              {metadata?.artist && (
+                <p className={`text-center mb-4 ${dark ? 'text-gray-400' : 'text-gray-500'}`} style={{ fontSize: 15, lineHeight: 1.5 }}>{metadata.artist}</p>
+              )}
+              {!metadata?.artist && metadata?.title && <div className="mb-3" />}
 
               {/* Lines */}
               {lines.map((line, i) => {
@@ -169,8 +207,11 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
               {overlay != null
                 ? (
                   // Overlay wrapper. Must structurally match PresentationView's
-                  // contentWrapRef (title + song content only) — annotation
-                  // coordinates depend on it. No preview-only elements inside.
+                  // contentWrapRef — annotation coordinates depend on it. That is
+                  // now title + ARTIST + song content. No preview-only elements
+                  // inside: Key/BPM stay above, outside this wrapper. Adding
+                  // anything else here moves the lyrics down and breaks stored
+                  // ink again, which would need another layout version.
                   <div className="relative min-h-full">{content}{overlay}</div>
                 )
                 : content}
