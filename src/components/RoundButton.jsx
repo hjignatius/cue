@@ -27,6 +27,13 @@ export const MIN_TOUCH_TARGET = 44;
 // minimum so RoundButton adds no padding.
 export const ROUND_SIZE_ACTION = 44;
 
+// The "compact" size tier: the dense panel/toolbar sub-headers (Library's
+// Select/New Song, Sets, Setlist Present/Edit, the editor's Preview/Chords
+// toggles). Matches the 36px visual height those rows already used, so pills sit
+// flush with their non-round neighbours; RoundButton still pads the hit area out
+// to the 44px touch minimum.
+export const ROUND_SIZE_COMPACT = 36;
+
 // Solid navigation triangles — shared by Present's prev/next controls and the
 // editor header's prev/next. They live here (the shared leaf that already owns
 // the fills) rather than in the Present-only PresentControls, so the editor does

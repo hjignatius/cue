@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive, Tv } from 'lucide-react';
 import { saveSong, saveSet, deleteSet, newestLocalAt } from '../utils/storage.js';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
@@ -18,6 +18,28 @@ import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet } from '../lib/cloud.js';
+
+// Compact pill in the round-button language, shared by the panel/toolbar
+// sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
+// chrome, translucent on dark), indigo when `active` — the same palette as the
+// main app header, one tier smaller. `dataOnboard` wraps the pill in a span
+// carrying the attribute, since the OnboardingTour spotlight targets it and
+// RoundButton has no data-* passthrough.
+function HeaderPill({ dark, icon: Icon, label, title, active = false, disabled = false, onActivate, dataOnboard }) {
+  const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
+  const btn = (
+    <RoundButton
+      size={ROUND_SIZE_COMPACT} pill
+      label={label} title={title ?? label}
+      fill={fill} active={active} disabled={disabled}
+      onActivate={onActivate}
+    >
+      {Icon && <Icon size={14} />}
+      <span className="text-xs font-medium leading-none whitespace-nowrap">{label}</span>
+    </RoundButton>
+  );
+  return dataOnboard ? <span data-onboard={dataOnboard} className="inline-flex">{btn}</span> : btn;
+}
 
 const PUBLISHED_SETS_KEY = 'cue:published_sets';
 function loadPublishedSets() {
@@ -280,20 +302,11 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
             <Download size={16} />
           </button>
           {!selectMode ? (
-            <button onClick={() => { setSelectMode(true); setSelectedSets(new Set()); }} className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg transition-colors border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}>
-              <CheckSquare size={12} /> Select
-            </button>
+            <HeaderPill dark={dark} icon={CheckSquare} label="Select" onActivate={() => { setSelectMode(true); setSelectedSets(new Set()); }} />
           ) : (
-            <button onClick={() => { setSelectMode(false); setSelectedSets(new Set()); }} className={`h-9 px-3 text-xs rounded-lg transition-colors border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}>
-              Done
-            </button>
+            <HeaderPill dark={dark} label="Done" onActivate={() => { setSelectMode(false); setSelectedSets(new Set()); }} />
           )}
-          <button
-            onClick={() => setCreating(v => !v)}
-            className="flex items-center gap-1 h-9 px-3 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
-          >
-            <Plus size={12} /> New Set
-          </button>
+          <HeaderPill dark={dark} icon={Plus} label="New Set" active onActivate={() => setCreating(v => !v)} />
         </div>
       </div>
       <div className={`px-3 py-3 border-b ${border} flex gap-2 shrink-0`}>
@@ -773,7 +786,8 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
 }
 
 function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit, border }) {
-  const { chordColor, accidentals } = usePrefs();
+  const { chordColor, accidentals, theme } = usePrefs();
+  const dark = theme === 'dark';
   const [exportOpen, setExportOpen] = useState(false);
   const [overId, setOverId] = useState(null); // dnd-kit: id of the row currently dragged over
   const sensors = useSensors(
@@ -876,20 +890,20 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
             <button onClick={() => applySort('alpha')}  className={`h-8 px-3 rounded transition-colors ${sortMode === 'alpha'  ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>A–Z</button>
           </div>
           {displaySongs.length > 0 && (
-            <button
-              onClick={() => canAct && onPresent(displaySongs, selectedIdx)}
-              disabled={!canAct}
-              className={`text-xs h-9 px-3 rounded-lg transition-colors ${canAct ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'}`}
+            <HeaderPill
+              dark={dark} icon={Tv} label="Present"
               title={canAct ? 'Present from selected song' : 'Select a song first'}
-            >▶ Present</button>
+              active={canAct} disabled={!canAct}
+              onActivate={() => onPresent(displaySongs, selectedIdx)}
+            />
           )}
           {displaySongs.length > 0 && (
-            <button
-              onClick={() => canAct && selectedSong && onEdit?.(selectedSong, selectedIdx, displaySongs)}
-              disabled={!canAct}
-              className={`flex items-center gap-1 text-xs h-9 px-3 rounded-lg transition-colors ${canAct ? 'border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-gray-600 dark:hover:border-gray-400' : 'border border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'}`}
+            <HeaderPill
+              dark={dark} icon={Pencil} label="Edit"
               title={canAct ? 'Edit selected song' : 'Select a song first'}
-            ><Pencil size={11} /> Edit</button>
+              disabled={!canAct}
+              onActivate={() => selectedSong && onEdit?.(selectedSong, selectedIdx, displaySongs)}
+            />
           )}
           {displaySongs.length > 0 && (
             <div className="relative ml-auto">
@@ -1189,12 +1203,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Library</span>
             <div className="flex items-center gap-2">
               {selectMode
-                ? <button onClick={toggleSelectMode} className={`h-9 px-3 text-xs rounded-lg transition-colors ${btnBorder}`}>Done</button>
-                : <button onClick={toggleSelectMode} className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg transition-colors ${btnBorder}`}><CheckSquare size={12} /> Select</button>
+                ? <HeaderPill dark={dark} label="Done" onActivate={toggleSelectMode} />
+                : <HeaderPill dark={dark} icon={CheckSquare} label="Select" onActivate={toggleSelectMode} />
               }
-              <button data-onboard="new-song-btn" onClick={onNewSong} className="flex items-center gap-1 h-9 px-3 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
-                <Plus size={12} /> New Song
-              </button>
+              <HeaderPill dark={dark} icon={Plus} label="New Song" active onActivate={onNewSong} dataOnboard="new-song-btn" />
             </div>
           </div>
 

@@ -6,7 +6,7 @@ import MetadataForm from '../components/MetadataForm.jsx';
 import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
@@ -697,28 +697,26 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowPreview(v => !v)}
-              className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
-                showPreview
-                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                  : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
-              }`}
+            {/* Round-button language: state-carrying pills — indigo when on,
+                neutral grey when off. */}
+            <RoundButton
+              size={ROUND_SIZE_COMPACT} pill
+              label={showPreview ? 'Preview On' : 'Preview Off'}
               title="Toggle preview panel"
+              fill={headerFill} active={showPreview}
+              onActivate={() => setShowPreview(v => !v)}
             >
-              {showPreview ? 'Preview On' : 'Preview Off'}
-            </button>
-            <button
-              onClick={() => setShowChordPanel(v => !v)}
-              className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
-                showChordPanel
-                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                  : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
-              }`}
+              <span className="text-xs font-medium leading-none whitespace-nowrap">{showPreview ? 'Preview On' : 'Preview Off'}</span>
+            </RoundButton>
+            <RoundButton
+              size={ROUND_SIZE_COMPACT} pill
+              label={showChordPanel ? 'Chords On' : 'Chords Off'}
               title="Toggle chord diagram panel"
+              fill={headerFill} active={showChordPanel}
+              onActivate={() => setShowChordPanel(v => !v)}
             >
-              {showChordPanel ? 'Chords On' : 'Chords Off'}
-            </button>
+              <span className="text-xs font-medium leading-none whitespace-nowrap">{showChordPanel ? 'Chords On' : 'Chords Off'}</span>
+            </RoundButton>
           </div>
         )}
       </div>
