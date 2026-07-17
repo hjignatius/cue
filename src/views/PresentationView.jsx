@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Pencil } from 'lucide-react';
-import PresentControls from '../components/PresentControls.jsx';
+import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_IDLE_DELAY_MS } from '../components/PresentControls.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -407,6 +407,25 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // ResizeObserver never fires.
   const lyricColWidth = useMemo(() => lyricColumnWidth(fontPx), [fontPx]);
 
+  // Idle fade for the gutter action buttons — mirrors PresentControls: fade after
+  // a spell of no input, wake on any pointerdown. Same delay/opacity so the two
+  // control surfaces ghost together and come back together.
+  const [gutterIdle, setGutterIdle] = useState(false);
+  const gutterIdleTimer = useRef(null);
+  useEffect(() => {
+    const wake = () => {
+      setGutterIdle(false);
+      clearTimeout(gutterIdleTimer.current);
+      gutterIdleTimer.current = setTimeout(() => setGutterIdle(true), PRESENT_CONTROL_IDLE_DELAY_MS);
+    };
+    wake();
+    window.addEventListener('pointerdown', wake, true);
+    return () => {
+      window.removeEventListener('pointerdown', wake, true);
+      clearTimeout(gutterIdleTimer.current);
+    };
+  }, []);
+
   // select-none on the root: Present is a performance view — lyrics are never
   // meant to be selected. Without it, a double-click (including the setlist row
   // double-tap that opens Present, whose second click can land on the just-mounted
@@ -591,7 +610,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           Present (Escape is the keyboard fallback). */}
       <div
         className="fixed left-0 z-[35] flex flex-col items-center"
-        style={{ top: '50%', transform: 'translateY(-50%)', gap: PRESENT_ACTION_GAP, paddingLeft: 2 }}
+        style={{
+          top: '50%', transform: 'translateY(-50%)', gap: PRESENT_ACTION_GAP, paddingLeft: 2,
+          opacity: gutterIdle ? PRESENT_CONTROL_IDLE_OPACITY : 1,
+          transition: 'opacity 300ms ease',
+        }}
       >
         <RoundButton
           size={PRESENT_ACTION_BUTTON_SIZE}
