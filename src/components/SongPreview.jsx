@@ -166,15 +166,26 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
           ) : null;
 
           // Overlay-wrapped content: song title + artist + lines.
+          //
+          // Title/artist are styled to RESEMBLE Present's info block (mono,
+          // left-aligned, title 1.4x the body like Present's fontPx * 1.4), so
+          // stepping into Present is not jarring. This is cosmetic only: Preview
+          // stays at fixed 15px reflowing to the pane, so line breaks and vertical
+          // positions still differ from Present and ink does NOT map between the
+          // two. Ink mapping needs the full scale model (see the header note); the
+          // restyle deliberately does not attempt it.
           const content = (
             <>
-              {metadata?.title && (
-                <h2 className={`text-lg font-bold text-center mb-1 ${dark ? 'text-white' : 'text-gray-900'}`}>{metadata.title}</h2>
+              {(metadata?.title || metadata?.artist) && (
+                <div className="mb-4">
+                  {metadata?.title && (
+                    <h2 className={`font-mono font-bold ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15 * 1.4, lineHeight: 1.2 }}>{metadata.title}</h2>
+                  )}
+                  {metadata?.artist && (
+                    <p className={`font-mono ${dark ? 'text-gray-400' : 'text-gray-500'}`} style={{ fontSize: 15, lineHeight: 1.5 }}>{metadata.artist}</p>
+                  )}
+                </div>
               )}
-              {metadata?.artist && (
-                <p className={`text-center mb-4 ${dark ? 'text-gray-400' : 'text-gray-500'}`} style={{ fontSize: 15, lineHeight: 1.5 }}>{metadata.artist}</p>
-              )}
-              {!metadata?.artist && metadata?.title && <div className="mb-3" />}
 
               {/* Lines */}
               {lines.map((line, i) => {
