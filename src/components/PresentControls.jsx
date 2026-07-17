@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ChevronDown, ChevronUp, Pause } from 'lucide-react';
 import { useDraggablePanel } from '../hooks/useDraggablePanel.js';
+import RoundButton, {
+  PRESENT_CONTROL_FILL_NIGHT,
+  PRESENT_CONTROL_FILL_DAY,
+  PRESENT_CONTROL_FILL_ACTIVE,
+} from './RoundButton.jsx';
+
+// Re-exported so these stay tunable from their original import path.
+export { PRESENT_CONTROL_FILL_NIGHT, PRESENT_CONTROL_FILL_DAY, PRESENT_CONTROL_FILL_ACTIVE };
 
 // ---- Tunables ---------------------------------------------------------------
 
@@ -14,16 +22,8 @@ export const PRESENT_CONTROL_PILL_IDLE_OPACITY = 0.55;
 export const PRESENT_CONTROL_IDLE_DELAY_MS = 4000;
 export const PRESENT_CONTROL_EDGE_MARGIN   = 16;   // min gap from any viewport edge
 
-// Button fills. The reference value is the Night one: a translucent grey circle
-// reads well against a dark background. Day inverts to a darker fill so the white
-// glyph keeps its contrast against a light page.
-export const PRESENT_CONTROL_FILL_NIGHT = 'rgba(140,140,140,0.55)';
-export const PRESENT_CONTROL_FILL_DAY   = 'rgba(70,70,70,0.55)';
-export const PRESENT_CONTROL_FILL_ACTIVE = 'rgba(79,70,229,0.85)'; // indigo-600
-
 const PANEL_PADDING     = 12;
 const HANDLE_H          = 24;
-const DISABLED_OPACITY  = 0.3;
 const FLASH_MS          = 180;
 
 const GRID_W = PRESENT_CONTROL_BUTTON_SIZE * 2 + PRESENT_CONTROL_GAP;
@@ -71,34 +71,6 @@ function MetronomeIcon({ size = 26 }) {
   );
 }
 
-// ---- Round button -----------------------------------------------------------
-
-// aria-disabled rather than the `disabled` attribute: disabled form controls
-// swallow pointer events in Safari/Chrome, which would create dead patches the
-// panel could not be dragged from. The handler is omitted, so it is a true no-op.
-function RoundButton({ label, onActivate, disabled = false, active = false, fill, children }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-disabled={disabled || undefined}
-      onClick={disabled ? undefined : onActivate}
-      className="flex items-center justify-center rounded-full text-white select-none transition-transform active:scale-95"
-      style={{
-        width: PRESENT_CONTROL_BUTTON_SIZE,
-        height: PRESENT_CONTROL_BUTTON_SIZE,
-        background: active ? PRESENT_CONTROL_FILL_ACTIVE : fill,
-        opacity: disabled ? DISABLED_OPACITY : 1,
-        cursor: disabled ? 'default' : 'pointer',
-        touchAction: 'none',
-        WebkitTapHighlightColor: 'transparent',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Glyph({ children }) {
   return <span className="font-bold leading-none" style={{ fontSize: 24, letterSpacing: '-0.02em' }}>{children}</span>;
 }
@@ -132,24 +104,25 @@ export function ControlGrid({
 
   return (
     <div className="grid grid-cols-2" style={{ gap: PRESENT_CONTROL_GAP }}>
-      <RoundButton label="Smaller text" fill={fill} disabled={!canSmaller} onActivate={onSmaller}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Smaller text" fill={fill} disabled={!canSmaller} onActivate={onSmaller}>
         <Glyph>A−</Glyph>
       </RoundButton>
-      <RoundButton label="Larger text" fill={fill} disabled={!canLarger} onActivate={onLarger}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Larger text" fill={fill} disabled={!canLarger} onActivate={onLarger}>
         <Glyph>A+</Glyph>
       </RoundButton>
 
-      <RoundButton label="Previous song" fill={fill} disabled={!canPrev} onActivate={onPrev}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Previous song" fill={fill} disabled={!canPrev} onActivate={onPrev}>
         <TriangleLeft />
       </RoundButton>
-      <RoundButton label="Next song" fill={fill} disabled={!canNext} onActivate={onNext}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Next song" fill={fill} disabled={!canNext} onActivate={onNext}>
         <TriangleRight />
       </RoundButton>
 
-      <RoundButton label="Count-in" fill={fill} disabled={!canCountIn} active={flash} onActivate={handleCountIn}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Count-in" fill={fill} disabled={!canCountIn} active={flash} onActivate={handleCountIn}>
         <MetronomeIcon />
       </RoundButton>
       <RoundButton
+        size={PRESENT_CONTROL_BUTTON_SIZE}
         label={scrolling ? 'Pause auto-scroll' : 'Start auto-scroll'}
         fill={fill}
         active={scrolling}
