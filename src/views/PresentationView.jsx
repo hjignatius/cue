@@ -127,19 +127,6 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
   );
 }
 
-// The Annotate toggle gates FINGER/mouse drawing only; a stylus always draws.
-// So this is a hand, not a pen — an "off" pen would imply "no ink", which is false.
-function HandIcon({ size = 22 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-      <path
-        d="M9 11.5V5.6a1.4 1.4 0 0 1 2.8 0v5.2m0-.6V4.4a1.4 1.4 0 0 1 2.8 0v6.4m0-.7V6.2a1.4 1.4 0 0 1 2.8 0v6.6m-8.4-1.3V9.4a1.4 1.4 0 0 0-2.8 0v5.1c0 3.2 2.4 5.9 5.6 5.9h1.4c3.1 0 5.6-2.5 5.6-5.6v-2"
-        stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 const MIN_FONT = 14;
 // 14→34 in steps of 2 is exactly 10 A+ presses. The ceiling is set by geometry,
 // not taste: the lyrics column is a fixed LYRIC_TARGET_CHARS wide, so its pixel
@@ -615,9 +602,14 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
         </RoundButton>
 
-        {/* The toggle gates FINGER and mouse drawing only — a stylus always draws
-            (AnnotationCanvas: shouldDraw = pointerType === 'pen' || annotating).
-            So the glyph is a hand, not a pen: "off" must not imply "no ink". */}
+        {/* Pen glyph vs "Finger drawing" label: the mismatch is DELIBERATE, do not
+            "fix" the icon to a hand.
+            The glyph reads as ink, which is what the control is about. But the
+            toggle only gates FINGER and mouse drawing — an Apple Pencil draws
+            whatever the state (AnnotationCanvas:
+            shouldDraw = e.pointerType === 'pen' || annotating). So "off" does NOT
+            mean "no ink", and the label has to say what the toggle actually does
+            even though the glyph says what the feature is. */}
         {!disableAnnotations && (
           <RoundButton
             size={PRESENT_ACTION_BUTTON_SIZE}
@@ -626,7 +618,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             active={annotating}
             onActivate={() => setAnnotating(v => !v)}
           >
-            <HandIcon />
+            <Pencil size={22} strokeWidth={2} />
           </RoundButton>
         )}
 
