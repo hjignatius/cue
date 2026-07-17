@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive } from 'lucide-react';
 import { saveSong, saveSet, deleteSet, newestLocalAt } from '../utils/storage.js';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
@@ -1148,27 +1149,34 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           <Music size={28} className="text-indigo-400" />
           <h1 className="text-3xl font-bold tracking-tight">Cue</h1>
         </div>
+        {/* Round-button language, matching the editor header: ? and Settings are
+            icon-only circles; Import and Backup are icon+label pills. Neutral fill
+            (opaque slate on light chrome, translucent on dark) — no indigo anchor,
+            as none of these is a primary action. */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={openManualPDF}
-            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors text-xl font-bold ${btnBorder}`}
-            title="Open user manual"
-          >
-            ?
-          </button>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${btnBorder}`}
-            title="Settings"
-          >
-            <Settings size={23} />
-          </button>
-          <button data-onboard="import-btn" onClick={onImport} className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors ${btnBorder}`}>
-            <Download size={14} /> Import
-          </button>
-          <button onClick={() => exportBackup()} className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors ${btnBorder}`}>
-            Backup
-          </button>
+          {(() => {
+            const headerFill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
+            const PillLabel = ({ children }) => <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
+            return (
+              <>
+                <RoundButton size={ROUND_SIZE_ACTION} label="Open user manual" title="Open user manual" fill={headerFill} onActivate={openManualPDF}>
+                  <span className="font-bold leading-none" style={{ fontSize: 20 }}>?</span>
+                </RoundButton>
+                <RoundButton size={ROUND_SIZE_ACTION} label="Settings" title="Settings" fill={headerFill} onActivate={() => setSettingsOpen(true)}>
+                  <Settings size={22} />
+                </RoundButton>
+                {/* Wrapper keeps the onboarding tour's spotlight target intact. */}
+                <span data-onboard="import-btn" className="inline-flex">
+                  <RoundButton size={ROUND_SIZE_ACTION} pill label="Import" title="Import" fill={headerFill} onActivate={onImport}>
+                    <Download size={18} /><PillLabel>Import</PillLabel>
+                  </RoundButton>
+                </span>
+                <RoundButton size={ROUND_SIZE_ACTION} pill label="Backup" title="Backup" fill={headerFill} onActivate={() => exportBackup()}>
+                  <Archive size={18} /><PillLabel>Backup</PillLabel>
+                </RoundButton>
+              </>
+            );
+          })()}
         </div>
       </header>
 
