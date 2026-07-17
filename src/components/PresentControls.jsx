@@ -2,13 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ChevronDown, ChevronUp, Pause } from 'lucide-react';
 import { useDraggablePanel } from '../hooks/useDraggablePanel.js';
 import RoundButton, {
-  PRESENT_CONTROL_FILL_NIGHT,
-  PRESENT_CONTROL_FILL_DAY,
-  PRESENT_CONTROL_FILL_ACTIVE,
+  ROUND_FILL_NIGHT,
+  ROUND_FILL_DAY,
+  ROUND_FILL_ACTIVE,
 } from './RoundButton.jsx';
 
-// Re-exported so these stay tunable from their original import path.
-export { PRESENT_CONTROL_FILL_NIGHT, PRESENT_CONTROL_FILL_DAY, PRESENT_CONTROL_FILL_ACTIVE };
 
 // ---- Tunables ---------------------------------------------------------------
 
@@ -87,7 +85,7 @@ export function ControlGrid({
   onCountIn, canCountIn,
   onToggleScroll, scrolling,
 }) {
-  const fill = dark ? PRESENT_CONTROL_FILL_NIGHT : PRESENT_CONTROL_FILL_DAY;
+  const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY;
 
   // The count-in is a one-shot two-bar cue, not a running metronome, so it gets
   // a brief press-flash instead of a persistent active state.

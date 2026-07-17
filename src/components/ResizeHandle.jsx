@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { PRESENT_CONTROL_FILL_NIGHT, PRESENT_CONTROL_FILL_DAY } from './RoundButton.jsx';
+import { ROUND_FILL_NIGHT, ROUND_FILL_DAY } from './RoundButton.jsx';
 
 /**
  * @param hitWidth  Width of the transparent touch target. It grows from the
@@ -82,7 +82,7 @@ export default function ResizeHandle({ handleProps, dark, hitWidth = 12, hitTop 
       {grip && (
         <div
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{ width: 4, height: 28, background: dark ? PRESENT_CONTROL_FILL_NIGHT : PRESENT_CONTROL_FILL_DAY }}
+          style={{ width: 4, height: 28, background: dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY }}
         />
       )}
     </div>

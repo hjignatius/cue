@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Pencil } from 'lucide-react';
 import PresentControls from '../components/PresentControls.jsx';
-import RoundButton, { PRESENT_CONTROL_FILL_NIGHT, PRESENT_CONTROL_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
@@ -384,7 +384,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const textCol = dark ? 'text-white' : 'text-gray-900';
 
   // Same fill family as the floating control panel, half the diameter.
-  const chordBtnFill = dark ? PRESENT_CONTROL_FILL_NIGHT : PRESENT_CONTROL_FILL_DAY;
+  const chordBtnFill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY;
   // Same fill family again — one visual language across all three sizes.
   const actionFill = chordBtnFill;
 
