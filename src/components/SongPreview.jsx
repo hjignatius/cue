@@ -1,31 +1,41 @@
-// SongPreview — renders a song's chords + lyrics.
+// SongPreview — renders a song's chords + lyrics for the EDITOR's preview pane.
 //
-// NOT an editor component. It is a SHARED renderer: the editor's preview pane is
-// one caller, but PDF export and the shared-viewer paths use it too (see the
-// `showMeta` default). Anything derived from the editor's pane geometry would
-// follow it into print, where there is no pane.
+// Editor-only. Verified (not assumed — a prior comment here wrongly called this a
+// shared renderer feeding print): the sole importer is EditorView, two call sites.
+// PDF export renders SongDocument.jsx (@react-pdf/renderer); the shared viewer
+// renders PresentationView. Neither touches this file. So nothing here follows
+// into print, and pane-derived sizing would affect the editor and nowhere else.
 //
-// ── Deferred: "Preview as a mini Present" ───────────────────────────────────
-// Idea: render this at Present's proportions so ink maps between the two views.
-// Its own task. Two findings from the investigation, so the next person starts
-// from them instead of rediscovering them:
+// Fixed font (15px) that reflows at the pane width. This does NOT match Present,
+// which renders at a user font in a fixed 65-character column. The two are only
+// styled to RESEMBLE each other (see the title/artist treatment below), so
+// entering Present is not jarring — but line breaks and vertical positions differ.
 //
-//  1. Ink maps under PROPORTIONALITY, not identity. The stored scheme is already
-//     width-normalised (nx is 0–1; screenY scales by currentWidth/captureWidth)
-//     and tracks the font ratio to within 0.06% across fontPx 14–34 — it is built
-//     for uniform rescaling. The blocker is CHARS-PER-LINE, not width: this view
-//     wraps at ~44 chars in a 400px pane, Present always wraps at
-//     LYRIC_TARGET_CHARS = 65. Different wrap points ⇒ different line counts ⇒
-//     different vertical positions, which no uniform scale can fix. Fix the
-//     character measure and the font follows (previewFont = paneWidth / (65*0.602));
-//     fix the font alone and nothing works.
-//  2. Because this is a shared renderer, any such design needs an explicit `scale`
-//     prop with print and the shared viewer opting out — not a font quietly
-//     derived from a pane width.
+// ── Deferred: "Preview as a mini Present" (its own task) ────────────────────
+// Making the two share a layout so annotations map between them is feasible but
+// out of scope. Findings from the investigation, corrected against measurement so
+// the next person starts from facts:
 //
-// A literal 65-char column is NOT viable here: it is 1192px at the default font
-// against a pane that maxes out at 700, so the pane would scroll horizontally at
-// every size and its resize would stop meaning anything.
+//  1. Wrap parity is achievable. Present's over-lyrics wrap is exactly
+//     font-invariant — measured: the same long line breaks at the same segment at
+//     fontPx 14/22/34, because its text area is precisely 65 * advance * fontPx.
+//     A Preview using the same flex-wrap mechanism (it already does) at a font
+//     derived from the pane, in a 65-char-wide text area, breaks identically. The
+//     earlier "chars-per-line can't be reconciled by any uniform scale" was wrong.
+//     Derive the advance from the same canvas measure lyricColumnWidth uses; do
+//     not hardcode 0.602 (real advance ~0.6023).
+//  2. Vertical parity is the actual work. Every vertical metric here is FIXED
+//     (font 15, chord 13, labels text-xs/mt-4/mb-1, empty h-3, over-lyrics mb-1);
+//     every one in Present is proportional to fontPx. Ink maps only once these are
+//     made proportional too — i.e. once this renders like SongBody. The cheapest
+//     faithful version is to EXTRACT SongBody and render it here, not to retrofit
+//     these metrics one by one.
+//  3. Safe, not expensive. The editor's overlay is AnnotationCanvas readOnly, so
+//     ink is never CAPTURED here — only displayed. A layout change needs no new
+//     ANNOTATION_LAYOUT_VERSION; strokes captured in Present would simply start
+//     displaying in register. The real user-visible cost is the readability floor:
+//     a pane-derived font only reaches Present's minimum (14px) at a ~580px pane,
+//     so a readable scale model needs the pane min raised from 200 to ~500.
 // ────────────────────────────────────────────────────────────────────────────
 
 import { Fragment, useMemo } from 'react';
@@ -132,9 +142,9 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
 
           // Preview-only metadata (Key / BPM). Rendered OUTSIDE the overlay
           // wrapper so it can never shift annotation coordinates. Gated by
-          // showMeta: the editor passes showMeta={false} (redundant with the
-          // edit fields); the PDF export and other call sites keep it via the
-          // default so only the editor's coordinate frame changes.
+          // showMeta, which the editor (the only caller) passes false, since the
+          // edit fields already show Key/BPM. The default is true only for any
+          // future caller; there is no PDF/print path through this file.
           //
           // The ARTIST used to live here for the same reason. It now sits INSIDE
           // the overlay wrapper, matching Present, where the artist was moved into
