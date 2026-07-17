@@ -8,6 +8,17 @@
 //   nx          = pointerX / captureWidth  (0–1, normalised to width at draw time)
 //   y           = pointerY in canvas-space pixels at draw time
 //   captureWidth = canvas.width at draw time
+//   v           = layout version the stroke was drawn against (absent ⇒ 1)
+//
+// Layout versions — the canvas is anchored to its parent's top, and y is absolute,
+// so any content added ABOVE the lyrics inside that parent moves the lyrics down
+// while stored strokes stay put:
+//   v1 — parent held title + song lines.
+//   v2 — parent holds title + ARTIST + song lines (the artist line was moved into
+//        the lyric flow). Lyrics sit one artist-line lower than in v1.
+// v1 strokes are corrected at render by legacyYOffset (see below). Nothing on disk
+// is rewritten: the fix is a render-time offset, so a wrong offset is a changed
+// number rather than lost ink.
 //
 // Rendering:
 //   widthRatio = currentCanvasWidth / captureWidth
@@ -46,12 +57,24 @@ function pointSegDist(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
+// Current layout version. Strokes drawn now record this; older strokes have no
+// `v` and are treated as 1.
+export const ANNOTATION_LAYOUT_VERSION = 2;
+
 // Render one stroke with uniform scaling so shapes stay undistorted on resize.
 // widthRatio = currentCanvasWidth / stroke.captureWidth is applied to both axes.
-function renderStroke(ctx, stroke, canvasWidth) {
+//
+// legacyYOffset is in CURRENT canvas pixels and is added after scaling, for v1
+// strokes only. Adding it post-scale rather than pre-scale is deliberate: the
+// caller measures the offset in the layout being rendered, so the correction needs
+// no assumption about the stroke's draw-time font and no magic advance-width
+// constant. The two are equivalent in Present, where widthRatio tracks the font
+// ratio to within 0.06% (measured).
+function renderStroke(ctx, stroke, canvasWidth, legacyYOffset = 0) {
   if (!stroke.points || stroke.points.length < 2) return;
   const ink = INKS.find(i => i.id === stroke.color) ?? INKS[0];
   const ratio = stroke.captureWidth > 0 ? canvasWidth / stroke.captureWidth : 1;
+  const dy = (stroke.v ?? 1) >= ANNOTATION_LAYOUT_VERSION ? 0 : legacyYOffset;
   ctx.save();
   ctx.strokeStyle = ink.color;
   ctx.lineWidth   = stroke.width;
@@ -59,9 +82,9 @@ function renderStroke(ctx, stroke, canvasWidth) {
   ctx.lineJoin    = 'round';
   ctx.globalCompositeOperation = 'source-over';
   ctx.beginPath();
-  ctx.moveTo(stroke.points[0].nx * canvasWidth, stroke.points[0].y * ratio);
+  ctx.moveTo(stroke.points[0].nx * canvasWidth, stroke.points[0].y * ratio + dy);
   for (let i = 1; i < stroke.points.length; i++) {
-    ctx.lineTo(stroke.points[i].nx * canvasWidth, stroke.points[i].y * ratio);
+    ctx.lineTo(stroke.points[i].nx * canvasWidth, stroke.points[i].y * ratio + dy);
   }
   ctx.stroke();
   ctx.restore();
@@ -73,10 +96,18 @@ export default function AnnotationCanvas({
   dark,
   readOnly = false,
   onHasStrokes, // (bool) → called when stroke count transitions empty ↔ non-empty
+  // Height, in current canvas pixels, of content this layout added above the
+  // lyrics since v1 (i.e. the artist line). Applied to v1 strokes only. 0 when the
+  // song has no artist, because then nothing was added and nothing shifted.
+  legacyYOffset = 0,
 }) {
   const canvasRef = useRef(null);
   const strokesRef = useRef([]);      // completed, persisted strokes
   const currentRef = useRef(null);   // stroke currently being drawn
+  // Mirrored into a ref so redraw(), which is a plain function, always reads the
+  // current value without being rebuilt.
+  const legacyOffsetRef = useRef(legacyYOffset);
+  legacyOffsetRef.current = legacyYOffset;
 
   // FIX 1: Track the pointerId that owns the current stroke. Any other pointer
   // arriving while this is non-null is treated as a multi-touch event: the
@@ -108,6 +139,10 @@ export default function AnnotationCanvas({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The offset is in current canvas px, so it changes with font size. Repaint when
+  // it does, or v1 strokes would sit at the previous size's correction.
+  useEffect(() => { redraw(); }, [legacyYOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---- helpers ---------------------------------------------------------------
 
   function redraw() {
@@ -115,8 +150,8 @@ export default function AnnotationCanvas({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const s of strokesRef.current) renderStroke(ctx, s, canvas.width);
-    if (currentRef.current) renderStroke(ctx, currentRef.current, canvas.width);
+    for (const s of strokesRef.current) renderStroke(ctx, s, canvas.width, legacyOffsetRef.current);
+    if (currentRef.current) renderStroke(ctx, currentRef.current, canvas.width, legacyOffsetRef.current);
   }
 
   const persistStrokes = useCallback(async (strokes) => {
@@ -245,6 +280,8 @@ export default function AnnotationCanvas({
       width:        ink.width,
       tool:         inkId === 'hl' ? 'highlighter' : 'pen',
       captureWidth: canvasRef.current.width,
+      // Drawn against the current layout, so it needs no legacy correction.
+      v:            ANNOTATION_LAYOUT_VERSION,
       points:       [pt],
     };
   }
