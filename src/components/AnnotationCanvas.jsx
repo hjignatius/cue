@@ -356,6 +356,10 @@ export default function AnnotationCanvas({
           touchAction: annotating && !readOnly ? 'none' : 'auto',
           zIndex: 8,
           cursor: 'crosshair',
+          // The canvas is pointer-interactive and covers the whole lyric area, so
+          // iOS Safari paints its default translucent-grey tap highlight over the
+          // entire text on every tap. Suppress it (drawing is unaffected).
+          WebkitTapHighlightColor: 'transparent',
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

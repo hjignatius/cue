@@ -407,8 +407,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // ResizeObserver never fires.
   const lyricColWidth = useMemo(() => lyricColumnWidth(fontPx), [fontPx]);
 
+  // select-none on the root: Present is a performance view — lyrics are never
+  // meant to be selected. Without it, a double-click (including the setlist row
+  // double-tap that opens Present, whose second click can land on the just-mounted
+  // lyrics) selects text and paints a highlight box over it.
   return (
-    <div className={`fixed inset-0 z-50 flex flex-col ${bg}`}>
+    <div className={`fixed inset-0 z-50 flex flex-col select-none ${bg}`}>
       {/* Visual count-in flash. Full-screen now the top bar is gone — it used to
           be an overlay inside that bar. z-[60] puts it above everything including
           PresentControls, which is safe because it is strictly transient: opacity
