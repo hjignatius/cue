@@ -27,6 +27,25 @@ export const MIN_TOUCH_TARGET = 44;
 // minimum so RoundButton adds no padding.
 export const ROUND_SIZE_ACTION = 44;
 
+// Solid navigation triangles — shared by Present's prev/next controls and the
+// editor header's prev/next. They live here (the shared leaf that already owns
+// the fills) rather than in the Present-only PresentControls, so the editor does
+// not have to depend on a Present component or copy the path.
+export function TriangleLeft({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M16 4.5 L16 19.5 L5.5 12 Z" fill="currentColor" />
+    </svg>
+  );
+}
+export function TriangleRight({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M8 4.5 L8 19.5 L18.5 12 Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 /**
  * A coloured control with white content. Two shapes:
  *   - circle (default): a `size` px circle centred in a transparent button whose

@@ -6,7 +6,7 @@ import MetadataForm from '../components/MetadataForm.jsx';
 import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
@@ -18,15 +18,6 @@ import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
 
-// Solid nav triangles — same glyphs as PresentControls' prev/next (paths copied
-// rather than cross-imported, to avoid an editor→Present dependency; the app
-// already inlines shared glyphs like the YouTube mark this way).
-function TriangleLeft({ size = 22 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 4.5 L16 19.5 L5.5 12 Z" /></svg>;
-}
-function TriangleRight({ size = 22 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 4.5 L8 19.5 L18.5 12 Z" /></svg>;
-}
 // Visible label inside a pill button (white via RoundButton's text-white).
 function PillLabel({ children }) {
   return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
@@ -502,7 +493,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 fill={headerFill} disabled={!hasPrev}
                 onActivate={() => requestNav(setlistIdx - 1)}
               >
-                <TriangleLeft />{!isNarrow && <PillLabel>Prev</PillLabel>}
+                <TriangleLeft size={22} />{!isNarrow && <PillLabel>Prev</PillLabel>}
               </RoundButton>
               <span className={`text-xs ${mutedText}`}>{setlistIdx + 1}/{setlistSongs.length}</span>
               <RoundButton
@@ -511,7 +502,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 fill={headerFill} disabled={!hasNext}
                 onActivate={() => requestNav(setlistIdx + 1)}
               >
-                {!isNarrow && <PillLabel>Next</PillLabel>}<TriangleRight />
+                {!isNarrow && <PillLabel>Next</PillLabel>}<TriangleRight size={22} />
               </RoundButton>
             </>
           )}

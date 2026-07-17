@@ -5,6 +5,8 @@ import RoundButton, {
   ROUND_FILL_NIGHT,
   ROUND_FILL_DAY,
   ROUND_FILL_ACTIVE,
+  TriangleLeft,
+  TriangleRight,
 } from './RoundButton.jsx';
 
 
@@ -40,22 +42,6 @@ function loadCollapsed() {
 }
 
 // ---- Icons ------------------------------------------------------------------
-
-function TriangleLeft({ size = 26 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M16 4.5 L16 19.5 L5.5 12 Z" fill="currentColor" />
-    </svg>
-  );
-}
-
-function TriangleRight({ size = 26 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M8 4.5 L8 19.5 L18.5 12 Z" fill="currentColor" />
-    </svg>
-  );
-}
 
 // No metronome icon exists in the app or in lucide-react, so it is inline.
 function MetronomeIcon({ size = 26 }) {
