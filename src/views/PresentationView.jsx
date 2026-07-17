@@ -127,6 +127,19 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
   );
 }
 
+// The Annotate toggle gates FINGER/mouse drawing only; a stylus always draws.
+// So this is a hand, not a pen — an "off" pen would imply "no ink", which is false.
+function HandIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+      <path
+        d="M9 11.5V5.6a1.4 1.4 0 0 1 2.8 0v5.2m0-.6V4.4a1.4 1.4 0 0 1 2.8 0v6.4m0-.7V6.2a1.4 1.4 0 0 1 2.8 0v6.6m-8.4-1.3V9.4a1.4 1.4 0 0 0-2.8 0v5.1c0 3.2 2.4 5.9 5.6 5.9h1.4c3.1 0 5.6-2.5 5.6-5.6v-2"
+        stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const MIN_FONT = 14;
 // 14→34 in steps of 2 is exactly 10 A+ presses. The ceiling is set by geometry,
 // not taste: the lyrics column is a fixed LYRIC_TARGET_CHARS wide, so its pixel
@@ -147,6 +160,36 @@ const FALLBACK_SPEED = 10;
 // as the 64px floating panel. RoundButton pads the hit area out to 44px, so the
 // touch target stays compliant while the button reads small.
 export const CHORD_SIZE_BUTTON_SIZE = 32;
+// Present's action buttons (Chords / Finger drawing / YouTube / Edit / Exit).
+// A third size class on purpose: reachable mid-song but not primary, so bigger
+// than the chord strip's 32 and smaller than PresentControls' 64. It equals
+// MIN_TOUCH_TARGET, so RoundButton adds no padding around it.
+export const PRESENT_ACTION_BUTTON_SIZE = 44;
+const PRESENT_ACTION_GAP = 12;
+
+// Artist line height, as a multiple of fontPx. The artist sits in the lyric flow
+// (inside contentWrapRef), so this IS the amount v1 annotations must be pushed
+// down by — see ANNOTATION_LAYOUT_VERSION. Styling the line and computing the
+// offset from one constant is what keeps the two from drifting apart.
+const ARTIST_LINE_HEIGHT = 1.5;
+// Key/BPM size relative to fontPx: clearly below the title, close to the artist.
+//
+// The ceiling is not taste, it is geometry. The block is absolutely positioned so
+// it contributes no flow height — that is what keeps it from moving the lyrics and
+// breaking annotation coordinates — but it also means nothing pushes the lyrics
+// down to make room for it. It therefore has to fit inside the info block's own
+// height plus its 24px bottom margin. A song with an artist donates ~1.5x fontPx
+// of that room; a song with a title and NO artist donates none, and that is the
+// constraining case: at fontPx 34 there are 81px available and the block is
+// 2 x fontPx x 1.5 x SCALE tall.
+//
+// Measured ceiling: 0.795 (at 1.0 the BPM line lands 21px into the first lyric).
+// 0.75 is deliberately below it — 0.8 cleared by 0.6px, which is a collision
+// waiting for the next margin change and no test would catch it.
+const KEY_BPM_SCALE = 0.75;
+// Horizontal room reserved for the Key/BPM block so a long title cannot run under
+// it. In px at the current font; ~10 monospace characters.
+const KEY_BPM_RESERVE_EM = 6;
 // Vertical padding above and below the size strip.
 const CHORD_STRIP_PAD_Y = 4;
 // The strip's height is fully determined by its contents: RoundButton pads the
@@ -199,13 +242,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // became flex-1 comes back. Docking is new; the width mechanism is the old one.
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
-  const [barCanScrollRight, setBarCanScrollRight] = useState(false);
   const [annotating, setAnnotating] = useState(false);
   const { url: ytUrl, collapsed: ytCollapsed, openPlayer, collapsePlayer, expandPlayer } = useYouTube();
   const ytWasExpandedRef = useRef(false);
   const scrollRef      = useRef(null);
   const contentWrapRef = useRef(null);
-  const barRef         = useRef(null);
   const rafRef         = useRef(0);
   const flashTimers    = useRef([]);
 
@@ -284,23 +325,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear flash timers on unmount
   useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
 
-  // Track whether the toolbar can scroll right (for fade affordance)
-  useEffect(() => {
-    const el = barRef.current;
-    if (!el) return;
-    const check = () => setBarCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
-    check();
-    el.addEventListener('scroll', check, { passive: true });
-    window.addEventListener('resize', check);
-    return () => { el.removeEventListener('scroll', check); window.removeEventListener('resize', check); };
-  }, []);
-  // Re-check overflow when song changes (metronome buttons may appear/disappear)
-  useEffect(() => {
-    const el = barRef.current;
-    if (!el) return;
-    setBarCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
-  }, [index]);
-
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e) {
@@ -372,15 +396,23 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   // Theme helpers
   const bg      = dark ? 'bg-neutral-950' : 'bg-white';
-  const barBg   = dark ? 'bg-neutral-900/95 border-neutral-800' : 'bg-gray-50/95 border-gray-200';
   const muted   = dark ? 'text-neutral-400' : 'text-gray-500';
   const textCol = dark ? 'text-white' : 'text-gray-900';
-  const btn     = `relative flex items-center justify-center rounded-lg border transition-colors px-2 h-11 pointer-fine:h-9 text-xs font-semibold after:absolute after:-inset-1.5 after:content-[''] ${
-    dark ? 'border-neutral-700 text-neutral-200 hover:bg-neutral-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-  }`;
 
   // Same fill family as the floating control panel, half the diameter.
   const chordBtnFill = dark ? PRESENT_CONTROL_FILL_NIGHT : PRESENT_CONTROL_FILL_DAY;
+  // Same fill family again — one visual language across all three sizes.
+  const actionFill = chordBtnFill;
+
+  // The View Key drives the info block, so it updates live on transpose.
+  const viewKey = song?.displayKey || meta.key?.trim() || '';
+  const hasKeyOrTempo = !!(viewKey || meta.tempo);
+
+  // How far v1 annotations must move down: exactly the artist line's height,
+  // because the artist is the only thing this layout added inside contentWrapRef.
+  // Derived from the same constant that styles the line, so the two cannot drift.
+  // Zero when the song has no artist — nothing was added, nothing shifted.
+  const legacyInkOffset = meta.artist?.trim() ? Math.round(fontPx * ARTIST_LINE_HEIGHT) : 0;
 
   const hasDuration = parseDuration(meta.duration) > 0;
   const timeSig = meta.timeSig || '4/4';
@@ -393,101 +425,18 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   return (
     <div className={`fixed inset-0 z-50 flex flex-col ${bg}`}>
-      {/* Top bar */}
-      <div className="relative shrink-0">
-      <div ref={barRef} className={`relative flex items-center gap-2 px-4 py-2 border-b ${barBg} backdrop-blur overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [justify-content:safe_center]`}>
-        {/* Silent-mode beat flash overlay — accent beats brighter than regular beats */}
-        <div
-          className={`absolute inset-0 pointer-events-none ${dark ? 'bg-white' : 'bg-black'}`}
-          style={{
-            opacity: flashState === 'accent' ? 0.7 : flashState === 'beat' ? 0.35 : 0,
-            transition: flashState ? 'opacity 18ms' : 'opacity 130ms',
-          }}
-        />
-        {/* Song info */}
-        <div className="min-w-0 flex-1">
-          <div className={`text-sm font-bold truncate ${textCol}`}>
-            {meta.title?.trim() || 'Untitled'}
-            {meta.artist?.trim() && <span className={`ml-2 font-normal ${muted}`}>· {meta.artist.trim()}</span>}
-          </div>
-          <div className={`text-[11px] ${muted}`}>
-            {total > 1 && `Song ${index + 1} of ${total}`}
-            {total > 1 && (meta.key?.trim() || meta.tempo) && ' · '}
-            {(song?.displayKey || meta.key?.trim()) && <>Key {song?.displayKey || meta.key.trim()}</>}
-            {meta.key?.trim() && meta.tempo && ' · '}
-            {meta.tempo && <>{meta.tempo} BPM</>}
-            {meta.tempo && timeSig === '3/4' && ' · 3/4'}
-            {hasDuration && ` · ${meta.duration}`}
-          </div>
-        </div>
-
-        {/* Count-in, auto-scroll and text size now live on the floating control
-            panel — see PresentControls.jsx. */}
-
-        {/* Chord panel toggle */}
-        <button
-          className={`${btn} px-2 ${showChords ? (dark ? 'bg-indigo-900 border-indigo-700' : 'bg-indigo-100 border-indigo-400') : ''}`}
-          onClick={() => setShowChords(v => !v)}
-          title="Toggle chord diagrams"
-        >
-          Chords
-        </button>
-
-        {/* Annotate toggle — hidden in shared viewer; annotations are local-only */}
-        {!disableAnnotations && (
-          <button
-            className={`${btn} !px-2 ${annotating ? (dark ? 'bg-indigo-900 border-indigo-700' : 'bg-indigo-100 border-indigo-400') : ''}`}
-            onClick={() => setAnnotating(v => !v)}
-            title={annotating ? 'Exit annotation mode' : 'Draw annotations over the song (finger or stylus)'}
-          >
-            <Pencil size={22} />
-          </button>
-        )}
-
-        {/* YouTube playback */}
-        {(() => {
-          const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
-          return (
-            <button
-              className={`${btn} !px-1.5 ${hasYT ? 'text-red-500 dark:text-red-400' : 'opacity-30 cursor-not-allowed'}`}
-              onClick={() => hasYT && openPlayer(meta.youtubeUrl, meta.title)}
-              disabled={!hasYT}
-              title={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}
-            >
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
-            </button>
-          );
-        })()}
-
-        {/* Edit current song — hidden on shared/read-only routes */}
-        {showEdit && (
-          <button
-            className={btn}
-            onClick={() => onEdit?.(songs[index], index)}
-            title="Edit this song"
-          >
-            Edit
-          </button>
-        )}
-
-        {/* Exit */}
-        <button
-          className="flex items-center justify-center w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 shrink-0 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
-          onClick={onExit}
-          title="Exit (Esc)"
-        >
-          <X size={26} />
-        </button>
-      </div>
-      {/* Right-edge fade — visible only when more buttons are scrolled off-screen */}
-      {barCanScrollRight && (
-        <div
-          className={`absolute right-0 top-0 bottom-0 w-10 pointer-events-none bg-gradient-to-l to-transparent ${
-            dark ? 'from-neutral-900/90' : 'from-gray-50/90'
-          }`}
-        />
-      )}
-      </div>
+      {/* Visual count-in flash. Full-screen now the top bar is gone — it used to
+          be an overlay inside that bar. z-[60] puts it above everything including
+          PresentControls, which is safe because it is strictly transient: opacity
+          is 0 except during the ~2 bars of a count-in, and it is
+          pointer-events-none throughout, so it never intercepts a tap. */}
+      <div
+        className={`fixed inset-0 z-[60] pointer-events-none ${dark ? 'bg-white' : 'bg-black'}`}
+        style={{
+          opacity: flashState === 'accent' ? 0.7 : flashState === 'beat' ? 0.35 : 0,
+          transition: flashState ? 'opacity 18ms' : 'opacity 130ms',
+        }}
+      />
 
       {/* Content area. The wide chord panel is docked absolutely on top of this
           box rather than sharing the row, so it owns its width and can never be
@@ -508,10 +457,37 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           <div ref={scrollRef} className="absolute inset-0 overflow-y-auto px-6 py-6 md:px-12">
             {/* relative wrapper so the canvas can use position:absolute inset-0 */}
             <div ref={contentWrapRef} className="pb-32 relative">
-              {meta.title?.trim() && (
-                <h1 className={`font-sans font-bold mb-6 ${textCol}`} style={{ fontSize: fontPx * 1.4 }}>
-                  {meta.title.trim()}
-                </h1>
+              {/* Song info, in the lyric flow rather than in chrome.
+                  Title and ARTIST are in normal flow, so they sit inside the
+                  canvas's parent and push the lyrics down — that shift is what
+                  ANNOTATION_LAYOUT_VERSION 2 exists for.
+                  Key/BPM are absolutely positioned: they contribute ZERO flow
+                  height, so they cannot move the lyrics and cannot affect
+                  annotation coordinates no matter how tall they get. */}
+              {(meta.title?.trim() || meta.artist?.trim() || hasKeyOrTempo) && (
+                <div className="relative mb-6">
+                  <div style={{ paddingRight: hasKeyOrTempo ? fontPx * KEY_BPM_RESERVE_EM : 0 }}>
+                    {meta.title?.trim() && (
+                      <h1 className={`font-mono font-bold ${textCol}`} style={{ fontSize: fontPx * 1.4, lineHeight: 1.2 }}>
+                        {meta.title.trim()}
+                      </h1>
+                    )}
+                    {meta.artist?.trim() && (
+                      <p className={`font-mono ${muted}`} style={{ fontSize: fontPx, lineHeight: ARTIST_LINE_HEIGHT }}>
+                        {meta.artist.trim()}
+                      </p>
+                    )}
+                  </div>
+                  {hasKeyOrTempo && (
+                    <div
+                      className={`absolute top-0 right-0 text-right font-mono ${muted}`}
+                      style={{ fontSize: fontPx * KEY_BPM_SCALE, lineHeight: ARTIST_LINE_HEIGHT }}
+                    >
+                      {viewKey && <div>Key: <span className={textCol}>{viewKey}</span></div>}
+                      {meta.tempo && <div>{meta.tempo} BPM</div>}
+                    </div>
+                  )}
+                </div>
               )}
               <SongBody text={song?.text || ''} semitones={semitones} useFlats={useFlats} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
               {/* Ink annotation canvas — omitted entirely in shared viewer */}
@@ -521,6 +497,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   songId={song.id}
                   annotating={annotating}
                   dark={dark}
+                  legacyYOffset={legacyInkOffset}
                 />
               )}
             </div>
@@ -615,6 +592,78 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             </>
           )
         )}
+      </div>
+
+      {/* Action buttons — the top bar is gone, so these live in the lyric
+          column's 48px left gutter, where they cover no text at rest. They are
+          stationary; PresentControls is draggable, so overlap is possible by
+          construction and z-order is the only guarantee: z-35 keeps these above
+          the chord panel (z-30) and below PresentControls (z-40), so the control
+          pill always wins. Exit is here too — it is the only pointer route out of
+          Present (Escape is the keyboard fallback). */}
+      <div
+        className="fixed left-0 z-[35] flex flex-col items-center"
+        style={{ top: '50%', transform: 'translateY(-50%)', gap: PRESENT_ACTION_GAP, paddingLeft: 2 }}
+      >
+        <RoundButton
+          size={PRESENT_ACTION_BUTTON_SIZE}
+          label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
+          fill={actionFill}
+          active={showChords}
+          onActivate={() => setShowChords(v => !v)}
+        >
+          <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
+        </RoundButton>
+
+        {/* The toggle gates FINGER and mouse drawing only — a stylus always draws
+            (AnnotationCanvas: shouldDraw = pointerType === 'pen' || annotating).
+            So the glyph is a hand, not a pen: "off" must not imply "no ink". */}
+        {!disableAnnotations && (
+          <RoundButton
+            size={PRESENT_ACTION_BUTTON_SIZE}
+            label={annotating ? 'Finger drawing on' : 'Finger drawing off'}
+            fill={actionFill}
+            active={annotating}
+            onActivate={() => setAnnotating(v => !v)}
+          >
+            <HandIcon />
+          </RoundButton>
+        )}
+
+        {(() => {
+          const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
+          return (
+            <RoundButton
+              size={PRESENT_ACTION_BUTTON_SIZE}
+              label={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}
+              fill={actionFill}
+              disabled={!hasYT}
+              onActivate={() => openPlayer(meta.youtubeUrl, meta.title)}
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+            </RoundButton>
+          );
+        })()}
+
+        {showEdit && (
+          <RoundButton
+            size={PRESENT_ACTION_BUTTON_SIZE}
+            label="Edit this song"
+            fill={actionFill}
+            onActivate={() => onEdit?.(songs[index], index)}
+          >
+            <span className="font-bold leading-none" style={{ fontSize: 20 }}>E</span>
+          </RoundButton>
+        )}
+
+        <RoundButton
+          size={PRESENT_ACTION_BUTTON_SIZE}
+          label="Exit Present mode"
+          fill={actionFill}
+          onActivate={onExit}
+        >
+          <X size={22} strokeWidth={2.5} />
+        </RoundButton>
       </div>
 
       {/* Floating control panel — the only in-view control surface for text size,
