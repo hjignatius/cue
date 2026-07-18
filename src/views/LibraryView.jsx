@@ -569,12 +569,11 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                         )}
                       </div>
                     )}
-                    {/* Duplicate — local operation, available to everyone */}
+                    {/* Duplicate — an always-visible pill (like New Song / Add to
+                        Set), not a hover-revealed icon button. Local operation, so
+                        available to everyone. */}
                     {!selectMode && editingSetId !== set.id && (
-                      <span
-                        onClick={e => e.stopPropagation()}
-                        className="shrink-0 inline-flex opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"
-                      >
+                      <span onClick={e => e.stopPropagation()} className="shrink-0 inline-flex">
                         <HeaderPill dark={dark} icon={Copy} label="Duplicate" title="Duplicate set" onActivate={() => handleDuplicateSet(set)} />
                       </span>
                     )}
