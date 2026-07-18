@@ -569,13 +569,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                         )}
                       </div>
                     )}
-                    {/* Duplicate — an always-visible pill (like New Song / Add to
-                        Set), not a hover-revealed icon button. Local operation, so
-                        available to everyone. */}
+                    {/* Duplicate — a plain icon button, matching the song row's
+                        duplicate. Local operation, so available to everyone. */}
                     {!selectMode && editingSetId !== set.id && (
-                      <span onClick={e => e.stopPropagation()} className="shrink-0 inline-flex">
-                        <HeaderPill dark={dark} icon={Copy} label="Duplicate" title="Duplicate set" onActivate={() => handleDuplicateSet(set)} />
-                      </span>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDuplicateSet(set); }}
+                        title="Duplicate set"
+                        className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-all shrink-0"
+                      >
+                        <Copy size={19} />
+                      </button>
                     )}
                     {!selectMode && editingSetId !== set.id && (
                       <ChevronRight size={14} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-300 dark:text-gray-700 group-hover:text-gray-500'}`} />
