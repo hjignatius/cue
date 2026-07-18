@@ -219,7 +219,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // landscape. Docking it (rather than the blocking modal) is what keeps Present
   // usable when an iPad is rotated to portrait.
   const isNarrow = useIsNarrow();
-  const chordsModal = useIsNarrow(640);
+  const isPhone = useIsNarrow(640);
   const [index, setIndex]       = useState(Math.max(0, Math.min(startIndex, songs.length - 1)));
   const [fontPx, setFontPx]     = useState(() => {
     try {
@@ -229,7 +229,17 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     return DEFAULT_FONT;
   });
   const [scrolling, setScrolling] = useState(false);
-  const [showChords, setShowChords] = useState(true);
+  // Chords are docked (non-blocking) on tablet/desktop, so default them on there.
+  // At phone widths the panel is a full-screen modal drawer, so it must NOT
+  // auto-open — starting it on would bury the song behind a modal the moment
+  // Present opens. Start off on a phone; the C button opens it on demand.
+  const [showChords, setShowChords] = useState(
+    () => (typeof window !== 'undefined' ? window.innerWidth >= 640 : true)
+  );
+  // Entering phone width (e.g. rotating an iPhone to portrait) collapses the
+  // chord panel so it never eats a docked column on a screen with no room to
+  // spare. The panel is otherwise the same docked, resizable panel everywhere.
+  useEffect(() => { if (isPhone) setShowChords(false); }, [isPhone]);
   // Restores the pre-e6eeb0f key and range, so a width saved before the panel
   // became flex-1 comes back. Docking is new; the width mechanism is the old one.
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
@@ -523,90 +533,62 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         {/* Scroll-clear spacer. Matches the docked panel's live width so the end
             of the longest line can be scrolled out from under it; without it the
             tail would sit under the panel even at maximum scrollLeft. */}
-        {showChords && !chordsModal && (
+        {showChords && (
           <div className="shrink-0" style={{ width: chordsWidth }} aria-hidden="true" />
         )}
       </div>
 
-        {/* Chord diagram — docked resizable panel on wide and tablet-portrait
-            screens; a slide-in overlay only at true phone widths. */}
+        {/* Chord diagram — one docked, resizable panel at every width (phone,
+            tablet, desktop): no blocking modal, so the round size buttons are
+            always present. Absolute, so it takes no row space and keeps its own
+            resizable width; the lyrics column runs under it at large fonts
+            instead of pushing it off the page. z-30 keeps it below
+            PresentControls (z-40) so the control pill stays reachable.
+            overflow-hidden lives on the inner column, not here, so the handle's
+            44px touch target can overflow the panel's left edge. */}
         {showChords && (
-          chordsModal ? (
-            <>
-              <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowChords(false)} />
-              <div className={`fixed right-0 top-0 bottom-0 z-50 w-72 flex flex-col overflow-hidden shadow-2xl ${dark ? 'bg-neutral-900 border-l border-neutral-800' : 'bg-white border-l border-gray-200'}`}>
-                <div className={`px-3 py-2 border-b flex items-center justify-between shrink-0 ${dark ? 'border-neutral-800' : 'border-gray-200'}`}>
-                  <span className={`text-xs font-semibold uppercase tracking-wide ${dark ? 'text-neutral-500' : 'text-gray-500'}`}>Chords</span>
-                  <button
-                    onClick={() => setShowChords(false)}
-                    className={`h-11 w-11 flex items-center justify-center rounded-lg text-sm transition-colors ${dark ? 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
-                  >✕</button>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <SongChordPanel
-                    text={song?.text || ''}
-                    semitones={semitones}
-                    useFlats={useFlats}
-                    sizeLevel={chordDiagramSize}
-                    onSizeLevelChange={level => updatePref('chordDiagramSize', level)}
-                    readonly
-                    chordPrefs={song?.chordPrefs ?? {}}
-                  />
-                </div>
+          <div
+            className={`absolute right-0 inset-y-0 z-30 flex border-l ${dark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-200 bg-gray-50'}`}
+            style={{ width: chordsWidth }}
+          >
+            <ResizeHandle handleProps={chordsHandleProps} dark={dark} hitWidth={MIN_TOUCH_TARGET} hitTop={CHORD_STRIP_H} grip ignorePen />
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              {/* Size strip — Present renders its own so SongChordPanel's
+                  built-in one stays out of the editor, which shares that
+                  component. justify-center keeps the buttons centred on the
+                  panel's live width as it is resized. */}
+              <div className="flex items-center justify-center gap-2 shrink-0" style={{ paddingTop: CHORD_STRIP_PAD_Y, paddingBottom: CHORD_STRIP_PAD_Y }}>
+                <RoundButton
+                  size={CHORD_SIZE_BUTTON_SIZE}
+                  label="Smaller chord diagrams"
+                  fill={chordBtnFill}
+                  disabled={chordDiagramSize === 0}
+                  onActivate={() => updatePref('chordDiagramSize', Math.max(0, chordDiagramSize - 1))}
+                >
+                  <span className="font-bold leading-none" style={{ fontSize: 24 }}>−</span>
+                </RoundButton>
+                <RoundButton
+                  size={CHORD_SIZE_BUTTON_SIZE}
+                  label="Larger chord diagrams"
+                  fill={chordBtnFill}
+                  disabled={chordDiagramSize === 4}
+                  onActivate={() => updatePref('chordDiagramSize', Math.min(4, chordDiagramSize + 1))}
+                >
+                  <span className="font-bold leading-none" style={{ fontSize: 24 }}>+</span>
+                </RoundButton>
               </div>
-            </>
-          ) : (
-            <>
-              {/* Docked chord panel. Absolute, so it takes no row space and keeps
-                  its own resizable width — the lyrics column simply runs under it
-                  at large fonts instead of pushing it off the page. z-30 keeps it
-                  below PresentControls (z-40) so the control pill stays reachable.
-                  overflow-hidden lives on the inner column, not here, so the
-                  handle's 44px touch target can overflow the panel's left edge. */}
-              <div
-                className={`absolute right-0 inset-y-0 z-30 flex border-l ${dark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-200 bg-gray-50'}`}
-                style={{ width: chordsWidth }}
-              >
-                <ResizeHandle handleProps={chordsHandleProps} dark={dark} hitWidth={MIN_TOUCH_TARGET} hitTop={CHORD_STRIP_H} grip ignorePen />
-                <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-                  {/* Size strip — Present renders its own so SongChordPanel's
-                      built-in one stays out of the editor, which shares that
-                      component. justify-center keeps the buttons centred on the
-                      panel's live width as it is resized. */}
-                  <div className="flex items-center justify-center gap-2 shrink-0" style={{ paddingTop: CHORD_STRIP_PAD_Y, paddingBottom: CHORD_STRIP_PAD_Y }}>
-                    <RoundButton
-                      size={CHORD_SIZE_BUTTON_SIZE}
-                      label="Smaller chord diagrams"
-                      fill={chordBtnFill}
-                      disabled={chordDiagramSize === 0}
-                      onActivate={() => updatePref('chordDiagramSize', Math.max(0, chordDiagramSize - 1))}
-                    >
-                      <span className="font-bold leading-none" style={{ fontSize: 24 }}>−</span>
-                    </RoundButton>
-                    <RoundButton
-                      size={CHORD_SIZE_BUTTON_SIZE}
-                      label="Larger chord diagrams"
-                      fill={chordBtnFill}
-                      disabled={chordDiagramSize === 4}
-                      onActivate={() => updatePref('chordDiagramSize', Math.min(4, chordDiagramSize + 1))}
-                    >
-                      <span className="font-bold leading-none" style={{ fontSize: 24 }}>+</span>
-                    </RoundButton>
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <SongChordPanel
-                      text={song?.text || ''}
-                      semitones={semitones}
-                      useFlats={useFlats}
-                      sizeLevel={chordDiagramSize}
-                      readonly
-                      chordPrefs={song?.chordPrefs ?? {}}
-                    />
-                  </div>
-                </div>
+              <div className="flex-1 overflow-hidden">
+                <SongChordPanel
+                  text={song?.text || ''}
+                  semitones={semitones}
+                  useFlats={useFlats}
+                  sizeLevel={chordDiagramSize}
+                  readonly
+                  chordPrefs={song?.chordPrefs ?? {}}
+                />
               </div>
-            </>
-          )
+            </div>
+          </div>
         )}
       </div>
 
