@@ -14,13 +14,14 @@ const CONTENT_HEIGHT_PT = A4_HEIGHT_PT - PAGE_PADDING_PT * 2; // ~745.89
 const LINE_HEIGHT_MULT = 1.2;
 
 const HEIGHTS = {
-  // chord row (10pt, fixed height 12) + lyric row (12pt × 1.2) + margin 2
-  chords: 12 + 12 * LINE_HEIGHT_MULT + 2,
-  // plain lyric line: 12pt × 1.2 + margin 2
-  lyrics: 12 * LINE_HEIGHT_MULT + 2,
+  // chord row (12pt, fixed height 12 × 1.2) + lyric row (14pt × 1.2) + margin 2
+  chords: 12 * LINE_HEIGHT_MULT + 14 * LINE_HEIGHT_MULT + 2,
+  // plain lyric line: 14pt × 1.2 + margin 2
+  lyrics: 14 * LINE_HEIGHT_MULT + 2,
   // empty line spacer — ~1.5x a lyric line for clear section separation
   empty: 22,
-  // section labels now live in the margin — no vertical height cost
+  // section labels now render inline above a section (8pt × 1.2 + a section gap);
+  // attached per-line via line.label, so not counted as a separate line type here
   comment: 0,
   // directives don't render in the body
   directive: 0,

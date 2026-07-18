@@ -3,27 +3,38 @@ import { attachSectionLabels, splitAnnotations } from './chordPro.js';
 import { transposeChord } from './transpose.js';
 import { PdfChordDiagram } from './PdfChordDiagram.jsx';
 
-const LABEL_COL = 56;
-const PAGE_PAD_LEFT = 8;
+// Present-matched layout. Lyrics are 14pt Courier at a 65-character target width
+// (the same LYRIC_TARGET_CHARS as Present), and section labels sit inline above
+// each section — exactly as Present renders them — rather than in a left column.
+// Dropping that column frees enough width that 65 chars fit an A4 page with
+// symmetric, print-safe ~24pt side margins.
+const A4_WIDTH_PT = 595.28;
+const LYRIC_FONT = 14;
+const CHORD_FONT = 12;         // ~0.85 × lyric, matching Present's over-lyrics chords
+const LABEL_FONT = 8;          // ~0.6 × lyric, matching Present's section labels
+const COURIER_ADVANCE = 0.6;   // monospace advance as a fraction of the em
+const LYRIC_TARGET_CHARS = 65; // matches Present's LYRIC_TARGET_CHARS
+// Side margins that leave exactly the target character width. floor() keeps the
+// content a hair wider than 65 chars so a full 65-char line never wraps.
+const PAGE_PAD_X = Math.floor((A4_WIDTH_PT - LYRIC_TARGET_CHARS * LYRIC_FONT * COURIER_ADVANCE) / 2);
 
 function buildStyles(scale, chordColor = '#4f46e5') {
   const s = scale;
   return StyleSheet.create({
-    page:           { paddingTop: 48, paddingRight: 48, paddingBottom: 48, paddingLeft: PAGE_PAD_LEFT, fontFamily: 'Helvetica', backgroundColor: '#ffffff' },
+    page:           { paddingTop: 48, paddingRight: PAGE_PAD_X, paddingBottom: 48, paddingLeft: PAGE_PAD_X, fontFamily: 'Helvetica', backgroundColor: '#ffffff' },
     header:         { marginBottom: 24 * s, borderBottomWidth: 1, borderBottomColor: '#cccccc', paddingBottom: 12 * s },
     title:          { fontSize: 22 * s, fontFamily: 'Helvetica-Bold', color: '#1a1a2e', marginBottom: 4 * s, textAlign: 'center' },
     artist:         { fontSize: 10 * s, color: '#555555', marginBottom: 2 * s, textAlign: 'center' },
     metaRow:        { flexDirection: 'row', marginTop: 3 * s, justifyContent: 'center' },
     meta:           { fontSize: 8 * s, color: '#888888', marginRight: 12 * s },
-    bodyRow:        { flexDirection: 'row' },
-    labelCol:       { width: LABEL_COL * s, paddingLeft: 2 * s, justifyContent: 'center', alignItems: 'flex-start' },
-    labelText:      { fontSize: 7 * s, fontFamily: 'Helvetica-Bold', color: chordColor, textTransform: 'uppercase', letterSpacing: 0.5 },
-    contentCol:     { flex: 1 },
+    // Inline section label, above its section (Present-style). marginTop for the
+    // section gap is applied per-line so the first line has none.
+    sectionLabel:   { fontSize: LABEL_FONT * s, fontFamily: 'Helvetica-Bold', color: chordColor, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: LYRIC_FONT * 0.25 * s },
     lineContainer:  { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 * s, backgroundColor: '#ffffff' },
     segment:        { flexDirection: 'column', backgroundColor: '#ffffff' },
-    chordText:      { fontSize: 10 * s, fontFamily: 'Courier-Bold', color: chordColor, height: 12 * s },
-    lyricText:      { fontSize: 12 * s, color: '#1a1a2e', fontFamily: 'Courier' },
-    plainLyricLine: { fontSize: 12 * s, color: '#1a1a2e', fontFamily: 'Courier', marginBottom: 2 * s },
+    chordText:      { fontSize: CHORD_FONT * s, fontFamily: 'Courier-Bold', color: chordColor, height: CHORD_FONT * 1.2 * s },
+    lyricText:      { fontSize: LYRIC_FONT * s, color: '#1a1a2e', fontFamily: 'Courier' },
+    plainLyricLine: { fontSize: LYRIC_FONT * s, color: '#1a1a2e', fontFamily: 'Courier', marginBottom: 2 * s },
     markerText:     { color: chordColor, fontFamily: 'Courier-Bold' },
     emptyLine:      { marginBottom: 22 * s },
   });
@@ -54,17 +65,6 @@ function ChordLine({ segments, semitones, useFlats, styles }) {
   );
 }
 
-function BodyRow({ label, children, styles }) {
-  return (
-    <View style={styles.bodyRow}>
-      <View style={styles.labelCol}>
-        {label ? <Text style={styles.labelText}>{label}</Text> : null}
-      </View>
-      <View style={styles.contentCol}>{children}</View>
-    </View>
-  );
-}
-
 // Reusable song page — can be embedded in SongDocument or SetDocument
 function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordColor }) {
   const styles = buildStyles(scale, chordColor);
@@ -89,10 +89,15 @@ function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scal
 
       <View>
         {lines.map((line, i) => {
-          if (line.type === 'empty')     return <BodyRow key={i} label={null} styles={styles}><View style={styles.emptyLine} /></BodyRow>;
-          if (line.type === 'directive') return null;
-          if (line.type === 'chords')    return <BodyRow key={i} label={line.label} styles={styles}><ChordLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} /></BodyRow>;
-          return <BodyRow key={i} label={line.label} styles={styles}><Text style={styles.plainLyricLine}>{lyricRuns(line.segments?.[0]?.text || '', styles)}</Text></BodyRow>;
+          // Section label inline above its line (Present-style); the section gap
+          // (marginTop) is omitted on the very first line.
+          const label = line.label
+            ? <Text style={{ ...styles.sectionLabel, marginTop: i === 0 ? 0 : LYRIC_FONT * scale }}>{line.label}</Text>
+            : null;
+          if (line.type === 'empty')     return <View key={i}>{label}<View style={styles.emptyLine} /></View>;
+          if (line.type === 'directive') return label ? <View key={i}>{label}</View> : null;
+          if (line.type === 'chords')    return <View key={i}>{label}<ChordLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} /></View>;
+          return <View key={i}>{label}<Text style={styles.plainLyricLine}>{lyricRuns(line.segments?.[0]?.text || '', styles)}</Text></View>;
         })}
       </View>
     </Page>
