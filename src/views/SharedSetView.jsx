@@ -5,8 +5,14 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { KEY_NAMES } from '../utils/transpose.js';
 import { saveSong, saveSet, loadSongs } from '../utils/storage.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv } from 'lucide-react';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
+
+// Visible label inside a RoundButton pill (white via RoundButton's text-white).
+function PillLabel({ children }) {
+  return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
+}
 
 // Viewer-local key overrides: stored in localStorage, never written to any Supabase table.
 const VIEWER_KEYS_KEY = 'cue:viewer_keys';
@@ -309,6 +315,9 @@ export default function SharedSetView() {
   const bdr        = dark ? 'border-gray-800' : 'border-gray-200';
   const muted      = dark ? 'text-gray-500' : 'text-gray-400';
   const btnOutline = `border rounded-lg transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`;
+  // Round-button language, matching the app header elsewhere: opaque slate on
+  // light chrome, translucent grey on dark; indigo ACTIVE for anchor states.
+  const headerFill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
   // ---- Render -----------------------------------------------------------------
 
@@ -414,41 +423,45 @@ export default function SharedSetView() {
           <h1 className={`text-base font-semibold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{set.name}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {/* Save / remove bookmark */}
-          <button
-            onClick={isBookmarked ? handleRemoveBookmark : handleSaveBookmark}
+          {/* Save / remove bookmark — indigo when bookmarked */}
+          <RoundButton
+            size={ROUND_SIZE_ACTION}
+            label={isBookmarked ? 'Remove from Shared with me' : 'Save to Shared with me'}
             title={isBookmarked ? 'Remove from Shared with me' : 'Save to Shared with me'}
-            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${isBookmarked ? 'border border-indigo-500 text-indigo-500 hover:text-indigo-400 hover:border-indigo-400' : btnOutline}`}
+            fill={headerFill} active={isBookmarked}
+            onActivate={isBookmarked ? handleRemoveBookmark : handleSaveBookmark}
           >
             {isBookmarked ? <BookmarkCheck size={22} /> : <Bookmark size={22} />}
-          </button>
+          </RoundButton>
           {/* Copy whole set to library */}
           {enriched.length > 0 && (
-            <button
-              onClick={handleCopySet}
-              disabled={copying}
-              title="Copy all songs to my library"
-              className={`flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg transition-colors disabled:opacity-40 ${btnOutline}`}
+            <RoundButton
+              size={ROUND_SIZE_ACTION} pill
+              label="Copy to library" title="Copy all songs to my library"
+              fill={headerFill} disabled={copying}
+              onActivate={handleCopySet}
             >
-              <Library size={20} /> Copy to library
-            </button>
+              <Library size={20} /><PillLabel>Copy to library</PillLabel>
+            </RoundButton>
           )}
-          {/* Present All */}
-          <button
-            onClick={() => enriched.length > 0 && setPresenting({ songs: enriched, startIndex: 0 })}
-            disabled={enriched.length === 0}
-            className="flex items-center gap-1.5 h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg transition-colors"
+          {/* Present All — indigo anchor action */}
+          <RoundButton
+            size={ROUND_SIZE_ACTION} pill
+            label="Present All" title="Present the whole set"
+            fill={headerFill} active={enriched.length > 0} disabled={enriched.length === 0}
+            onActivate={() => setPresenting({ songs: enriched, startIndex: 0 })}
           >
-            ▶ Present All
-          </button>
+            <Tv size={20} /><PillLabel>Present All</PillLabel>
+          </RoundButton>
           {/* Settings */}
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${btnOutline}`}
-            title="Settings"
+          <RoundButton
+            size={ROUND_SIZE_ACTION}
+            label="Settings" title="Settings"
+            fill={headerFill}
+            onActivate={() => setSettingsOpen(true)}
           >
             <Settings size={23} />
-          </button>
+          </RoundButton>
         </div>
       </header>
 
