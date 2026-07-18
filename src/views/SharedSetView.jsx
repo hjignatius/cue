@@ -6,7 +6,7 @@ import { KEY_NAMES } from '../utils/transpose.js';
 import { saveSong, saveSet, loadSongs } from '../utils/storage.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv } from 'lucide-react';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
@@ -730,6 +730,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange, onPresent, onCopy, copying }) {
   const meta = song.metadata || {};
+  const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
   return (
     <div className={`rounded-xl border p-4 ${dark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -761,21 +762,23 @@ function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange,
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={onCopy}
-            disabled={copying}
-            title="Copy to my library"
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors disabled:opacity-40 ${dark ? 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400'}`}
+          {/* Round-button language: neutral copy circle, indigo present circle. */}
+          <RoundButton
+            size={ROUND_SIZE_COMPACT}
+            label="Copy to my library" title="Copy to my library"
+            fill={fill} disabled={copying}
+            onActivate={onCopy}
           >
-            <Library size={14} />
-          </button>
-          <button
-            onClick={onPresent}
-            className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
-            title="Present this song"
+            <Library size={16} />
+          </RoundButton>
+          <RoundButton
+            size={ROUND_SIZE_COMPACT}
+            label="Present this song" title="Present this song"
+            fill={fill} active
+            onActivate={onPresent}
           >
-            ▶
-          </button>
+            <Tv size={16} />
+          </RoundButton>
         </div>
       </div>
     </div>
