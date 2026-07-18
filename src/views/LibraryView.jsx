@@ -345,7 +345,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           {selectMode ? (
             <>
               <button
-                onClick={selectedSets.size > 0 ? () => exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs) : undefined}
+                onClick={selectedSets.size > 0 ? () => { exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs); setSelectedSets(new Set()); setSelectMode(false); } : undefined}
                 disabled={selectedSets.size === 0}
                 className={`flex items-center gap-1.5 text-sm px-4 h-11 pointer-fine:h-9 rounded-lg font-medium transition-colors border whitespace-nowrap ${
                   selectedSets.size > 0
@@ -1117,6 +1117,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       exportSongsZip(selectedSongs);
     }
     setExportDropOpen(false);
+    setSelected(new Set());
+    setSelectMode(false);
   }
 
   function handleExportSelectedJson() {
@@ -1128,6 +1130,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       exportSongsJson(selectedSongs);
     }
     setExportDropOpen(false);
+    setSelected(new Set());
+    setSelectMode(false);
   }
 
   function handleDeleteSelected() {
