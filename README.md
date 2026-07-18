@@ -118,6 +118,24 @@ Cue uses CSS pointer/hover media queries — not user-agent sniffing — to serv
 
 Variants are defined in [`src/index.css`](src/index.css).
 
+### Round-button controls
+
+Menu and toolbar actions across the app share one control — [`RoundButton`](src/components/RoundButton.jsx) — which owns the fill palette and size tiers so no surface re-derives them. Two shapes: a **circle** for icon-only actions, and an auto-width **pill** (`pill`) for icon + label. The hit area is always padded to at least `MIN_TOUCH_TARGET` (44 px) even when the visual is smaller, and it uses `aria-disabled` rather than the `disabled` attribute so a disabled control still receives pointer events (the Present panel must stay draggable from any point).
+
+| Size tier | px | Used by |
+|---|---|---|
+| `ROUND_SIZE_ACTION` | 44 | Top app headers (Library, editor, shared-set), Present gutter, chord strip |
+| `ROUND_SIZE_COMPACT` | 36 visual / 44 hit | Dense panel & toolbar sub-headers (Select / New Song, Select / New Set, Setlist Present / Edit, editor Preview / Chords toggles) |
+
+| Fill | Value | When |
+|---|---|---|
+| `ROUND_FILL_NIGHT` | translucent grey | Dark chrome, and any control sitting over content |
+| `ROUND_FILL_DAY_CHROME` | `#374151` opaque slate | Light **chrome** (menu bars) — the translucent day fill composites muddy on light backgrounds, so buttons on solid chrome use an opaque slate for legible white glyphs |
+| `ROUND_FILL_DAY` | translucent grey | Light surfaces that sit **over content** (e.g. lyrics) rather than chrome |
+| `ROUND_FILL_ACTIVE` | indigo | On / anchor states — active toggles (Preview On, Chords On), primary actions (New Song, New Set, Present), the editor Exit anchor, a set bookmark when saved |
+
+Icon-only anchor and toggle circles turn indigo when active; neutral actions keep the chrome fill. Present-launching buttons everywhere use the same `Tv` glyph; navigation uses the shared `TriangleLeft` / `TriangleRight` leaves. `PillLabel` is the shared white label span inside a pill.
+
 ### Storage layout
 | Store | Key | Contents |
 |---|---|---|

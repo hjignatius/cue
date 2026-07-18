@@ -324,7 +324,7 @@ function manualHTML() {
   <li><strong>Sort A–Z</strong> — permanently sorts the set alphabetically</li>
   <li><strong>Tap any song row</strong> — selects that song (highlighted in indigo). Tap the same row again to deselect it.</li>
   <li><strong>Double-tap any song row</strong> — opens it directly in the editor. The setlist highlight follows Prev/Next navigation in the editor.</li>
-  <li><strong>▶ Present</strong> — launches Present mode starting at the selected song and continues forward through the rest of the set. Grayed out until a song is selected.</li>
+  <li><strong>Present</strong> — launches Present mode starting at the selected song and continues forward through the rest of the set. Grayed out until a song is selected.</li>
   <li><strong>✎ Edit</strong> — opens the selected song in the Editor. When you return, the Library restores the same set, setlist, and selected song exactly as you left them. Grayed out until a song is selected.</li>
   <li><strong>Export ▾</strong> — export the set as: <strong>PDF</strong> (all songs as consecutive pages), <strong>PDF + Chord Charts</strong> (same, with one deduplicated chord reference page at the end), <strong>JSON bundle</strong>, or <strong>Setlist (.csv)</strong> — a comma-separated file with Title, Artist, and Key columns, one song per row</li>
   <li><strong>Trash icon</strong> — removes a song from the set without deleting it from the library</li>
@@ -369,7 +369,7 @@ Here comes the sun, little darlin</pre>
   <tr><td><strong>Preview</strong></td><td>Toggles the live preview panel that renders the song with chords above lyrics.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar.</td></tr>
   <tr><td><strong>✎ Ink</strong></td><td>Shows or hides ink annotations drawn in Present mode, overlaid on the preview (read-only here). Only appears when the song has saved annotations. A <strong>Clear ink</strong> button beside it deletes them — see <em>Annotation Overlay</em> below.</td></tr>
-  <tr><td><strong>▶ Present</strong></td><td>Launches the current song in full-screen Present mode. When you arrive here via the <strong>Edit</strong> button in Present mode, this button changes to <strong>↩ Return to Performance</strong> — see <em>Editing During Performance</em> below.</td></tr>
+  <tr><td><strong>Present</strong></td><td>Launches the current song in full-screen Present mode. When you arrive here via the <strong>Edit</strong> button in Present mode, this button changes to <strong>↩ Return to Performance</strong> — see <em>Editing During Performance</em> below.</td></tr>
   <tr><td><strong>← Prev / Next →</strong></td><td>Moves to the previous or next song. Appears when the editor is opened via the <strong>✎ Edit</strong> button in the Setlist column, the <strong>Edit</strong> button in Present mode, or by double-tapping a song in the Library or Setlist panel. Navigation order follows the list you opened from (or the set you were presenting). If there are unsaved changes, a confirmation dialog appears before navigating.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Only shown when a YouTube URL is saved in the metadata bar. The button is grayed out if no URL is set.</td></tr>
   <tr><td><strong>✕</strong></td><td>Returns to the Library. If there are unsaved changes, a confirmation dialog appears first.</td></tr>
@@ -515,13 +515,13 @@ Bb,8-10-11-10,1243</pre>
 
 <h2>Navigating a Set</h2>
 <p>When presenting a set, use the <strong>◀</strong> and <strong>▶</strong> buttons on the floating control panel to move between songs. They dim at the first and last song. You can also use the keyboard arrow keys or Page Up / Page Down.</p>
-<p><strong>Starting from any song:</strong> select a song in the Setlist column by tapping its row, then tap <strong>▶ Present</strong>. Presentation starts from that song and continues forward through the rest of the set.</p>
+<p><strong>Starting from any song:</strong> select a song in the Setlist column by tapping its row, then tap <strong>Present</strong>. Presentation starts from that song and continues forward through the rest of the set.</p>
 
 <h2>Editing During Performance</h2>
 <p>Tap <strong>Edit</strong> in the top bar to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
-<p>While in this edit session, the <strong>▶ Present</strong> button in the editor header changes to <strong>↩ Return to Performance</strong>. Tap it to go straight back to Present mode — the song content updates immediately to reflect any changes you made, with no save required.</p>
+<p>While in this edit session, the <strong>Present</strong> button in the editor header changes to <strong>↩ Return to Performance</strong>. Tap it to go straight back to Present mode — the song content updates immediately to reflect any changes you made, with no save required.</p>
 <p>When you edit from a set, the editor also shows <strong>← Prev / Next →</strong> buttons so you can move through the other songs in the set and edit them too, without leaving the editor. Return to Performance resumes on whichever song you are editing.</p>
-<p>If you tap <strong>✕ Library</strong> instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>▶ Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
+<p>If you tap <strong>✕ Library</strong> instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
 <div class="tip"><strong>Tip:</strong> Use this to fix a wrong chord or lyric mid-rehearsal without interrupting the flow. Edits are reflected immediately when you return — save the song separately when you are ready to make the change permanent.</div>
 
 <!-- 8 -->
@@ -567,7 +567,7 @@ Pulling will discard them. Continue?</pre>
 <h2>Viewing a Shared Set</h2>
 <p>Open the shared link on any device. The viewer shows the set name and song list. From the viewer you can:</p>
 <ul>
-  <li><strong>▶ Present All</strong> — launches Present mode starting from the first song, or from any song you tap <strong>▶</strong> on in the list</li>
+  <li><strong>Present All</strong> — launches Present mode starting from the first song, or from any song you tap <strong>Present</strong> on in the list</li>
   <li><strong>View Key</strong> — transpose the display for any individual song (stored locally, never sent to the server)</li>
   <li><strong>Copy to library</strong> — copy an individual song or the entire set to your local Cue library</li>
   <li><strong>Bookmark</strong> — save the shared link to a <em>Shared with me</em> list in your local Cue install for quick access later</li>
@@ -629,7 +629,7 @@ Pulling will discard them. Continue?</pre>
   <li><strong>Non-destructive key changes</strong> — use View Key in the editor to render a song in a different key for you or your bandmates. It changes only how the song displays in the preview, Present mode, and the exported set PDF, never the stored chords, and is saved per song so it reopens the same way.</li>
   <li><strong>3/4 songs</strong> — tap the <strong>4/4</strong> button in the Tempo row to switch to <strong>3/4</strong>. Save the song. The metronome and flash mode will automatically use 6 beats when you present it.</li>
   <li><strong>Floating controls in Present mode</strong> — text size, song navigation, count-in and auto-scroll sit on a draggable panel of large round buttons. Drag it wherever suits your stage setup; it fades when idle and wakes on any touch. Collapse it to a single pill if you want the screen clear.</li>
-  <li><strong>Starting a set at any song</strong> — tap a song row in the Setlist column to select it (highlighted in indigo), then tap <strong>▶ Present</strong>. Presentation starts from that song and continues forward; the set does not restart from the top.</li>
+  <li><strong>Starting a set at any song</strong> — tap a song row in the Setlist column to select it (highlighted in indigo), then tap <strong>Present</strong>. Presentation starts from that song and continues forward; the set does not restart from the top.</li>
   <li><strong>iPad editing space</strong> — use the <strong>Preview</strong> and <strong>Chords</strong> toggle buttons to hide panels and give the text editor more room.</li>
   <li><strong>Set PDF with chord charts</strong> — select the set in the Sets panel, then tap <strong>Export ▾ → PDF + Chord Charts</strong> in the Setlist column. Every song becomes a page, and a single chord reference page listing all unique chords across the set is added at the end — useful as a printed reference for rehearsals.</li>
   <li><strong>Exporting a full set as JSON</strong> — select the set, tap <strong>Export ▾ → JSON bundle</strong> in the Setlist column. This creates one file containing the set order plus all the songs, which you can import on another device or keep as a backup.</li>
