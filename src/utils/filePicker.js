@@ -70,7 +70,10 @@ export async function saveFilePicker(blob, filename) {
     const file = new File([blob], filename, { type: blob.type });
     if (navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: filename });
+        // Share ONLY the file — no `title`/`text`. iOS/iPadOS "Save to Files"
+        // otherwise writes the title string out as a separate `text.txt`
+        // alongside the real file. The saved name comes from the File anyway.
+        await navigator.share({ files: [file] });
         return;
       } catch (err) {
         if (err.name === 'AbortError') return; // user cancelled
