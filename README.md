@@ -33,6 +33,7 @@ Title · Artist · Key · Tempo / BPM · Time Signature · Duration · YouTube U
 
 ### Sets & Setlists
 - Create named Sets (one per venue, event, or rehearsal)
+- Duplicate a Set (copy icon on the row) — a fresh local set sharing the same songs, under a `(2)` name; never auto-published
 - Drag songs within a set to reorder
 - Active set loads into the Setlist panel; double-tap any song to open it
 - Setlist highlight follows Prev/Next navigation in the editor

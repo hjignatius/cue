@@ -285,7 +285,8 @@ function manualHTML() {
 <p>Tap <strong>New Set</strong> in the Sets panel header, type a name, and press Enter or tap <strong>Create</strong>.</p>
 <p>To add songs to a set: tap the set row to make it active (it highlights in indigo), then go to the Library panel, enter Select mode, check the songs you want, and tap <strong>Add to Set</strong>. The button shows the active set name in its tooltip and is grayed out if no set is selected.</p>
 <p>Tap a set row to select it — its songs appear in the Setlist column. Tap it again to deselect.</p>
-<p>To delete a set, tap the trash icon on its row. Songs stay in your library.</p>
+<p>To <strong>duplicate</strong> a set, tap the copy icon on its row. Cue creates a new set with the same songs under a <em>"(2)"</em> name — the songs are shared, not copied, so nothing is added to your library. The duplicate is a fresh local set: it is <em>not</em> published, even if the original was, so you can edit it and publish it separately when ready.</p>
+<p>To delete a set, enter <strong>Select</strong> mode (see <em>Sets Select Mode</em> below), check it, and tap <strong>Delete</strong>. Songs stay in your library.</p>
 
 <h2>Sets Select Mode</h2>
 <p>Tap <strong>Select</strong> in the Sets panel header to enter selection mode. Checkboxes appear on every set row. A count bar below the search field shows how many sets are listed. The action bar appears immediately below the count — Export and Delete are grayed out until at least one set is checked.</p>
