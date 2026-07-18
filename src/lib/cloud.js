@@ -7,22 +7,25 @@ import { supabase } from './supabase.js';
 // The content column below serialises song objects from the 'songs' store only,
 // so annotation data can never reach the cloud through this path.
 
-// Publish a set (and all its songs) to the cloud.
-// songs must be the resolved song objects (not just IDs).
-// Return the subset of `ids` that already exist in the cloud owned by a
-// DIFFERENT user. publishSet upserts songs with onConflict:'id'; a foreign id
-// turns the upsert into an UPDATE that the songs RLS USING policy
-// (auth.uid() = owner_id) rejects ("new row violates row-level security
-// policy"). Callers re-id these locally before publishing so they INSERT as the
-// current user's own rows. Song ids are global but ownership is per-user, so an
-// id copied/imported from another user must be replaced before it can publish.
-export async function foreignOwnedSongIds(ids, userId) {
+// Which of `ids` the current user OWNS in the cloud.
+//
+// The songs table's SELECT policy is owner-only (shared reads go through the
+// get_shared_set security-definer RPC), so a client CANNOT see another user's
+// row to detect a collision directly. It CAN confirm its own ownership, so we
+// invert the question: any published id NOT returned here is either brand-new
+// (safe to insert) or foreign (would collide). publishSet upserts songs with
+// onConflict:'id'; a foreign id turns that into an UPDATE the RLS USING policy
+// (auth.uid() = owner_id) rejects. Callers re-id the un-owned songs and retry.
+export async function ownedSongIds(ids, userId) {
   if (!supabase || !ids?.length) return new Set();
-  const { data, error } = await supabase.from('songs').select('id, owner_id').in('id', ids);
+  const { data, error } = await supabase
+    .from('songs').select('id').eq('owner_id', userId).in('id', ids);
   if (error) throw error;
-  return new Set((data ?? []).filter(r => r.owner_id !== userId).map(r => r.id));
+  return new Set((data ?? []).map(r => r.id));
 }
 
+// Publish a set (and all its songs) to the cloud.
+// songs must be the resolved song objects (not just IDs).
 export async function publishSet(set, songs, userId) {
   if (!supabase) throw new Error('Supabase not configured');
 

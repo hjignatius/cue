@@ -17,7 +17,7 @@ import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
-import { unpublishSet, foreignOwnedSongIds } from '../lib/cloud.js';
+import { unpublishSet, publishSet, ownedSongIds } from '../lib/cloud.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -142,36 +142,39 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   // Shared-with-me bookmarks (viewer-side, localStorage only)
   const [savedShares, setSavedShares] = useState(loadSharedWithMe);
 
-  async function handlePublishClick(set) {
-    let workingSet = set;
-    let setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+  function handlePublishClick(set) {
+    const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+    setPublishDialog({ set, songs: setSongs });
+  }
 
-    // Defensive remediation (legacy / cross-user data): a set may contain songs
-    // whose id belongs to another user's cloud row — copied via a path that
-    // didn't re-id, or imported from someone else's backup. Publishing those
-    // upsert-collides into an RLS-rejected UPDATE. Detect any foreign-owned ids
-    // and re-id them locally first so they publish as this user's own rows.
-    // Chosen over a blanket migration because it's precise (only songs actually
-    // about to publish), needs no owner tracking in local storage, and self-heals
-    // whatever the source of the foreign id. A cloud read failure here is
-    // non-fatal — we fall through and let publish surface any real error.
-    if (user?.id) {
-      try {
-        const foreign = await foreignOwnedSongIds(setSongs.map(s => s.id), user.id);
-        if (foreign.size > 0) {
-          for (const oldId of foreign) await reidSong(oldId, crypto.randomUUID());
-          const freshSets  = await loadSets();
-          const freshSongs = await loadSongs();
-          workingSet = freshSets.find(s => s.id === set.id) ?? set;
-          setSongs   = workingSet.songIds.map(id => freshSongs.find(s => s.id === id)).filter(Boolean);
-          onRefresh();
-        }
-      } catch (err) {
-        console.error('Publish pre-check (foreign song ids) failed:', err);
-      }
+  // Publish with reactive remediation for cross-user song-id collisions.
+  //
+  // publishSet upserts songs with onConflict:'id'. Song ids are global but
+  // ownership is per-user, so a song carrying another user's id (a copy made
+  // before re-id'ing, an imported backup, or legacy cloud data) turns the upsert
+  // into an UPDATE the songs RLS policy rejects: "new row violates row-level
+  // security policy". We can't pre-detect it — the songs SELECT policy hides
+  // other users' rows — so we react: on that error, re-id every song in the set
+  // we don't already own (owner-confirmed query, which RLS does allow) to a fresh
+  // UUID (remapping set references + annotations via reidSong), then retry once.
+  // Songs we own are left alone so republishing keeps updating them in place.
+  async function publishWithRemediation(set, setSongs, userId) {
+    try {
+      return await publishSet(set, setSongs, userId);
+    } catch (err) {
+      const isRls = err?.code === '42501' || /row-level security/i.test(err?.message || '');
+      if (!isRls || !userId) throw err;
+      const owned   = await ownedSongIds(setSongs.map(s => s.id), userId);
+      const unowned = setSongs.filter(s => !owned.has(s.id));
+      if (unowned.length === 0) throw err; // collision we can't explain — surface it
+      for (const s of unowned) await reidSong(s.id, crypto.randomUUID());
+      const freshSongs = await loadSongs();
+      const freshSet   = (await loadSets()).find(s => s.id === set.id) ?? set;
+      const retrySongs = freshSet.songIds.map(id => freshSongs.find(s => s.id === id)).filter(Boolean);
+      const res = await publishSet(freshSet, retrySongs, userId);
+      onRefresh();
+      return res;
     }
-
-    setPublishDialog({ set: workingSet, songs: setSongs });
   }
 
   function handlePublishSuccess(setId, isoString) {
@@ -611,6 +614,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           set={publishDialog.set}
           songs={publishDialog.songs}
           userId={user?.id}
+          onPublish={publishWithRemediation}
           onSuccess={isoString => handlePublishSuccess(publishDialog.set.id, isoString)}
           onClose={() => setPublishDialog(null)}
         />

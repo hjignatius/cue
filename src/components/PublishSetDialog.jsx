@@ -3,7 +3,7 @@ import { publishSet } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
 // Modal that confirms, runs, and reports the publish operation for a single set.
-export default function PublishSetDialog({ set, songs, userId, onSuccess, onClose }) {
+export default function PublishSetDialog({ set, songs, userId, onPublish = publishSet, onSuccess, onClose }) {
   const { theme } = usePrefs();
   const dark = theme === 'dark';
   const [phase, setPhase] = useState('confirm'); // confirm | publishing | success | error
@@ -13,7 +13,7 @@ export default function PublishSetDialog({ set, songs, userId, onSuccess, onClos
     setPhase('publishing');
     setErrMsg('');
     try {
-      await publishSet(set, songs, userId);
+      await onPublish(set, songs, userId);
       setPhase('success');
       onSuccess(new Date().toISOString());
     } catch (err) {
