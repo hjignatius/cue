@@ -172,9 +172,17 @@ export default function SharedSetView() {
     setCopying(true);
     try {
       const localSongs = await loadSongs();
+      const title      = song.metadata?.title || 'Untitled';
+
+      // Already copied from this exact source (matched by provenance): treat as a
+      // no-op, same as a title-skip — nothing new is added.
+      if (localSongs.some(ls => ls.copiedFrom?.songId === song.id)) {
+        setCopyResult({ type: 'song', title, outcome: 'skipped' });
+        return;
+      }
+
       const titleMap   = buildTitleMap(localSongs);
       const titleKey   = normalizeTitle(song.metadata?.title);
-      const title      = song.metadata?.title || 'Untitled';
       const hasConflict = titleMap.has(titleKey);
 
       let outcome = 'copied';
@@ -230,10 +238,21 @@ export default function SharedSetView() {
       const { set, songs } = setData;
       const localSongs = await loadSongs();
       const titleMap   = buildTitleMap(localSongs);
+      // Provenance index: original source song id -> the local copy already made
+      // from it. Keyed on copiedFrom (not song id — copies are re-id'd — and not
+      // title, which can legitimately differ), this is what makes re-copying a
+      // set idempotent: an already-copied song is reused, never re-added.
+      const copyBySource = new Map();
+      for (const ls of localSongs) {
+        const src = ls.copiedFrom?.songId;
+        if (src && !copyBySource.has(src)) copyBySource.set(src, ls);
+      }
 
-      // Collect conflicts: cloud songs whose title already exists locally
+      // Collect conflicts: cloud songs whose title already exists locally — but
+      // skip any already copied (handled by provenance below), so we don't prompt
+      // for songs we're going to reuse silently.
       const conflicts = songs
-        .filter(s => titleMap.has(normalizeTitle(s.metadata?.title)))
+        .filter(s => !copyBySource.has(s.id) && titleMap.has(normalizeTitle(s.metadata?.title)))
         .map(s => ({ cloudSong: s, localSong: titleMap.get(normalizeTitle(s.metadata?.title)) }));
 
       let choices = {};
@@ -251,6 +270,15 @@ export default function SharedSetView() {
       const now = new Date().toISOString();
 
       for (const song of songs) {
+        // Already copied from this exact source: reuse the existing local copy so
+        // re-copying the set doesn't duplicate library entries.
+        const priorCopy = copyBySource.get(song.id);
+        if (priorCopy) {
+          newSongIds.push(priorCopy.id);
+          skipped++;
+          continue;
+        }
+
         const titleKey    = normalizeTitle(song.metadata?.title);
         const hasConflict = titleMap.has(titleKey);
 

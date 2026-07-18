@@ -9,6 +9,20 @@ import { supabase } from './supabase.js';
 
 // Publish a set (and all its songs) to the cloud.
 // songs must be the resolved song objects (not just IDs).
+// Return the subset of `ids` that already exist in the cloud owned by a
+// DIFFERENT user. publishSet upserts songs with onConflict:'id'; a foreign id
+// turns the upsert into an UPDATE that the songs RLS USING policy
+// (auth.uid() = owner_id) rejects ("new row violates row-level security
+// policy"). Callers re-id these locally before publishing so they INSERT as the
+// current user's own rows. Song ids are global but ownership is per-user, so an
+// id copied/imported from another user must be replaced before it can publish.
+export async function foreignOwnedSongIds(ids, userId) {
+  if (!supabase || !ids?.length) return new Set();
+  const { data, error } = await supabase.from('songs').select('id, owner_id').in('id', ids);
+  if (error) throw error;
+  return new Set((data ?? []).filter(r => r.owner_id !== userId).map(r => r.id));
+}
+
 export async function publishSet(set, songs, userId) {
   if (!supabase) throw new Error('Supabase not configured');
 

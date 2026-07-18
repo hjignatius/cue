@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive, Tv } from 'lucide-react';
-import { saveSong, saveSet, deleteSet, newestLocalAt } from '../utils/storage.js';
+import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets } from '../utils/storage.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
@@ -17,7 +17,7 @@ import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
-import { unpublishSet } from '../lib/cloud.js';
+import { unpublishSet, foreignOwnedSongIds } from '../lib/cloud.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -142,9 +142,36 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   // Shared-with-me bookmarks (viewer-side, localStorage only)
   const [savedShares, setSavedShares] = useState(loadSharedWithMe);
 
-  function handlePublishClick(set) {
-    const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
-    setPublishDialog({ set, songs: setSongs });
+  async function handlePublishClick(set) {
+    let workingSet = set;
+    let setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+
+    // Defensive remediation (legacy / cross-user data): a set may contain songs
+    // whose id belongs to another user's cloud row — copied via a path that
+    // didn't re-id, or imported from someone else's backup. Publishing those
+    // upsert-collides into an RLS-rejected UPDATE. Detect any foreign-owned ids
+    // and re-id them locally first so they publish as this user's own rows.
+    // Chosen over a blanket migration because it's precise (only songs actually
+    // about to publish), needs no owner tracking in local storage, and self-heals
+    // whatever the source of the foreign id. A cloud read failure here is
+    // non-fatal — we fall through and let publish surface any real error.
+    if (user?.id) {
+      try {
+        const foreign = await foreignOwnedSongIds(setSongs.map(s => s.id), user.id);
+        if (foreign.size > 0) {
+          for (const oldId of foreign) await reidSong(oldId, crypto.randomUUID());
+          const freshSets  = await loadSets();
+          const freshSongs = await loadSongs();
+          workingSet = freshSets.find(s => s.id === set.id) ?? set;
+          setSongs   = workingSet.songIds.map(id => freshSongs.find(s => s.id === id)).filter(Boolean);
+          onRefresh();
+        }
+      } catch (err) {
+        console.error('Publish pre-check (foreign song ids) failed:', err);
+      }
+    }
+
+    setPublishDialog({ set: workingSet, songs: setSongs });
   }
 
   function handlePublishSuccess(setId, isoString) {

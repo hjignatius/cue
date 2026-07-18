@@ -186,6 +186,33 @@ export async function clearLibrary() {
   await tx.done;
 }
 
+// Re-id a locally stored song: rewrite it under a new id, remap every set that
+// references the old id, move its annotation record, and delete the old row.
+// Copied/imported songs can carry an id that belongs to another user's cloud
+// row; publishing then upsert-collides into an UPDATE the songs RLS policy
+// rejects. Re-id'ing to a fresh (locally owned) id fixes that. All fields are
+// preserved verbatim (including copiedFrom provenance); timestamps are untouched
+// so this mechanical fix doesn't re-float the set under "Newest".
+export async function reidSong(oldId, newId) {
+  const d = await getDB();
+  const song = await d.get('songs', oldId);
+  if (!song) return;
+  const tx    = d.transaction(['songs', 'sets', 'annotations'], 'readwrite');
+  const songs = tx.objectStore('songs');
+  const sets  = tx.objectStore('sets');
+  const anns  = tx.objectStore('annotations');
+  songs.put({ ...song, id: newId });
+  songs.delete(oldId);
+  for (const s of await sets.getAll()) {
+    if (s.songIds?.includes(oldId)) {
+      sets.put({ ...s, songIds: s.songIds.map(id => (id === oldId ? newId : id)) });
+    }
+  }
+  const ann = await anns.get(oldId);
+  if (ann) { anns.put({ ...ann, songId: newId }); anns.delete(oldId); }
+  await tx.done;
+}
+
 export async function removeSongFromAllSets(songId) {
   const d    = await getDB();
   const sets = await d.getAll('sets');
