@@ -233,6 +233,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
 
   function cancelRename() { setEditingSetId(null); }
 
+  // Duplicate a set: a new set with the same song references (songs are shared,
+  // not copied) under a unique "(n)" name. Local-only, so available to everyone.
+  async function handleDuplicateSet(set) {
+    const names = new Set(sets.map(s => s.name));
+    let name = set.name, n = 2;
+    while (names.has(name)) name = `${set.name} (${n++})`;
+    await saveSet({ id: null, name, songIds: [...set.songIds], sortMode: set.sortMode || 'custom' });
+    onRefresh();
+  }
+
   // summary: { setName, matched: number, skipped: [{title, artist}] }
 
   useEffect(() => { sessionStorage.setItem('cue:set_search', setSearch); }, [setSearch]);
@@ -558,6 +568,15 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                           </>
                         )}
                       </div>
+                    )}
+                    {/* Duplicate — local operation, available to everyone */}
+                    {!selectMode && editingSetId !== set.id && (
+                      <span
+                        onClick={e => e.stopPropagation()}
+                        className="shrink-0 inline-flex opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity"
+                      >
+                        <HeaderPill dark={dark} icon={Copy} label="Duplicate" title="Duplicate set" onActivate={() => handleDuplicateSet(set)} />
+                      </span>
                     )}
                     {!selectMode && editingSetId !== set.id && (
                       <ChevronRight size={14} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-300 dark:text-gray-700 group-hover:text-gray-500'}`} />
