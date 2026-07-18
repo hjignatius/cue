@@ -1,6 +1,7 @@
 import { zipSync } from 'fflate';
 import { saveFilePicker } from './filePicker.js';
 import { loadSongs, loadSets, SCHEMA_VERSION } from './storage.js';
+import { convertToBrackets, detectChordStyle } from './chordStyle.js';
 // ANNOTATION SAFETY: all export functions below read exclusively from loadSongs()
 // and loadSets() (the 'songs'/'sets' IndexedDB stores). Ink annotations live in
 // a separate 'annotations' store and are intentionally never read here, so they
@@ -85,7 +86,13 @@ export function parseCho(content) {
   return { metadata, text: bodyLines.join('\n').trim() };
 }
 
-function songToCho({ metadata, text }) {
+function songToCho({ metadata, text, chordStyle }) {
+  // ChordPro is inline-bracket notation by definition. A song stored in
+  // over-lyrics style must be converted, or the .cho comes out in over-lyrics
+  // layout — which no ChordPro reader (including Cue's own import) parses as
+  // chords. Fall back to detecting the style for songs saved without one.
+  const style = chordStyle || detectChordStyle(text);
+  const body = style === 'over' ? convertToBrackets(text) : text;
   const directives = [
     metadata.title    && `{title: ${metadata.title}}`,
     metadata.artist   && `{artist: ${metadata.artist}}`,
@@ -94,7 +101,7 @@ function songToCho({ metadata, text }) {
     metadata.duration && `{duration: ${metadata.duration}}`,
     metadata.timeSig && metadata.timeSig !== '4/4' && `{timesig: ${metadata.timeSig}}`,
   ].filter(Boolean).join('\n');
-  return directives ? `${directives}\n\n${text}` : text;
+  return directives ? `${directives}\n\n${body}` : body;
 }
 
 export async function exportCho(song) {
