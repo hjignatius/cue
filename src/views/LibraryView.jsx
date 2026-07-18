@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive, Tv } from 'lucide-react';
 import { saveSong, saveSet, deleteSet, newestLocalAt } from '../utils/storage.js';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
 import { exportSetToPdf } from '../utils/pdfExport.js';
@@ -344,29 +344,21 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         <div className={selectMode ? 'flex items-center gap-2 shrink-0' : 'flex-1'}>
           {selectMode ? (
             <>
-              <button
-                onClick={selectedSets.size > 0 ? () => { exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs); setSelectedSets(new Set()); setSelectMode(false); } : undefined}
+              <HeaderPill
+                dark={dark} icon={Upload} label="Export"
                 disabled={selectedSets.size === 0}
-                className={`flex items-center gap-1.5 text-sm px-4 h-11 pointer-fine:h-9 rounded-lg font-medium transition-colors border whitespace-nowrap ${
-                  selectedSets.size > 0
-                    ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
-                    : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
-                }`}
-              >
-                <Upload size={14} /> Export
-              </button>
-              <button
-                onClick={selectedSets.size > 0 ? handleDeleteSelected : undefined}
+                onActivate={() => { exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs); setSelectedSets(new Set()); setSelectMode(false); }}
+              />
+              <RoundButton
+                size={ROUND_SIZE_COMPACT}
+                label={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
+                title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : undefined}
+                fill={selectedSets.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
                 disabled={selectedSets.size === 0}
-                title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
-                className={`flex items-center justify-center px-4 h-11 pointer-fine:h-9 rounded-lg transition-colors ${
-                  selectedSets.size > 0
-                    ? 'bg-red-600 hover:bg-red-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                }`}
+                onActivate={handleDeleteSelected}
               >
-                <Trash2 size={22} />
-              </button>
+                <Trash2 size={20} />
+              </RoundButton>
             </>
           ) : (
             <p className="text-xs text-gray-400 dark:text-gray-600">
@@ -1260,17 +1252,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               {selectMode ? (
                 <>
                   <div className="relative">
-                    <button
-                      onClick={() => selected.size > 0 && setExportDropOpen(v => !v)}
+                    <HeaderPill
+                      dark={dark} icon={Upload} label="Export"
                       disabled={selected.size === 0}
-                      className={`flex items-center gap-1.5 text-sm px-4 h-11 pointer-fine:h-9 rounded-lg font-medium transition-colors border whitespace-nowrap ${
-                        selected.size > 0
-                          ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400'
-                          : 'border-gray-200 dark:border-gray-800 text-gray-300 dark:text-gray-700 cursor-not-allowed'
-                      }`}
-                    >
-                      <Upload size={14} /> Export ▾
-                    </button>
+                      onActivate={() => setExportDropOpen(v => !v)}
+                    />
                     {exportDropOpen && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
@@ -1285,30 +1271,23 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                       </>
                     )}
                   </div>
-                  <button
-                    onClick={selected.size > 0 && activeSetId ? handleAddSelectedToSet : undefined}
-                    disabled={!(selected.size > 0 && activeSetId)}
+                  <HeaderPill
+                    dark={dark} label="Add to Set"
                     title={selected.size === 0 ? undefined : !activeSetId ? 'Select a set in the Sets panel first' : `Add to "${activeSet?.name}"`}
-                    className={`flex items-center gap-1.5 text-sm px-4 h-11 pointer-fine:h-9 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                      selected.size > 0 && activeSetId
-                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                        : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                    }`}
-                  >
-                    Add to Set
-                  </button>
-                  <button
-                    onClick={selected.size > 0 ? handleDeleteSelected : undefined}
-                    disabled={selected.size === 0}
+                    active={selected.size > 0 && !!activeSetId}
+                    disabled={!(selected.size > 0 && activeSetId)}
+                    onActivate={handleAddSelectedToSet}
+                  />
+                  <RoundButton
+                    size={ROUND_SIZE_COMPACT}
+                    label={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
                     title={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
-                    className={`flex items-center justify-center px-4 h-11 pointer-fine:h-9 rounded-lg transition-colors ${
-                      selected.size > 0
-                        ? 'bg-red-600 hover:bg-red-500 text-white'
-                        : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                    }`}
+                    fill={selected.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
+                    disabled={selected.size === 0}
+                    onActivate={handleDeleteSelected}
                   >
-                    <Trash2 size={22} />
-                  </button>
+                    <Trash2 size={20} />
+                  </RoundButton>
                 </>
               ) : artistFilter !== null && sortBy === 'artist' ? (
                 <>

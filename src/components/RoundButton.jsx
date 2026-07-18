@@ -10,6 +10,11 @@ export const ROUND_FILL_NIGHT  = 'rgba(140,140,140,0.55)';
 export const ROUND_FILL_DAY    = 'rgba(70,70,70,0.55)';
 export const ROUND_FILL_ACTIVE = 'rgba(79,70,229,0.85)'; // indigo-600
 
+// Destructive actions (delete / trash). Opaque red-600 so a white glyph stays
+// legible on any chrome; kept distinct from ACTIVE so "delete" never reads as a
+// primary/anchor action.
+export const ROUND_FILL_DANGER = '#dc2626'; // red-600
+
 // Opaque day fill for buttons that sit on solid CHROME (menu bars) rather than
 // content. The translucent DAY fill composites to ~#979797 on light chrome —
 // white glyphs at only ~2.9:1, below WCAG AA. This is #374151 (slate-700), fully
