@@ -211,7 +211,15 @@ function lyricColumnWidth(fontPx) {
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true, disableAnnotations = false }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, updatePref } = usePrefs();
   const dark = theme === 'dark';
+  // isNarrow (1024) drives the lyric column: fixed 65-char width on wide screens,
+  // flex-1 below (so tablet-portrait and phones don't need to scroll the column
+  // sideways). The chord panel is a separate decision: it only falls back to a
+  // full-screen modal drawer at true phone widths — on a tablet in portrait there
+  // is room to dock it beside the lyrics, resizable and non-blocking, the same as
+  // landscape. Docking it (rather than the blocking modal) is what keeps Present
+  // usable when an iPad is rotated to portrait.
   const isNarrow = useIsNarrow();
+  const chordsModal = useIsNarrow(640);
   const [index, setIndex]       = useState(Math.max(0, Math.min(startIndex, songs.length - 1)));
   const [fontPx, setFontPx]     = useState(() => {
     try {
@@ -515,14 +523,15 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         {/* Scroll-clear spacer. Matches the docked panel's live width so the end
             of the longest line can be scrolled out from under it; without it the
             tail would sit under the panel even at maximum scrollLeft. */}
-        {showChords && !isNarrow && (
+        {showChords && !chordsModal && (
           <div className="shrink-0" style={{ width: chordsWidth }} aria-hidden="true" />
         )}
       </div>
 
-        {/* Chord diagram — docked panel on wide screens, slide-in overlay on narrow */}
+        {/* Chord diagram — docked resizable panel on wide and tablet-portrait
+            screens; a slide-in overlay only at true phone widths. */}
         {showChords && (
-          isNarrow ? (
+          chordsModal ? (
             <>
               <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowChords(false)} />
               <div className={`fixed right-0 top-0 bottom-0 z-50 w-72 flex flex-col overflow-hidden shadow-2xl ${dark ? 'bg-neutral-900 border-l border-neutral-800' : 'bg-white border-l border-gray-200'}`}>
