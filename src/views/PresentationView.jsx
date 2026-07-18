@@ -479,7 +479,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           className={`relative ${isNarrow ? 'flex-1 min-w-0' : 'shrink-0'}`}
           style={isNarrow ? undefined : { width: lyricColWidth }}
         >
-          <div ref={scrollRef} className="absolute inset-0 overflow-y-auto px-6 py-6 md:px-12">
+          {/* pl-14 (56px) keeps lyrics clear of the fixed left gutter buttons
+              (~46px wide) on narrow/phone widths, where px-6 (24px) let text run
+              under them. md:px-12 restores symmetric 48px padding on wide, which
+              already cleared the gutter. */}
+          <div ref={scrollRef} className="absolute inset-0 overflow-y-auto pl-14 pr-6 py-6 md:px-12">
             {/* relative wrapper so the canvas can use position:absolute inset-0 */}
             <div ref={contentWrapRef} className="pb-32 relative">
               {/* Song info, in the lyric flow rather than in chrome.
