@@ -949,33 +949,15 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
               onActivate={() => selectedSong && onEdit?.(selectedSong, selectedIdx, displaySongs)}
             />
           )}
-          {displaySongs.length > 0 && (
-            <div className="relative ml-auto">
-              <button onClick={() => setExportOpen(v => !v)} className="flex items-center gap-1 h-9 px-1 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"><Upload size={12} /> Export ▾</button>
-              {exportOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                  <div className="absolute right-0 top-6 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { chordColor, accidentals }); setExportOpen(false); }}>PDF</button>
-                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { includeChords: true, chordColor, accidentals }); setExportOpen(false); }}>PDF + Chord Charts</button>
-                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetJson(set, songs); setExportOpen(false); }}>JSON bundle</button>
-                    <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetText(set, songs); setExportOpen(false); }}>Setlist</button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Status bar */}
+      {/* Status bar — Gap on the left, Export on the right, song count/duration
+          between. Export lives here (not in the controls row above) so it stops
+          wrapping to its own line beside Present/Edit on narrower panels (iPad). */}
       <div className={`px-3 py-1.5 border-b ${border} flex items-center gap-2 shrink-0`}>
-        <p className="text-xs text-gray-400 dark:text-gray-600 flex-1">
-          {displaySongs.length} {displaySongs.length === 1 ? 'song' : 'songs'}
-          {hasDurations && estimatedSec > 0 && ` · ${formatDuration(estimatedSec)}`}
-        </p>
         {hasDurations && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="text-xs text-gray-400 dark:text-gray-600">Gap</span>
             <button
               onClick={() => adjustBuffer(-15)}
@@ -987,6 +969,26 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
               onClick={() => adjustBuffer(15)}
               className="w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
             >+</button>
+          </div>
+        )}
+        <p className="text-xs text-gray-400 dark:text-gray-600 flex-1 truncate">
+          {displaySongs.length} {displaySongs.length === 1 ? 'song' : 'songs'}
+          {hasDurations && estimatedSec > 0 && ` · ${formatDuration(estimatedSec)}`}
+        </p>
+        {displaySongs.length > 0 && (
+          <div className="relative shrink-0">
+            <button onClick={() => setExportOpen(v => !v)} className="flex items-center gap-1 h-9 px-1 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"><Upload size={12} /> Export ▾</button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { chordColor, accidentals }); setExportOpen(false); }}>PDF</button>
+                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { includeChords: true, chordColor, accidentals }); setExportOpen(false); }}>PDF + Chord Charts</button>
+                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetJson(set, songs); setExportOpen(false); }}>JSON bundle</button>
+                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetText(set, songs); setExportOpen(false); }}>Setlist</button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
