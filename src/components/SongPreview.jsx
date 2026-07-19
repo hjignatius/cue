@@ -39,23 +39,29 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { Fragment, useMemo } from 'react';
-import { parseChordPro, expandSections, attachSectionLabels, splitAnnotations } from '../utils/chordPro.js';
+import { parseChordPro, expandSections, attachSectionLabels, styleSegments } from '../utils/chordPro.js';
 import { transposeChord, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
-function LyricText({ text }) {
-  return splitAnnotations(text).map((run, i) =>
-    run.marker
-      ? <span key={i} className="font-bold text-indigo-400 dark:text-indigo-300">{run.text}</span>
-      : <Fragment key={i}>{run.text}</Fragment>
+// Render pre-parsed styled runs. Repeat markers keep the accent color; other
+// runs apply the user's bold/italic/color. Chords are rendered separately, so
+// their color is unaffected.
+function StyledRuns({ runs }) {
+  return (runs || []).map((r, i) =>
+    r.marker
+      ? <span key={i} className="font-bold text-indigo-400 dark:text-indigo-300">{r.text}</span>
+      : <span
+          key={i}
+          style={{ fontWeight: r.bold ? 700 : undefined, fontStyle: r.italic ? 'italic' : undefined, color: r.color || undefined }}
+        >{r.text}</span>
   );
 }
 
 function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, useFlats }) {
   return (
     <div className="flex flex-wrap font-mono mb-1" style={{ lineHeight: 1 }}>
-      {segments.map((seg, i) => {
+      {styleSegments(segments).map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
           <div key={i} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
@@ -66,7 +72,7 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, u
               {displayed ? displayed + ' ' : ' '}
             </span>
             <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: 15 }}>
-              {seg.text ? <LyricText text={seg.text} /> : ' '}
+              {seg.text ? <StyledRuns runs={seg.styledRuns} /> : ' '}
             </span>
           </div>
         );
@@ -78,7 +84,7 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, u
 function BracketsLine({ segments, semitones, chordColor, useFlats }) {
   return (
     <p className="font-mono leading-relaxed mb-1 text-gray-900 dark:text-white" style={{ fontSize: 15 }}>
-      {segments.map((seg, i) => {
+      {styleSegments(segments).map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
           <span key={i}>
@@ -87,7 +93,7 @@ function BracketsLine({ segments, semitones, chordColor, useFlats }) {
                 [{displayed}]
               </span>
             )}
-            {seg.text ? <LyricText text={seg.text} /> : null}
+            {seg.text ? <StyledRuns runs={seg.styledRuns} /> : null}
           </span>
         );
       })}
@@ -207,7 +213,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                 } else {
                   lineContent = (
                     <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>
-                      <LyricText text={line.segments?.[0]?.text || ''} />
+                      <StyledRuns runs={styleSegments(line.segments)[0]?.styledRuns} />
                     </p>
                   );
                 }

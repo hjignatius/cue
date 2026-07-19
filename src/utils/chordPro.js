@@ -87,6 +87,58 @@ export function splitAnnotations(text) {
   return runs;
 }
 
+// Inline lyric styling markup, embedded in the lyric text so it travels with the
+// words through the brackets<->over conversion (verified lossless — the chord
+// aligns to raw columns including markup, so a round-trip is identity):
+//   **bold**   *italic*   {c=#e11d48}colored{/c}
+// The color token uses '=' not ':' so a whole-line span never trips the
+// {key: value} directive parser. Chords are untouched — their color stays as is.
+const COLOR_OPEN = /^\{c=([^}]+)\}/;
+
+// Parse one lyric chunk into styled runs, threading `state` (bold/italic/color)
+// so a span can cross chord segments within a line. Repeat markers are split out
+// (marker:true) exactly as splitAnnotations does, inheriting the active styles.
+function parseStyledRuns(str, state) {
+  const runs = [];
+  let buf = '';
+  const flush = () => {
+    if (!buf) return;
+    const color = state.color.length ? state.color[state.color.length - 1] : null;
+    for (const seg of splitAnnotations(buf)) {
+      runs.push({ text: seg.text, marker: seg.marker, bold: state.bold, italic: state.italic, color });
+    }
+    buf = '';
+  };
+  let i = 0;
+  while (i < str.length) {
+    const c = str[i];
+    if (c === '*') {
+      if (str[i + 1] === '*') { flush(); state.bold = !state.bold; i += 2; continue; }
+      flush(); state.italic = !state.italic; i += 1; continue;
+    }
+    if (c === '{') {
+      const m = COLOR_OPEN.exec(str.slice(i));
+      if (m) { flush(); state.color.push(m[1].trim()); i += m[0].length; continue; }
+      if (str.startsWith('{/c}', i)) { flush(); state.color.pop(); i += 4; continue; }
+    }
+    buf += c;
+    i += 1;
+  }
+  flush();
+  return runs;
+}
+
+/**
+ * Given one line's parsed segments (from parseChordPro), return them each with a
+ * `styledRuns` array — [{ text, marker, bold, italic, color }] — for the
+ * renderers. Style state is threaded across segments (so a span can span chords)
+ * and resets per line. Chord fields are passed through unchanged.
+ */
+export function styleSegments(segments) {
+  const state = { bold: false, italic: false, color: [] };
+  return (segments || []).map(seg => ({ ...seg, styledRuns: parseStyledRuns(seg.text || '', state) }));
+}
+
 /**
  * Attach each `comment` (section label) to the next non-empty content
  * line as a `label` property, and drop empty lines that directly follow

@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { attachSectionLabels, splitAnnotations } from './chordPro.js';
+import { attachSectionLabels, styleSegments } from './chordPro.js';
 import { transposeChord } from './transpose.js';
 import { PdfChordDiagram } from './PdfChordDiagram.jsx';
 
@@ -40,24 +40,31 @@ function buildStyles(scale, chordColor = '#4f46e5') {
   });
 }
 
-function lyricRuns(text, styles) {
-  return splitAnnotations(text).map((run, i) =>
-    run.marker
-      ? <Text key={i} style={styles.markerText}>{run.text}</Text>
-      : <Text key={i}>{run.text}</Text>
-  );
+// Render pre-parsed styled runs as PDF Text spans. Repeat markers keep the
+// accent style; user styles map to color + the Courier bold/oblique variants
+// (no font registration needed — they're standard PDF fonts). Chords are on
+// their own Text, so chord color is unaffected.
+function StyledRunsPdf({ runs, styles }) {
+  return (runs || []).map((r, i) => {
+    if (r.marker) return <Text key={i} style={styles.markerText}>{r.text}</Text>;
+    const fontFamily = r.bold && r.italic ? 'Courier-BoldOblique'
+                     : r.bold            ? 'Courier-Bold'
+                     : r.italic          ? 'Courier-Oblique'
+                     :                      'Courier';
+    return <Text key={i} style={r.color ? { fontFamily, color: r.color } : { fontFamily }}>{r.text}</Text>;
+  });
 }
 
 function ChordLine({ segments, semitones, useFlats, styles }) {
   return (
     <View style={styles.lineContainer}>
-      {segments.map((seg, i) => (
+      {styleSegments(segments).map((seg, i) => (
         <View key={i} style={styles.segment}>
           <Text style={styles.chordText}>
             {seg.chord ? (transposeChord(seg.chord, semitones, useFlats) + ' ') : ' '}
           </Text>
           <Text style={styles.lyricText}>
-            {seg.text ? lyricRuns(seg.text, styles) : ' '}
+            {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
           </Text>
         </View>
       ))}
@@ -97,7 +104,7 @@ function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scal
           if (line.type === 'empty')     return <View key={i}>{label}<View style={styles.emptyLine} /></View>;
           if (line.type === 'directive') return label ? <View key={i}>{label}</View> : null;
           if (line.type === 'chords')    return <View key={i}>{label}<ChordLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} /></View>;
-          return <View key={i}>{label}<Text style={styles.plainLyricLine}>{lyricRuns(line.segments?.[0]?.text || '', styles)}</Text></View>;
+          return <View key={i}>{label}<Text style={styles.plainLyricLine}><StyledRunsPdf runs={styleSegments(line.segments)[0]?.styledRuns} styles={styles} /></Text></View>;
         })}
       </View>
     </Page>

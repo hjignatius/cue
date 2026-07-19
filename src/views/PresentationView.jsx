@@ -7,7 +7,7 @@ import { useResizePanel } from '../hooks/useResizePanel.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
-import { parseChordPro, attachSectionLabels, expandSections, splitAnnotations } from '../utils/chordPro.js';
+import { parseChordPro, attachSectionLabels, expandSections, styleSegments } from '../utils/chordPro.js';
 import { transposeText, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { Fragment } from 'react';
@@ -46,11 +46,13 @@ function playMetronome(bpm, timeSig = '4/4') {
   }
 }
 
-function LyricText({ text, accentColor }) {
-  return splitAnnotations(text).map((run, i) =>
-    run.marker
-      ? <span key={i} className="font-bold" style={{ color: accentColor }}>{run.text}</span>
-      : <Fragment key={i}>{run.text}</Fragment>
+// Render pre-parsed styled runs. Repeat markers keep the accent color; other
+// runs apply the user's bold/italic/color. Chords render separately (unchanged).
+function StyledRuns({ runs, accentColor }) {
+  return (runs || []).map((r, i) =>
+    r.marker
+      ? <span key={i} className="font-bold" style={{ color: accentColor }}>{r.text}</span>
+      : <span key={i} style={{ fontWeight: r.bold ? 700 : undefined, fontStyle: r.italic ? 'italic' : undefined, color: r.color || undefined }}>{r.text}</span>
   );
 }
 
@@ -83,12 +85,12 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
               <div key={i}>
                 {label}
                 <div className="leading-relaxed" style={{ fontSize: fontPx, marginBottom: fontPx * 0.2 }}>
-                  {line.segments.map((seg, j) => (
+                  {styleSegments(line.segments).map((seg, j) => (
                     <span key={j}>
                       {seg.chord && (
                         <span className="font-bold" style={{ color: chordColor }}>[{seg.chord}]</span>
                       )}
-                      {seg.text ? <LyricText text={seg.text} accentColor={chordColor} /> : null}
+                      {seg.text ? <StyledRuns runs={seg.styledRuns} accentColor={chordColor} /> : null}
                     </span>
                   ))}
                 </div>
@@ -99,13 +101,13 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
             <div key={i}>
               {label}
               <div className="flex flex-wrap" style={{ marginBottom: fontPx * 0.2 }}>
-                {line.segments.map((seg, j) => (
+                {styleSegments(line.segments).map((seg, j) => (
                   <div key={j} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
                     <span className="font-bold leading-tight" style={{ color: chordColor, fontSize: chordPx, height: chordPx * 1.2 }}>
                       {seg.chord ? seg.chord + ' ' : ' '}
                     </span>
                     <span className="leading-snug" style={{ fontSize: fontPx }}>
-                      {seg.text ? <LyricText text={seg.text} accentColor={chordColor} /> : ' '}
+                      {seg.text ? <StyledRuns runs={seg.styledRuns} accentColor={chordColor} /> : ' '}
                     </span>
                   </div>
                 ))}
@@ -118,7 +120,7 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
           <div key={i}>
             {label}
             <div className="leading-snug" style={{ fontSize: fontPx, marginBottom: fontPx * 0.2, whiteSpace: 'pre-wrap' }}>
-              <LyricText text={line.segments?.[0]?.text || ''} accentColor={chordColor} />
+              <StyledRuns runs={styleSegments(line.segments)[0]?.styledRuns} accentColor={chordColor} />
             </div>
           </div>
         );
