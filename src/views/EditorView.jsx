@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2 } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -12,11 +12,89 @@ import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
+import { isChordLine } from '../utils/visualImport.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
+
+// Lyric-styling palette. Each color is a single hex that must read on BOTH the
+// light Preview and the dark Present background, so these are mid-tone (~-600);
+// yellow is deepened to stay legible on white. Matches the {c=#hex} markup.
+const STYLE_COLORS = [
+  { name: 'Red',    hex: '#dc2626' },
+  { name: 'Orange', hex: '#ea580c' },
+  { name: 'Yellow', hex: '#ca8a04' },
+  { name: 'Green',  hex: '#16a34a' },
+  { name: 'Blue',   hex: '#2563eb' },
+  { name: 'Purple', hex: '#9333ea' },
+];
+
+// Styling ops for the toolbar. Each toggles by checking the selection's own
+// delimiters and returns { styled, ds, de }: the replacement text, plus the
+// characters added(+)/removed(-) at the selection's START (ds) and END (de).
+// ds/de let over-mode keep the chord line above aligned. Good enough for the
+// common single-style case; combined styles may need a second tap.
+const COLOR_SPAN = /^\{c=([^}]+)\}([\s\S]*)\{\/c\}$/;
+// Each op returns { styled, edits }: the replacement for the selection, plus the
+// chord-line edits to mirror — [relCol, delta] pairs where relCol is measured
+// from the selection start and delta is spaces to insert(+)/remove(-). Applying
+// the SAME shifts to the chord line above keeps chords over their words in the
+// raw over-lyrics text (apply and clear are exact inverses).
+function opBold(sel) {
+  if (sel.startsWith('**') && sel.endsWith('**') && sel.length >= 4)
+    return { styled: sel.slice(2, -2), edits: [[0, -2], [sel.length - 2, -2]] };
+  return { styled: `**${sel}**`, edits: [[0, 2], [sel.length, 2]] };
+}
+function opItalic(sel) {
+  if (sel.startsWith('*') && sel.endsWith('*') && !sel.startsWith('**') && !sel.endsWith('**') && sel.length >= 2)
+    return { styled: sel.slice(1, -1), edits: [[0, -1], [sel.length - 1, -1]] };
+  return { styled: `*${sel}*`, edits: [[0, 1], [sel.length, 1]] };
+}
+function opColor(sel, hex) {
+  const m = COLOR_SPAN.exec(sel);
+  if (m) {
+    const oldPre = m[0].length - m[2].length - 4; // length of `{c=OLD}`
+    if (m[1].trim() === hex) return { styled: m[2], edits: [[0, -oldPre], [sel.length - 4, -4]] }; // same → clear
+    const newPre = `{c=${hex}}`.length;
+    return { styled: `{c=${hex}}${m[2]}{/c}`, edits: newPre === oldPre ? [] : [[0, newPre - oldPre]] }; // recolor
+  }
+  return { styled: `{c=${hex}}${sel}{/c}`, edits: [[0, `{c=${hex}}`.length], [sel.length, 4]] };
+}
+function opClear(sel) {
+  const m = COLOR_SPAN.exec(sel);
+  if (!m) return { styled: sel, edits: [] };
+  const oldPre = m[0].length - m[2].length - 4;
+  return { styled: m[2], edits: [[0, -oldPre], [sel.length - 4, -4]] };
+}
+
+// Insert(+)/remove(-) `delta` space columns at `col`. Removal only eats spaces,
+// never chord characters.
+function editChordCol(s, col, delta) {
+  if (delta > 0) {
+    const p = s.length < col ? s.padEnd(col, ' ') : s;
+    return p.slice(0, col) + ' '.repeat(delta) + p.slice(col);
+  }
+  if (delta < 0) {
+    let n = -delta, out = '';
+    for (let i = 0; i < s.length; i++) {
+      if (i >= col && n > 0 && s[i] === ' ') { n--; continue; }
+      out += s[i];
+    }
+    return out;
+  }
+  return s;
+}
+// Apply the chord-line edits (in original columns, offset by the selection start
+// `a`) right-to-left so earlier columns stay valid as later ones shift.
+function repadChordLine(chordLine, a, edits) {
+  let s = chordLine;
+  for (const [relCol, delta] of [...edits].sort((x, y) => y[0] - x[0])) {
+    s = editChordCol(s, a + relCol, delta);
+  }
+  return s.replace(/[ \t]+$/, '');
+}
 
 // Visible label inside a pill button (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -293,6 +371,54 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setIsDirty(true);
   }
 
+  // Apply a lyric-styling op to the current textarea selection by rewriting the
+  // selected substring with the {c=}/**/* markup, then re-selecting the result
+  // so ops can be chained. In Over-Lyrics mode, the chord line directly above is
+  // re-padded by the same column shifts so chords stay over their words in the
+  // raw text (the rendered output stays aligned either way). No-op without a
+  // selection.
+  function applyStyle(op, hex) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    if (start === end) { ta.focus(); return; }
+    const sel = text.slice(start, end);
+    const { styled, edits } = op === 'bold'   ? opBold(sel)
+                            : op === 'italic' ? opItalic(sel)
+                            : op === 'color'  ? opColor(sel, hex)
+                            : op === 'clear'  ? opClear(sel)
+                            :                    { styled: sel, edits: [] };
+
+    let next = text.slice(0, start) + styled + text.slice(end);
+    let selStart = start;
+
+    // Over-mode: keep the chord line above aligned with the styled word.
+    // Single-line selections whose line has a chord line directly above.
+    if (displayMode === 'over' && edits.length && !sel.includes('\n')) {
+      const lyricStart = text.lastIndexOf('\n', start - 1) + 1;
+      if (lyricStart > 0) {
+        const chordEnd   = lyricStart - 1;
+        const chordStart = text.lastIndexOf('\n', chordEnd - 1) + 1;
+        const chordLine  = text.slice(chordStart, chordEnd);
+        if (isChordLine(chordLine)) {
+          const a = start - lyricStart;
+          const newChord = repadChordLine(chordLine, a, edits);
+          const nlAfter  = text.indexOf('\n', end);
+          const lyricEnd = nlAfter === -1 ? text.length : nlAfter;
+          const lyricLine = text.slice(lyricStart, lyricEnd);
+          const newLyric  = lyricLine.slice(0, a) + styled + lyricLine.slice(a + sel.length);
+          next = text.slice(0, chordStart) + newChord + '\n' + newLyric + text.slice(lyricEnd);
+          selStart = chordStart + newChord.length + 1 + a;
+        }
+      }
+    }
+
+    setText(next);
+    setIsDirty(true);
+    const s0 = selStart;
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(s0, s0 + styled.length); });
+  }
+
   const matchCount = findText ? (text.split(expandEscapes(findText)).length - 1) : 0;
 
   useEffect(() => {
@@ -365,6 +491,27 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const chordSemitones = semitonesBetween(metadata.key, effectiveDisplayKey);
   // Accidental spelling for transposed diagram labels — auto follows the View Key.
   const chordUseFlats = useFlatsForKey(accidentals, effectiveDisplayKey);
+
+  // Lyric-styling toolbar, shown in the Text pane header. onMouseDown-preventDefault
+  // keeps the textarea's selection alive when a button is clicked.
+  const styleBtn = 'w-7 h-7 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0';
+  const styleBar = (
+    <div className="flex items-center gap-1 ml-auto" onMouseDown={e => e.preventDefault()}>
+      <button onClick={() => applyStyle('bold')}   title="Bold (**text**)"   className={styleBtn}><Bold size={15} /></button>
+      <button onClick={() => applyStyle('italic')} title="Italic (*text*)"   className={styleBtn}><Italic size={15} /></button>
+      <span className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-0.5 shrink-0" />
+      {STYLE_COLORS.map(c => (
+        <button
+          key={c.hex}
+          onClick={() => applyStyle('color', c.hex)}
+          title={c.name}
+          className="w-5 h-5 rounded-full shrink-0 border border-black/10 dark:border-white/20 hover:scale-110 transition-transform"
+          style={{ backgroundColor: c.hex }}
+        />
+      ))}
+      <button onClick={() => applyStyle('clear')} title="Clear color" className={styleBtn}><Eraser size={14} /></button>
+    </div>
+  );
 
   const chordPanel = (
     <SongChordPanel
@@ -729,8 +876,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <>
             {/* Text editor — always mounted (preserves cursor/scroll); hidden via CSS when inactive */}
             <div className={`flex-col min-w-0 min-h-0 flex-1 overflow-hidden ${narrowTab === 'editor' ? 'flex' : 'hidden'}`}>
-              <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center`}>
+              <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center gap-2`}>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
+                {styleBar}
               </div>
               {frBar}
               <CharRuler textareaRef={textareaRef} text={text} target={LYRIC_TARGET_CHARS} dark={dark} />
@@ -775,8 +923,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <>
             {/* Text editor */}
             <div className="flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden">
-              <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center`}>
+              <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center gap-2`}>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
+                {styleBar}
               </div>
               {frBar}
               <CharRuler textareaRef={textareaRef} text={text} target={LYRIC_TARGET_CHARS} dark={dark} />
