@@ -12,8 +12,11 @@ export function parseChordPro(text) {
 
 function parseLine(rawLine) {
   const line = rawLine.replace(/\r$/, ''); // handle \r\n line endings from Windows/OnSong files
-  // Directive lines: {title: ...}, {artist: ...}, etc.
-  const directiveMatch = line.match(/^\{(.+?):\s*(.+?)\}$/);
+  // Directive lines: {title: ...}, {artist: ...}, etc. The key must be a bare
+  // word (letters/digits/-/_) so a colored lyric line whose text happens to
+  // contain a colon — e.g. {c=#e11d48}Chorus:{/c} — is NOT mistaken for a
+  // directive and dropped. Real directive keys are all word-shaped.
+  const directiveMatch = line.match(/^\{([a-zA-Z][\w-]*):\s*(.+?)\}$/);
   if (directiveMatch) {
     return { type: 'directive', key: directiveMatch[1].trim(), value: directiveMatch[2].trim() };
   }
