@@ -555,7 +555,12 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                 const lastPub = publishedSets[set.id] ?? null;
                 const isPublished = !!lastPub;
                 const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
-                const isStale = isPublished && newestLocalAt(set, setSongs) > lastPub;
+                const localAt = newestLocalAt(set, setSongs);
+                // Local edits not yet pushed → republish (amber). Cloud rollup
+                // ahead of local → another device published a newer version and
+                // this one should pull (orange). Mutually exclusive; equal = in sync.
+                const isStale    = isPublished && localAt > lastPub;
+                const cloudAhead = isPublished && lastPub > localAt;
                 return (
                   <>
                     <div className="flex-1 min-w-0">
@@ -591,11 +596,17 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                     {/* Cloud controls — signed-in users only */}
                     {user && !selectMode && editingSetId !== set.id && (
                       <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
-                        {/* Stale indicator — always visible when cloud copy is outdated */}
+                        {/* Sync indicators — always visible (mutually exclusive). */}
                         {isStale && (
                           <span
                             className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-0.5 shrink-0"
                             title="Local changes not yet published — republish to sync"
+                          />
+                        )}
+                        {cloudAhead && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-0.5 shrink-0"
+                            title="A newer version is in the cloud — pull to update"
                           />
                         )}
                         {/* Publish / Republish button */}
@@ -702,7 +713,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           songs={publishDialog.songs}
           userId={user?.id}
           onPublish={publishWithRemediation}
-          onSuccess={isoString => handlePublishSuccess(publishDialog.set.id, isoString)}
+          onSuccess={() => handlePublishSuccess(publishDialog.set.id, newestLocalAt(publishDialog.set, publishDialog.songs))}
           onClose={() => setPublishDialog(null)}
         />
       )}
