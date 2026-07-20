@@ -454,8 +454,10 @@ export default function SharedSetView() {
           {/* Save / remove bookmark — indigo when bookmarked */}
           <RoundButton
             size={ROUND_SIZE_ACTION}
-            label={isBookmarked ? 'Remove from Shared with me' : 'Save to Shared with me'}
-            title={isBookmarked ? 'Remove from Shared with me' : 'Save to Shared with me'}
+            label={isBookmarked ? 'Remove this saved link' : 'Bookmark this link'}
+            title={isBookmarked
+              ? 'Remove this link from your saved “Shared with me” list.'
+              : 'Bookmark this link so you can reopen this set later from your Cue — no need to keep the link.'}
             fill={headerFill} active={isBookmarked}
             onActivate={isBookmarked ? handleRemoveBookmark : handleSaveBookmark}
           >
@@ -465,21 +467,23 @@ export default function SharedSetView() {
           {enriched.length > 0 && (
             <RoundButton
               size={ROUND_SIZE_ACTION} pill
-              label="Copy to library" title="Copy all songs to my library"
+              label="Copy songs to my library"
+              title="Save your own copy: adds all of these songs to your Cue library, where you can open, edit, and keep them."
               fill={headerFill} disabled={copying}
               onActivate={handleCopySet}
             >
-              <Library size={20} /><PillLabel>Copy to library</PillLabel>
+              <Library size={20} /><PillLabel>Copy</PillLabel>
             </RoundButton>
           )}
-          {/* Present All — indigo anchor action */}
+          {/* Present — indigo anchor action */}
           <RoundButton
             size={ROUND_SIZE_ACTION} pill
-            label="Present All" title="Present the whole set"
+            label="Present the whole set"
+            title="Play the set full-screen, one song at a time — big chords and lyrics for performing. No account needed."
             fill={headerFill} active={enriched.length > 0} disabled={enriched.length === 0}
             onActivate={() => setPresenting({ songs: enriched, startIndex: 0 })}
           >
-            <Tv size={20} /><PillLabel>Present All</PillLabel>
+            <Tv size={20} /><PillLabel>Present</PillLabel>
           </RoundButton>
           {/* Settings */}
           <RoundButton
@@ -793,7 +797,8 @@ function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange,
           {/* Round-button language: neutral copy circle, indigo present circle. */}
           <RoundButton
             size={ROUND_SIZE_COMPACT}
-            label="Copy to my library" title="Copy to my library"
+            label="Copy this song to my library"
+            title="Add just this song to your Cue library, where you can open, edit, and keep it."
             fill={fill} disabled={copying}
             onActivate={onCopy}
           >
@@ -801,7 +806,8 @@ function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange,
           </RoundButton>
           <RoundButton
             size={ROUND_SIZE_COMPACT}
-            label="Present this song" title="Present this song"
+            label="Present this song"
+            title="Play just this song full-screen — big chords and lyrics for performing."
             fill={fill} active
             onActivate={onPresent}
           >
