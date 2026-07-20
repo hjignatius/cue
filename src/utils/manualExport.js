@@ -173,6 +173,7 @@ function manualHTML() {
     <li class="toc-h1">5. The Editor</li>
     <li class="toc-h2">Metadata Bar</li>
     <li class="toc-h2">Text Editor &amp; Chord Formats</li>
+    <li class="toc-h2">Styling Lyrics</li>
     <li class="toc-h2">Toolbar Controls</li>
     <li class="toc-h2">Annotation Overlay</li>
     <li class="toc-h2">Find &amp; Replace</li>
@@ -362,6 +363,25 @@ Here comes the sun, little darlin</pre>
 <pre>[G]Here comes the [Em]sun, [C]little [D]darlin</pre>
 
 <p>Use the <strong>Over lyrics</strong> / <strong>[Brackets]</strong> toggle buttons in the toolbar to switch between formats. Cue converts the text automatically when you switch.</p>
+
+<h2>Styling Lyrics</h2>
+<p>You can color words and make them <strong>bold</strong> or <em>italic</em>. Styling applies to <em>lyrics only</em> — chords keep the single chord color set in Settings.</p>
+<p>There are two styling toolbars, and both work the same way — <strong>select some text first, then tap a control:</strong></p>
+<ul>
+  <li><strong>B</strong> — bold, <strong>I</strong> — italic (each is a toggle: tap again on the same selection to remove it)</li>
+  <li><strong>Six color swatches</strong> — red, orange, yellow, green, blue, purple. Tapping the swatch that already matches the selection <em>clears</em> its color.</li>
+  <li><strong>Eraser</strong> — removes color from the selection.</li>
+</ul>
+<h3>Where the toolbars are</h3>
+<ul>
+  <li><strong>Text pane</strong> — the toolbar in the header of the text editor. Available in <em>both</em> chord formats.</li>
+  <li><strong>Preview pane</strong> — a matching toolbar in the header of the live preview, so you can select the <em>rendered</em> lyrics and style them without touching the raw markup. It appears only when the editor is in <strong>Brackets</strong> format. (After you apply a style in the preview the selection clears, so to combine — say bold <em>and</em> a color — reselect between taps.)</li>
+</ul>
+<h3>How styling is stored</h3>
+<p>Styling is saved as small markers inside the lyric text itself, which is why you'll see them in the text editor:</p>
+<pre>**bold**   *italic*   {c=#dc2626}colored{/c}</pre>
+<p>Because the markers live with the words, your styling survives switching between Over-lyrics and Brackets, and renders everywhere the song appears — the preview, Present mode, exported PDFs, and shared sets. The markers are only visible in the raw text editor.</p>
+<div class="tip"><strong>Note:</strong> ChordPro (<code>.cho</code>) export strips these markers so other apps see clean lyrics — the exported file keeps your chords and words but not the colors or bold/italic. Cue's own JSON and Backup exports keep the styling, since they re-import into Cue. See <em>File Formats</em>.</div>
 
 <h2>Toolbar Controls</h2>
 <table>
@@ -589,6 +609,7 @@ Pulling will discard them. Continue?</pre>
 {duration: 3:06}
 {timesig: 3/4}</pre>
 <p>The <code>{timesig:}</code> directive is only written when the song is in 3/4 — 4/4 is the default and is omitted to keep files compatible with other apps.</p>
+<p>Over-lyrics songs are converted to inline brackets on export (ChordPro is a bracket format). Any lyric styling you added in Cue is stripped, so the <code>.cho</code> contains clean chords and lyrics that any ChordPro reader can open — see <em>Styling Lyrics</em>. To keep styling, use a JSON or Backup export instead.</p>
 
 <h2>JSON Bundle (.json)</h2>
 <p>Cue's portable format. A <strong>song bundle</strong> contains one song with all its metadata:</p>
