@@ -1130,15 +1130,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   function toggleSelectMode() { setSelectMode(v => !v); setSelected(new Set()); }
   function toggleSelect(id) {
-    if (selectMode) {
-      setSelected(prev => {
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id); else next.add(id);
-        return next;
-      });
-    } else {
-      setSelected(prev => prev.has(id) && prev.size === 1 ? new Set() : new Set([id]));
-    }
+    // Selection (and the blueish highlight) only happens in Select mode, where it
+    // drives an action — export, add-to-set, or delete. Outside Select mode a
+    // single click does nothing (double-click opens the song), so a plain click
+    // no longer looks "selected" when it can't be acted on.
+    if (!selectMode) return;
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
   function selectAll()   { setSelected(new Set(sorted.map(s => s.id))); }
   function deselectAll() { setSelected(new Set()); }
