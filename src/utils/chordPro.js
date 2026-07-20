@@ -7,10 +7,18 @@
 
 export function parseChordPro(text) {
   const lines = text.split('\n');
-  return lines.map(parseLine);
+  let offset = 0;
+  return lines.map(line => {
+    const parsed = parseLine(line, offset);
+    offset += line.length + 1; // +1 for the '\n' that split removed
+    return parsed;
+  });
 }
 
-function parseLine(rawLine) {
+// `lineOffset` is this line's absolute character offset in the full text, so each
+// segment can record `srcStart` = the offset of its lyric text back in the source.
+// That lets the editor map a Preview selection to raw-text positions (styling).
+function parseLine(rawLine, lineOffset = 0) {
   const line = rawLine.replace(/\r$/, ''); // handle \r\n line endings from Windows/OnSong files
   // Directive lines: {title: ...}, {artist: ...}, etc. The key must be a bare
   // word (letters/digits/-/_) so a colored lyric line whose text happens to
@@ -35,25 +43,25 @@ function parseLine(rawLine) {
   const chordPattern = /\[([^\]]+)\]/;
   if (!chordPattern.test(line)) {
     // Plain lyric line with no chords
-    return { type: 'lyrics', segments: [{ chord: null, text: line }] };
+    return { type: 'lyrics', segments: [{ chord: null, text: line, srcStart: lineOffset }] };
   }
 
   // Parse inline chords
   const segments = [];
-  let remaining = line;
   const regex = /\[([^\]]+)\]([^\[]*)/g;
-  let lastIndex = 0;
-  let firstMatch = true;
 
   // Handle any leading text before first chord
   const firstChordIndex = line.indexOf('[');
   if (firstChordIndex > 0) {
-    segments.push({ chord: null, text: line.slice(0, firstChordIndex) });
+    segments.push({ chord: null, text: line.slice(0, firstChordIndex), srcStart: lineOffset });
   }
 
   let match;
   while ((match = regex.exec(line)) !== null) {
-    segments.push({ chord: match[1], text: match[2] });
+    // match.index points at '['; the lyric text (group 2) begins after
+    // '[' + chord + ']', i.e. chord.length + 2 columns further right.
+    const textCol = match.index + match[1].length + 2;
+    segments.push({ chord: match[1], text: match[2], srcStart: lineOffset + textCol });
   }
 
   return { type: 'chords', segments };
@@ -101,14 +109,23 @@ const COLOR_OPEN = /^\{c=([^}]+)\}/;
 // Parse one lyric chunk into styled runs, threading `state` (bold/italic/color)
 // so a span can cross chord segments within a line. Repeat markers are split out
 // (marker:true) exactly as splitAnnotations does, inheriting the active styles.
-function parseStyledRuns(str, state) {
+// `base` is the absolute offset of `str` in the raw text. Each run records `src`
+// = the absolute offset of its first character, so the editor can map a rendered
+// selection back to source positions. Markup markers (`*`, `{c=…}`) are consumed
+// without entering `buf`, and every marker forces a flush, so a run's characters
+// are always a contiguous verbatim slice of the source — display offset within a
+// run equals source offset from `run.src`.
+function parseStyledRuns(str, state, base = 0) {
   const runs = [];
   let buf = '';
+  let bufStart = 0; // position in `str` where the current buf began
   const flush = () => {
     if (!buf) return;
     const color = state.color.length ? state.color[state.color.length - 1] : null;
+    let off = 0;
     for (const seg of splitAnnotations(buf)) {
-      runs.push({ text: seg.text, marker: seg.marker, bold: state.bold, italic: state.italic, color });
+      runs.push({ text: seg.text, marker: seg.marker, bold: state.bold, italic: state.italic, color, src: base + bufStart + off });
+      off += seg.text.length;
     }
     buf = '';
   };
@@ -124,6 +141,7 @@ function parseStyledRuns(str, state) {
       if (m) { flush(); state.color.push(m[1].trim()); i += m[0].length; continue; }
       if (str.startsWith('{/c}', i)) { flush(); state.color.pop(); i += 4; continue; }
     }
+    if (!buf) bufStart = i;
     buf += c;
     i += 1;
   }
@@ -139,7 +157,22 @@ function parseStyledRuns(str, state) {
  */
 export function styleSegments(segments) {
   const state = { bold: false, italic: false, color: [] };
-  return (segments || []).map(seg => ({ ...seg, styledRuns: parseStyledRuns(seg.text || '', state) }));
+  return (segments || []).map(seg => ({ ...seg, styledRuns: parseStyledRuns(seg.text || '', state, seg.srcStart ?? 0) }));
+}
+
+/**
+ * Remove the inline lyric-styling markup (**bold**, *italic*, {c=#hex}…{/c}),
+ * leaving the plain lyric text. Used for ChordPro (.cho) export so other
+ * ChordPro readers never see Cue's styling tokens as literal characters. Chords,
+ * [brackets], `#` comments and {key: value} directives are untouched — the color
+ * token uses '=' (not ':'), so it can't collide with a directive, and no chord
+ * or directive syntax uses '*'.
+ */
+export function stripStyling(text) {
+  return (text || '')
+    .replace(/\{c=[^}]*\}/g, '') // color open  {c=#hex}
+    .replace(/\{\/c\}/g, '')     // color close {/c}
+    .replace(/\*/g, '');         // bold/italic delimiters (every * is markup)
 }
 
 /**

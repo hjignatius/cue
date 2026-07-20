@@ -47,12 +47,16 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 // Render pre-parsed styled runs. Repeat markers keep the accent color; other
 // runs apply the user's bold/italic/color. Chords are rendered separately, so
 // their color is unaffected.
+// `data-src` carries each run's absolute source offset (see parseStyledRuns) so
+// the editor can map a Preview text selection back to raw-text positions when
+// styling from the Preview. Offset within a run's text node == source offset.
 function StyledRuns({ runs }) {
   return (runs || []).map((r, i) =>
     r.marker
-      ? <span key={i} className="font-bold text-indigo-400 dark:text-indigo-300">{r.text}</span>
+      ? <span key={i} data-src={r.src} className="font-bold text-indigo-400 dark:text-indigo-300">{r.text}</span>
       : <span
           key={i}
+          data-src={r.src}
           style={{ fontWeight: r.bold ? 700 : undefined, fontStyle: r.italic ? 'italic' : undefined, color: r.color || undefined }}
         >{r.text}</span>
   );
@@ -101,7 +105,7 @@ function BracketsLine({ segments, semitones, chordColor, useFlats }) {
   );
 }
 
-export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true }) {
+export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true, headerRight = null }) {
   const { theme, chordColor, chordLabelScale, accidentals } = usePrefs();
   const dark = theme === 'dark';
   const chordFontSize = 13 * (1 + chordLabelScale / 100);
@@ -125,11 +129,14 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
       {/* Preview header */}
       <div className={`px-3 py-2 border-b flex items-center justify-between shrink-0 ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
         <span className={`text-xs font-semibold uppercase tracking-wide ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Preview</span>
-        {displayKey && displayKey !== metadata?.key && (
-          <span className="text-xs text-indigo-400 font-mono">
-            {metadata?.key || '?'} → {displayKey}
-          </span>
-        )}
+        <div className="flex items-center gap-2 min-w-0">
+          {displayKey && displayKey !== metadata?.key && (
+            <span className="text-xs text-indigo-400 font-mono shrink-0">
+              {metadata?.key || '?'} → {displayKey}
+            </span>
+          )}
+          {headerRight}
+        </div>
       </div>
 
       {/* Content — when an overlay canvas is provided, the overlay wrapper below

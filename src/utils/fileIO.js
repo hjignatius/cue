@@ -2,6 +2,7 @@ import { zipSync } from 'fflate';
 import { saveFilePicker } from './filePicker.js';
 import { loadSongs, loadSets, SCHEMA_VERSION } from './storage.js';
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
+import { stripStyling } from './chordPro.js';
 // ANNOTATION SAFETY: all export functions below read exclusively from loadSongs()
 // and loadSets() (the 'songs'/'sets' IndexedDB stores). Ink annotations live in
 // a separate 'annotations' store and are intentionally never read here, so they
@@ -92,7 +93,10 @@ function songToCho({ metadata, text, chordStyle }) {
   // layout — which no ChordPro reader (including Cue's own import) parses as
   // chords. Fall back to detecting the style for songs saved without one.
   const style = chordStyle || detectChordStyle(text);
-  const body = style === 'over' ? convertToBrackets(text) : text;
+  // Strip Cue's inline lyric-styling markup — a .cho is meant for other ChordPro
+  // readers, which would render {c=#hex}/**/* as literal characters. Styling is
+  // preserved in Cue's own JSON/backup exports, which re-import into Cue.
+  const body = stripStyling(style === 'over' ? convertToBrackets(text) : text);
   const directives = [
     metadata.title    && `{title: ${metadata.title}}`,
     metadata.artist   && `{artist: ${metadata.artist}}`,

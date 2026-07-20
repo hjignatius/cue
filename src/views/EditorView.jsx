@@ -96,6 +96,48 @@ function repadChordLine(chordLine, a, edits) {
   return s.replace(/[ \t]+$/, '');
 }
 
+// Apply a styling op to the source range [start,end], LINE BY LINE, on `text`.
+// The parser is per-line, so markup must be balanced within each line — wrapping a
+// whole multi-line block as one span would leave `{c=}` open on the first line and
+// `{/c}` orphaned on the last, so each touched line's selected portion is styled
+// independently. In Over-Lyrics mode (`over`), chord lines are skipped and each
+// styled line's chord line above is re-padded by the same column shifts so chords
+// stay over their words. Returns { text, selA, selB } (the rebuilt text and the
+// new source range covering the styled span), or null if nothing changed.
+function styleRange(text, op, hex, start, end, over) {
+  const lines = text.split('\n');
+  const lineStart = [];
+  { let idx = 0; for (const ln of lines) { lineStart.push(idx); idx += ln.length + 1; } }
+
+  let firstLine = -1, firstA = 0, lastLine = -1, lastEnd = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const ls = lineStart[i], le = ls + lines[i].length;
+    if (le <= start || ls >= end) continue;                 // line outside selection
+    const a = Math.max(start, ls) - ls;
+    const b = Math.min(end, le) - ls;
+    if (b <= a) continue;                                    // nothing on this line
+    if (over && isChordLine(lines[i])) continue;             // never style a chord line
+    const seg = lines[i].slice(a, b);
+    if (op !== 'clear' && !seg.trim()) continue;             // skip whitespace-only bits
+    const { styled, edits } = op === 'bold'   ? opBold(seg)
+                            : op === 'italic' ? opItalic(seg)
+                            : op === 'color'  ? opColor(seg, hex)
+                            : op === 'clear'  ? opClear(seg)
+                            :                    { styled: seg, edits: [] };
+    lines[i] = lines[i].slice(0, a) + styled + lines[i].slice(b);
+    if (over && edits.length && i > 0 && isChordLine(lines[i - 1])) {
+      lines[i - 1] = repadChordLine(lines[i - 1], a, edits);
+    }
+    if (firstLine === -1) { firstLine = i; firstA = a; }
+    lastLine = i; lastEnd = a + styled.length;
+  }
+  if (firstLine === -1) return null;                         // nothing was styled
+
+  const out = lines.join('\n');
+  const newStart = []; { let idx = 0; for (const ln of lines) { newStart.push(idx); idx += ln.length + 1; } }
+  return { text: out, selA: newStart[firstLine] + firstA, selB: newStart[lastLine] + lastEnd };
+}
+
 // Visible label inside a pill button (white via RoundButton's text-white).
 function PillLabel({ children }) {
   return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
@@ -215,6 +257,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   const hydrated      = useRef(false);
   const textareaRef   = useRef(null);
+  const previewRef    = useRef(null); // wraps SongPreview; scoped [data-src] lookup for Preview styling
   const findInputRef  = useRef(null);
   // Revert baseline = the last-saved editor state (the entry state until the first
   // save this session). Revert restores it. Captured on songId change and reset
@@ -371,56 +414,55 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setIsDirty(true);
   }
 
-  // Apply a lyric-styling op to the current selection, LINE BY LINE. The parser
-  // is per-line, so markup must be balanced within each line — wrapping a whole
-  // multi-line block as one span would leave `{c=}` open on the first line and
-  // `{/c}` orphaned on the last. So each touched line's selected portion is
-  // styled independently. In Over-Lyrics mode, chord lines are skipped (never
-  // styled) and each styled line's chord line above is re-padded by the same
-  // column shifts, so chords stay over their words in the raw text. Then the
-  // whole styled span is re-selected. No-op without a selection.
+  // Apply a lyric-styling op to the Text pane's current selection, then re-select
+  // the styled span. No-op without a selection. (The line-by-line + over-mode
+  // repad logic lives in the shared styleRange.)
   function applyStyle(op, hex) {
     const ta = textareaRef.current;
     if (!ta) return;
     const start = ta.selectionStart, end = ta.selectionEnd;
     if (start === end) { ta.focus(); return; }
-
-    const over  = displayMode === 'over';
-    const lines = text.split('\n');
-    const lineStart = [];
-    { let idx = 0; for (const ln of lines) { lineStart.push(idx); idx += ln.length + 1; } }
-
-    let firstLine = -1, firstA = 0, lastLine = -1, lastEnd = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const ls = lineStart[i], le = ls + lines[i].length;
-      if (le <= start || ls >= end) continue;                 // line outside selection
-      const a = Math.max(start, ls) - ls;
-      const b = Math.min(end, le) - ls;
-      if (b <= a) continue;                                    // nothing on this line
-      if (over && isChordLine(lines[i])) continue;             // never style a chord line
-      const seg = lines[i].slice(a, b);
-      if (op !== 'clear' && !seg.trim()) continue;             // skip whitespace-only bits
-      const { styled, edits } = op === 'bold'   ? opBold(seg)
-                              : op === 'italic' ? opItalic(seg)
-                              : op === 'color'  ? opColor(seg, hex)
-                              : op === 'clear'  ? opClear(seg)
-                              :                    { styled: seg, edits: [] };
-      lines[i] = lines[i].slice(0, a) + styled + lines[i].slice(b);
-      if (over && edits.length && i > 0 && isChordLine(lines[i - 1])) {
-        lines[i - 1] = repadChordLine(lines[i - 1], a, edits);
-      }
-      if (firstLine === -1) { firstLine = i; firstA = a; }
-      lastLine = i; lastEnd = a + styled.length;
-    }
-    if (firstLine === -1) { ta.focus(); return; }              // nothing was styled
-
-    setText(lines.join('\n'));
+    const res = styleRange(text, op, hex, start, end, displayMode === 'over');
+    if (!res) { ta.focus(); return; }
+    setText(res.text);
     setIsDirty(true);
-    // Re-select the whole styled span in the rebuilt text.
-    const newStart = []; { let idx = 0; for (const ln of lines) { newStart.push(idx); idx += ln.length + 1; } }
-    const selA = newStart[firstLine] + firstA;
-    const selB = newStart[lastLine] + lastEnd;
-    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(selA, selB); });
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(res.selA, res.selB); });
+  }
+
+  // Apply a styling op to the PREVIEW's current text selection. Each rendered
+  // lyric run carries data-src = its absolute offset in the raw text (see
+  // parseStyledRuns), and offset-within-a-run == source offset, so the DOM
+  // selection maps straight to a source range. Only enabled when the editor
+  // format is Brackets: then the raw text IS bracket-format, so SongPreview's
+  // convertToBrackets(text) is identity and data-src indexes the raw text.
+  // (In Over source the preview is parsed from a converted string, so offsets
+  // wouldn't point at the raw text — that's a later phase.) Chords are inline
+  // [C] tokens here, so no chord-line repad is needed.
+  function applyStyleFromPreview(op, hex) {
+    const root = previewRef.current;
+    const sel = window.getSelection();
+    if (!root || !sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    if (!root.contains(range.commonAncestorContainer)) return;
+
+    let lo = Infinity, hi = -Infinity;
+    root.querySelectorAll('[data-src]').forEach(span => {
+      if (!sel.containsNode(span, true)) return;             // not in the selection
+      const base = +span.dataset.src;
+      const len = span.textContent.length;
+      let s = base, e = base + len;                          // default: whole run
+      if (span.contains(range.startContainer)) s = base + range.startOffset;
+      if (span.contains(range.endContainer))   e = base + range.endOffset;
+      lo = Math.min(lo, s); hi = Math.max(hi, e);
+    });
+    if (lo === Infinity || hi <= lo) return;
+
+    const res = styleRange(text, op, hex, lo, hi, false);
+    if (!res) return;
+    setText(res.text);
+    setIsDirty(true);
+    // The Preview DOM is rebuilt on setText; the browser collapses the old
+    // selection. v1 leaves it collapsed — reselect to combine styles.
   }
 
   const matchCount = findText ? (text.split(expandEscapes(findText)).length - 1) : 0;
@@ -516,6 +558,27 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       <button onClick={() => applyStyle('clear')} title="Clear color" className={styleBtn}><Eraser size={14} /></button>
     </div>
   );
+
+  // The same toolbar, over the Preview: select rendered lyrics and style them.
+  // onMouseDown-preventDefault keeps the DOM text selection alive on click. Only
+  // rendered when the editor format is Brackets (see applyStyleFromPreview).
+  const previewStyleBar = displayMode === 'brackets' ? (
+    <div className="flex items-center gap-1" onMouseDown={e => e.preventDefault()}>
+      <button onClick={() => applyStyleFromPreview('bold')}   title="Bold"   className={styleBtn}><Bold size={15} /></button>
+      <button onClick={() => applyStyleFromPreview('italic')} title="Italic" className={styleBtn}><Italic size={15} /></button>
+      <span className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-0.5 shrink-0" />
+      {STYLE_COLORS.map(c => (
+        <button
+          key={c.hex}
+          onClick={() => applyStyleFromPreview('color', c.hex)}
+          title={c.name}
+          className="w-5 h-5 rounded-full shrink-0 border border-black/10 dark:border-white/20 hover:scale-110 transition-transform"
+          style={{ backgroundColor: c.hex }}
+        />
+      ))}
+      <button onClick={() => applyStyleFromPreview('clear')} title="Clear color" className={styleBtn}><Eraser size={14} /></button>
+    </div>
+  ) : null;
 
   const chordPanel = (
     <SongChordPanel
@@ -890,13 +953,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </div>
 
             {narrowTab === 'preview' && (
-              <div className="flex-1 min-h-0 overflow-y-auto p-4">
+              <div ref={previewRef} className="flex-1 min-h-0 overflow-y-auto p-4">
                 <SongPreview
                   text={text}
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
                   showMeta={false}
+                  headerRight={previewStyleBar}
                   overlay={showAnnotations && hasAnnotation && songId ? (
                     <AnnotationCanvas
                       key={`editor-annot-narrow-${songId}`}
@@ -946,13 +1010,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
             {/* Preview panel */}
             {showPreview && (
-              <div className="shrink-0 min-h-0 p-4 overflow-y-auto" style={{ width: previewWidth }}>
+              <div ref={previewRef} className="shrink-0 min-h-0 p-4 overflow-y-auto" style={{ width: previewWidth }}>
                 <SongPreview
                   text={text}
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
                   showMeta={false}
+                  headerRight={previewStyleBar}
                   overlay={showAnnotations && hasAnnotation && songId ? (
                     // Canvas is mounted inside SongPreview's scrollable content wrapper
                     // so its origin is below the "PREVIEW" header bar and it scrolls
