@@ -6,10 +6,13 @@
 // renders PresentationView. Neither touches this file. So nothing here follows
 // into print, and pane-derived sizing would affect the editor and nowhere else.
 //
-// Fixed font (15px) that reflows at the pane width. This does NOT match Present,
-// which renders at a user font in a fixed 65-character column. The two are only
-// styled to RESEMBLE each other (see the title/artist treatment below), so
-// entering Present is not jarring — but line breaks and vertical positions differ.
+// Fixed font (15px), and lines do NOT wrap — each source line renders on one
+// line, like a small Present, so edits read the way they will on stage. Content
+// wider than the pane is clipped at the right edge (overflow-x hidden on the
+// scroll area below); widen the pane to see more. This intentionally does not
+// reproduce Present exactly (Present uses a user font in a fixed 65-char column
+// and wraps there), but with no pane-width reflow the two now resemble each
+// other closely for typical lines.
 //
 // ── Deferred: "Preview as a mini Present" (its own task) ────────────────────
 // Making the two share a layout so annotations map between them is feasible but
@@ -64,11 +67,11 @@ function StyledRuns({ runs }) {
 
 function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, useFlats }) {
   return (
-    <div className="flex flex-wrap font-mono mb-1" style={{ lineHeight: 1 }}>
+    <div className="flex font-mono mb-1" style={{ lineHeight: 1 }}>
       {styleSegments(segments).map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
-          <div key={i} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
+          <div key={i} className="flex flex-col shrink-0" style={{ whiteSpace: 'pre' }}>
             <span
               className="font-bold leading-tight cursor-default select-none"
               style={{ color: displayed ? chordColor : 'transparent', fontSize: chordFontSize, minHeight: '1.2em' }}
@@ -87,7 +90,7 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, u
 
 function BracketsLine({ segments, semitones, chordColor, useFlats }) {
   return (
-    <p className="font-mono leading-relaxed mb-1 text-gray-900 dark:text-white" style={{ fontSize: 15 }}>
+    <p className="font-mono leading-relaxed mb-1 text-gray-900 dark:text-white whitespace-nowrap" style={{ fontSize: 15 }}>
       {styleSegments(segments).map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
@@ -143,7 +146,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
           gains `position: relative; min-h-full` so the canvas (position:absolute
           inset:0) is anchored below the PREVIEW header and scrolls with lyrics.
           Without an overlay the wrapper is omitted to avoid spurious blank space. */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
         {(() => {
           if (isEmpty) {
             return (
@@ -219,7 +222,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                     : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} useFlats={useFlats} />;
                 } else {
                   lineContent = (
-                    <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>
+                    <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre' }}>
                       <StyledRuns runs={styleSegments(line.segments)[0]?.styledRuns} />
                     </p>
                   );
