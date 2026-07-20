@@ -156,6 +156,42 @@ export async function listCloudSets(userId) {
   return data ?? [];
 }
 
+// Per-set "content last updated" rollup for the signed-in user: the newest
+// updated_at across each set row AND every song it references. This mirrors the
+// pull dialog's cloudNewestAt, and is what the publish "stale" baseline must be
+// so it means the same thing on every device (a plain set.updated_at ignores
+// song edits and would flag an in-sync set as stale). Returns Map<setId, iso>.
+//
+// Three owner-scoped reads (sets, set_songs, songs) rather than a schema change;
+// small payloads (ids + timestamps only). RLS already permits each for the owner.
+export async function cloudSetRollups(userId) {
+  if (!supabase) return new Map();
+
+  const { data: setRows, error: setErr } = await supabase
+    .from('sets').select('id, updated_at').eq('owner_id', userId);
+  if (setErr) throw setErr;
+  const rollups = new Map((setRows ?? []).map(r => [r.id, r.updated_at || '']));
+  if (rollups.size === 0) return rollups;
+
+  const { data: links, error: linkErr } = await supabase
+    .from('set_songs').select('set_id, song_id').in('set_id', [...rollups.keys()]);
+  if (linkErr) throw linkErr;
+
+  const songIds = [...new Set((links ?? []).map(l => l.song_id))];
+  const songTime = new Map();
+  if (songIds.length > 0) {
+    const { data: songRows, error: songErr } = await supabase
+      .from('songs').select('id, updated_at').in('id', songIds);
+    if (songErr) throw songErr;
+    for (const s of songRows ?? []) songTime.set(s.id, s.updated_at || '');
+  }
+  for (const l of links ?? []) {
+    const t = songTime.get(l.song_id) || '';
+    if (t > (rollups.get(l.set_id) || '')) rollups.set(l.set_id, t);
+  }
+  return rollups;
+}
+
 // Fetch one cloud set and its songs, ordered by set_songs.position.
 // Returns { set, songs } — songs are raw rows whose `content` holds the full
 // Cue-native song object — or null when the set doesn't exist / isn't owned.

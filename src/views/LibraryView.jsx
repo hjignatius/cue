@@ -17,7 +17,7 @@ import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
-import { unpublishSet, publishSet, ownedSongIds } from '../lib/cloud.js';
+import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups } from '../lib/cloud.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -141,6 +141,35 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
 
   // Shared-with-me bookmarks (viewer-side, localStorage only)
   const [savedShares, setSavedShares] = useState(loadSharedWithMe);
+
+  // Cross-device publish-status sync. Publish state is otherwise cached only in
+  // this device's localStorage, so a set published (or unpublished) on another
+  // device signed into the same account would look wrong here — e.g. showing
+  // "Publish" for a set that's already in the cloud. When signed in, reconcile
+  // against the cloud, which is the source of truth (the user's own `sets`
+  // table): it becomes authoritative for which sets are published and for the
+  // stale-check baseline. localStorage stays the offline cache. Failures
+  // (offline / transient) are ignored so the cache is never clobbered blindly.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rollups = await cloudSetRollups(user.id); // Map<setId, iso>
+        if (cancelled) return;
+        const next = {};
+        for (const [id, iso] of rollups) next[id] = iso;
+        setPublishedSets(prev => {
+          if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+          localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(next));
+          return next;
+        });
+      } catch {
+        /* offline or transient — keep the localStorage cache as-is */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   function handlePublishClick(set) {
     const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
