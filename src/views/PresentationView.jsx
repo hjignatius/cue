@@ -536,6 +536,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   annotating={annotating}
                   dark={dark}
                   legacyYOffset={legacyInkOffset}
+                  fontPx={fontPx}
                 />
               )}
             </div>

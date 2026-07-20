@@ -69,19 +69,33 @@ export const ANNOTATION_LAYOUT_VERSION = 2;
 // (drawing) still sizes to its full width; this only applies when readOnly.
 const READONLY_PREVIEW_WIDTH = Math.round(65 * 15 * 0.6); // = 585
 
+// Vertical/uniform scale factor for a stroke. Prefer the EXACT font ratio
+// (renderFontPx / the font the stroke was drawn at) whenever both are known: the
+// Present layout is fully font-proportional, so this keeps ink locked to the text
+// at any A-/A+ size. Older strokes have no captureFontPx and fall back to the
+// width ratio (canvasWidth / captureWidth).
+//
+// The width ratio is NOT a reliable proxy for the font ratio: the canvas is the
+// lyric column MINUS the scroller's fixed horizontal padding (md:px-12), so its
+// width is not proportional to the font. Using it scaled y slightly wrong, which
+// accumulated into a visible vertical drift further down the page as the font
+// changed. captureFontPx removes that for strokes drawn from now on.
+function strokeRatio(stroke, canvasWidth, renderFontPx) {
+  if (stroke.captureFontPx && renderFontPx) return renderFontPx / stroke.captureFontPx;
+  return stroke.captureWidth > 0 ? canvasWidth / stroke.captureWidth : 1;
+}
+
 // Render one stroke with uniform scaling so shapes stay undistorted on resize.
-// widthRatio = currentCanvasWidth / stroke.captureWidth is applied to both axes.
+// Both axes use strokeRatio; x is nx·captureWidth·ratio (identical to the old
+// nx·canvasWidth on the width-ratio path, but correct on the font-ratio path).
 //
 // legacyYOffset is in CURRENT canvas pixels and is added after scaling, for v1
-// strokes only. Adding it post-scale rather than pre-scale is deliberate: the
-// caller measures the offset in the layout being rendered, so the correction needs
-// no assumption about the stroke's draw-time font and no magic advance-width
-// constant. The two are equivalent in Present, where widthRatio tracks the font
-// ratio to within 0.06% (measured).
-function renderStroke(ctx, stroke, canvasWidth, legacyYOffset = 0) {
+// strokes only.
+function renderStroke(ctx, stroke, canvasWidth, legacyYOffset = 0, renderFontPx) {
   if (!stroke.points || stroke.points.length < 2) return;
   const ink = INKS.find(i => i.id === stroke.color) ?? INKS[0];
-  const ratio = stroke.captureWidth > 0 ? canvasWidth / stroke.captureWidth : 1;
+  const ratio = strokeRatio(stroke, canvasWidth, renderFontPx);
+  const cw = stroke.captureWidth || canvasWidth;
   const dy = (stroke.v ?? 1) >= ANNOTATION_LAYOUT_VERSION ? 0 : legacyYOffset;
   ctx.save();
   ctx.strokeStyle = ink.color;
@@ -90,9 +104,9 @@ function renderStroke(ctx, stroke, canvasWidth, legacyYOffset = 0) {
   ctx.lineJoin    = 'round';
   ctx.globalCompositeOperation = 'source-over';
   ctx.beginPath();
-  ctx.moveTo(stroke.points[0].nx * canvasWidth, stroke.points[0].y * ratio + dy);
+  ctx.moveTo(stroke.points[0].nx * cw * ratio, stroke.points[0].y * ratio + dy);
   for (let i = 1; i < stroke.points.length; i++) {
-    ctx.lineTo(stroke.points[i].nx * canvasWidth, stroke.points[i].y * ratio + dy);
+    ctx.lineTo(stroke.points[i].nx * cw * ratio, stroke.points[i].y * ratio + dy);
   }
   ctx.stroke();
   ctx.restore();
@@ -108,14 +122,21 @@ export default function AnnotationCanvas({
   // lyrics since v1 (i.e. the artist line). Applied to v1 strokes only. 0 when the
   // song has no artist, because then nothing was added and nothing shifted.
   legacyYOffset = 0,
+  // Current lyric font size (Present's A-/A+). Recorded on each new stroke as
+  // captureFontPx and used as the render font, so ink scales by the exact font
+  // ratio instead of the (non-proportional) canvas width. Omitted in the editor
+  // Preview (fixed font, read-only), which keeps the width-ratio fallback.
+  fontPx,
 }) {
   const canvasRef = useRef(null);
   const strokesRef = useRef([]);      // completed, persisted strokes
   const currentRef = useRef(null);   // stroke currently being drawn
-  // Mirrored into a ref so redraw(), which is a plain function, always reads the
-  // current value without being rebuilt.
+  // Mirrored into refs so redraw()/handlers, which are plain functions, always
+  // read the current value without being rebuilt.
   const legacyOffsetRef = useRef(legacyYOffset);
   legacyOffsetRef.current = legacyYOffset;
+  const fontPxRef = useRef(fontPx);
+  fontPxRef.current = fontPx;
 
   // FIX 1: Track the pointerId that owns the current stroke. Any other pointer
   // arriving while this is non-null is treated as a multi-touch event: the
@@ -158,8 +179,8 @@ export default function AnnotationCanvas({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const s of strokesRef.current) renderStroke(ctx, s, canvas.width, legacyOffsetRef.current);
-    if (currentRef.current) renderStroke(ctx, currentRef.current, canvas.width, legacyOffsetRef.current);
+    for (const s of strokesRef.current) renderStroke(ctx, s, canvas.width, legacyOffsetRef.current, fontPxRef.current);
+    if (currentRef.current) renderStroke(ctx, currentRef.current, canvas.width, legacyOffsetRef.current, fontPxRef.current);
   }
 
   const persistStrokes = useCallback(async (strokes) => {
@@ -262,14 +283,15 @@ export default function AnnotationCanvas({
       // coordinates, accounting for uniform scale) and remove it entirely.
       const w   = canvasRef.current.width;
       const hit = strokesRef.current.findLastIndex(stroke => {
-        const ratio = stroke.captureWidth > 0 ? w / stroke.captureWidth : 1;
+        const ratio = strokeRatio(stroke, w, fontPxRef.current);
+        const cw    = stroke.captureWidth || w;
         return stroke.points.some((p, j) => {
           if (j === 0) return false;
           const prev = stroke.points[j - 1];
           return pointSegDist(
-            pt.nx * w,       pt.y,
-            prev.nx * w,     prev.y * ratio,
-            p.nx * w,        p.y * ratio,
+            pt.nx * w,             pt.y,
+            prev.nx * cw * ratio,  prev.y * ratio,
+            p.nx * cw * ratio,     p.y * ratio,
           ) < 20;
         });
       });
@@ -290,6 +312,9 @@ export default function AnnotationCanvas({
       width:        ink.width,
       tool:         inkId === 'hl' ? 'highlighter' : 'pen',
       captureWidth: canvasRef.current.width,
+      // Font size at draw time — lets the renderer scale by the exact font ratio
+      // (see strokeRatio) so ink stays locked to the text across A-/A+.
+      captureFontPx: fontPxRef.current,
       // Drawn against the current layout, so it needs no legacy correction.
       v:            ANNOTATION_LAYOUT_VERSION,
       points:       [pt],
