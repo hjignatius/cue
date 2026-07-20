@@ -195,10 +195,10 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
               {(metadata?.title || metadata?.artist) && (
                 <div className="mb-4">
                   {metadata?.title && (
-                    <h2 className={`font-mono font-bold ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15 * 1.4, lineHeight: 1.2 }}>{metadata.title}</h2>
+                    <h2 className={`font-mono font-bold whitespace-nowrap ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15 * 1.4, lineHeight: 1.2 }}>{metadata.title}</h2>
                   )}
                   {metadata?.artist && (
-                    <p className={`font-mono ${dark ? 'text-gray-400' : 'text-gray-500'}`} style={{ fontSize: 15, lineHeight: 1.5 }}>{metadata.artist}</p>
+                    <p className={`font-mono whitespace-nowrap ${dark ? 'text-gray-400' : 'text-gray-500'}`} style={{ fontSize: 15, lineHeight: 1.5 }}>{metadata.artist}</p>
                   )}
                 </div>
               )}
