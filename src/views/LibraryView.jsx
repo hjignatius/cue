@@ -154,7 +154,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    (async () => {
+    const reconcile = async () => {
       try {
         const rollups = await cloudSetRollups(user.id); // Map<setId, iso>
         if (cancelled) return;
@@ -168,8 +168,22 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
       } catch {
         /* offline or transient — keep the localStorage cache as-is */
       }
-    })();
-    return () => { cancelled = true; };
+    };
+    // Re-check on mount AND whenever this device returns to the app (tab focus /
+    // becoming visible). Without the latter, a set published on another device
+    // while this one sits on the Library open would never flip to the orange
+    // "pull to update" dot until a full reload. Not a live subscription — it
+    // re-checks at the moments the user is actually looking.
+    reconcile();
+    const onFocus = () => reconcile();
+    const onVisible = () => { if (document.visibilityState === 'visible') reconcile(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [user?.id]);
 
   function handlePublishClick(set) {
