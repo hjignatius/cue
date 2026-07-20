@@ -1,5 +1,18 @@
 import { supabase } from './supabase.js';
 
+// Normalize a cloud timestamp to JS ISO ("…Z", ms precision). Supabase returns
+// Postgres timestamptz as "…+00:00" with microseconds; local records use JS ISO.
+// Comparing the two as strings is WRONG — for the same instant "…Z" sorts AFTER
+// "…+00:00" (and after a "…123456" microsecond tail), so a cloud baseline read
+// back and compared against a local timestamp falsely looked older, flagging
+// every published set as "locally newer" (stale). Normalize before any such
+// comparison or before storing a cloud time on a local record. Empty stays empty.
+export function toIsoTs(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  return isNaN(d.getTime()) ? t : d.toISOString();
+}
+
 // All Supabase cloud operations live here so the rest of the app stays decoupled.
 //
 // ANNOTATION SAFETY: ink annotations are stored in the separate 'annotations'
@@ -170,7 +183,7 @@ export async function cloudSetRollups(userId) {
   const { data: setRows, error: setErr } = await supabase
     .from('sets').select('id, updated_at').eq('owner_id', userId);
   if (setErr) throw setErr;
-  const rollups = new Map((setRows ?? []).map(r => [r.id, r.updated_at || '']));
+  const rollups = new Map((setRows ?? []).map(r => [r.id, toIsoTs(r.updated_at)]));
   if (rollups.size === 0) return rollups;
 
   const { data: links, error: linkErr } = await supabase
@@ -183,7 +196,7 @@ export async function cloudSetRollups(userId) {
     const { data: songRows, error: songErr } = await supabase
       .from('songs').select('id, updated_at').in('id', songIds);
     if (songErr) throw songErr;
-    for (const s of songRows ?? []) songTime.set(s.id, s.updated_at || '');
+    for (const s of songRows ?? []) songTime.set(s.id, toIsoTs(s.updated_at));
   }
   for (const l of links ?? []) {
     const t = songTime.get(l.song_id) || '';

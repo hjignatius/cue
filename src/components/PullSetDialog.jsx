@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listCloudSets, pullSet } from '../lib/cloud.js';
+import { listCloudSets, pullSet, toIsoTs } from '../lib/cloud.js';
 import { saveSong, saveSet, newestLocalAt } from '../utils/storage.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
@@ -14,8 +14,8 @@ function fmtDate(iso) {
 // local {updatedAt} field names rather than duplicating the rule.
 function cloudNewestAt({ set, songs }) {
   return newestLocalAt(
-    { updatedAt: set?.updated_at },
-    (songs ?? []).map(r => ({ updatedAt: r.updated_at })),
+    { updatedAt: toIsoTs(set?.updated_at) },
+    (songs ?? []).map(r => ({ updatedAt: toIsoTs(r.updated_at) })),
   );
 }
 
@@ -36,10 +36,10 @@ export function localChangesAtRisk(localSet, localSongs, cloudPayload) {
   for (const row of cloudPayload?.songs ?? []) {
     const local = localById.get(row.id);
     if (!local) continue; // added by the pull — nothing to lose
-    if ((local.updatedAt ?? '') > (row.updated_at ?? '')) songs.push(local);
+    if (toIsoTs(local.updatedAt) > toIsoTs(row.updated_at)) songs.push(local);
   }
   const setNewer = !!localSet
-    && (localSet.updatedAt ?? '') > (cloudPayload?.set?.updated_at ?? '');
+    && toIsoTs(localSet.updatedAt) > toIsoTs(cloudPayload?.set?.updated_at);
   return { setNewer, songs };
 }
 
@@ -89,8 +89,8 @@ export async function applyPulledSet({ set, songs }, localSongIds) {
       chordPrefs: c.chordPrefs,
       displayKey: c.displayKey,
       copiedFrom: c.copiedFrom,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: toIsoTs(row.created_at),
+      updatedAt: toIsoTs(row.updated_at),
     });
     if (localSongIds.has(row.id)) overwritten++; else added++;
     songIds.push(row.id);
@@ -103,8 +103,8 @@ export async function applyPulledSet({ set, songs }, localSongIds) {
     name: set.name,
     songIds,
     sortMode: 'custom',
-    createdAt: set.created_at,
-    updatedAt: set.updated_at,
+    createdAt: toIsoTs(set.created_at),
+    updatedAt: toIsoTs(set.updated_at),
     preserveTimestamps: true,
   });
 
