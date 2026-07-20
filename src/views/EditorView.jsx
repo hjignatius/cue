@@ -968,6 +968,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       annotating={false}
                       dark={dark}
                       readOnly
+                      // Preview lyrics render at a fixed 15px; pass it as the render
+                      // font so ink drawn in Present scales by the font ratio
+                      // (renderFontPx/captureFontPx) and lines up here, as in Present.
+                      fontPx={15}
                       onHasStrokes={has => setHasAnnotation(has)}
                     />
                   ) : null}
@@ -1028,6 +1032,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       annotating={false}
                       dark={dark}
                       readOnly
+                      // Preview lyrics render at a fixed 15px; pass it as the render
+                      // font so ink drawn in Present scales by the font ratio
+                      // (renderFontPx/captureFontPx) and lines up here, as in Present.
+                      fontPx={15}
                       onHasStrokes={has => setHasAnnotation(has)}
                     />
                   ) : null}

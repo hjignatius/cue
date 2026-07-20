@@ -47,6 +47,13 @@ import { transposeChord, semitonesBetween, useFlatsForKey } from '../utils/trans
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
+// Preview lyric font (px). Every vertical metric below is a multiple of PV using
+// the SAME multipliers as Present's SongBody (fontPx·0.2 line gap, ·0.85 chords,
+// ·0.6 labels, etc.). That makes the Preview a faithful 1:PV/fontPx scale of
+// Present, so the read-only ink overlay — scaled by the font ratio — lands on the
+// same words here as on stage. Changing one without the other reintroduces drift.
+const PV = 15;
+
 // Render pre-parsed styled runs. Repeat markers keep the accent color; other
 // runs apply the user's bold/italic/color. Chords are rendered separately, so
 // their color is unaffected.
@@ -65,20 +72,20 @@ function StyledRuns({ runs }) {
   );
 }
 
-function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, useFlats }) {
+function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFlats }) {
   return (
-    <div className="flex font-mono mb-1" style={{ lineHeight: 1 }}>
+    <div className="flex font-mono" style={{ marginBottom: PV * 0.2 }}>
       {styleSegments(segments).map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
           <div key={i} className="flex flex-col shrink-0" style={{ whiteSpace: 'pre' }}>
             <span
               className="font-bold leading-tight cursor-default select-none"
-              style={{ color: displayed ? chordColor : 'transparent', fontSize: chordFontSize, minHeight: '1.2em' }}
+              style={{ color: displayed ? chordColor : 'transparent', fontSize: chordFontSize, height: chordFontSize * 1.2 }}
             >
               {displayed ? displayed + ' ' : ' '}
             </span>
-            <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: 15 }}>
+            <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: PV }}>
               {seg.text ? <StyledRuns runs={seg.styledRuns} /> : ' '}
             </span>
           </div>
@@ -90,7 +97,7 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize = 13, u
 
 function BracketsLine({ segments, semitones, chordColor, useFlats }) {
   return (
-    <p className="font-mono leading-relaxed mb-1 text-gray-900 dark:text-white whitespace-nowrap" style={{ fontSize: 15 }}>
+    <p className="font-mono leading-relaxed text-gray-900 dark:text-white whitespace-nowrap" style={{ fontSize: PV, marginBottom: PV * 0.2 }}>
       {styleSegments(segments).map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
@@ -111,7 +118,7 @@ function BracketsLine({ segments, semitones, chordColor, useFlats }) {
 export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true, headerRight = null }) {
   const { theme, chordColor, chordLabelScale, accidentals } = usePrefs();
   const dark = theme === 'dark';
-  const chordFontSize = 13 * (1 + chordLabelScale / 100);
+  const chordFontSize = PV * 0.85 * (1 + chordLabelScale / 100); // matches Present's chordPx
   const semitones = semitonesBetween(metadata?.key, displayKey);
   // Spelling of transposed accidentals: auto follows the View Key (displayKey).
   const useFlats = useFlatsForKey(accidentals, displayKey);
@@ -193,12 +200,12 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
           const content = (
             <>
               {(metadata?.title || metadata?.artist) && (
-                <div className="mb-4">
+                <div style={{ marginBottom: PV * (24 / 28) }}>
                   {metadata?.title && (
-                    <h2 className={`font-mono font-bold whitespace-nowrap ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15 * 1.4, lineHeight: 1.2 }}>{metadata.title}</h2>
+                    <h2 className={`font-mono font-bold whitespace-nowrap ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: PV * 1.4, lineHeight: 1.2 }}>{metadata.title}</h2>
                   )}
                   {metadata?.artist && (
-                    <p className={`font-mono whitespace-nowrap ${dark ? 'text-gray-400' : 'text-gray-500'}`} style={{ fontSize: 15, lineHeight: 1.5 }}>{metadata.artist}</p>
+                    <p className={`font-mono whitespace-nowrap ${dark ? 'text-gray-400' : 'text-gray-500'}`} style={{ fontSize: PV, lineHeight: 1.5 }}>{metadata.artist}</p>
                   )}
                 </div>
               )}
@@ -206,14 +213,18 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
               {/* Lines */}
               {lines.map((line, i) => {
                 const label = line.label ? (
-                  <p key={`lbl-${i}`} className="text-xs font-bold text-indigo-500 uppercase tracking-wider mt-4 mb-1">
+                  <p
+                    key={`lbl-${i}`}
+                    className="font-sans font-bold text-indigo-500 uppercase tracking-widest"
+                    style={{ fontSize: PV * 0.6, marginTop: i === 0 ? 0 : PV, marginBottom: PV * 0.25 }}
+                  >
                     {line.label}
                   </p>
                 ) : null;
 
                 let lineContent = null;
                 if (line.type === 'empty') {
-                  lineContent = <div className="h-3" />;
+                  lineContent = <div style={{ height: PV * 0.8 }} />;
                 } else if (line.type === 'directive' || line.type === 'comment') {
                   return null;
                 } else if (line.type === 'chords') {
@@ -222,7 +233,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                     : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} useFlats={useFlats} />;
                 } else {
                   lineContent = (
-                    <p className={`font-mono leading-relaxed mb-1 ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: 15, whiteSpace: 'pre' }}>
+                    <p className={`font-mono leading-snug ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontSize: PV, marginBottom: PV * 0.2, whiteSpace: 'pre' }}>
                       <StyledRuns runs={styleSegments(line.segments)[0]?.styledRuns} />
                     </p>
                   );
