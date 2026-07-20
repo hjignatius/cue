@@ -4,7 +4,7 @@ import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadS
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
-import { exportSetToPdf } from '../utils/pdfExport.js';
+import { exportSetToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -1058,7 +1058,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
 // ---- Library view -----------------------------------------------------------
 
 export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
-  const { theme, updatePref } = usePrefs();
+  const { theme, updatePref, chordColor, accidentals } = usePrefs();
   const dark = theme === 'dark';
 
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('cue:onboarding_done'));
@@ -1210,6 +1210,22 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     setSelectMode(false);
   }
 
+  function handleExportSelectedPdf(includeChords = false) {
+    const selectedSongs = sorted.filter(s => selected.has(s.id));
+    if (selectedSongs.length === 0) return;
+    if (selectedSongs.length === 1) {
+      const s = selectedSongs[0];
+      // Same render lens as the set PDF: transpose to the song's saved View Key.
+      exportToPdf(s, { displayKey: s.displayKey, includeChords, chordColor, accidentals });
+    } else {
+      // Multiple selected → one combined PDF, via a one-off synthesized set.
+      exportSetToPdf({ name: 'Songs', songIds: selectedSongs.map(s => s.id) }, songs, { includeChords, chordColor, accidentals });
+    }
+    setExportDropOpen(false);
+    setSelected(new Set());
+    setSelectMode(false);
+  }
+
   function handleDeleteSelected() {
     const count = selected.size;
     if (!count) return;
@@ -1350,6 +1366,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                           </button>
                           <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelectedJson}>
                             JSON
+                          </button>
+                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(false)}>
+                            PDF
+                          </button>
+                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(true)}>
+                            PDF + Chord Charts
                           </button>
                         </div>
                       </>
