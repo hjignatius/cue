@@ -164,14 +164,15 @@ const ARTIST_LINE_HEIGHT = 1.5;
 // it contributes no flow height — that is what keeps it from moving the lyrics and
 // breaking annotation coordinates — but it also means nothing pushes the lyrics
 // down to make room for it. It therefore has to fit inside the info block's own
-// height plus its 24px bottom margin. A song with an artist donates ~1.5x fontPx
-// of that room; a song with a title and NO artist donates none, and that is the
-// constraining case: at fontPx 34 there are 81px available and the block is
-// 2 x fontPx x 1.5 x SCALE tall.
+// height plus its bottom margin (now fontPx·24/DEFAULT_FONT — proportional, so
+// annotation coordinates scale uniformly; = 24px at the default size, and larger
+// at bigger fonts, so the tight case has more room than before, not less). A song
+// with an artist donates ~1.5x fontPx of that room; a song with a title and NO
+// artist donates none, and that is the constraining case (at fontPx 34: ~57px
+// title + ~29px margin, block is 2 x fontPx x 1.5 x SCALE tall).
 //
-// Measured ceiling: 0.795 (at 1.0 the BPM line lands 21px into the first lyric).
-// 0.75 is deliberately below it — 0.8 cleared by 0.6px, which is a collision
-// waiting for the next margin change and no test would catch it.
+// Measured ceiling was 0.795 against the OLD fixed 24px margin; the proportional
+// margin only adds room at large fonts, so 0.75 stays safely below it.
 const KEY_BPM_SCALE = 0.75;
 // Horizontal room reserved for the Key/BPM block so a long title cannot run under
 // it. In px at the current font; ~10 monospace characters.
@@ -496,7 +497,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   height, so they cannot move the lyrics and cannot affect
                   annotation coordinates no matter how tall they get. */}
               {(meta.title?.trim() || meta.artist?.trim() || hasKeyOrTempo) && (
-                <div className="relative mb-6">
+                // Gap below the info block is proportional to fontPx (not a fixed
+                // mb-6/24px) so EVERY vertical dimension in this box scales linearly
+                // with the font. Annotation y is rescaled by the font ratio, which
+                // is only exact when nothing is fixed; a fixed 24px gap made ink
+                // drift up as the font shrank. Scaled to equal 24px at DEFAULT_FONT
+                // so annotations drawn at the default size stay put.
+                <div className="relative" style={{ marginBottom: fontPx * (24 / DEFAULT_FONT) }}>
                   <div style={{ paddingRight: hasKeyOrTempo ? fontPx * KEY_BPM_RESERVE_EM : 0 }}>
                     {meta.title?.trim() && (
                       <h1 className={`font-mono font-bold ${textCol}`} style={{ fontSize: fontPx * 1.4, lineHeight: 1.2 }}>
