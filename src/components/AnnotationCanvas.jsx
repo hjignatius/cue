@@ -61,6 +61,14 @@ function pointSegDist(px, py, ax, ay, bx, by) {
 // `v` and are treated as 1.
 export const ANNOTATION_LAYOUT_VERSION = 2;
 
+// In the editor Preview (readOnly), the overlay renders at a FIXED width — the
+// "mini Present" 65-character column measured at the Preview's 15px lyric font
+// (~0.6 em monospace advance) — instead of stretching to the panel. Resizing the
+// Preview then no longer scales the ink: it stays a constant small size and is
+// clipped by the panel's overflow, matching how the lyrics now behave. Present
+// (drawing) still sizes to its full width; this only applies when readOnly.
+const READONLY_PREVIEW_WIDTH = Math.round(65 * 15 * 0.6); // = 585
+
 // Render one stroke with uniform scaling so shapes stay undistorted on resize.
 // widthRatio = currentCanvasWidth / stroke.captureWidth is applied to both axes.
 //
@@ -187,7 +195,9 @@ export default function AnnotationCanvas({
     if (!parent) return;
 
     function resize() {
-      const w = parent.offsetWidth;
+      // readOnly (Preview): fixed mini-Present width so panel resizing never
+      // rescales the ink — only the height (content) tracks the parent.
+      const w = readOnly ? READONLY_PREVIEW_WIDTH : parent.offsetWidth;
       const h = parent.offsetHeight;
       if (canvas.width === w && canvas.height === h) return;
       canvas.width  = w;
@@ -347,8 +357,11 @@ export default function AnnotationCanvas({
           Annotate toggle is off. */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0"
+        className={readOnly ? 'absolute top-0 left-0' : 'absolute inset-0'}
         style={{
+          // readOnly: fixed CSS width matching the fixed buffer, so ink renders
+          // 1:1 (no stretch) and clips at the panel edge instead of scaling.
+          ...(readOnly ? { width: READONLY_PREVIEW_WIDTH, height: '100%' } : {}),
           pointerEvents: readOnly ? 'none' : 'auto',
           // touch-action:none is required on iOS: pan-y lets the browser claim
           // the gesture as scroll and fire pointercancel before the stroke locks
