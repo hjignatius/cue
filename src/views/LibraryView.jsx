@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive, Tv } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive, Tv, RefreshCw } from 'lucide-react';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets } from '../utils/storage.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
@@ -18,6 +18,7 @@ import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups } from '../lib/cloud.js';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -151,40 +152,47 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   // table): it becomes authoritative for which sets are published and for the
   // stale-check baseline. localStorage stays the offline cache. Failures
   // (offline / transient) are ignored so the cache is never clobbered blindly.
+  const reconcilePublished = useCallback(async () => {
+    if (!user) return;
+    try {
+      const rollups = await cloudSetRollups(user.id); // Map<setId, iso>
+      const next = {};
+      for (const [id, iso] of rollups) next[id] = iso;
+      setPublishedSets(prev => {
+        if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+        localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(next));
+        return next;
+      });
+    } catch {
+      /* offline or transient — keep the localStorage cache as-is */
+    }
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-check on mount AND whenever this device returns to the app (tab focus /
+  // becoming visible). Without the latter, a set published on another device
+  // while this one sits on the Library open would never flip to the orange
+  // "pull to update" dot until a full reload. Not a live subscription — it
+  // re-checks at the moments the user is actually looking. (Pull-to-refresh on
+  // the list gives an explicit re-check even when already focused.)
   useEffect(() => {
     if (!user) return;
-    let cancelled = false;
-    const reconcile = async () => {
-      try {
-        const rollups = await cloudSetRollups(user.id); // Map<setId, iso>
-        if (cancelled) return;
-        const next = {};
-        for (const [id, iso] of rollups) next[id] = iso;
-        setPublishedSets(prev => {
-          if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
-          localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(next));
-          return next;
-        });
-      } catch {
-        /* offline or transient — keep the localStorage cache as-is */
-      }
-    };
-    // Re-check on mount AND whenever this device returns to the app (tab focus /
-    // becoming visible). Without the latter, a set published on another device
-    // while this one sits on the Library open would never flip to the orange
-    // "pull to update" dot until a full reload. Not a live subscription — it
-    // re-checks at the moments the user is actually looking.
-    reconcile();
-    const onFocus = () => reconcile();
-    const onVisible = () => { if (document.visibilityState === 'visible') reconcile(); };
+    reconcilePublished();
+    const onFocus = () => reconcilePublished();
+    const onVisible = () => { if (document.visibilityState === 'visible') reconcilePublished(); };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
-      cancelled = true;
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [user?.id]);
+  }, [user?.id, reconcilePublished]);
+
+  // Pull-to-refresh: re-check cloud publish status + reload local library data.
+  const doRefresh = useCallback(async () => {
+    await reconcilePublished();
+    onRefresh?.();
+  }, [reconcilePublished, onRefresh]);
+  const { ref: listRef, pull: ptrPull, refreshing: ptrRefreshing } = usePullToRefresh(doRefresh);
 
   function handlePublishClick(set) {
     const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
@@ -535,7 +543,21 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         </form>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={listRef} className="flex-1 overflow-y-auto overscroll-contain">
+        {/* Pull-to-refresh indicator — height grows with the pull, re-checks cloud
+            status + reloads on release past the threshold. */}
+        <div
+          className="flex items-center justify-center gap-1.5 overflow-hidden text-xs text-gray-400 dark:text-gray-500 select-none"
+          style={{ height: ptrPull }}
+        >
+          {ptrRefreshing ? (
+            <><RefreshCw size={13} className="animate-spin" /> Refreshing…</>
+          ) : ptrPull >= 64 ? (
+            <><RefreshCw size={13} /> Release to refresh</>
+          ) : ptrPull > 0 ? (
+            <><RefreshCw size={13} style={{ transform: `rotate(${Math.min(180, ptrPull * 2.8)}deg)` }} /> Pull to refresh</>
+          ) : null}
+        </div>
         {sets.length === 0 && !creating && (
           <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No sets yet. Use "+ New Set" to create one.</p>
         )}
