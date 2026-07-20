@@ -4,7 +4,7 @@ import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadS
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
-import { exportSetToPdf, exportToPdf } from '../utils/pdfExport.js';
+import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -126,6 +126,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   const [summary, setSummary]   = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedSets, setSelectedSets] = useState(new Set());
+  const [setsExportOpen, setSetsExportOpen] = useState(false);
   const [editingSetId, setEditingSetId]     = useState(null);
   const [editingSetName, setEditingSetName] = useState('');
 
@@ -313,6 +314,24 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     setSelectMode(false);
   }
 
+  // Export the selected set(s) in the chosen format. One set uses the single-set
+  // functions; several combine (one PDF, one JSON bundle). 'setlist' is one set
+  // only (a numbered performance list) and is disabled in the menu when >1.
+  function runSetsExport(kind) {
+    const chosen = [...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean);
+    if (chosen.length === 0) return;
+    const single = chosen.length === 1;
+    if (kind === 'pdf')        single ? exportSetToPdf(chosen[0], songs, { chordColor, accidentals })
+                                      : exportSetsToPdf(chosen, songs, { chordColor, accidentals });
+    else if (kind === 'pdf-charts') single ? exportSetToPdf(chosen[0], songs, { includeChords: true, chordColor, accidentals })
+                                            : exportSetsToPdf(chosen, songs, { includeChords: true, chordColor, accidentals });
+    else if (kind === 'json')  single ? exportSetJson(chosen[0], songs) : exportSetsJson(chosen, songs);
+    else if (kind === 'setlist' && single) exportSetText(chosen[0], songs);
+    setSetsExportOpen(false);
+    setSelectedSets(new Set());
+    setSelectMode(false);
+  }
+
   function handleImportSet() {
     const input = document.createElement('input');
     input.type   = 'file';
@@ -413,11 +432,29 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         <div className={selectMode ? 'flex items-center gap-2 shrink-0' : 'flex-1'}>
           {selectMode ? (
             <>
-              <HeaderPill
-                dark={dark} icon={Upload} label="Export"
-                disabled={selectedSets.size === 0}
-                onActivate={() => { exportSetsJson([...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean), songs); setSelectedSets(new Set()); setSelectMode(false); }}
-              />
+              <div className="relative">
+                <HeaderPill
+                  dark={dark} icon={Upload} label="Export"
+                  disabled={selectedSets.size === 0}
+                  onActivate={() => setSetsExportOpen(v => !v)}
+                />
+                {setsExportOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setSetsExportOpen(false)} />
+                    <div className="absolute left-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                      <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf')}>PDF</button>
+                      <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf-charts')}>PDF + Chord Charts</button>
+                      <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('json')}>.json</button>
+                      <button
+                        disabled={selectedSets.size > 1}
+                        title={selectedSets.size > 1 ? 'Setlist exports one set at a time' : undefined}
+                        className={`w-full text-left px-3 py-2 text-xs ${selectedSets.size > 1 ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                        onClick={() => runSetsExport('setlist')}
+                      >Setlist</button>
+                    </div>
+                  </>
+                )}
+              </div>
               <RoundButton
                 size={ROUND_SIZE_COMPACT}
                 label={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
@@ -859,9 +896,8 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
 }
 
 function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit, border }) {
-  const { chordColor, accidentals, theme } = usePrefs();
+  const { theme } = usePrefs();
   const dark = theme === 'dark';
-  const [exportOpen, setExportOpen] = useState(false);
   const [overId, setOverId] = useState(null); // dnd-kit: id of the row currently dragged over
   const sensors = useSensors(
     // Pointer Events cover mouse, trackpad, and touch (iOS). 8px activation
@@ -1004,22 +1040,8 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
           {displaySongs.length} {displaySongs.length === 1 ? 'song' : 'songs'}
           {hasDurations && estimatedSec > 0 && ` · ${formatDuration(estimatedSec)}`}
         </p>
-        {displaySongs.length > 0 && (
-          <div className="relative shrink-0">
-            <button onClick={() => setExportOpen(v => !v)} className="flex items-center gap-1 h-9 px-1 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"><Upload size={12} /> Export ▾</button>
-            {exportOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { chordColor, accidentals }); setExportOpen(false); }}>PDF</button>
-                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetToPdf(set, songs, { includeChords: true, chordColor, accidentals }); setExportOpen(false); }}>PDF + Chord Charts</button>
-                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetJson(set, songs); setExportOpen(false); }}>JSON bundle</button>
-                  <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { exportSetText(set, songs); setExportOpen(false); }}>Setlist</button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+        {/* Export now lives on the Sets column's Select-mode Export ▾ (one place,
+            all formats). Select this set there to export it. */}
       </div>
 
       <div className="flex-1 overflow-y-auto">
