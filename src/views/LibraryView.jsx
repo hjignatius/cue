@@ -52,6 +52,18 @@ function loadSharedWithMe() {
   try { return JSON.parse(localStorage.getItem(SHARED_WITH_ME_KEY) || '[]'); } catch { return []; }
 }
 
+// Normalize text for search so smart quotes match straight ones. iOS keyboards
+// insert a curly apostrophe (U+2019) for "Can't", while a Mac types a straight
+// one (U+0027); titles are stored with whichever was typed, so a literal
+// substring match misses across devices. Lowercase and fold curly single/double
+// quotes to straight so both forms compare equal.
+function normSearch(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[‘’‚ʼ′]/g, "'")  // ‘ ’ ‚ ʼ ′ → '
+    .replace(/[“”„″]/g, '"');       // “ ” „ ″ → "
+}
+
 function parseDuration(dur) {
   if (!dur) return 0;
   const s = String(dur);
@@ -307,7 +319,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   });
 
   const filtered = setSearch.trim()
-    ? sorted.filter(s => s.name.toLowerCase().includes(setSearch.toLowerCase()))
+    ? sorted.filter(s => normSearch(s.name).includes(normSearch(setSearch)))
     : sorted;
 
   async function handleCreate(e) {
@@ -1180,11 +1192,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   const filtered = songs.filter(s => {
     if (!search.trim()) return true;
-    const q = search.toLowerCase();
+    const q = normSearch(search);
     return (
-      s.metadata?.title?.toLowerCase().includes(q) ||
-      s.metadata?.artist?.toLowerCase().includes(q) ||
-      s.metadata?.key?.toLowerCase().includes(q)
+      normSearch(s.metadata?.title).includes(q) ||
+      normSearch(s.metadata?.artist).includes(q) ||
+      normSearch(s.metadata?.key).includes(q)
     );
   });
 
