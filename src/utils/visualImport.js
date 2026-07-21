@@ -11,8 +11,11 @@
 // Quality order matters: maj/min must be tried before m so "maj7" doesn't
 // partially match as "m" + unparsed "aj7". m(?:maj|M)? handles minor-major
 // seventh chords like Gmmaj7 and GmMaj7. The (\([^)]+\))? group handles
-// parenthesised alterations such as C7(b9) and Dm(add9).
-const CHORD_TOKEN = /^[A-G][b#]?(maj|min|m(?:maj|M)?|M|dim|aug|sus|add|no|omit)?[0-9]*(sus[24]?|add[0-9]+|b[0-9]+|#[0-9]+)?(\([^)]+\))?(\/[A-G][b#]?)?$/;
+// parenthesised alterations such as C7(b9) and Dm(add9). Alterations allow one
+// or two accidentals (b{1,2}/#{1,2}) so double-flat/sharp chords like Gmbb5 and
+// C##5 parse — the root stays single-accidental to avoid matching words (e.g.
+// "ebb" is not an E-double-flat chord).
+const CHORD_TOKEN = /^[A-G][b#]?(maj|min|m(?:maj|M)?|M|dim|aug|sus|add|no|omit)?[0-9]*(sus[24]?|add[0-9]+|b{1,2}[0-9]+|#{1,2}[0-9]+)?(\([^)]+\))?(\/[A-G][b#]?)?$/;
 
 // A strumming/rhythm marker token has NO alphanumeric characters —
 // covers Unicode arrows (↑↓), dashes, slashes, and other rhythm glyphs.
@@ -29,7 +32,7 @@ const ANNOTATION_TOKEN = /^\(?(n\.?c\.?|no\s*chord|pause|stop|hold|tacet|vamp|si
 // Chord-name prefix — matches the chord portion at the very start of a token.
 // Must mirror CHORD_TOKEN's quality ordering and include the parenthesised-
 // alteration group so splitCompound treats C7(b9) as one token, not two.
-const CHORD_PREFIX = /^[A-G][b#]?(?:maj|min|m(?:maj|M)?|M|dim|aug|sus|add|no|omit)?[0-9]*(?:sus[24]?|add[0-9]+|b[0-9]+|#[0-9]+)?(?:\([^)]+\))?(?:\/[A-G][b#]?)?/;
+const CHORD_PREFIX = /^[A-G][b#]?(?:maj|min|m(?:maj|M)?|M|dim|aug|sus|add|no|omit)?[0-9]*(?:sus[24]?|add[0-9]+|b{1,2}[0-9]+|#{1,2}[0-9]+)?(?:\([^)]+\))?(?:\/[A-G][b#]?)?/;
 
 // Split a compound token into its constituent chord and non-chord parts.
 // Handles "G↓", "G(4x)", "Gm7-Gm7/F", "↓G", etc.
