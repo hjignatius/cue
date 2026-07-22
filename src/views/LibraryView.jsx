@@ -628,13 +628,13 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                         {/* Sync indicators — always visible (mutually exclusive). */}
                         {isStale && (
                           <span
-                            className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-0.5 shrink-0"
+                            className="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-0.5 shrink-0"
                             title="Local changes not yet published — republish to sync"
                           />
                         )}
                         {cloudAhead && (
                           <span
-                            className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-0.5 shrink-0"
+                            className="w-1.5 h-1.5 rounded-full bg-red-500 mr-0.5 shrink-0"
                             title="A newer version is in the cloud — pull to update"
                           />
                         )}
