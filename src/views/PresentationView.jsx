@@ -599,6 +599,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   sizeLevel={chordDiagramSize}
                   readonly
                   chordPrefs={song?.chordPrefs ?? {}}
+                  extraCustomChords={song?.customChords}
                 />
               </div>
             </div>

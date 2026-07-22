@@ -132,7 +132,7 @@ function CustomChordForm({ onSave, onCancel, theme, initialName = '', initialFre
 
 // ---- SongChordPanel --------------------------------------------------------
 
-export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange }) {
+export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [] }) {
   const { theme, chordColor } = usePrefs();
   const dark = theme === 'dark';
 
@@ -156,15 +156,26 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
     });
   }, [text, semitones, useFlats]);
 
+  // Custom shapes available for display = this device's library plus any shapes
+  // carried by a shared/pulled song (extraCustomChords), so a viewer sees the
+  // publisher's shapes without them being in their own library. Deduped by
+  // name+frets; display-only (never written to localStorage).
+  const displayCustoms = useMemo(() => {
+    if (!extraCustomChords?.length) return customChords;
+    const seen = new Set(customChords.map(c => `${c.name}|${(c.frets || []).join(',')}`));
+    const extra = extraCustomChords.filter(c => Array.isArray(c.frets) && !seen.has(`${c.name}|${c.frets.join(',')}`));
+    return extra.length ? [...customChords, ...extra] : customChords;
+  }, [customChords, extraCustomChords]);
+
   const groups = useMemo(() =>
     detectedNames.map(name => ({
       name,
       shapes: [
         ...UKULELE_CHORDS.filter(c => c.name === name && !hiddenBuiltins.has(builtinKey(c))),
-        ...customChords.filter(c => c.name === name),
+        ...displayCustoms.filter(c => c.name === name),
       ],
     })),
-    [detectedNames, customChords, hiddenBuiltins]
+    [detectedNames, displayCustoms, hiddenBuiltins]
   );
 
   const scale   = SCALES[Math.max(0, Math.min(4, sizeLevel))];
