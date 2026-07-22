@@ -4,6 +4,7 @@ import { getSharedSet } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { KEY_NAMES } from '../utils/transpose.js';
 import { saveSong, saveSet, loadSongs } from '../utils/storage.js';
+import { mergeCustomChords } from '../utils/fileIO.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -222,6 +223,9 @@ export default function SharedSetView() {
         copiedFrom,
       });
 
+      // Bring any custom chord shapes this song carries into the local library.
+      if (Array.isArray(song.customChords) && song.customChords.length) mergeCustomChords(song.customChords);
+
       setHasCopied(true);
       setCopyResult({ type: 'song', title, outcome, newTitle: outcome === 'duplicate' ? newTitle : undefined });
     } catch (err) {
@@ -328,6 +332,9 @@ export default function SharedSetView() {
       }
 
       await saveSet({ id: null, name: set.name, songIds: newSongIds, sortMode: 'custom' });
+      // Bring any custom chord shapes the set's songs carry into the local library.
+      const customs = songs.flatMap(s => Array.isArray(s.customChords) ? s.customChords : []);
+      if (customs.length) mergeCustomChords(customs);
       if (copied + duplicated > 0) setHasCopied(true);
       setCopyResult({ type: 'set', setName: set.name, copied, duplicated, skipped });
     } catch (err) {

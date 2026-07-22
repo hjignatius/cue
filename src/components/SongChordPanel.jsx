@@ -169,8 +169,21 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
 
   const scale   = SCALES[Math.max(0, Math.min(4, sizeLevel))];
 
+  // chordPrefs stores the selected shape's frets key (e.g. "0,2,3,1") rather than
+  // a positional index, so a choice survives across devices where the custom-chord
+  // list (and thus shape order) differs. Older songs stored a numeric index, still
+  // honored as a fallback. shapeKey/prefIndex convert between the two.
+  const shapeKey = (shape) => (shape?.frets ? shape.frets.join(',') : '');
+  function prefIndex(name, shapes) {
+    const p = chordPrefs?.[name];
+    if (p == null) return 0;
+    if (typeof p === 'number') return Math.min(Math.max(0, p), Math.max(0, shapes.length - 1));
+    const i = shapes.findIndex(s => shapeKey(s) === p);
+    return i >= 0 ? i : 0;
+  }
   function selectShape(name, idx) {
-    onChordPrefsChange?.({ ...chordPrefs, [name]: idx });
+    const shapes = groups.find(g => g.name === name)?.shapes ?? [];
+    onChordPrefsChange?.({ ...chordPrefs, [name]: shapeKey(shapes[idx]) || idx });
     setExpandedChord(null);
   }
 
@@ -205,7 +218,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
       setImportFmtOpen(false);
       return;
     }
-    const shapeIdx = Math.min(chordPrefs[selectedChordName] ?? 0, Math.max(0, group.shapes.length - 1));
+    const shapeIdx = prefIndex(selectedChordName, group.shapes);
     const shape = group.shapes[shapeIdx];
     const fretsStr = shape.frets.map(f => f === -1 ? 'X' : String(f)).join('-');
     const fingersStr = shape.fingers ? shape.fingers.join('') : '';
@@ -380,7 +393,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
     // ── PICKER MODE ──────────────────────────────────────────────────────────
     const pickerName  = pickerGroup.name;
     const pickerShapes = pickerGroup.shapes;
-    const selectedIdx = Math.min(chordPrefs[pickerName] ?? 0, Math.max(0, pickerShapes.length - 1));
+    const selectedIdx = prefIndex(pickerName, pickerShapes);
 
     innerContent = (
       <>
@@ -467,7 +480,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         <div className="flex-1 overflow-y-auto p-2">
           <div className="grid gap-2 justify-center" style={{ gridTemplateColumns: `repeat(auto-fill, ${Math.round(DIAG_BASE_W * scale)}px)` }}>
             {groups.map(({ name, shapes }) => {
-              const selectedIdx = Math.min(chordPrefs[name] ?? 0, Math.max(0, shapes.length - 1));
+              const selectedIdx = prefIndex(name, shapes);
 
               if (shapes.length === 0) {
                 if (!readonly && addingCustom === name) {

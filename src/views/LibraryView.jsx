@@ -3,7 +3,7 @@ import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, G
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets } from '../utils/storage.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
-import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup } from '../utils/fileIO.js';
+import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
@@ -223,8 +223,11 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   // UUID (remapping set references + annotations via reidSong), then retry once.
   // Songs we own are left alone so republishing keeps updating them in place.
   async function publishWithRemediation(set, setSongs, userId) {
+    // Embed each song's custom chord shapes in its published content so another
+    // device can render them after pulling (the custom-chord library is local).
+    const enrich = (list) => list.map(s => ({ ...s, customChords: customChordsForSong(s) }));
     try {
-      return await publishSet(set, setSongs, userId);
+      return await publishSet(set, enrich(setSongs), userId);
     } catch (err) {
       const isRls = err?.code === '42501' || /row-level security/i.test(err?.message || '');
       if (!isRls || !userId) throw err;
@@ -235,7 +238,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
       const freshSongs = await loadSongs();
       const freshSet   = (await loadSets()).find(s => s.id === set.id) ?? set;
       const retrySongs = freshSet.songIds.map(id => freshSongs.find(s => s.id === id)).filter(Boolean);
-      const res = await publishSet(freshSet, retrySongs, userId);
+      const res = await publishSet(freshSet, enrich(retrySongs), userId);
       onRefresh();
       return res;
     }

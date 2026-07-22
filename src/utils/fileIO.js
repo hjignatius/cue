@@ -3,6 +3,7 @@ import { saveFilePicker } from './filePicker.js';
 import { loadSongs, loadSets, SCHEMA_VERSION } from './storage.js';
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
 import { stripStyling } from './chordPro.js';
+import { detectChords } from './chordDetect.js';
 // ANNOTATION SAFETY: all export functions below read exclusively from loadSongs()
 // and loadSets() (the 'songs'/'sets' IndexedDB stores). Ink annotations live in
 // a separate 'annotations' store and are intentionally never read here, so they
@@ -30,6 +31,15 @@ export function mergeCustomChords(incoming = []) {
 
 export function replaceCustomChords(chords = []) {
   localStorage.setItem(CUSTOM_CHORDS_KEY, JSON.stringify(chords));
+}
+
+// The custom chord shapes a song might display — those whose name matches a chord
+// in the song. Embedded in a song's published content so another device can
+// render them after pulling, since the custom-chord library is otherwise
+// device-local (localStorage) and never travels through publish/pull.
+export function customChordsForSong(song) {
+  const names = new Set(detectChords(convertToBrackets(song?.text || '')));
+  return loadCustomChords().filter(c => names.has(c.name));
 }
 
 // -----------------------------------------------------------------------------

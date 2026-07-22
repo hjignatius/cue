@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listCloudSets, pullSet, toIsoTs } from '../lib/cloud.js';
 import { saveSong, saveSet, newestLocalAt } from '../utils/storage.js';
+import { mergeCustomChords } from '../utils/fileIO.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
 function fmtDate(iso) {
@@ -76,9 +77,11 @@ function describeRisk({ setNewer, songs }) {
 export async function applyPulledSet({ set, songs }, localSongIds) {
   let added = 0, overwritten = 0;
   const songIds = [];
+  const incomingCustoms = [];
 
   for (const row of songs) {
     const c = row.content ?? {};
+    if (Array.isArray(c.customChords)) incomingCustoms.push(...c.customChords);
     await saveSong({
       id: row.id,
       metadata: c.metadata,
@@ -95,6 +98,10 @@ export async function applyPulledSet({ set, songs }, localSongIds) {
     if (localSongIds.has(row.id)) overwritten++; else added++;
     songIds.push(row.id);
   }
+
+  // Merge any custom chord shapes the published songs carried, so this device can
+  // render them (dedupes against the local library by name+frets).
+  if (incomingCustoms.length) mergeCustomChords(incomingCustoms);
 
   // preserveTimestamps keeps the cloud's updated_at rather than stamping now(),
   // so the pulled copy reads as in-sync instead of instantly stale.
