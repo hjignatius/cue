@@ -404,7 +404,10 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   return (
     <div className="flex flex-col h-full">
       <div className={`px-3 py-2 border-b ${border} flex items-center justify-between shrink-0`}>
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sets</span>
+        <div className="flex flex-col leading-tight">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sets</span>
+          <span className="text-xs text-gray-400 dark:text-gray-600 tabular-nums">{filtered.length} {filtered.length === 1 ? 'set' : 'sets'}</span>
+        </div>
         <div className="flex items-center gap-1">
           {user && (
             <button
@@ -461,59 +464,42 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         </select>
       </div>
 
-      {/* Count row: action buttons left (select mode only), count right */}
+      {/* Action buttons — always present; grayed out until Select is clicked (and,
+          as before, until at least one set is selected). */}
       <div className={`px-3 border-b ${border} flex items-center gap-2 shrink-0 min-h-[44px]`}>
-        <div className={selectMode ? 'flex items-center gap-2 shrink-0' : 'flex-1'}>
-          {selectMode ? (
+        <div className="relative">
+          <HeaderPill
+            dark={dark} icon={Upload} label="Export"
+            disabled={!selectMode || selectedSets.size === 0}
+            onActivate={() => setSetsExportOpen(v => !v)}
+          />
+          {setsExportOpen && (
             <>
-              <div className="relative">
-                <HeaderPill
-                  dark={dark} icon={Upload} label="Export"
-                  disabled={selectedSets.size === 0}
-                  onActivate={() => setSetsExportOpen(v => !v)}
-                />
-                {setsExportOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setSetsExportOpen(false)} />
-                    <div className="absolute left-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                      <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf')}>PDF</button>
-                      <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf-charts')}>PDF + Chord Charts</button>
-                      <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('json')}>.json</button>
-                      <button
-                        disabled={selectedSets.size > 1}
-                        title={selectedSets.size > 1 ? 'Setlist exports one set at a time' : undefined}
-                        className={`w-full text-left px-3 py-2 text-xs ${selectedSets.size > 1 ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                        onClick={() => runSetsExport('setlist')}
-                      >Setlist</button>
-                    </div>
-                  </>
-                )}
+              <div className="fixed inset-0 z-10" onClick={() => setSetsExportOpen(false)} />
+              <div className="absolute left-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf')}>PDF</button>
+                <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf-charts')}>PDF + Chord Charts</button>
+                <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('json')}>.json</button>
+                <button
+                  disabled={selectedSets.size > 1}
+                  title={selectedSets.size > 1 ? 'Setlist exports one set at a time' : undefined}
+                  className={`w-full text-left px-3 py-2 text-xs ${selectedSets.size > 1 ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                  onClick={() => runSetsExport('setlist')}
+                >Setlist</button>
               </div>
-              <RoundButton
-                size={ROUND_SIZE_COMPACT}
-                label={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
-                title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : undefined}
-                fill={selectedSets.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
-                disabled={selectedSets.size === 0}
-                onActivate={handleDeleteSelected}
-              >
-                <Trash2 size={20} />
-              </RoundButton>
             </>
-          ) : (
-            <p className="text-xs text-gray-400 dark:text-gray-600">
-              {filtered.length} {filtered.length === 1 ? 'set' : 'sets'}
-              {setSearch.trim() && ` matching "${setSearch.trim()}"`}
-            </p>
           )}
         </div>
-        {selectMode && <div className="flex-1" />}
-        {selectMode && (
-          <p className="text-xs text-gray-400 dark:text-gray-600 shrink-0">
-            {filtered.length} {filtered.length === 1 ? 'set' : 'sets'}
-            {setSearch.trim() && ` matching "${setSearch.trim()}"`}
-          </p>
-        )}
+        <RoundButton
+          size={ROUND_SIZE_COMPACT}
+          label={selectMode && selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
+          title={selectMode && selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : undefined}
+          fill={selectMode && selectedSets.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
+          disabled={!selectMode || selectedSets.size === 0}
+          onActivate={handleDeleteSelected}
+        >
+          <Trash2 size={20} />
+        </RoundButton>
       </div>
 
       {/* Selection controls row: only visible in select mode */}
@@ -1377,7 +1363,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         {/* Column 1: Library */}
         <div data-onboard="songs-panel" className={`flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}>
           <div className={`px-4 py-2 border-b ${border} flex items-center justify-between`}>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Library</span>
+            <div className="flex flex-col leading-tight">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Library</span>
+              <span className="text-xs text-gray-400 dark:text-gray-600 tabular-nums">{sorted.length} {sorted.length === 1 ? 'song' : 'songs'}</span>
+            </div>
             <div className="flex items-center gap-2">
               {selectMode
                 ? <HeaderPill dark={dark} label="Done" onActivate={toggleSelectMode} />
@@ -1427,75 +1416,60 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </select>
           </div>
 
-          {/* Count row: action buttons left (select mode only), count right */}
+          {/* Action buttons — always present; grayed out until Select is clicked
+              (and, as before, until at least one song is selected). Artist / key
+              filter breadcrumbs sit on the right. */}
           <div className={`px-4 border-b ${border} flex items-center gap-2 min-h-[44px]`}>
-            <div className={selectMode ? 'flex items-center gap-2 shrink-0' : artistFilter !== null && sortBy === 'artist' ? 'flex items-center gap-2' : 'flex-1'}>
-              {selectMode ? (
+            <div className="relative">
+              <HeaderPill
+                dark={dark} icon={Upload} label="Export"
+                disabled={!selectMode || selected.size === 0}
+                onActivate={() => setExportDropOpen(v => !v)}
+              />
+              {exportDropOpen && (
                 <>
-                  <div className="relative">
-                    <HeaderPill
-                      dark={dark} icon={Upload} label="Export"
-                      disabled={selected.size === 0}
-                      onActivate={() => setExportDropOpen(v => !v)}
-                    />
-                    {exportDropOpen && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
-                        <div className="absolute left-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelected}>
-                            {selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'}
-                          </button>
-                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelectedJson}>
-                            JSON
-                          </button>
-                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(false)}>
-                            PDF
-                          </button>
-                          <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(true)}>
-                            PDF + Chord Charts
-                          </button>
-                        </div>
-                      </>
-                    )}
+                  <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
+                  <div className="absolute left-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelected}>
+                      {selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'}
+                    </button>
+                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelectedJson}>
+                      JSON
+                    </button>
+                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(false)}>
+                      PDF
+                    </button>
+                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(true)}>
+                      PDF + Chord Charts
+                    </button>
                   </div>
-                  <HeaderPill
-                    dark={dark} label="Add to Set"
-                    title={selected.size === 0 ? undefined : !activeSetId ? 'Select a set in the Sets panel first' : `Add to "${activeSet?.name}"`}
-                    active={selected.size > 0 && !!activeSetId}
-                    disabled={!(selected.size > 0 && activeSetId)}
-                    onActivate={handleAddSelectedToSet}
-                  />
-                  <RoundButton
-                    size={ROUND_SIZE_COMPACT}
-                    label={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
-                    title={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
-                    fill={selected.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
-                    disabled={selected.size === 0}
-                    onActivate={handleDeleteSelected}
-                  >
-                    <Trash2 size={20} />
-                  </RoundButton>
                 </>
-              ) : artistFilter !== null && sortBy === 'artist' ? (
-                <>
-                  <button onClick={() => setArtistFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400">← All artists</button>
-                  <span className="text-xs text-gray-400 dark:text-gray-600">/ {artistFilter || 'No artist'}</span>
-                </>
-              ) : (
-                <p className="text-xs text-gray-400 dark:text-gray-600">
-                  {sorted.length} {sorted.length === 1 ? 'song' : 'songs'}
-                  {search && ` matching "${search}"`}
-                  {keyFilter && ` in ${keyFilter}`}
-                </p>
               )}
             </div>
-            {selectMode && <div className="flex-1" />}
-            {selectMode && (
-              <p className="text-xs text-gray-400 dark:text-gray-600 shrink-0">
-                {sorted.length} {sorted.length === 1 ? 'song' : 'songs'}
-                {search && ` matching "${search}"`}
-                {keyFilter && ` in ${keyFilter}`}
-              </p>
+            <HeaderPill
+              dark={dark} label="Add to Set"
+              title={!selectMode || selected.size === 0 ? undefined : !activeSetId ? 'Select a set in the Sets panel first' : `Add to "${activeSet?.name}"`}
+              active={selectMode && selected.size > 0 && !!activeSetId}
+              disabled={!selectMode || !(selected.size > 0 && activeSetId)}
+              onActivate={handleAddSelectedToSet}
+            />
+            <RoundButton
+              size={ROUND_SIZE_COMPACT}
+              label={selectMode && selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
+              title={selectMode && selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
+              fill={selectMode && selected.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
+              disabled={!selectMode || selected.size === 0}
+              onActivate={handleDeleteSelected}
+            >
+              <Trash2 size={20} />
+            </RoundButton>
+
+            <div className="flex-1" />
+            {!selectMode && artistFilter !== null && sortBy === 'artist' && (
+              <>
+                <button onClick={() => setArtistFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">← All artists</button>
+                <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0 truncate">/ {artistFilter || 'No artist'}</span>
+              </>
             )}
             {keyFilter && (
               <button onClick={() => setKeyFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">Clear key</button>
