@@ -500,30 +500,25 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         >
           <Trash2 size={20} />
         </RoundButton>
-      </div>
-
-      {/* Selection controls row: only visible in select mode */}
-      {selectMode && (
-        <div className={`px-3 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-3 shrink-0 min-h-[44px]`}>
-          <button
-            onClick={() => setSelectedSets(selectedSets.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map(s => s.id)))}
-            className="h-11 px-4 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
-          >
-            {selectedSets.size === filtered.length && filtered.length > 0 ? 'Deselect all' : 'Select all'}
-          </button>
-          {selectedSets.size > 0 && (
-            <>
-              <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums shrink-0 min-w-[6rem]">
-                {selectedSets.size} selected
-              </span>
-              <span className="text-gray-400 dark:text-gray-600 shrink-0">·</span>
-              <button onClick={() => setSelectedSets(new Set())} className="h-11 px-3 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
-                ✕ Clear
+        {/* Select-all / count — in the same always-present row so entering Select
+            mode never shifts the list down. */}
+        <div className="flex-1" />
+        {selectMode && (
+          <>
+            <button
+              onClick={() => setSelectedSets(selectedSets.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map(s => s.id)))}
+              className="text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 whitespace-nowrap"
+            >
+              {selectedSets.size === filtered.length && filtered.length > 0 ? 'Deselect all' : 'Select all'}
+            </button>
+            {selectedSets.size > 0 && (
+              <button onClick={() => setSelectedSets(new Set())} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 whitespace-nowrap hover:text-indigo-500" title="Clear selection">
+                {selectedSets.size} ✕
               </button>
-            </>
-          )}
-        </div>
-      )}
+            )}
+          </>
+        )}
+      </div>
 
       {creating && (
         <form onSubmit={handleCreate} className={`px-3 py-2 border-b ${border} shrink-0`}>
@@ -1465,39 +1460,36 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </RoundButton>
 
             <div className="flex-1" />
-            {!selectMode && artistFilter !== null && sortBy === 'artist' && (
+            {/* Select-all / count in select mode; filter breadcrumbs otherwise —
+                all in this always-present row so the song list never shifts. */}
+            {selectMode ? (
               <>
-                <button onClick={() => setArtistFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">← All artists</button>
-                <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0 truncate">/ {artistFilter || 'No artist'}</span>
+                <button
+                  onClick={allVisibleSelected ? deselectAll : selectAll}
+                  className="text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 whitespace-nowrap"
+                >
+                  {allVisibleSelected ? 'Deselect all' : 'Select all'}
+                </button>
+                {selected.size > 0 && (
+                  <button onClick={deselectAll} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 whitespace-nowrap hover:text-indigo-500" title="Clear selection">
+                    {selected.size} ✕
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {artistFilter !== null && sortBy === 'artist' && (
+                  <>
+                    <button onClick={() => setArtistFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">← All artists</button>
+                    <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0 truncate">/ {artistFilter || 'No artist'}</span>
+                  </>
+                )}
+                {keyFilter && (
+                  <button onClick={() => setKeyFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">Clear key</button>
+                )}
               </>
             )}
-            {keyFilter && (
-              <button onClick={() => setKeyFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">Clear key</button>
-            )}
           </div>
-
-          {/* Selection controls row: only visible in select mode */}
-          {selectMode && (
-            <div className={`px-4 border-b ${border} ${dark ? 'bg-gray-900/80' : 'bg-gray-100/80'} flex items-center gap-3 shrink-0 min-h-[44px]`}>
-              <button
-                onClick={allVisibleSelected ? deselectAll : selectAll}
-                className="h-11 px-4 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 rounded-lg whitespace-nowrap"
-              >
-                {allVisibleSelected ? 'Deselect all' : 'Select all'}
-              </button>
-              {selected.size > 0 && (
-                <>
-                  <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums shrink-0 min-w-[6rem]">
-                    {selected.size} selected
-                  </span>
-                  <span className="text-gray-400 dark:text-gray-600 shrink-0">·</span>
-                  <button onClick={deselectAll} className="h-11 px-3 pointer-fine:h-9 text-sm text-indigo-500 hover:text-indigo-400 transition-colors rounded-lg shrink-0 whitespace-nowrap">
-                    ✕ Clear
-                  </button>
-                </>
-              )}
-            </div>
-          )}
 
           {sortBy === 'artist' && artistFilter === null && !search && artists && (
             <div className="flex-1 overflow-y-auto">
