@@ -252,6 +252,100 @@ function OverflowMenu({ open, onClose, children, dark }) {
   );
 }
 
+// Ordered, de-duplicated symbols from the stored palette string — one entry per
+// code point (for..of iterates code points, so surrogate-pair glyphs stay whole)
+// with whitespace dropped, so the user can space their symbols out for legibility
+// in the edit field without those spaces becoming grid cells.
+function parseSymbols(str) {
+  const seen = new Set();
+  const out = [];
+  for (const ch of str || '') {
+    if (/\s/.test(ch) || seen.has(ch)) continue;
+    seen.add(ch);
+    out.push(ch);
+  }
+  return out;
+}
+
+// Insert-a-character palette anchored under the Text toolbar's Ω button. The grid
+// is derived from `symbols` (click a glyph to insert at the cursor); the field
+// below is the palette itself — type or paste to curate, delete to remove. Stays
+// open after an insert so a run of arrows can be entered in one go; Escape or an
+// outside press closes it.
+function SymbolMenu({ open, onClose, symbols, onInsert, onChange, dark }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e) {
+      // Ignore the trigger (its own onClick toggles) so a tap there closes.
+      if (ref.current?.parentElement?.contains(e.target)) return;
+      onClose();
+    }
+    function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); onClose(); } }
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+  const list = parseSymbols(symbols);
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label="Insert symbol"
+      className={`absolute right-0 top-full mt-1 z-40 w-64 rounded-xl border shadow-xl p-2 ${
+        dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+      }`}
+      style={{ marginRight: 'env(safe-area-inset-right)' }}
+    >
+      {list.length ? (
+        <div className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto">
+          {list.map((ch, i) => (
+            <button
+              key={ch + i}
+              type="button"
+              role="menuitem"
+              onClick={() => onInsert(ch)}
+              title={`Insert ${ch}`}
+              className={`h-8 flex items-center justify-center rounded text-lg leading-none ${
+                dark ? 'hover:bg-gray-800 text-gray-100' : 'hover:bg-gray-100 text-gray-900'
+              }`}
+            >
+              {ch}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className={`px-1 py-2 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+          No symbols yet — add some below.
+        </p>
+      )}
+      <div className={`mt-2 pt-2 border-t ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <label className={`block text-[11px] mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+          Your symbols — type or paste, then click one above
+        </label>
+        {/* stopPropagation on mousedown so the styleBar's selection-preserving
+            preventDefault doesn't block this field from taking focus. */}
+        <input
+          value={symbols}
+          onChange={e => onChange(e.target.value)}
+          onMouseDown={e => e.stopPropagation()}
+          spellCheck={false}
+          placeholder="↑ ↓ ← → …"
+          className={`w-full px-2 py-1.5 text-lg rounded border outline-none focus:border-indigo-500 ${
+            dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+          }`}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Target lyric line width in characters. Mirrors PresentationView's
 // LYRIC_TARGET_CHARS (the column count Present wraps at). Kept as a local
 // constant for now; when the Settings-driven width lands, both read that.
@@ -323,7 +417,7 @@ function CharRuler({ textareaRef, text, target, dark }) {
 
 
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0 }) {
-  const { theme, chordDiagramSize, accidentals, updatePref } = usePrefs();
+  const { theme, chordDiagramSize, accidentals, symbols, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
 
@@ -361,6 +455,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Compact-toolbar overflow menu. The anchor wraps the trigger so focus can be
   // returned to it on close (RoundButton renders its own button).
   const [menuOpen, setMenuOpen] = useState(false);
+  const [symbolOpen, setSymbolOpen] = useState(false);
   const menuAnchorRef = useRef(null);
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
@@ -550,6 +645,22 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setIsDirty(true);
   }
 
+  // Insert a string at the Text pane's cursor, replacing any selection, and place
+  // the caret after it. The textarea keeps its selection even while blurred (e.g.
+  // when the symbol field had focus), so this is correct whether or not the
+  // textarea is focused when a palette glyph is clicked.
+  function insertText(str) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart ?? text.length;
+    const end   = ta.selectionEnd ?? text.length;
+    const next  = text.slice(0, start) + str + text.slice(end);
+    setText(next);
+    setIsDirty(true);
+    const pos = start + str.length;
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos, pos); });
+  }
+
   // Apply a lyric-styling op to the Text pane's current selection, then re-select
   // the styled span. No-op without a selection. (The line-by-line + over-mode
   // repad logic lives in the shared styleRange.)
@@ -681,6 +792,25 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     <div className="flex items-center gap-1 ml-auto" onMouseDown={e => e.preventDefault()}>
       <button onClick={() => applyStyle('bold')}   title="Bold (**text**)"   className={styleBtn}><Bold size={15} /></button>
       <button onClick={() => applyStyle('italic')} title="Italic (*text*)"   className={styleBtn}><Italic size={15} /></button>
+      {/* Insert-symbol palette (Ω is the conventional special-character glyph) */}
+      <span className="relative inline-flex shrink-0">
+        <button
+          type="button"
+          onClick={() => setSymbolOpen(v => !v)}
+          title="Insert symbol"
+          aria-haspopup="menu"
+          aria-expanded={symbolOpen}
+          className={`${styleBtn} font-serif text-[15px] leading-none ${symbolOpen ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
+        >Ω</button>
+        <SymbolMenu
+          open={symbolOpen}
+          onClose={() => setSymbolOpen(false)}
+          symbols={symbols}
+          onInsert={insertText}
+          onChange={v => updatePref('symbols', v)}
+          dark={dark}
+        />
+      </span>
       <span className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-0.5 shrink-0" />
       {STYLE_COLORS.map(c => (
         <button

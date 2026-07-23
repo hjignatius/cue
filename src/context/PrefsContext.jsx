@@ -6,7 +6,12 @@ function systemTheme() {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto' };
+// `symbols` is the editor's insert-a-character palette, stored as the plain
+// string the user curates (whitespace is ignored when rendering the grid).
+// Seeded with action arrows plus a few common marks.
+const DEFAULT_SYMBOLS = '↑ ↓ ← → ↔ ↕ ⤴ ⤵ ↻ • ✓ ✗ ★ ♪ ♩';
+
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 
