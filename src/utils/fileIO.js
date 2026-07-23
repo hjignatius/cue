@@ -58,7 +58,13 @@ function readFile(accept) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = accept;
+    // Attach before .click() — a detached input can be GC'd before its change
+    // event fires on iOS Safari, silently dropping the first import attempt.
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.oncancel = () => { input.remove(); reject(new Error('No file selected')); };
     input.onchange = () => {
+      input.remove();
       const file = input.files?.[0];
       if (!file) return reject(new Error('No file selected'));
       const reader = new FileReader();

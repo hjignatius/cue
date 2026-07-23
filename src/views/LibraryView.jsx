@@ -390,7 +390,13 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     const input = document.createElement('input');
     input.type   = 'file';
     input.accept = '.html,.htm';
+    // Attach before .click() — a detached input can be GC'd before its change
+    // event fires on iOS Safari, silently dropping the first import attempt.
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.oncancel = () => input.remove();
     input.onchange = async () => {
+      input.remove();
       const file = input.files?.[0];
       if (!file) return;
       const result = parseHtmlSet(await file.text(), file.name);

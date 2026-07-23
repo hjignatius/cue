@@ -68,7 +68,15 @@ export default function App() {
     // No accept filter — iOS doesn't recognise .cho/.chopro MIME types and
     // grays them out even when listed. Removing the filter lets the Files app
     // show all files; the import handler validates content after loading.
+    //
+    // The input MUST be attached to the DOM before .click(): a detached input
+    // can be garbage-collected before its change event fires on iOS Safari, so
+    // the import silently no-ops the first time and only "takes" on a retry.
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.oncancel = () => input.remove();
     input.onchange = async () => {
+      input.remove();
       const files = Array.from(input.files || []);
       if (!files.length) return;
 
