@@ -22,7 +22,6 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
 
   const s        = scale;
   const strings  = 4;
-  const fretRows = 4;
   const strGap   = B.strGap  * s;
   const fretGap  = B.fretGap * s;
   const dotR     = B.dotR    * s;
@@ -31,19 +30,27 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
   const padTop   = B.padTop  * s;
   const labelH   = B.labelH  * s;
 
-  const w = padLeft * 2 + strGap * (strings - 1);
-  const h = padTop + labelH + fretGap * fretRows + openR + 4 * s;
-
   const activeFrets = frets.filter(f => f > 0);
   const maxFret   = activeFrets.length ? Math.max(...activeFrets) : 0;
   const minFret   = activeFrets.length ? Math.min(...activeFrets) : 1;
-  // Slide the 4-fret window up so both minFret and maxFret are visible.
+  // Normally a 4-fret window. A chord whose fingered frets span 5 grows to 5
+  // rows so the extra fret isn't clipped; capped at 5 (6+ voicings don't occur
+  // on a ukulele and would crowd the dots). rowGap shrinks to keep the body the
+  // same height as a 4-fret diagram — the footprint never changes.
+  const span     = activeFrets.length ? maxFret - minFret + 1 : 4;
+  const fretRows = Math.min(5, Math.max(4, span));
+  const bodyH    = 4 * fretGap;            // fixed physical height
+  const rowGap   = bodyH / fretRows;       // 8px at 5 rows, 10px at 4
+  const w = padLeft * 2 + strGap * (strings - 1);
+  const h = padTop + labelH + bodyH + openR + 4 * s;
+
+  // Slide the window up so both minFret and maxFret are visible.
   const startFret = maxFret <= fretRows ? 1 : Math.max(minFret, maxFret - fretRows + 1);
   const showPos   = startFret > 1;
 
   function strX(i) { return padLeft + i * strGap; }
   const nutY       = padTop + labelH;
-  const bodyBottom = nutY + fretRows * fretGap;
+  const bodyBottom = nutY + fretRows * rowGap;
 
   // Theme colours
   const dark = theme === 'dark';
@@ -77,7 +84,7 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
       {/* Nut or position marker */}
       {startFret === 1
         ? <rect x={padLeft - 1} y={nutY} width={strGap * (strings - 1) + 2} height={B.nut * s} fill={col.nut} rx="1" />
-        : <text x={padLeft - 4 * s} y={nutY + fretGap * 0.7} textAnchor="end"
+        : <text x={padLeft - 4 * s} y={nutY + rowGap * 0.7} textAnchor="end"
             fontSize={B.fontSize.pos * s} fontFamily="ui-monospace, monospace" fill={col.pos}>{startFret}</text>
       }
 
@@ -89,8 +96,8 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
       {/* Fret lines */}
       {Array.from({ length: fretRows }, (_, i) => i + 1).map(f => (
         <line key={f}
-          x1={padLeft} y1={nutY + f * fretGap}
-          x2={padLeft + strGap * (strings - 1)} y2={nutY + f * fretGap}
+          x1={padLeft} y1={nutY + f * rowGap}
+          x2={padLeft + strGap * (strings - 1)} y2={nutY + f * rowGap}
           stroke={col.fret} strokeWidth={B.strokeW * s} />
       ))}
 
@@ -120,7 +127,7 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
         const row = fret - startFret + 1;
         if (row < 1 || row > fretRows) return null;
         const cx = strX(i);
-        const cy = nutY + (row - 0.5) * fretGap;
+        const cy = nutY + (row - 0.5) * rowGap;
         const finger = chord.fingers?.[i];
         return (
           <g key={i}>

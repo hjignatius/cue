@@ -15,8 +15,9 @@ const G = {
 
 const SVG_W  = G.padH * 2 + G.strGap * (G.strings - 1);
 const NUT_Y  = G.openR * 2 + 3;  // space above nut for open-string indicators
-const SVG_H  = NUT_Y + G.fretRows * G.fretGap + 4;
-const BODY_BOTTOM = NUT_Y + G.fretRows * G.fretGap;
+const BODY_H = G.fretRows * G.fretGap;   // fixed body height (4-fret window)
+const SVG_H  = NUT_Y + BODY_H + 4;
+const BODY_BOTTOM = NUT_Y + BODY_H;
 
 function sx(i) { return G.padH + i * G.strGap; }
 
@@ -37,7 +38,12 @@ export function PdfChordDiagram({ chord }) {
   const validFrets = frets.filter(f => f > 0);
   const maxFret    = validFrets.length ? Math.max(...validFrets) : 0;
   const minFret    = validFrets.length ? Math.min(...validFrets) : 1;
-  const startFret  = maxFret <= G.fretRows ? 1 : Math.max(minFret, maxFret - G.fretRows + 1);
+  // Grow to 5 rows for a 5-fret span (capped), keeping BODY_H fixed by shrinking
+  // the row gap — mirrors the on-screen ChordDiagram so print matches screen.
+  const span       = validFrets.length ? maxFret - minFret + 1 : 4;
+  const fretRows   = Math.min(5, Math.max(4, span));
+  const rowGap     = BODY_H / fretRows;
+  const startFret  = maxFret <= fretRows ? 1 : Math.max(minFret, maxFret - fretRows + 1);
 
   return (
     <View style={{ alignItems: 'center' }}>
@@ -48,7 +54,7 @@ export function PdfChordDiagram({ chord }) {
 
       {/* Fretboard row — position marker on the left, SVG on the right */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-        <View style={{ width: 14, paddingTop: NUT_Y + G.fretGap * 0.35 }}>
+        <View style={{ width: 14, paddingTop: NUT_Y + rowGap * 0.35 }}>
           {startFret > 1 && (
             <Text style={{ fontSize: 5, fontFamily: 'Helvetica', color: COL.pos }}>
               {startFret}
@@ -67,10 +73,10 @@ export function PdfChordDiagram({ chord }) {
           />
 
           {/* Fret lines */}
-          {[1, 2, 3, 4].map(f => (
+          {Array.from({ length: fretRows }, (_, i) => i + 1).map(f => (
             <Line key={f}
-              x1={G.padH} y1={NUT_Y + f * G.fretGap}
-              x2={G.padH + G.strGap * (G.strings - 1)} y2={NUT_Y + f * G.fretGap}
+              x1={G.padH} y1={NUT_Y + f * rowGap}
+              x2={G.padH + G.strGap * (G.strings - 1)} y2={NUT_Y + f * rowGap}
               stroke={COL.fret} strokeWidth={G.strokeW}
             />
           ))}
@@ -104,10 +110,10 @@ export function PdfChordDiagram({ chord }) {
               ];
             }
             const row = fret - startFret + 1;
-            if (row < 1 || row > G.fretRows) return null;
+            if (row < 1 || row > fretRows) return null;
             return (
               <Circle key={i}
-                cx={cx} cy={NUT_Y + (row - 0.5) * G.fretGap}
+                cx={cx} cy={NUT_Y + (row - 0.5) * rowGap}
                 r={G.dotR} fill={COL.dot}
               />
             );
