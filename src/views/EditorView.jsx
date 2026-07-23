@@ -6,6 +6,7 @@ import MetadataForm from '../components/MetadataForm.jsx';
 import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
+import SegmentedControl from '../components/SegmentedControl.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
@@ -894,21 +895,21 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Spacer pushes Preview + Chords to the right */}
         <div className="flex-1" />
 
-        {/* Narrow: tab pills — Wide: Preview + Chords toggles */}
+        {/* Narrow: Text/Preview/Chords selector — Wide: Preview + Chords toggles */}
         {isNarrow ? (
-          <div className={`flex items-center gap-0.5 rounded-lg p-0.5 ${dark ? 'bg-gray-800' : 'bg-gray-200'}`}>
-            {[['editor', 'Text'], ['preview', 'Preview'], ['chords', 'Chords']].map(([tab, label]) => (
-              <button
-                key={tab}
-                onClick={() => setNarrowTab(tab)}
-                className={`h-9 px-3 text-xs rounded-md font-medium transition-colors ${
-                  narrowTab === tab
-                    ? 'bg-indigo-600 text-white'
-                    : dark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >{label}</button>
-            ))}
-          </div>
+          <SegmentedControl
+            ariaLabel="Editor panel"
+            options={[
+              { id: 'text',    label: 'Text' },
+              { id: 'preview', label: 'Preview' },
+              { id: 'chords',  label: 'Chords' },
+            ]}
+            // State variable and handler are unchanged — only the presentation.
+            // 'text' is the option id; 'editor' is the long-standing state value.
+            value={narrowTab === 'editor' ? 'text' : narrowTab}
+            onChange={id => setNarrowTab(id === 'text' ? 'editor' : id)}
+            size="sm"
+          />
         ) : (
           <div className="flex items-center gap-2">
             {/* Round-button language: state-carrying pills — indigo when on,

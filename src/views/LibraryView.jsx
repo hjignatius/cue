@@ -19,6 +19,9 @@ import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups } from '../lib/cloud.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
+import { useIsPhonePortrait } from '../hooks/useIsPhonePortrait.js';
+import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
+import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -46,6 +49,20 @@ const PUBLISHED_SETS_KEY = 'cue:published_sets';
 function loadPublishedSets() {
   try { return JSON.parse(localStorage.getItem(PUBLISHED_SETS_KEY) || '{}'); } catch { return {}; }
 }
+
+// iPhone-portrait single-panel switcher. The active panel is local-first state,
+// like the app's other view preferences.
+const PHONE_PANEL_KEY = 'cue.phonePanel';
+const PHONE_PANELS    = ['library', 'sets', 'setlist'];
+function loadPhonePanel() {
+  try {
+    const v = localStorage.getItem(PHONE_PANEL_KEY);
+    return PHONE_PANELS.includes(v) ? v : 'library';
+  } catch { return 'library'; }
+}
+// Room under the last list row so it clears the floating pill and stays tappable:
+// pill height + its 8px bottom offset + breathing room + the safe-area inset.
+const PILL_CLEARANCE = `calc(${SEGMENTED_HEIGHT.lg}px + 20px + env(safe-area-inset-bottom))`;
 
 const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
 function loadSharedWithMe() {
@@ -539,7 +556,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         </form>
       )}
 
-      <div ref={listRef} className="flex-1 overflow-y-auto overscroll-contain">
+      <div ref={listRef} data-phone-scroll className="flex-1 overflow-y-auto overscroll-contain">
         {/* Pull-to-refresh indicator — height grows with the pull, re-checks cloud
             status + reloads on release past the threshold. */}
         <div
@@ -1087,7 +1104,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
             all formats). Select this set there to export it. */}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div data-phone-scroll className="flex-1 overflow-y-auto">
         {displaySongs.length === 0 && (
           <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No songs yet — select songs in the Library and use "Add to Set".</p>
         )}
@@ -1156,6 +1173,36 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
   const [setsSelectMode, setSetsSelectMode] = useState(false); // mirrors SetsColumn select mode
+
+  // ---- iPhone-portrait single-panel mode -------------------------------------
+  // Inert unless isPhonePortrait — desktop and iPad render exactly as before.
+  const isPhonePortrait = useIsPhonePortrait();
+  const [phonePanel, setPhonePanel] = useState(loadPhonePanel);
+  useEffect(() => {
+    try { localStorage.setItem(PHONE_PANEL_KEY, phonePanel); } catch { /* ignore */ }
+  }, [phonePanel]);
+
+  // Each panel scrolls in its own element, marked data-phone-scroll. The Library
+  // column has TWO (artist list vs song list) but only ever renders one, so a
+  // query scoped to the active panel resolves whichever is live.
+  const layoutRef = useRef(null);
+  const getPhoneScrollEl = () => (
+    isPhonePortrait
+      ? layoutRef.current?.querySelector(`[data-phone-panel="${phonePanel}"] [data-phone-scroll]`) ?? null
+      : null
+  );
+  const pillHidden = useAutoHideOnScroll(getPhoneScrollEl, `${isPhonePortrait}:${phonePanel}`);
+
+  // Give the live scroller room to clear the pill. Applied to the element rather
+  // than via props so SetsColumn/SetlistColumn keep their existing APIs.
+  useEffect(() => {
+    const el = getPhoneScrollEl();
+    if (!el) return;
+    const prev = el.style.paddingBottom;
+    el.style.paddingBottom = PILL_CLEARANCE;
+    return () => { el.style.paddingBottom = prev; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPhonePortrait, phonePanel, sortBy, artistFilter, search, sets.length, songs.length]);
 
   useEffect(() => { sessionStorage.setItem('cue:lib_search', search); }, [search]);
   useEffect(() => { sessionStorage.setItem('cue:lib_sort', sortBy); }, [sortBy]);
@@ -1308,7 +1355,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   }
 
   function handleSelectSet(id) {
-    setActiveSetId(id === activeSetId ? null : id);
+    const next = id === activeSetId ? null : id;
+    setActiveSetId(next);
+    // Phone portrait shows one panel at a time: picking a set navigates to it.
+    // Routed through the same setter as the pill, so there's one switching path.
+    if (next) setPhonePanel('setlist');
   }
 
   const allVisibleSelected = sorted.length > 0 && sorted.every(s => selected.has(s.id));
@@ -1356,10 +1407,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       </header>
 
       {/* Body — three columns */}
-      <div className="flex-1 min-h-0 flex overflow-hidden">
+      <div ref={layoutRef} className="flex-1 min-h-0 flex overflow-hidden">
 
         {/* Column 1: Library */}
-        <div data-onboard="songs-panel" className={`flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}>
+        <div
+          data-onboard="songs-panel"
+          data-phone-panel="library"
+          className={isPhonePortrait
+            ? (phonePanel === 'library' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
+            : `flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
+        >
           <div className={`px-4 py-2 border-b ${border} flex items-center justify-between`}>
             <div className="flex flex-col leading-tight">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Library</span>
@@ -1495,7 +1552,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           </div>
 
           {sortBy === 'artist' && artistFilter === null && !search && artists && (
-            <div className="flex-1 overflow-y-auto">
+            <div data-phone-scroll className="flex-1 overflow-y-auto">
               {songs.filter(s => !s.metadata?.artist).length > 0 && (
                 <button onClick={() => setArtistFilter('')} className={`w-full flex items-center justify-between px-4 py-3 border-b ${border} hover:bg-gray-100 dark:hover:bg-gray-900 text-left`}>
                   <span className="text-sm text-gray-400 italic">No artist</span>
@@ -1515,7 +1572,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           )}
 
           {(sortBy !== 'artist' || artistFilter !== null || search) && (
-            <div className="flex-1 overflow-y-auto">
+            <div data-phone-scroll className="flex-1 overflow-y-auto">
               {songs.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
                   <Music size={32} className="text-gray-300 dark:text-gray-700" />
@@ -1548,7 +1605,13 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         </div>
 
         {/* Column 2: Sets */}
-        <div data-onboard="sets-panel" className={`flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}>
+        <div
+          data-onboard="sets-panel"
+          data-phone-panel="sets"
+          className={isPhonePortrait
+            ? (phonePanel === 'sets' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
+            : `flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
+        >
           <SetsColumn
             sets={sets}
             songs={songs}
@@ -1562,7 +1625,13 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         </div>
 
         {/* Column 3: Setlist */}
-        <div data-onboard="setlist-panel" className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden`}>
+        <div
+          data-onboard="setlist-panel"
+          data-phone-panel="setlist"
+          className={isPhonePortrait
+            ? (phonePanel === 'setlist' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
+            : `flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden`}
+        >
           <SetlistColumn
             key={activeSetId}
             set={setsSelectMode ? null : activeSet}
@@ -1576,6 +1645,35 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         </div>
 
       </div>
+
+      {/* Floating panel switcher — iPhone portrait only, and never over Present.
+          z-30 sits above panel content but below the modal/dialog layer (z-50). */}
+      {isPhonePortrait && !presenting && (
+        <div
+          className="fixed left-1/2 z-30 [transition:transform_220ms_ease,opacity_160ms_ease] motion-reduce:[transition:none]"
+          style={{
+            bottom: 'calc(8px + env(safe-area-inset-bottom))',
+            transform: pillHidden ? 'translateX(-50%) translateY(calc(100% + 16px))' : 'translateX(-50%)',
+            opacity: pillHidden ? 0 : 1,
+            pointerEvents: pillHidden ? 'none' : undefined,
+          }}
+        >
+          <SegmentedControl
+            ariaLabel="Panel"
+            options={[
+              { id: 'library', label: 'Library' },
+              { id: 'sets',    label: 'Sets' },
+              { id: 'setlist', label: 'Setlist' },
+            ]}
+            value={phonePanel}
+            onChange={setPhonePanel}
+            size="lg"
+            fullWidth={false}
+            translucent
+            segmentPadX={18}
+          />
+        </div>
+      )}
 
       {showTour && <OnboardingTour onDone={finishTour} />}
 
