@@ -7,6 +7,7 @@ import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
+import { useCompactChrome } from '../hooks/useCompactChrome.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
@@ -239,6 +240,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [showPreview, setShowPreview]       = useState(true);
   const [showChordPanel, setShowChordPanel] = useState(true);
   const [narrowTab, setNarrowTab]           = useState('editor');
+  // Phone portrait (width) or phone landscape (height) — the editor chrome
+  // collapses in both. iPad and desktop are unaffected.
+  const compactChrome = useCompactChrome();
+  // Shared by the in-toolbar (sm) and compact (lg) renderings of the selector.
+  const panelOptions = [
+    { id: 'text',    label: 'Text' },
+    { id: 'preview', label: 'Preview' },
+    { id: 'chords',  label: 'Chords' },
+  ];
+  const setPanelFromOption = (id) => setNarrowTab(id === 'text' ? 'editor' : id);
   const [displayKey, setDisplayKey]     = useState(song?.displayKey || '');
   const [isDirty, setIsDirty]           = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
@@ -895,19 +906,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Spacer pushes Preview + Chords to the right */}
         <div className="flex-1" />
 
-        {/* Narrow: Text/Preview/Chords selector — Wide: Preview + Chords toggles */}
-        {isNarrow ? (
+        {/* Compact chrome moves this selector to its own full-width row below —
+            see after this toolbar. Narrow-but-not-compact (iPad) keeps the
+            in-toolbar sm selector; wide keeps the Preview/Chords toggles. */}
+        {compactChrome ? null : isNarrow ? (
           <SegmentedControl
             ariaLabel="Editor panel"
-            options={[
-              { id: 'text',    label: 'Text' },
-              { id: 'preview', label: 'Preview' },
-              { id: 'chords',  label: 'Chords' },
-            ]}
+            options={panelOptions}
             // State variable and handler are unchanged — only the presentation.
             // 'text' is the option id; 'editor' is the long-standing state value.
             value={narrowTab === 'editor' ? 'text' : narrowTab}
-            onChange={id => setNarrowTab(id === 'text' ? 'editor' : id)}
+            onChange={setPanelFromOption}
             size="sm"
           />
         ) : (
@@ -935,6 +944,21 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </div>
         )}
       </div>
+
+      {/* Compact chrome: the panel selector gets its own full-width row directly
+          below the toolbar, at the 44px touch size. */}
+      {compactChrome && (
+        <div className={`px-4 pb-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} shrink-0`}>
+          <SegmentedControl
+            ariaLabel="Editor panel"
+            options={panelOptions}
+            value={narrowTab === 'editor' ? 'text' : narrowTab}
+            onChange={setPanelFromOption}
+            size="lg"
+            fullWidth
+          />
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden min-h-0">

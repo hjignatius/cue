@@ -1372,7 +1372,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Header */}
       <header className={`px-6 py-4 border-b ${border} flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3">
-          <Music size={28} className="text-indigo-400" />
+          {/* The mark costs icon + gap of header width, which iPhone portrait
+              can't spare. The wordmark alone still identifies the app. Restored
+              at every larger width — including iPhone landscape, which is above
+              the hook's 767px breakpoint, so no orientation check is needed. */}
+          {!isPhonePortrait && <Music size={28} className="text-indigo-400" />}
           <h1 className="text-3xl font-bold tracking-tight">Cue</h1>
         </div>
         {/* Round-button language, matching the editor header: ? and Settings are
