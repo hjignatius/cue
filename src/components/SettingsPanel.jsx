@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
@@ -24,6 +25,28 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const [email, setEmail]     = useState('');
   const [status, setStatus]   = useState('idle'); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Saved export folder (Chromium only — the section is hidden elsewhere).
+  const canPickFolder = supportsExportFolder();
+  const [exportFolder, setExportFolder] = useState(null);
+  const [folderBusy, setFolderBusy]     = useState(false);
+  useEffect(() => {
+    if (open && canPickFolder) getExportFolderName().then(setExportFolder).catch(() => {});
+  }, [open, canPickFolder]);
+
+  async function pickExportFolder() {
+    setFolderBusy(true);
+    try {
+      const name = await chooseExportFolder();
+      if (name) setExportFolder(name);
+    } catch { /* picker unavailable or failed — leave as-is */ }
+    finally { setFolderBusy(false); }
+  }
+
+  async function resetExportFolder() {
+    await clearExportFolder();
+    setExportFolder(null);
+  }
 
   const bg     = dark ? 'bg-gray-900' : 'bg-white';
   const border = dark ? 'border-gray-700' : 'border-gray-200';
@@ -189,6 +212,39 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
               </div>
             </div>
           </section>
+
+          {/* Exports — Chromium only; Safari/Firefox/iOS have no folder picker,
+              so the section is hidden rather than shown as unavailable. */}
+          {canPickFolder && (
+            <section className="flex flex-col gap-4">
+              <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Exports</h3>
+              <div className="flex flex-col gap-2">
+                <span className={`text-sm ${label}`}>Save location</span>
+                <p className={`text-[11px] ${muted}`}>
+                  {exportFolder
+                    ? <>Exports and backups save straight into <span className={`font-medium ${label}`}>{exportFolder}</span>, no dialog. Same-named files get a number, like the browser does.</>
+                    : 'Exports ask where to save each time. Pick a folder to save there automatically.'}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={pickExportFolder}
+                    disabled={folderBusy}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors disabled:opacity-50 ${btnBorder}`}
+                  >
+                    {exportFolder ? 'Change folder…' : 'Choose folder…'}
+                  </button>
+                  {exportFolder && (
+                    <button
+                      onClick={resetExportFolder}
+                      className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors ${btnBorder}`}
+                    >
+                      Ask every time
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Account */}
           {isConfigured && !hideAccount && (
