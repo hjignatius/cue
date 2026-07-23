@@ -1370,7 +1370,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   return (
     <div className={`h-dvh flex flex-col ${dark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* Header */}
-      <header className={`px-6 py-4 border-b ${border} flex items-center justify-between shrink-0`}>
+      {/* px-4 in phone portrait: removing the mark left only ~1px of slack at
+          390px, which a 375pt device would still overflow. */}
+      <header className={`${isPhonePortrait ? 'px-4' : 'px-6'} py-4 border-b ${border} flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3">
           {/* The mark costs icon + gap of header width, which iPhone portrait
               can't spare. The wordmark alone still identifies the app. Restored

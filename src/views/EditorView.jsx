@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -145,6 +145,113 @@ function PillLabel({ children }) {
   return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
 }
 
+// Anchored popover for the compact toolbar's overflow actions. Hand-built (no
+// menu library): focus enters on open, Up/Down cycle the items, Escape and an
+// outside press close it, and the caller returns focus to the trigger. Items are
+// whatever the caller renders with role="menuitem", so conditional entries never
+// leave a gap — the arrow keys just walk what is actually present.
+function OverflowMenu({ open, onClose, children, dark }) {
+  const menuRef = useRef(null);
+  // { above, maxH } — resolved from the anchor's position before first paint.
+  const [pos, setPos] = useState(null);
+
+  // Placement. iPhone landscape puts the toolbar past the vertical midpoint, so
+  // a menu that always drops downward runs off the bottom; when there is more
+  // room above the trigger than below, it opens upward instead. Either way the
+  // height is clamped to the room on the chosen side so a long menu scrolls
+  // rather than escaping the viewport.
+  //
+  // Measured against visualViewport, not innerHeight, so the on-screen keyboard
+  // (which shrinks the visual viewport without changing innerHeight) re-runs
+  // this and re-clamps.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const el = menuRef.current;
+    const anchor = el?.parentElement;
+    if (!el || !anchor) return;
+
+    const GAP = 4;     // matches the mt-1 / mb-1 offset
+    const MARGIN = 8;  // never flush against the viewport edge
+
+    const measure = () => {
+      const vv = window.visualViewport;
+      const vTop = vv?.offsetTop ?? 0;
+      const vH = vv?.height ?? window.innerHeight;
+      const a = anchor.getBoundingClientRect();
+      const below = vTop + vH - a.bottom - GAP - MARGIN;
+      const above = a.top - vTop - GAP - MARGIN;
+      const wanted = el.scrollHeight;
+      const flip = below < wanted && above > below;
+      setPos({ above: flip, maxH: Math.max(96, Math.round(flip ? above : below)) });
+    };
+
+    measure();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', measure);
+    vv?.addEventListener('scroll', measure);
+    return () => {
+      vv?.removeEventListener('resize', measure);
+      vv?.removeEventListener('scroll', measure);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) { setPos(null); return; }
+    menuRef.current?.querySelector('[role="menuitem"]')?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e) {
+      // The trigger has its own toggle; ignore presses that land on it so a tap
+      // there closes rather than immediately reopening.
+      if (menuRef.current?.parentElement?.contains(e.target)) return;
+      onClose();
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      const items = [...(menuRef.current?.querySelectorAll('[role="menuitem"]') ?? [])];
+      if (!items.length) return;
+      const i = items.indexOf(document.activeElement);
+      const next = e.key === 'ArrowDown'
+        ? (i + 1) % items.length
+        : (i - 1 + items.length) % items.length;
+      items[next]?.focus();
+    }
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div
+      ref={menuRef}
+      role="menu"
+      aria-orientation="vertical"
+      className={`absolute right-0 ${pos?.above ? 'bottom-full mb-1' : 'top-full mt-1'} z-40 min-w-[14rem] rounded-xl border shadow-xl overflow-y-auto ${
+        dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+      }`}
+      style={{
+        // Never render under the notch/home indicator or the rounded corner.
+        marginRight: 'env(safe-area-inset-right)',
+        // env() is folded in here rather than in the JS measurement because the
+        // insets are only knowable to CSS.
+        maxHeight: pos
+          ? `calc(${pos.maxH}px - env(safe-area-inset-${pos.above ? 'top' : 'bottom'}))`
+          : undefined,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // Target lyric line width in characters. Mirrors PresentationView's
 // LYRIC_TARGET_CHARS (the column count Present wraps at). Kept as a local
 // constant for now; when the Settings-driven width lands, both read that.
@@ -250,6 +357,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     { id: 'chords',  label: 'Chords' },
   ];
   const setPanelFromOption = (id) => setNarrowTab(id === 'text' ? 'editor' : id);
+
+  // Compact-toolbar overflow menu. The anchor wraps the trigger so focus can be
+  // returned to it on close (RoundButton renders its own button).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnchorRef = useRef(null);
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    menuAnchorRef.current?.querySelector('button')?.focus();
+  }, []);
+  // Run a menu action and dismiss, without stealing focus back to the trigger
+  // when the action itself moves focus (Find) or opens a dialog (Revert).
+  const runFromMenu = (fn) => { setMenuOpen(false); fn(); };
+  // Text-labelled rows, matching the enclosed/text-first direction of this work.
+  const menuItem = `w-full flex items-center gap-2 px-3 py-3 text-sm text-left cursor-pointer outline-none ${
+    dark ? 'text-gray-200 hover:bg-gray-800 focus:bg-gray-800' : 'text-gray-800 hover:bg-gray-100 focus:bg-gray-100'
+  }`;
+  const dangerItem = dark ? 'text-red-400' : 'text-red-600';
   const [displayKey, setDisplayKey]     = useState(song?.displayKey || '');
   const [isDirty, setIsDirty]           = useState(false);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
@@ -791,8 +915,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       />
 
       {/* Toolbar */}
-      <div className={`px-4 py-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex flex-wrap items-center gap-3 shrink-0`}>
+      {/* py-1 in compact chrome: the overflow trigger pads its hit area to the
+          44px minimum, which is 8px taller than the h-9 pills it replaces. The
+          tighter padding absorbs that so the row is no taller than before. */}
+      <div className={`px-4 ${compactChrome ? 'py-1' : 'py-2'} border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex items-center gap-3 shrink-0 ${compactChrome ? 'flex-nowrap' : 'flex-wrap'}`}>
 
+        {/* Compact chrome keeps only Save + the overflow trigger in this row;
+            everything else moves into the menu below. */}
+        {!compactChrome && (<>
         {/* View Key — a saved, display-only lens. Sets the song's displayKey so
             Preview/Present render transposed; never rewrites the source text or
             the real key (metadata.key). Persists on Save with the song. */}
@@ -825,7 +955,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           {showFR ? 'Done' : <><Search size={11} /> Find</>}
         </button>
 
-        {/* Save */}
+        </>)}
+
+        {/* Save — always visible, keeps its dirty-state indicator. */}
         <button
           onClick={handleSave}
           disabled={!isDirty}
@@ -838,6 +970,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <Save size={11} /> Save
         </button>
 
+        {!compactChrome && (<>
         {/* Revert — discard changes since the last save (or since opening, before
             the first save). Enabled only when dirty, symmetric with Save. */}
         <button
@@ -903,8 +1036,106 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </button>
         </div>
 
+        </>)}
+
         {/* Spacer pushes Preview + Chords to the right */}
         <div className="flex-1" />
+
+        {/* Overflow menu — compact chrome only. Everything cut from the row
+            above lives here, so the toolbar stays a single line. */}
+        {compactChrome && (
+          <span ref={menuAnchorRef} className="relative inline-flex shrink-0">
+            <RoundButton
+              size={32}
+              label="More actions"
+              title="More actions"
+              fill={headerFill}
+              active={menuOpen}
+              ariaHasPopup="menu"
+              ariaExpanded={menuOpen}
+              onActivate={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
+            >
+              <MoreHorizontal size={18} />
+            </RoundButton>
+
+            <OverflowMenu open={menuOpen} onClose={closeMenu} dark={dark}>
+              <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
+                onClick={() => runFromMenu(openFR)}>
+                <Search size={14} className="opacity-60" /> Find &amp; Replace
+              </button>
+
+              {/* View Key — the row itself is the menuitem; the existing select
+                  is laid over it at zero opacity so a tap anywhere opens the
+                  native picker, and it keeps its own keyboard behaviour. */}
+              <div
+                role="menuitem"
+                tabIndex={-1}
+                className={`${menuItem} relative justify-between`}
+                onKeyDown={e => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  const sel = e.currentTarget.querySelector('select');
+                  if (sel?.showPicker) { try { sel.showPicker(); return; } catch { /* fall through */ } }
+                  sel?.focus();
+                }}
+              >
+                <span>Key: {displayKey || metadata.key || '—'}</span>
+                <select
+                  tabIndex={-1}
+                  value={displayKey}
+                  onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); closeMenu(); }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  aria-label="View key"
+                >
+                  <option value="">{metadata.key || '—'}</option>
+                  {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
+                onClick={() => runFromMenu(toggleEditorFormat)}>
+                <span>Editor format</span>
+                <span className={mutedText}>{displayMode === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
+              </button>
+
+              <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
+                onClick={() => runFromMenu(togglePreviewFormat)}>
+                <span>Preview format</span>
+                <span className={mutedText}>{previewFormat === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
+              </button>
+
+              {hasAnnotation && (
+                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
+                  onClick={() => runFromMenu(() => setShowAnnotations(v => !v))}>
+                  <Pencil size={14} className="opacity-60" /> {showAnnotations ? 'Hide ink' : 'Show ink'}
+                </button>
+              )}
+
+              {/* Destructive group. Revert is always present, so the separator
+                  never orphans — and Clear ink simply omits itself. */}
+              <div className={`my-1 border-t ${border}`} role="separator" />
+
+              <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
+                onClick={() => runFromMenu(() => setShowRevertConfirm(true))}
+                aria-disabled={!isDirty || undefined}>
+                <RotateCcw size={14} className="opacity-60" /> Revert changes
+              </button>
+
+              {hasAnnotation && (
+                <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
+                  onClick={() => runFromMenu(() => {
+                    // The inline Yes/No confirm lives in the full toolbar, which
+                    // is hidden here, so confirm natively as the app does elsewhere.
+                    if (confirm('Delete all ink annotations for this song?')) handleClearAnnotations();
+                  })}>
+                  <X size={14} className="opacity-60" /> Clear ink
+                </button>
+              )}
+            </OverflowMenu>
+          </span>
+        )}
 
         {/* Compact chrome moves this selector to its own full-width row below —
             see after this toolbar. Narrow-but-not-compact (iPad) keeps the

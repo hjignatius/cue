@@ -86,6 +86,10 @@ export default function RoundButton({
   pill = false,
   disabledOpacity = 0.3,
   touchAction = 'none',
+  // Optional popup semantics for triggers that own a menu. Purely additive —
+  // omitted everywhere else, so no existing caller changes.
+  ariaHasPopup,
+  ariaExpanded,
   children,
 }) {
   const hit = Math.max(size, MIN_TOUCH_TARGET);
@@ -96,6 +100,8 @@ export default function RoundButton({
       type="button"
       aria-label={label}
       title={title}
+      aria-haspopup={ariaHasPopup}
+      aria-expanded={ariaExpanded}
       aria-disabled={disabled || undefined}
       onClick={disabled ? undefined : onActivate}
       className="group flex items-center justify-center shrink-0 bg-transparent"
