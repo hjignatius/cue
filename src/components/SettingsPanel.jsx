@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -17,14 +17,63 @@ function friendlyAuthError(err) {
   return msg || 'Something went wrong. Please try again.';
 }
 
+// Classifies a verifyOtp failure so the UI never tells someone their code is
+// wrong when the request never actually completed.
+//
+//   'network'  — the fetch never got a verdict from the server. supabase-js
+//                wraps these as AuthRetryableFetchError (status 0), and a bare
+//                TypeError is what fetch throws when offline.
+//   'expired'  — the server rejected it specifically as expired.
+//   'invalid'  — the server rejected the code itself.
+//
+// Supabase returns one 403 for both wrong and expired codes, distinguished only
+// by the message text, so 'expired' is matched on the message and 'invalid' is
+// the fallback for a genuine server rejection.
+function classifyOtpError(err) {
+  const msg    = err?.message || '';
+  const status = err?.status;
+
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  if (offline ||
+      err?.name === 'AuthRetryableFetchError' ||
+      status === 0 || status === undefined && err instanceof TypeError ||
+      /fetch|network|failed to fetch|load failed/i.test(msg)) {
+    return { kind: 'network', message: "Couldn't reach the server. Check your connection and try again — your code is still valid." };
+  }
+  if (/expire/i.test(msg)) {
+    return { kind: 'expired', message: 'That code has expired. Send a new one.' };
+  }
+  if (/invalid|incorrect|not found/i.test(msg) || status === 403 || status === 401) {
+    return { kind: 'invalid', message: "That code isn't right. Check it and try again." };
+  }
+  return { kind: 'invalid', message: msg || 'Something went wrong. Please try again.' };
+}
+
+const RESEND_COOLDOWN_SEC = 60;
+
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, updatePref } = usePrefs();
   const dark = theme === 'dark';
-  const { user, isConfigured, signInWithEmail, signOut } = useAuth();
+  const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
 
+  // Two-step email sign-in: 'email' collects the address and sends the code,
+  // 'code' verifies it in-app. `email` deliberately persists across the step
+  // change — verifyOtp needs both the address and the token.
+  const [step, setStep]       = useState('email'); // email | code
   const [email, setEmail]     = useState('');
-  const [status, setStatus]   = useState('idle'); // idle | sending | sent | error
+  const [code, setCode]       = useState('');
+  const [status, setStatus]   = useState('idle'); // idle | sending | verifying | error
   const [errorMsg, setErrorMsg] = useState('');
+  const [resendIn, setResendIn] = useState(0);
+  const codeRef = useRef(null);
+
+  // Resend cooldown. Supabase itself rate-limits one OTP per 60s, so the
+  // countdown mirrors the server rather than inventing a stricter rule.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn(n => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   // Saved export folder (Chromium only — the section is hidden elsewhere).
   const canPickFolder = supportsExportFolder();
@@ -56,25 +105,70 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
     ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500'
     : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400';
 
+  // Back to step 1, clearing everything — used by "Use a different email".
   function resetForm() {
+    setStep('email');
     setEmail('');
+    setCode('');
     setStatus('idle');
     setErrorMsg('');
+    setResendIn(0);
+  }
+
+  // Step 1 → 2. Also the resend path, which re-sends to the same address and
+  // keeps the user on step 2.
+  async function sendCode(address, { resend = false } = {}) {
+    setStatus('sending');
+    setErrorMsg('');
+    try {
+      await signInWithEmail(address);
+      setStep('code');
+      setStatus('idle');
+      setResendIn(RESEND_COOLDOWN_SEC);
+      if (resend) setCode('');
+      requestAnimationFrame(() => codeRef.current?.focus());
+    } catch (err) {
+      setStatus('error');
+      setErrorMsg(friendlyAuthError(err));
+    }
   }
 
   async function handleSend(e) {
     e.preventDefault();
     const trimmed = email.trim();
     if (!trimmed) return;
-    setStatus('sending');
+    await sendCode(trimmed);
+  }
+
+  // Step 2. On failure the field keeps its value and focus so a typo can be
+  // corrected in place rather than retyped.
+  async function handleVerify(token) {
+    const t = (token ?? code).trim();
+    if (t.length !== 6 || status === 'verifying') return;
+    setStatus('verifying');
     setErrorMsg('');
     try {
-      await signInWithEmail(trimmed);
-      setStatus('sent');
+      await verifyEmailOtp(email.trim(), t);
+      // onAuthStateChange flips `user`, which swaps this section to the
+      // signed-in view; clear the transient step state behind it.
+      setStep('email');
+      setCode('');
+      setStatus('idle');
     } catch (err) {
+      const { message } = classifyOtpError(err);
       setStatus('error');
-      setErrorMsg(friendlyAuthError(err));
+      setErrorMsg(message);
+      requestAnimationFrame(() => codeRef.current?.focus());
     }
+  }
+
+  // Digits only, capped at 6. Auto-submits on the 6th so the common case needs
+  // no button press; the explicit Verify button stays for everyone else.
+  function handleCodeChange(raw) {
+    const digits = raw.replace(/\D/g, '').slice(0, 6);
+    setCode(digits);
+    if (errorMsg) setErrorMsg('');
+    if (digits.length === 6) handleVerify(digits);
   }
 
   return (
@@ -261,24 +355,70 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                     Sign out
                   </button>
                 </div>
-              ) : status === 'sent' ? (
-                <div className="flex flex-col gap-3 items-center text-center">
-                  <p className="text-3xl">✉️</p>
-                  <p className={`text-sm font-medium ${label}`}>Check your email</p>
+              ) : step === 'code' ? (
+                <form
+                  onSubmit={e => { e.preventDefault(); handleVerify(); }}
+                  className="flex flex-col gap-3"
+                >
                   <p className={`text-xs ${muted}`}>
-                    We sent a sign-in link to{' '}
-                    <span className={`font-medium ${label}`}>{email}</span>. Click it to sign in.
+                    Enter the 6-digit code sent to{' '}
+                    <span className={`font-medium ${label}`}>{email}</span>
                   </p>
+                  {/* One field, not six boxes: six boxes break paste and are
+                      fiddly on mobile. autoComplete="one-time-code" is what
+                      makes iOS offer the code above the keyboard. */}
+                  <input
+                    ref={codeRef}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    placeholder="123456"
+                    aria-label="6-digit code"
+                    aria-invalid={!!errorMsg}
+                    value={code}
+                    onChange={e => handleCodeChange(e.target.value)}
+                    autoFocus
+                    // In landscape with the keyboard up the panel body is only
+                    // ~120px tall, and the browser's focus scroll stops as soon
+                    // as the field itself is visible — leaving Verify under the
+                    // fold. Reserving margin below the field makes that same
+                    // scroll bring the button with it. Doing it in CSS works
+                    // with the browser; a JS scroll afterwards just gets undone
+                    // when the focus pass re-runs.
+                    style={{ scrollMarginBottom: '3.5rem' }}
+                    className={`border rounded-lg px-3 py-2.5 text-lg tracking-[0.4em] font-mono text-center outline-none focus:border-indigo-500 transition-colors ${
+                      errorMsg ? 'border-red-500' : dark ? 'border-gray-700' : 'border-gray-300'
+                    } ${dark ? 'bg-gray-800 text-white placeholder-gray-600' : 'bg-white text-gray-900 placeholder-gray-400'}`}
+                  />
+                  {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
                   <button
-                    onClick={resetForm}
-                    className={`w-full h-11 pointer-fine:h-9 text-sm rounded-lg border transition-colors ${btnBorder}`}
+                    type="submit"
+                    disabled={status === 'verifying' || code.length !== 6}
+                    className="h-11 pointer-fine:h-9 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                   >
-                    Done
+                    {status === 'verifying' ? 'Verifying…' : 'Verify'}
                   </button>
-                </div>
+                  <button
+                    type="button"
+                    onClick={() => sendCode(email.trim(), { resend: true })}
+                    disabled={resendIn > 0 || status === 'sending' || status === 'verifying'}
+                    className={`h-11 pointer-fine:h-9 text-sm rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${btnBorder}`}
+                  >
+                    {status === 'sending' ? 'Sending…' : resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className={`text-xs py-1 transition-colors ${muted} ${dark ? 'hover:text-gray-200' : 'hover:text-gray-700'}`}
+                  >
+                    Use a different email
+                  </button>
+                </form>
               ) : (
                 <form onSubmit={handleSend} className="flex flex-col gap-3">
-                  <p className={`text-xs ${muted}`}>Enter your email to receive a magic sign-in link.</p>
+                  <p className={`text-xs ${muted}`}>Enter your email and we'll send you a 6-digit sign-in code.</p>
                   <input
                     type="email"
                     placeholder="you@example.com"
@@ -293,7 +433,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                     disabled={status === 'sending' || !email.trim()}
                     className="h-11 pointer-fine:h-9 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                   >
-                    {status === 'sending' ? 'Sending…' : 'Send magic link'}
+                    {status === 'sending' ? 'Sending…' : 'Send code'}
                   </button>
                 </form>
               )}
