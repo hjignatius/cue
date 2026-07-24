@@ -51,6 +51,18 @@ function classifyOtpError(err) {
 
 const RESEND_COOLDOWN_SEC = 60;
 
+// Supabase's Email OTP Length is a per-project setting, adjustable from 6 to 10
+// (Authentication → Providers → Email). Accept the whole range rather than
+// hardcoding one length: assuming 6 silently truncates a longer code and submits
+// a wrong one, with no way to type the rest.
+const OTP_MIN_LEN = 6;
+const OTP_MAX_LEN = 10;
+// Auto-submit fires this long after the last keystroke rather than the instant
+// the minimum length is reached — with a longer code, submitting at 6 digits
+// would reject a code the user is still typing. Any further digit cancels the
+// pending submit, so 6-, 8- and 10-digit projects all work untouched.
+const OTP_AUTOSUBMIT_MS = 400;
+
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, updatePref } = usePrefs();
   const dark = theme === 'dark';
@@ -66,6 +78,10 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [resendIn, setResendIn] = useState(0);
   const codeRef = useRef(null);
+  const autoSubmitRef = useRef(null);
+
+  // Never leave a pending auto-submit behind on unmount.
+  useEffect(() => () => clearTimeout(autoSubmitRef.current), []);
 
   // Resend cooldown. Supabase itself rate-limits one OTP per 60s, so the
   // countdown mirrors the server rather than inventing a stricter rule.
@@ -143,8 +159,9 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   // Step 2. On failure the field keeps its value and focus so a typo can be
   // corrected in place rather than retyped.
   async function handleVerify(token) {
+    clearTimeout(autoSubmitRef.current);
     const t = (token ?? code).trim();
-    if (t.length !== 6 || status === 'verifying') return;
+    if (t.length < OTP_MIN_LEN || status === 'verifying') return;
     setStatus('verifying');
     setErrorMsg('');
     try {
@@ -162,13 +179,17 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
     }
   }
 
-  // Digits only, capped at 6. Auto-submits on the 6th so the common case needs
-  // no button press; the explicit Verify button stays for everyone else.
+  // Digits only. Once the code is at least the minimum length, submit shortly
+  // after typing stops — each new digit reschedules, so a longer code is never
+  // submitted half-typed. The explicit Verify button stays for everyone else.
   function handleCodeChange(raw) {
-    const digits = raw.replace(/\D/g, '').slice(0, 6);
+    const digits = raw.replace(/\D/g, '').slice(0, OTP_MAX_LEN);
     setCode(digits);
     if (errorMsg) setErrorMsg('');
-    if (digits.length === 6) handleVerify(digits);
+    clearTimeout(autoSubmitRef.current);
+    if (digits.length >= OTP_MIN_LEN) {
+      autoSubmitRef.current = setTimeout(() => handleVerify(digits), OTP_AUTOSUBMIT_MS);
+    }
   }
 
   return (
@@ -361,7 +382,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   className="flex flex-col gap-3"
                 >
                   <p className={`text-xs ${muted}`}>
-                    Enter the 6-digit code sent to{' '}
+                    Enter the code sent to{' '}
                     <span className={`font-medium ${label}`}>{email}</span>
                   </p>
                   {/* One field, not six boxes: six boxes break paste and are
@@ -373,9 +394,9 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     pattern="[0-9]*"
-                    maxLength={6}
-                    placeholder="123456"
-                    aria-label="6-digit code"
+                    maxLength={OTP_MAX_LEN}
+                    placeholder="Code"
+                    aria-label="Sign-in code"
                     aria-invalid={!!errorMsg}
                     value={code}
                     onChange={e => handleCodeChange(e.target.value)}
@@ -395,7 +416,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
                   <button
                     type="submit"
-                    disabled={status === 'verifying' || code.length !== 6}
+                    disabled={status === 'verifying' || code.length < OTP_MIN_LEN}
                     className="h-11 pointer-fine:h-9 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                   >
                     {status === 'verifying' ? 'Verifying…' : 'Verify'}
@@ -418,7 +439,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 </form>
               ) : (
                 <form onSubmit={handleSend} className="flex flex-col gap-3">
-                  <p className={`text-xs ${muted}`}>Enter your email and we'll send you a 6-digit sign-in code.</p>
+                  <p className={`text-xs ${muted}`}>Enter your email and we'll send you a sign-in code.</p>
                   <input
                     type="email"
                     placeholder="you@example.com"
