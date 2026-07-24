@@ -57,8 +57,10 @@ export default function App() {
     return new Promise(resolve => setBackupDialog({ resolve }));
   }
 
-  function askSetsImportMode() {
-    return new Promise(resolve => setSetsImportDialog({ resolve }));
+  // Shared duplicate-handling prompt for any bulk import. `title` names what is
+  // being imported (sets vs. songs); the question itself is the same either way.
+  function askSetsImportMode(title = 'Import sets') {
+    return new Promise(resolve => setSetsImportDialog({ resolve, title }));
   }
 
   function handleImport() {
@@ -107,7 +109,7 @@ export default function App() {
             // Set imports remap IDs — skip per-song conflict prompts
             const idMap = {};
             for (const s of data.songs) {
-              const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
+              const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
               idMap[s.id] = newId;
             }
             await saveSet({
@@ -120,6 +122,25 @@ export default function App() {
               mergeCustomChords(data.customChords);
             }
 
+          } else if (data.type === 'cue-songs' && Array.isArray(data.songs)) {
+            // Songs-only bundle, written by the Library panel's Export button.
+            // Same duplicate prompt as a multi-set import — a bundle can hold
+            // dozens of songs, so one decision covers the batch rather than
+            // prompting per song.
+            const mode = await askSetsImportMode('Import songs');
+            if (mode === 'cancel') continue;
+            const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
+            let added = 0, skipped = 0;
+            for (const s of data.songs) {
+              if (mode === 'skip' && existingByTitle.has(normalizeTitle(s.metadata?.title))) { skipped++; continue; }
+              await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
+              added++;
+            }
+            if (Array.isArray(data.customChords) && data.customChords.length > 0) {
+              mergeCustomChords(data.customChords);
+            }
+            alert(`Songs imported.\n${added} added${skipped ? `, ${skipped} skipped (already in library)` : ''}`);
+
           } else if (data.type === 'cue-sets' && data.sets && data.songs) {
             const mode = await askSetsImportMode();
             if (mode === 'cancel') continue;
@@ -131,7 +152,7 @@ export default function App() {
               if (mode === 'skip' && existing) {
                 idMap[s.id] = existing.id;
               } else {
-                const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
+                const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
                 idMap[s.id] = newId;
               }
             }
@@ -157,7 +178,7 @@ export default function App() {
               // Build an idMap for the rare case of old files where a song has no id.
               const idMap = {};
               for (const s of data.songs) {
-                const savedId = await saveSong({ id: s.id || null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                const savedId = await saveSong({ id: s.id || null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
                 if (s.id) idMap[s.id] = savedId;
               }
               for (const set of data.sets) {
@@ -176,21 +197,21 @@ export default function App() {
               for (const s of data.songs) {
                 if (!s.id) {
                   // Old file without UUID — always add as new
-                  const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                  const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
                   idMap[s.id] = newId;
                   songsAdded++;
                   continue;
                 }
                 const existing = songById.get(s.id);
                 if (!existing) {
-                  await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                  await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
                   idMap[s.id] = s.id;
                   songsAdded++;
                 } else {
                   const existingMs = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.savedAt || 0);
                   const incomingMs = s.updatedAt       ? new Date(s.updatedAt).getTime()        : (s.savedAt || 0);
                   if (incomingMs > existingMs) {
-                    await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                    await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
                     songsUpdated++;
                   } else {
                     songsSkipped++;
@@ -439,7 +460,7 @@ export default function App() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex flex-col gap-1">
-              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Import sets</h2>
+              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{setsImportDialog.title ?? 'Import sets'}</h2>
               <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>What should happen if a song in this file already exists in your library?</p>
             </div>
             <div className="flex flex-col gap-2">
