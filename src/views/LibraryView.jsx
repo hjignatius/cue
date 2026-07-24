@@ -362,15 +362,37 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   useEffect(() => { sessionStorage.setItem('cue:set_search', setSearch); }, [setSearch]);
   useEffect(() => { sessionStorage.setItem('cue:set_sort', listSort); }, [listSort]);
 
+  // 'shared' is the one option that narrows rather than reorders: it answers
+  // "which sets are shared?" so anything unshared is hidden while it is active.
+  // Ordering inside it falls back to newest-first, the list's normal default.
+  const sharedOnly = listSort === 'shared';
+
   const sorted = [...sets].sort((a, b) => {
     if (listSort === 'alpha')  return a.name.localeCompare(b.name);
     if (listSort === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
     return (b.updatedAt || '').localeCompare(a.updatedAt || '');
   });
 
-  const filtered = setSearch.trim()
+  const bySearch = setSearch.trim()
     ? sorted.filter(s => normSearch(s.name).includes(normSearch(setSearch)))
     : sorted;
+
+  // Sets I published (they carry a live share link).
+  const filtered = sharedOnly
+    ? bySearch.filter(s => !!publishedSets[s.id])
+    : bySearch;
+
+  // Sets others shared with me. Normally these live in their own section below
+  // the list; under the Shared filter they belong alongside my published sets,
+  // so they are pulled up here and the section below drops its duplicate copy.
+  const sharedWithMeMatches = sharedOnly
+    ? (setSearch.trim()
+        ? savedShares.filter(sh => normSearch(sh.setName || 'Shared set').includes(normSearch(setSearch)))
+        : savedShares)
+    : [];
+
+  // Header count covers both groups so it matches what is actually on screen.
+  const visibleCount = filtered.length + sharedWithMeMatches.length;
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -462,7 +484,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
       <div className={`px-3 py-2 border-b ${border} flex items-center justify-between shrink-0`}>
         <div className="flex flex-col leading-tight">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sets</span>
-          <span className="text-xs text-gray-400 dark:text-gray-600 tabular-nums">{filtered.length} {filtered.length === 1 ? 'set' : 'sets'}</span>
+          <span className="text-xs text-gray-400 dark:text-gray-600 tabular-nums">{visibleCount} {visibleCount === 1 ? 'set' : 'sets'}</span>
         </div>
         <div className="flex items-center gap-1">
           {user && (
@@ -517,6 +539,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           <option value="alpha">A–Z</option>
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
+          <option value="shared">Shared</option>
         </select>
       </div>
 
@@ -610,8 +633,12 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         {sets.length === 0 && !creating && (
           <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No sets yet. Use "+ New Set" to create one.</p>
         )}
-        {sets.length > 0 && filtered.length === 0 && (
-          <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No sets match your search.</p>
+        {sets.length > 0 && visibleCount === 0 && (
+          <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">
+            {sharedOnly
+              ? (setSearch.trim() ? 'No shared sets match your search.' : 'No shared sets yet. Publish a set, or paste a link someone shared with you.')
+              : 'No sets match your search.'}
+          </p>
         )}
         {filtered.map(set => {
           const count = set.songIds.filter(id => songs.find(s => s.id === id)).length;
@@ -752,18 +779,53 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           );
         })}
 
+        {/* Under the Shared filter the bookmarks others sent me sit alongside my
+            published sets rather than in their own section further down. */}
+        {sharedOnly && sharedWithMeMatches.length > 0 && (
+          <>
+            {filtered.length > 0 && (
+              <div className="px-3 pt-3 pb-1.5">
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Shared with me</span>
+              </div>
+            )}
+            {sharedWithMeMatches.map(share => (
+              <div
+                key={share.token}
+                className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20`}
+              >
+                <div className="flex-1 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/shared/${share.token}`)}
+                    className={`font-medium truncate block text-sm text-left w-full transition-colors ${dark ? 'text-gray-300 hover:text-indigo-400' : 'text-gray-700 hover:text-indigo-600'}`}
+                  >
+                    {share.setName || 'Shared set'}
+                  </button>
+                  <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">Shared with me</p>
+                </div>
+                <ExternalLink size={12} className={`shrink-0 ${dark ? 'text-gray-700' : 'text-gray-300'} group-hover:opacity-60 transition-opacity`} />
+              </div>
+            ))}
+          </>
+        )}
+
         {/* Shared with me. Always rendered: the paste box below is the only way
             into a shared set from an installed app, and a first-time recipient
             has no bookmarks yet. */}
         {(
           <div className={`border-t-2 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
-            <div className={`flex items-center gap-2 px-3 pt-3 pb-1.5`}>
-              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Shared with me</span>
-              {savedShares.length > 0 && (
-                <span className="text-xs text-gray-300 dark:text-gray-700">{savedShares.length}</span>
-              )}
-            </div>
-            {savedShares.map(share => (
+            {/* Under the Shared filter the bookmarks are listed above with their
+                own heading, so repeating it here would show it twice. The paste
+                form below reads fine unlabelled. */}
+            {!sharedOnly && (
+              <div className={`flex items-center gap-2 px-3 pt-3 pb-1.5`}>
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Shared with me</span>
+                {savedShares.length > 0 && (
+                  <span className="text-xs text-gray-300 dark:text-gray-700">{savedShares.length}</span>
+                )}
+              </div>
+            )}
+            {(sharedOnly ? [] : savedShares).map(share => (
               <div
                 key={share.token}
                 className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20`}
