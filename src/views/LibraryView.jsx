@@ -121,6 +121,16 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
         {artist && <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{artist}</p>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        {/* Link dot: this song was copied in from a set someone shared. The
+            marker is the copiedFrom provenance the copy already records. */}
+        {song.copiedFrom && (
+          <span
+            title={song.copiedFrom.setName ? `Copied from shared set "${song.copiedFrom.setName}"` : 'Copied from a shared set'}
+            className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 dark:bg-emerald-500 shrink-0"
+          >
+            <Link2 size={9} className="text-white" strokeWidth={2.5} />
+          </span>
+        )}
         {/* Pencil dot: this song has local ink annotations from Present mode */}
         {hasAnnotation && (
           <span
@@ -1371,13 +1381,19 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   const artistFiltered = artistFilter !== null ? filtered.filter(s => (s.metadata?.artist || '') === artistFilter) : filtered;
   const keyFiltered    = keyFilter ? artistFiltered.filter(s => (s.metadata?.key || '') === keyFilter) : artistFiltered;
+  // 'shared' narrows rather than reorders, exactly like the Sets panel: only
+  // songs copied in from a shared set (which carry copiedFrom) are shown.
+  const sharedFiltered = sortBy === 'shared' ? keyFiltered.filter(s => !!s.copiedFrom) : keyFiltered;
 
-  const sorted = [...keyFiltered].sort((a, b) => {
+  const sorted = [...sharedFiltered].sort((a, b) => {
     if (sortBy === 'title')  return (a.metadata?.title  || '').localeCompare(b.metadata?.title  || '');
     if (sortBy === 'newest') return (b.updatedAt || '').localeCompare(a.updatedAt || '');
     if (sortBy === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
     if (sortBy === 'artist') return (a.metadata?.artist || '').localeCompare(b.metadata?.artist || '');
     if (sortBy === 'key')    return (a.metadata?.key    || '').localeCompare(b.metadata?.key    || '');
+    // 'shared' has no ordering of its own — list alphabetically, the library's
+    // default, so the filtered set reads like the normal list, just narrowed.
+    if (sortBy === 'shared') return (a.metadata?.title || '').localeCompare(b.metadata?.title || '');
     return 0;
   });
 
@@ -1612,6 +1628,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               <option value="oldest">Oldest</option>
               <option value="artist">By Artist</option>
               <option value="key">By Key</option>
+              <option value="shared">Shared</option>
             </select>
           </div>
 
@@ -1724,7 +1741,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </div>
               )}
               {songs.length > 0 && sorted.length === 0 && (
-                <p className="px-4 py-6 text-sm text-gray-400 dark:text-gray-600 text-center">No songs match your search.</p>
+                <p className="px-4 py-6 text-sm text-gray-400 dark:text-gray-600 text-center">
+                  {sortBy === 'shared'
+                    ? (search.trim() ? 'No shared songs match your search.' : 'No shared songs yet. Copy a song from a set someone shared with you.')
+                    : 'No songs match your search.'}
+                </p>
               )}
               {sorted.map((song, idx) => (
                 <SongRow
