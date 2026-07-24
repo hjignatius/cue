@@ -9,6 +9,7 @@ import { openManualPDF } from '../utils/manualExport.js';
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useNavigate } from 'react-router-dom';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { parseHtmlSet, matchSong } from '../utils/importHtmlSet.js';
@@ -172,6 +173,35 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
 
   // Shared-with-me bookmarks (viewer-side, localStorage only)
   const [savedShares, setSavedShares] = useState(loadSharedWithMe);
+  const navigate = useNavigate();
+  // "Open a shared link" — the only route into a shared set from inside an
+  // installed app. iOS cannot hand a tapped URL to a Home Screen web app
+  // (Universal Links need a native App Store app), so a recipient who taps a
+  // share link lands in Safari with no way across. Pasting it here skips the
+  // browser entirely, mirroring the emailed sign-in code.
+  const [shareInput, setShareInput] = useState('');
+  const [shareErr, setShareErr]     = useState('');
+
+  // Accepts a full share URL or a bare token. Tokens are the last non-empty
+  // path segment, so this survives query strings, trailing slashes, and a
+  // pasted link from any origin (someone else's deployment included).
+  function tokenFromShareInput(raw) {
+    const v = (raw || '').trim();
+    if (!v) return '';
+    const withoutQuery = v.split(/[?#]/)[0];
+    const segs = withoutQuery.split('/').filter(Boolean);
+    return segs.length ? segs[segs.length - 1] : '';
+  }
+
+  function openSharedLink(e) {
+    e.preventDefault();
+    const token = tokenFromShareInput(shareInput);
+    if (!token) { setShareErr('Paste a share link or code.'); return; }
+    if (/\s/.test(token)) { setShareErr("That doesn't look like a share link."); return; }
+    setShareErr('');
+    setShareInput('');
+    navigate(`/shared/${token}`);
+  }
 
   // Cross-device publish-status sync. Publish state is otherwise cached only in
   // this device's localStorage, so a set published (or unpublished) on another
@@ -722,12 +752,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           );
         })}
 
-        {/* Shared with me — only shown when the viewer has saved share bookmarks */}
-        {savedShares.length > 0 && (
+        {/* Shared with me. Always rendered: the paste box below is the only way
+            into a shared set from an installed app, and a first-time recipient
+            has no bookmarks yet. */}
+        {(
           <div className={`border-t-2 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
             <div className={`flex items-center gap-2 px-3 pt-3 pb-1.5`}>
               <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Shared with me</span>
-              <span className="text-xs text-gray-300 dark:text-gray-700">{savedShares.length}</span>
+              {savedShares.length > 0 && (
+                <span className="text-xs text-gray-300 dark:text-gray-700">{savedShares.length}</span>
+              )}
             </div>
             {savedShares.map(share => (
               <div
@@ -735,12 +769,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                 className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20`}
               >
                 <div className="flex-1 min-w-0">
-                  <a
-                    href={`/shared/${share.token}`}
-                    className={`font-medium truncate block text-sm transition-colors ${dark ? 'text-gray-300 hover:text-indigo-400' : 'text-gray-700 hover:text-indigo-600'}`}
+                  {/* Router navigation, not an <a href>: a full page load in a
+                      standalone iOS window gets handed to Safari, dropping the
+                      user out of the installed app. */}
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/shared/${share.token}`)}
+                    className={`font-medium truncate block text-sm text-left w-full transition-colors ${dark ? 'text-gray-300 hover:text-indigo-400' : 'text-gray-700 hover:text-indigo-600'}`}
                   >
                     {share.setName || 'Shared set'}
-                  </a>
+                  </button>
                   <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">Shared link</p>
                 </div>
                 <ExternalLink size={12} className={`shrink-0 ${dark ? 'text-gray-700' : 'text-gray-300'} group-hover:opacity-60 transition-opacity`} />
@@ -757,6 +795,38 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                 </button>
               </div>
             ))}
+
+            {/* Open a shared link without leaving the app */}
+            <form onSubmit={openSharedLink} className={`px-3 py-3 border-b ${border} flex flex-col gap-2`}>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={shareInput}
+                  onChange={e => { setShareInput(e.target.value); if (shareErr) setShareErr(''); }}
+                  placeholder="Paste a share link"
+                  aria-label="Paste a share link"
+                  aria-invalid={!!shareErr}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className={`flex-1 min-w-0 h-11 pointer-fine:h-9 px-2.5 text-sm rounded-lg border outline-none focus:border-indigo-500 transition-colors ${
+                    shareErr ? 'border-red-500' : dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
+                />
+                <button
+                  type="submit"
+                  disabled={!shareInput.trim()}
+                  className="h-11 pointer-fine:h-9 px-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors shrink-0"
+                >
+                  Open
+                </button>
+              </div>
+              {shareErr
+                ? <p className="text-xs text-red-500">{shareErr}</p>
+                : <p className="text-xs text-gray-400 dark:text-gray-600">
+                    Opens a set someone shared with you, without leaving Cue.
+                  </p>}
+            </form>
           </div>
         )}
       </div>
