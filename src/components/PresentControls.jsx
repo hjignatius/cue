@@ -12,7 +12,9 @@ import RoundButton, {
 
 // ---- Tunables ---------------------------------------------------------------
 
-export const PRESENT_CONTROL_BUTTON_SIZE   = 64;   // px diameter — large on purpose
+// Sits between the 44px action/chord buttons and the old 64px primary tier:
+// smaller than before, still comfortably above the MIN_TOUCH_TARGET.
+export const PRESENT_CONTROL_BUTTON_SIZE   = 54;   // px diameter
 export const PRESENT_CONTROL_GAP           = 12;
 export const PRESENT_CONTROL_IDLE_OPACITY  = 0.35;
 // Collapsing is the only way to hide the panel, so the pill is the sole way back
@@ -26,8 +28,9 @@ const PANEL_PADDING     = 12;
 const HANDLE_H          = 24;
 const FLASH_MS          = 180;
 
+const GRID_ROWS = 4; // A−/A+ · Prev/Next · D−/D+ · Count-in/Scroll
 const GRID_W = PRESENT_CONTROL_BUTTON_SIZE * 2 + PRESENT_CONTROL_GAP;
-const GRID_H = PRESENT_CONTROL_BUTTON_SIZE * 3 + PRESENT_CONTROL_GAP * 2;
+const GRID_H = PRESENT_CONTROL_BUTTON_SIZE * GRID_ROWS + PRESENT_CONTROL_GAP * (GRID_ROWS - 1);
 
 const EXPANDED_W  = GRID_W + PANEL_PADDING * 2;
 const EXPANDED_H  = GRID_H + HANDLE_H + PRESENT_CONTROL_GAP + PANEL_PADDING * 2;
@@ -68,6 +71,7 @@ export function ControlGrid({
   dark,
   onSmaller, onLarger, canSmaller, canLarger,
   onPrev, onNext, canPrev, canNext,
+  onFaster, onSlower, canFaster, canSlower,
   onCountIn, canCountIn,
   onToggleScroll, scrolling,
 }) {
@@ -102,6 +106,15 @@ export function ControlGrid({
         <TriangleRight />
       </RoundButton>
 
+      {/* Auto-scroll speed. D− is faster, D+ is slower — matching the request,
+          and mirroring how A−/A+ read (− shrinks the number, here the seconds). */}
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll faster" fill={fill} disabled={!canFaster} onActivate={onFaster}>
+        <Glyph>D−</Glyph>
+      </RoundButton>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll slower" fill={fill} disabled={!canSlower} onActivate={onSlower}>
+        <Glyph>D+</Glyph>
+      </RoundButton>
+
       <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Count-in" fill={fill} disabled={!canCountIn} active={flash} onActivate={handleCountIn}>
         <MetronomeIcon />
       </RoundButton>
@@ -124,9 +137,13 @@ export default function PresentControls(props) {
   const { dark } = props;
 
   const [collapsed, setCollapsed] = useState(loadCollapsed);
-  useEffect(() => {
-    try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0'); } catch { /* ignore */ }
-  }, [collapsed]);
+  // Only user-initiated collapse/expand is remembered across sessions. The idle
+  // auto-collapse is transient — persisting it would make every session start as
+  // a pill a few seconds after the last, even when the user wanted it open.
+  const setCollapsedByUser = useCallback((v) => {
+    setCollapsed(v);
+    try { localStorage.setItem(COLLAPSED_KEY, v ? '1' : '0'); } catch { /* ignore */ }
+  }, []);
 
   const width  = collapsed ? COLLAPSED_W : EXPANDED_W;
   const height = collapsed ? COLLAPSED_H : EXPANDED_H;
@@ -144,14 +161,24 @@ export default function PresentControls(props) {
     defaultPos,
   });
 
-  // Idle fade. Any pointerdown anywhere in Present restores full opacity; the
-  // listener is capture-phase so a handler that stops propagation cannot hide it.
+  // Idle behaviour. Any pointerdown anywhere in Present restores full opacity and
+  // re-arms the countdown; the listener is capture-phase so a handler that stops
+  // propagation cannot suppress it. When the timer fires the panel auto-collapses
+  // to the pill, which then ghosts at its idle opacity — so an untouched panel
+  // gets out of the way on its own, and a tap on the pill brings it back.
   const [idle, setIdle] = useState(false);
   const idleTimer = useRef(null);
+  // Read inside the timeout so a slow drag in progress when it fires doesn't
+  // yank the panel to a pill mid-drag; the drag-end effect re-arms it.
+  const draggingRef = useRef(false);
   const wake = useCallback(() => {
     setIdle(false);
     clearTimeout(idleTimer.current);
-    idleTimer.current = setTimeout(() => setIdle(true), PRESENT_CONTROL_IDLE_DELAY_MS);
+    idleTimer.current = setTimeout(() => {
+      if (draggingRef.current) return;
+      setIdle(true);
+      setCollapsed(true); // transient — not setCollapsedByUser
+    }, PRESENT_CONTROL_IDLE_DELAY_MS);
   }, []);
   useEffect(() => {
     wake();
@@ -161,6 +188,12 @@ export default function PresentControls(props) {
       clearTimeout(idleTimer.current);
     };
   }, [wake]);
+  // Track dragging for the timeout guard, and re-arm the countdown when a drag
+  // ends (pointerup does not fire the pointerdown wake).
+  useEffect(() => {
+    draggingRef.current = dragging;
+    if (!dragging) wake();
+  }, [dragging, wake]);
 
   if (!pos) return null; // wait for the first measure so it never flashes at 0,0
 
@@ -193,7 +226,7 @@ export default function PresentControls(props) {
           type="button"
           aria-label="Expand floating controls"
           aria-expanded={false}
-          onClick={() => setCollapsed(false)}
+          onClick={() => setCollapsedByUser(false)}
           className="w-full h-full rounded-full flex items-center justify-center shadow-xl backdrop-blur-md border"
           style={{ background: shellBg, borderColor: shellBorder, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
         >
@@ -208,7 +241,7 @@ export default function PresentControls(props) {
             type="button"
             aria-label="Collapse floating controls"
             aria-expanded={true}
-            onClick={() => setCollapsed(true)}
+            onClick={() => setCollapsedByUser(true)}
             className="w-full flex items-center justify-center rounded-lg shrink-0"
             style={{ height: HANDLE_H, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
           >

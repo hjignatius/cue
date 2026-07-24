@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Pencil } from 'lucide-react';
-import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_IDLE_DELAY_MS } from '../components/PresentControls.jsx';
+import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_IDLE_DELAY_MS, PRESENT_CONTROL_EDGE_MARGIN } from '../components/PresentControls.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -144,6 +144,14 @@ const FONT_KEY = 'cue:present_font_px';
 // Fallback scroll speed (px/s) when no duration is set
 const FALLBACK_SPEED = 10;
 
+// Auto-scroll speed multiplier, adjusted by the D−/D+ buttons. D− steps toward
+// the faster end, D+ toward the slower. Applied on top of the duration-derived
+// (or fallback) rate, so the base pacing is preserved and this just scales it.
+// Geometric steps read as even changes; 1 is the neutral default.
+const SPEED_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
+const DEFAULT_SPEED = 1;
+const SPEED_KEY = 'cue:present_scroll_mult';
+
 // Chord-panel size buttons and Present's action buttons share one size: the
 // adjustment/utility tier, smaller than PresentControls' 64px primary controls
 // but still a full MIN_TOUCH_TARGET, so RoundButton adds no padding. (The chord
@@ -232,6 +240,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     return DEFAULT_FONT;
   });
   const [scrolling, setScrolling] = useState(false);
+  const [speedMult, setSpeedMult] = useState(() => {
+    try {
+      const n = parseFloat(localStorage.getItem(SPEED_KEY));
+      if (SPEED_LEVELS.includes(n)) return n;
+    } catch { /* ignore */ }
+    return DEFAULT_SPEED;
+  });
   // Chords are docked (non-blocking) on tablet/desktop, so default them on there.
   // At phone widths the panel is a full-screen modal drawer, so it must NOT
   // auto-open — starting it on would bury the song behind a modal the moment
@@ -276,6 +291,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const smallerAction = useCallback(() => setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
   const largerAction  = useCallback(() => setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
 
+  // D− faster (next level up), D+ slower (next level down).
+  const fasterScroll = useCallback(() => setSpeedMult(m => SPEED_LEVELS[Math.min(SPEED_LEVELS.length - 1, SPEED_LEVELS.indexOf(m) + 1)]), []);
+  const slowerScroll = useCallback(() => setSpeedMult(m => SPEED_LEVELS[Math.max(0, SPEED_LEVELS.indexOf(m) - 1)]), []);
+
   // Pause in place and resume from there — no rewind. Scroll position is only
   // reset when the song itself changes (see goTo). Matches the spacebar toggle.
   const toggleScroll = useCallback(() => setScrolling(s => !s), []);
@@ -284,6 +303,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   useEffect(() => {
     try { localStorage.setItem(FONT_KEY, String(fontPx)); } catch { /* ignore */ }
   }, [fontPx]);
+
+  // Same persistence for the scroll-speed multiplier.
+  useEffect(() => {
+    try { localStorage.setItem(SPEED_KEY, String(speedMult)); } catch { /* ignore */ }
+  }, [speedMult]);
 
   // Notify parent whenever the displayed song changes
   useEffect(() => {
@@ -373,9 +397,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const scrollable  = el.scrollHeight - el.clientHeight;
     if (scrollable <= 0) { setScrolling(false); return; }
 
-    const pxPerSec = durationSec > 0
+    const basePxPerSec = durationSec > 0
       ? scrollable / durationSec
       : FALLBACK_SPEED;
+    const pxPerSec = basePxPerSec * speedMult;
 
     let last  = performance.now();
     let carry = 0;
@@ -397,7 +422,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     }
     rafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [scrolling, index, meta.duration]);
+  }, [scrolling, index, meta.duration, speedMult]);
 
   // Theme helpers
   const bg      = dark ? 'bg-neutral-950' : 'bg-white';
@@ -607,48 +632,39 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         )}
       </div>
 
-      {/* Action buttons — the top bar is gone, so these live in the lyric
-          column's 48px left gutter, where they cover no text at rest. They are
-          stationary; PresentControls is draggable, so overlap is possible by
-          construction and z-order is the only guarantee: z-35 keeps these above
-          the chord panel (z-30) and below PresentControls (z-40), so the control
-          pill always wins. Exit is here too — it is the only pointer route out of
-          Present (Escape is the keyboard fallback). */}
+      {/* Action buttons — the top bar is gone, so these live in the upper-left
+          corner, in the lyric column's 48px left gutter where they cover no text
+          at rest. Order top→bottom is Exit, Edit, YouTube, Finger drawing,
+          Chords. They are stationary; PresentControls is draggable, so overlap is
+          possible by construction and z-order is the only guarantee: z-35 keeps
+          these above the chord panel (z-30) and below PresentControls (z-40), so
+          the control pill always wins. Exit is here too — it is the only pointer
+          route out of Present (Escape is the keyboard fallback). */}
       <div
         className="fixed left-0 z-[35] flex flex-col items-center"
         style={{
-          top: '50%', transform: 'translateY(-50%)', gap: PRESENT_ACTION_GAP, paddingLeft: 2,
+          top: PRESENT_CONTROL_EDGE_MARGIN, gap: PRESENT_ACTION_GAP, paddingLeft: 2,
           opacity: gutterIdle ? PRESENT_CONTROL_IDLE_OPACITY : 1,
           transition: 'opacity 300ms ease',
         }}
       >
         <RoundButton
           size={PRESENT_ACTION_BUTTON_SIZE}
-          label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
+          label="Exit Present mode"
           fill={actionFill}
-          active={showChords}
-          onActivate={() => setShowChords(v => !v)}
+          onActivate={onExit}
         >
-          <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
+          <X size={22} strokeWidth={2.5} />
         </RoundButton>
 
-        {/* Pen glyph vs "Finger drawing" label: the mismatch is DELIBERATE, do not
-            "fix" the icon to a hand.
-            The glyph reads as ink, which is what the control is about. But the
-            toggle only gates FINGER and mouse drawing — an Apple Pencil draws
-            whatever the state (AnnotationCanvas:
-            shouldDraw = e.pointerType === 'pen' || annotating). So "off" does NOT
-            mean "no ink", and the label has to say what the toggle actually does
-            even though the glyph says what the feature is. */}
-        {!disableAnnotations && (
+        {showEdit && (
           <RoundButton
             size={PRESENT_ACTION_BUTTON_SIZE}
-            label={annotating ? 'Finger drawing on' : 'Finger drawing off'}
+            label="Edit this song"
             fill={actionFill}
-            active={annotating}
-            onActivate={() => setAnnotating(v => !v)}
+            onActivate={() => onEdit?.(songs[index], index)}
           >
-            <Pencil size={22} strokeWidth={2} />
+            <span className="font-bold leading-none" style={{ fontSize: 20 }}>E</span>
           </RoundButton>
         )}
 
@@ -670,24 +686,34 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           );
         })()}
 
-        {showEdit && (
+        {/* Pen glyph vs "Finger drawing" label: the mismatch is DELIBERATE, do not
+            "fix" the icon to a hand.
+            The glyph reads as ink, which is what the control is about. But the
+            toggle only gates FINGER and mouse drawing — an Apple Pencil draws
+            whatever the state (AnnotationCanvas:
+            shouldDraw = e.pointerType === 'pen' || annotating). So "off" does NOT
+            mean "no ink", and the label has to say what the toggle actually does
+            even though the glyph says what the feature is. */}
+        {!disableAnnotations && (
           <RoundButton
             size={PRESENT_ACTION_BUTTON_SIZE}
-            label="Edit this song"
+            label={annotating ? 'Finger drawing on' : 'Finger drawing off'}
             fill={actionFill}
-            onActivate={() => onEdit?.(songs[index], index)}
+            active={annotating}
+            onActivate={() => setAnnotating(v => !v)}
           >
-            <span className="font-bold leading-none" style={{ fontSize: 20 }}>E</span>
+            <Pencil size={22} strokeWidth={2} />
           </RoundButton>
         )}
 
         <RoundButton
           size={PRESENT_ACTION_BUTTON_SIZE}
-          label="Exit Present mode"
+          label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
           fill={actionFill}
-          onActivate={onExit}
+          active={showChords}
+          onActivate={() => setShowChords(v => !v)}
         >
-          <X size={22} strokeWidth={2.5} />
+          <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
         </RoundButton>
       </div>
 
@@ -704,6 +730,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         onNext={next}
         canPrev={index > 0}
         canNext={index < total - 1}
+        onFaster={fasterScroll}
+        onSlower={slowerScroll}
+        canFaster={speedMult < SPEED_LEVELS[SPEED_LEVELS.length - 1]}
+        canSlower={speedMult > SPEED_LEVELS[0]}
         onCountIn={handleMetronomeTap}
         canCountIn={!!Number(meta.tempo)}
         onToggleScroll={toggleScroll}
