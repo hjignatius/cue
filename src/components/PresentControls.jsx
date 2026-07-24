@@ -106,13 +106,14 @@ export function ControlGrid({
         <TriangleRight />
       </RoundButton>
 
-      {/* Auto-scroll speed. D− is faster, D+ is slower — matching the request,
-          and mirroring how A−/A+ read (− shrinks the number, here the seconds). */}
+      {/* Auto-scroll speed. F = faster, S = slower — spelled out rather than ±
+          so the meaning is unmistakable mid-performance (F sits left, matching
+          the faster-on-the-left position it had as D−). */}
       <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll faster" fill={fill} disabled={!canFaster} onActivate={onFaster}>
-        <Glyph>D−</Glyph>
+        <Glyph>F</Glyph>
       </RoundButton>
       <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll slower" fill={fill} disabled={!canSlower} onActivate={onSlower}>
-        <Glyph>D+</Glyph>
+        <Glyph>S</Glyph>
       </RoundButton>
 
       <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Count-in" fill={fill} disabled={!canCountIn} active={flash} onActivate={handleCountIn}>
