@@ -20,7 +20,7 @@ import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups } from '../lib/cloud.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
-import { useIsPhonePortrait } from '../hooks/useIsPhonePortrait.js';
+import { useIsPhonePortrait, usePortraitPanels } from '../hooks/useIsPhonePortrait.js';
 import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
 import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
 
@@ -1322,8 +1322,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
   const [setsSelectMode, setSetsSelectMode] = useState(false); // mirrors SetsColumn select mode
 
-  // ---- iPhone-portrait single-panel mode -------------------------------------
-  // Inert unless isPhonePortrait — desktop and iPad render exactly as before.
+  // ---- Portrait single-panel mode --------------------------------------------
+  // `stacked` (any portrait phone OR tablet) drives the one-panel-at-a-time
+  // layout and its selector; desktop and any landscape device render as before.
+  // `isPhonePortrait` (phone width only) still gates the phone-only header
+  // cosmetics, which a roomier iPad portrait header does not need.
+  const stacked = usePortraitPanels();
   const isPhonePortrait = useIsPhonePortrait();
   const [phonePanel, setPhonePanel] = useState(loadPhonePanel);
   useEffect(() => {
@@ -1335,11 +1339,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   // query scoped to the active panel resolves whichever is live.
   const layoutRef = useRef(null);
   const getPhoneScrollEl = () => (
-    isPhonePortrait
+    stacked
       ? layoutRef.current?.querySelector(`[data-phone-panel="${phonePanel}"] [data-phone-scroll]`) ?? null
       : null
   );
-  const pillHidden = useAutoHideOnScroll(getPhoneScrollEl, `${isPhonePortrait}:${phonePanel}`);
+  const pillHidden = useAutoHideOnScroll(getPhoneScrollEl, `${stacked}:${phonePanel}`);
 
   // Give the live scroller room to clear the pill. Applied to the element rather
   // than via props so SetsColumn/SetlistColumn keep their existing APIs.
@@ -1350,7 +1354,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     el.style.paddingBottom = PILL_CLEARANCE;
     return () => { el.style.paddingBottom = prev; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPhonePortrait, phonePanel, sortBy, artistFilter, search, sets.length, songs.length]);
+  }, [stacked, phonePanel, sortBy, artistFilter, search, sets.length, songs.length]);
 
   useEffect(() => { sessionStorage.setItem('cue:lib_search', search); }, [search]);
   useEffect(() => { sessionStorage.setItem('cue:lib_sort', sortBy); }, [sortBy]);
@@ -1573,7 +1577,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div
           data-onboard="songs-panel"
           data-phone-panel="library"
-          className={isPhonePortrait
+          className={stacked
             ? (phonePanel === 'library' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
         >
@@ -1773,7 +1777,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div
           data-onboard="sets-panel"
           data-phone-panel="sets"
-          className={isPhonePortrait
+          className={stacked
             ? (phonePanel === 'sets' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
         >
@@ -1793,7 +1797,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div
           data-onboard="setlist-panel"
           data-phone-panel="setlist"
-          className={isPhonePortrait
+          className={stacked
             ? (phonePanel === 'setlist' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden`}
         >
@@ -1813,7 +1817,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
       {/* Floating panel switcher — iPhone portrait only, and never over Present.
           z-30 sits above panel content but below the modal/dialog layer (z-50). */}
-      {isPhonePortrait && !presenting && (
+      {stacked && !presenting && (
         <div
           className="fixed left-1/2 z-30 [transition:transform_220ms_ease,opacity_160ms_ease] motion-reduce:[transition:none]"
           style={{

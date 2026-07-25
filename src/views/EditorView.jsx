@@ -1309,14 +1309,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       {/* Compact chrome: the panel selector gets its own full-width row directly
           below the toolbar, at the 44px touch size. */}
       {compactChrome && (
-        <div className={`px-4 pb-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} shrink-0`}>
+        // Centered compact pill, sized to its labels — matching the Library /
+        // Sets / Setlist selector rather than stretching the full editor width.
+        <div className={`px-4 pb-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} shrink-0 flex justify-center`}>
           <SegmentedControl
             ariaLabel="Editor panel"
             options={panelOptions}
             value={narrowTab === 'editor' ? 'text' : narrowTab}
             onChange={setPanelFromOption}
             size="lg"
-            fullWidth
+            fullWidth={false}
+            segmentPadX={18}
           />
         </div>
       )}
