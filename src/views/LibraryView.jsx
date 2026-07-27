@@ -1446,12 +1446,32 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   async function handleAddSelectedToSet() {
     const set = sets.find(s => s.id === activeSetId);
     if (!set) return;
-    const newIds = [...selected].filter(id => !set.songIds.includes(id));
-    if (!newIds.length) return;
+    const selectedIds = [...selected];
+    const already = selectedIds.filter(id => set.songIds.includes(id));
+    const newIds  = selectedIds.filter(id => !set.songIds.includes(id));
+    const titleOf = id => songs.find(s => s.id === id)?.metadata?.title || 'That song';
+
+    // Nothing new to add — every selected song is already in the set. Say so
+    // rather than silently doing nothing.
+    if (!newIds.length) {
+      alert(already.length === 1
+        ? `"${titleOf(already[0])}" is already in "${set.name}".`
+        : `All ${already.length} selected songs are already in "${set.name}".`);
+      return;
+    }
+
     await saveSet({ ...set, songIds: [...set.songIds, ...newIds] });
     onRefresh();
     setSelected(new Set());
     setSelectMode(false);
+
+    // Added the new ones; note any that were skipped because they were already
+    // present, so a partial add isn't confusing.
+    if (already.length) {
+      alert(already.length === 1
+        ? `Added ${newIds.length}. "${titleOf(already[0])}" was already in "${set.name}" and was skipped.`
+        : `Added ${newIds.length}. ${already.length} songs were already in "${set.name}" and were skipped.`);
+    }
   }
 
   function handleExportSelected() {
