@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Pencil } from 'lucide-react';
+import { X, Pencil, Wrench } from 'lucide-react';
 import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN } from '../components/PresentControls.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
@@ -151,6 +151,10 @@ const FALLBACK_SPEED = 10;
 const SPEED_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 const DEFAULT_SPEED = 1;
 const SPEED_KEY = 'cue:present_scroll_mult';
+// Whether the left-gutter tool tray (Edit / YouTube / ink / chords) is expanded.
+// Persisted so it stays as the user left it from song to song and across
+// re-entering Present.
+const TOOLS_OPEN_KEY = 'cue:present_tools_open';
 
 // Chord-panel size buttons and Present's action buttons share one size: the
 // adjustment/utility tier, smaller than PresentControls' 64px primary controls
@@ -267,6 +271,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
   const [annotating, setAnnotating] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(() => {
+    try { return localStorage.getItem(TOOLS_OPEN_KEY) === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(TOOLS_OPEN_KEY, toolsOpen ? '1' : '0'); } catch { /* ignore */ }
+  }, [toolsOpen]);
   const { url: ytUrl, collapsed: ytCollapsed, openPlayer, collapsePlayer, expandPlayer } = useYouTube();
   const ytWasExpandedRef = useRef(false);
   const scrollRef      = useRef(null);
@@ -638,12 +648,15 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
       {/* Action buttons — the top bar is gone, so these live in the upper-left
           corner, in the lyric column's 48px left gutter where they cover no text
-          at rest. Order top→bottom is Exit, Edit, YouTube, Finger drawing,
-          Chords. They are stationary; PresentControls is draggable, so overlap is
+          at rest. Exit stays on top, always visible; below it a Tools toggle
+          reveals or hides the four song tools (Edit, YouTube, Finger drawing,
+          Chords) so they don't clutter the stage while scrolling. The whole
+          group is stationary; PresentControls is draggable, so overlap is
           possible by construction and z-order is the only guarantee: z-35 keeps
           these above the chord panel (z-30) and below PresentControls (z-40), so
-          the control pill always wins. Exit is here too — it is the only pointer
-          route out of Present (Escape is the keyboard fallback). */}
+          the control pill always wins. Exit is the only pointer route out of
+          Present (Escape is the keyboard fallback). The tool tray's open state
+          persists, so it stays as left from song to song and across re-entry. */}
       <div
         className="fixed left-0 z-[35] flex flex-col items-center"
         style={{
@@ -661,6 +674,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           <X size={22} strokeWidth={2.5} />
         </RoundButton>
 
+        {/* Tools toggle. Indigo accent when open (via active) so it reads as the
+            container for the tray, distinct from the neutral tools it reveals. */}
+        <RoundButton
+          size={PRESENT_ACTION_BUTTON_SIZE}
+          label={toolsOpen ? 'Hide tools' : 'Show tools'}
+          fill={actionFill}
+          active={toolsOpen}
+          ariaExpanded={toolsOpen}
+          onActivate={() => setToolsOpen(v => !v)}
+        >
+          <Wrench size={20} strokeWidth={2} />
+        </RoundButton>
+
+        {toolsOpen && (<>
         {showEdit && (
           <RoundButton
             size={PRESENT_ACTION_BUTTON_SIZE}
@@ -719,6 +746,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         >
           <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
         </RoundButton>
+        </>)}
       </div>
 
       {/* Floating control panel — the only in-view control surface for text size,
