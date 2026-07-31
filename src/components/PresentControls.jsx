@@ -21,7 +21,16 @@ export const PRESENT_CONTROL_IDLE_OPACITY  = 0.35;
 // to the controls. It fades to its own higher floor than the expanded panel — at
 // 64px on a bright stage, 0.35 is easy to lose.
 export const PRESENT_CONTROL_PILL_IDLE_OPACITY = 0.55;
-export const PRESENT_CONTROL_IDLE_DELAY_MS = 4000;
+// Fallback only — the live value is the user's presentIdleSec pref, passed in as
+// idleDelayMs. Kept exported so callers have a sane default before prefs load.
+export const PRESENT_CONTROL_IDLE_DELAY_MS = 3000;
+
+// The collapsed pill is the only way back to the controls, so it must stay
+// findable even while ghosted on a bright stage. A solid indigo (the app accent)
+// with a white chevron reads on both white and dark backgrounds — unlike the
+// translucent white it used to be, which vanished at the idle opacity.
+const PILL_BG     = 'rgba(79,70,229,0.95)';   // indigo-600
+const PILL_BORDER = 'rgba(255,255,255,0.30)';
 export const PRESENT_CONTROL_EDGE_MARGIN   = 16;   // min gap from any viewport edge
 
 const PANEL_PADDING     = 12;
@@ -135,7 +144,7 @@ export function ControlGrid({
 // ---- Floating shell ---------------------------------------------------------
 
 export default function PresentControls(props) {
-  const { dark } = props;
+  const { dark, idleDelayMs = PRESENT_CONTROL_IDLE_DELAY_MS } = props;
 
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   // Only user-initiated collapse/expand is remembered across sessions. The idle
@@ -179,8 +188,8 @@ export default function PresentControls(props) {
       if (draggingRef.current) return;
       setIdle(true);
       setCollapsed(true); // transient — not setCollapsedByUser
-    }, PRESENT_CONTROL_IDLE_DELAY_MS);
-  }, []);
+    }, idleDelayMs);
+  }, [idleDelayMs]);
   useEffect(() => {
     wake();
     window.addEventListener('pointerdown', wake, true);
@@ -229,7 +238,7 @@ export default function PresentControls(props) {
           aria-expanded={false}
           onClick={() => setCollapsedByUser(false)}
           className="w-full h-full rounded-full flex items-center justify-center shadow-xl backdrop-blur-md border"
-          style={{ background: shellBg, borderColor: shellBorder, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
+          style={{ background: PILL_BG, borderColor: PILL_BORDER, color: '#ffffff', touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
         >
           <ChevronUp size={26} strokeWidth={2.5} />
         </button>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, Pencil } from 'lucide-react';
-import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_IDLE_DELAY_MS, PRESENT_CONTROL_EDGE_MARGIN } from '../components/PresentControls.jsx';
+import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN } from '../components/PresentControls.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -220,7 +220,11 @@ function lyricColumnWidth(fontPx) {
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true, disableAnnotations = false }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, updatePref } = usePrefs();
+  // One idle delay for every Present control surface (pill + left gutter), from
+  // the user's 0–5s setting. Clamped defensively in case an out-of-range value
+  // is ever stored.
+  const idleDelayMs = Math.max(0, Math.min(5, presentIdleSec ?? 3)) * 1000;
   const dark = theme === 'dark';
   // isNarrow (1024) drives the lyric column: fixed 65-char width on wide screens,
   // flex-1 below (so tablet-portrait and phones don't need to scroll the column
@@ -462,7 +466,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const wake = () => {
       setGutterIdle(false);
       clearTimeout(gutterIdleTimer.current);
-      gutterIdleTimer.current = setTimeout(() => setGutterIdle(true), PRESENT_CONTROL_IDLE_DELAY_MS);
+      gutterIdleTimer.current = setTimeout(() => setGutterIdle(true), idleDelayMs);
     };
     wake();
     window.addEventListener('pointerdown', wake, true);
@@ -470,7 +474,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       window.removeEventListener('pointerdown', wake, true);
       clearTimeout(gutterIdleTimer.current);
     };
-  }, []);
+  }, [idleDelayMs]);
 
   // select-none on the root: Present is a performance view — lyrics are never
   // meant to be selected. Without it, a double-click (including the setlist row
@@ -722,6 +726,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           the pill is the only way to hide it. */}
       <PresentControls
         dark={dark}
+        idleDelayMs={idleDelayMs}
         onSmaller={smallerAction}
         onLarger={largerAction}
         canSmaller={fontPx > MIN_FONT}

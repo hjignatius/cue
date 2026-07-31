@@ -11,7 +11,11 @@ function systemTheme() {
 // Seeded with action arrows plus a few common marks.
 const DEFAULT_SYMBOLS = '↑ ↓ ← → ↔ ↕ ⤴ ⤵ ↻ • ✓ ✗ ★ ♪ ♩';
 
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS };
+// Seconds the Present controls wait after the last interaction before ghosting
+// (and collapsing) out of the way. User-configurable 0–5; 3 is the default.
+const DEFAULT_PRESENT_IDLE_SEC = 3;
+
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 
