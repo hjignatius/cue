@@ -224,11 +224,13 @@ function lyricColumnWidth(fontPx) {
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true, disableAnnotations = false }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, updatePref } = usePrefs();
   // One idle delay for every Present control surface (pill + left gutter), from
   // the user's 0–5s setting. Clamped defensively in case an out-of-range value
   // is ever stored.
   const idleDelayMs = Math.max(0, Math.min(5, presentIdleSec ?? 3)) * 1000;
+  // Lead-in before auto-scroll actually moves after the button is pressed (0–5s).
+  const scrollStartDelayMs = Math.max(0, Math.min(5, scrollStartDelaySec ?? 0)) * 1000;
   const dark = theme === 'dark';
   // isNarrow (1024) drives the lyric column: fixed 65-char width on wide screens,
   // flex-1 below (so tablet-portrait and phones don't need to scroll the column
@@ -247,7 +249,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     } catch { /* ignore */ }
     return DEFAULT_FONT;
   });
+  // `scrolling` is the user's intent (drives the button icon); `scrollArmed` is
+  // whether the start-delay has elapsed and the loop should actually move. They
+  // are equal when the delay is 0.
   const [scrolling, setScrolling] = useState(false);
+  const [scrollArmed, setScrollArmed] = useState(false);
   const [speedMult, setSpeedMult] = useState(() => {
     try {
       const n = parseFloat(localStorage.getItem(SPEED_KEY));
@@ -399,11 +405,25 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     };
   }, []);
 
+  // Start-delay gate. Pressing scroll flips `scrolling` immediately (so the
+  // button reads as engaged), but the loop below waits for `scrollArmed`, which
+  // this arms after the user's lead-in. Pressing again, changing song, or
+  // reaching the end clears `scrolling`, which disarms here and cancels a pending
+  // lead-in. A speed change does NOT re-run this (it isn't in the deps), so it
+  // never re-triggers the delay mid-scroll.
+  useEffect(() => {
+    if (!scrolling) { setScrollArmed(false); return; }
+    if (scrollStartDelayMs <= 0) { setScrollArmed(true); return; }
+    setScrollArmed(false);
+    const t = setTimeout(() => setScrollArmed(true), scrollStartDelayMs);
+    return () => clearTimeout(t);
+  }, [scrolling, scrollStartDelayMs]);
+
   // Duration-based auto-scroll.
   // Rate = (total scrollable px) / (song duration in seconds).
   // Falls back to fixed speed when no duration is set.
   useEffect(() => {
-    if (!scrolling) return;
+    if (!scrollArmed) return;
     const el = scrollRef.current;
     if (!el) return;
 
@@ -436,7 +456,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     }
     rafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [scrolling, index, meta.duration, speedMult]);
+  }, [scrollArmed, index, meta.duration, speedMult]);
 
   // Theme helpers
   const bg      = dark ? 'bg-neutral-950' : 'bg-white';

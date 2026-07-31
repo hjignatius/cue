@@ -64,8 +64,9 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, updatePref } = usePrefs();
   const idleSec = Math.max(0, Math.min(5, presentIdleSec ?? 3));
+  const scrollDelaySec = Math.max(0, Math.min(5, scrollStartDelaySec ?? 0));
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
 
@@ -355,6 +356,31 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 ))}
               </div>
               <p className={`text-xs ${muted}`}>Seconds before the Present controls fade and collapse. 0 hides them right away.</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${label}`}>Scroll start delay</span>
+                <span className={`text-sm tabular-nums ${muted}`}>{scrollDelaySec === 0 ? 'None' : `${scrollDelaySec}s`}</span>
+              </div>
+              {/* 0–5s lead-in after the scroll button is pressed before
+                  auto-scroll actually begins. */}
+              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                {[0, 1, 2, 3, 4, 5].map((n, i) => (
+                  <button
+                    key={n}
+                    onClick={() => updatePref('scrollStartDelaySec', n)}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
+                      scrollDelaySec === n
+                        ? 'bg-indigo-600 text-white'
+                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className={`text-xs ${muted}`}>Seconds to wait after pressing the scroll button before scrolling starts.</p>
             </div>
           </section>
 
