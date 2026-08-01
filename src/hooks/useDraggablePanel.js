@@ -35,8 +35,12 @@ function savePos(key, pos) {
  * @param {number}   height      current panel height (re-clamps when it changes)
  * @param {number}   margin      minimum gap from every viewport edge
  * @param {Function} defaultPos  ({ vw, vh, width, height, margin }) => ({ x, y })
+ * @param {'left'|'right'} anchorX  which horizontal edge stays put when the width
+ *   changes (collapse/expand). 'left' (default) keeps the top-left fixed; 'right'
+ *   keeps the right edge fixed, so a panel that shrinks collapses toward its
+ *   right corner instead of its left.
  */
-export function useDraggablePanel({ storageKey, width, height, margin = 0, defaultPos }) {
+export function useDraggablePanel({ storageKey, width, height, margin = 0, defaultPos, anchorX = 'left' }) {
   const [pos, setPos]           = useState(null); // null until first measure
   const [dragging, setDragging] = useState(false);
 
@@ -68,9 +72,19 @@ export function useDraggablePanel({ storageKey, width, height, margin = 0, defau
   }, [storageKey, margin, apply, clampPos]);
 
   // Re-clamp when the panel resizes (collapse/expand) so it can't hang off-edge.
+  // With anchorX 'right', shift x by the width change first so the right edge —
+  // not the left — stays put; the pill then collapses toward the right corner.
+  const prevWidthRef = useRef(width);
   useEffect(() => {
-    if (posRef.current) apply(clampPos(posRef.current));
-  }, [width, height, apply, clampPos]);
+    if (posRef.current) {
+      let p = posRef.current;
+      if (anchorX === 'right') {
+        p = { x: p.x + (prevWidthRef.current - width), y: p.y };
+      }
+      apply(clampPos(p));
+    }
+    prevWidthRef.current = width;
+  }, [width, height, apply, clampPos, anchorX]);
 
   // Re-clamp on resize and rotation.
   useEffect(() => {

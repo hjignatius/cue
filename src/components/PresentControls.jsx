@@ -169,6 +169,8 @@ export default function PresentControls(props) {
     height,
     margin: PRESENT_CONTROL_EDGE_MARGIN,
     defaultPos,
+    // Collapse toward the right corner of where the panel sat, not the left.
+    anchorX: 'right',
   });
 
   // Idle behaviour. Any pointerdown anywhere in Present restores full opacity and
