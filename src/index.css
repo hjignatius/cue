@@ -39,14 +39,3 @@ html, body {
   height: 100%;
   overflow: hidden;
 }
-
-/* Hide the scrollbar on horizontally-swipable strips (e.g. the phone editor
-   header and metadata row). Touch platforms auto-hide it anyway; this keeps a
-   trackpad/mouse from drawing a thin bar over the small strip. */
-.no-scrollbar {
-  scrollbar-width: none;          /* Firefox */
-  -webkit-overflow-scrolling: touch;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;                  /* WebKit */
-}
