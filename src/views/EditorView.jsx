@@ -954,94 +954,126 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   return (
     <div className={`h-dvh ${rootBg} flex flex-col`}>
       {/* Header */}
+      {/* Header. On a phone the title and primary buttons share a horizontally
+          swipeable strip — a long title stays readable and every button is
+          reachable by sliding — while Exit stays pinned on the right so the way
+          out is always one tap away. Wider screens keep the original fixed
+          layout (title grows, buttons fixed on the right). */}
       <header className={`px-4 py-2 border-b ${border} flex items-center gap-3 shrink-0`}>
-        <input
-          value={metadata.title}
-          onChange={e => { setMetadata(m => ({ ...m, title: e.target.value })); setIsDirty(true); }}
-          placeholder="Song title"
-          className={`flex-1 bg-transparent text-lg font-bold outline-none min-w-0 ${dark ? 'text-white placeholder-gray-700' : 'text-gray-900 placeholder-gray-400'}`}
-        />
+        {(() => {
+          const titleInput = (
+            <input
+              value={metadata.title}
+              onChange={e => { setMetadata(m => ({ ...m, title: e.target.value })); setIsDirty(true); }}
+              placeholder="Song title"
+              className={`bg-transparent text-lg font-bold outline-none ${dark ? 'text-white placeholder-gray-700' : 'text-gray-900 placeholder-gray-400'} ${compactChrome ? 'shrink-0 w-48' : 'flex-1 min-w-0'}`}
+            />
+          );
 
-        <div className="flex items-center gap-2 shrink-0">
-          {inSetlist && (
+          const primaryButtons = (
             <>
-              {/* Prev/Next: pill (icon + label) when wide, icon-only circle when
-                  narrow — the label costs width a phone header can't spare. */}
-              <RoundButton
-                size={ROUND_SIZE_ACTION} pill={!isNarrow}
-                label="Previous song" title="Previous song"
-                fill={headerFill} disabled={!hasPrev}
-                onActivate={() => requestNav(setlistIdx - 1)}
-              >
-                <TriangleLeft size={22} />{!isNarrow && <PillLabel>Prev</PillLabel>}
-              </RoundButton>
-              <span className={`text-xs ${mutedText}`}>{setlistIdx + 1}/{setlistSongs.length}</span>
-              <RoundButton
-                size={ROUND_SIZE_ACTION} pill={!isNarrow}
-                label="Next song" title="Next song"
-                fill={headerFill} disabled={!hasNext}
-                onActivate={() => requestNav(setlistIdx + 1)}
-              >
-                {!isNarrow && <PillLabel>Next</PillLabel>}<TriangleRight size={22} />
-              </RoundButton>
+              {inSetlist && (
+                <>
+                  {/* Prev/Next: pill (icon + label) when wide, icon-only circle when
+                      narrow — the label costs width a phone header can't spare. */}
+                  <RoundButton
+                    size={ROUND_SIZE_ACTION} pill={!isNarrow}
+                    label="Previous song" title="Previous song"
+                    fill={headerFill} disabled={!hasPrev}
+                    onActivate={() => requestNav(setlistIdx - 1)}
+                  >
+                    <TriangleLeft size={22} />{!isNarrow && <PillLabel>Prev</PillLabel>}
+                  </RoundButton>
+                  <span className={`text-xs shrink-0 ${mutedText}`}>{setlistIdx + 1}/{setlistSongs.length}</span>
+                  <RoundButton
+                    size={ROUND_SIZE_ACTION} pill={!isNarrow}
+                    label="Next song" title="Next song"
+                    fill={headerFill} disabled={!hasNext}
+                    onActivate={() => requestNav(setlistIdx + 1)}
+                  >
+                    {!isNarrow && <PillLabel>Next</PillLabel>}<TriangleRight size={22} />
+                  </RoundButton>
+                </>
+              )}
+              {(() => {
+                const hasYT = !!youtubeEmbedUrl(metadata.youtubeUrl);
+                return (
+                  <RoundButton
+                    size={ROUND_SIZE_ACTION}
+                    label={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
+                    title={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
+                    fill={headerFill} disabled={!hasYT}
+                    onActivate={() => openPlayer(metadata.youtubeUrl, metadata.title)}
+                  >
+                    {/* Red brand mark (editor-header override). Present keeps its
+                        white currentColor because it sits over lyrics; here the mark's
+                        red aids recognition. RoundButton's opacity still dims it when
+                        disabled. #f87171 reads on both the slate and night fills. */}
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="#f87171" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+                  </RoundButton>
+                );
+              })()}
+              {onReturn ? (
+                // Reached only by Edit-from-Present, so the context is known: circle,
+                // icon-only, tooltip carries the meaning.
+                <RoundButton
+                  size={ROUND_SIZE_ACTION}
+                  label="Return to Performance" title="Return to Performance"
+                  fill={headerFill}
+                  onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey })}
+                >
+                  <Undo2 size={22} strokeWidth={2} />
+                </RoundButton>
+              ) : (
+                <RoundButton
+                  size={ROUND_SIZE_ACTION} pill
+                  label="Present" title="Present"
+                  fill={headerFill}
+                  onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey }], 0)}
+                >
+                  <Tv size={22} strokeWidth={2} /><PillLabel>Present</PillLabel>
+                </RoundButton>
+              )}
             </>
-          )}
-          {(() => {
-            const hasYT = !!youtubeEmbedUrl(metadata.youtubeUrl);
-            return (
-              <RoundButton
-                size={ROUND_SIZE_ACTION}
-                label={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
-                title={hasYT ? 'Play YouTube' : 'No YouTube URL saved'}
-                fill={headerFill} disabled={!hasYT}
-                onActivate={() => openPlayer(metadata.youtubeUrl, metadata.title)}
-              >
-                {/* Red brand mark (editor-header override). Present keeps its
-                    white currentColor because it sits over lyrics; here the mark's
-                    red aids recognition. RoundButton's opacity still dims it when
-                    disabled. #f87171 reads on both the slate and night fills. */}
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="#f87171" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
-              </RoundButton>
-            );
-          })()}
-          {onReturn ? (
-            // Reached only by Edit-from-Present, so the context is known: circle,
-            // icon-only, tooltip carries the meaning.
+          );
+
+          // Exit — indigo anchor. isDirty guard verbatim. Always pinned right.
+          const exitButton = (
             <RoundButton
               size={ROUND_SIZE_ACTION}
-              label="Return to Performance" title="Return to Performance"
-              fill={headerFill}
-              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey })}
+              label="Back to Library" title="Back to Library"
+              fill={ROUND_FILL_ACTIVE}
+              onActivate={() => isDirty ? setShowBackConfirm(true) : onBack()}
             >
-              <Undo2 size={22} strokeWidth={2} />
+              <X size={24} strokeWidth={2.5} />
             </RoundButton>
-          ) : (
-            <RoundButton
-              size={ROUND_SIZE_ACTION} pill
-              label="Present" title="Present"
-              fill={headerFill}
-              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey }], 0)}
-            >
-              <Tv size={22} strokeWidth={2} /><PillLabel>Present</PillLabel>
-            </RoundButton>
-          )}
+          );
 
-          {/* Exit — indigo anchor. isDirty guard verbatim. */}
-          <RoundButton
-            size={ROUND_SIZE_ACTION}
-            label="Back to Library" title="Back to Library"
-            fill={ROUND_FILL_ACTIVE}
-            onActivate={() => isDirty ? setShowBackConfirm(true) : onBack()}
-          >
-            <X size={24} strokeWidth={2.5} />
-          </RoundButton>
-        </div>
+          return compactChrome ? (
+            <>
+              <div className="no-scrollbar flex-1 min-w-0 flex items-center gap-2 overflow-x-auto overscroll-x-contain">
+                {titleInput}
+                {primaryButtons}
+              </div>
+              {exitButton}
+            </>
+          ) : (
+            <>
+              {titleInput}
+              <div className="flex items-center gap-2 shrink-0">
+                {primaryButtons}
+                {exitButton}
+              </div>
+            </>
+          );
+        })()}
       </header>
 
       {/* Metadata form */}
       <MetadataForm
         metadata={metadata}
         onChange={m => { setMetadata(m); setIsDirty(true); }}
+        compact={compactChrome}
       />
 
       {/* Toolbar */}

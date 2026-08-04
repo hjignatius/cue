@@ -138,75 +138,107 @@ function DurationStepper({ value, onChange }) {
   );
 }
 
-export default function MetadataForm({ metadata, onChange }) {
+export default function MetadataForm({ metadata, onChange, compact = false }) {
   function set(key, val) { onChange(prev => ({ ...prev, [key]: val })); }
 
   const inputCls = `bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 ${fieldText} ${fieldMuted} w-full`;
 
-  return (
-    <div className="flex flex-wrap items-end gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-      {/* Artist */}
-      <div className="flex flex-col gap-0.5 min-w-32">
-        <label className="text-xs text-gray-500 uppercase tracking-wide">Artist</label>
+  const rowBg = 'px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900';
+
+  const artist = (
+    <div className="flex flex-col gap-0.5 min-w-32">
+      <label className="text-xs text-gray-500 uppercase tracking-wide">Artist</label>
+      <input
+        value={metadata.artist || ''}
+        onChange={e => set('artist', e.target.value)}
+        placeholder="Artist name"
+        className={inputCls}
+      />
+    </div>
+  );
+
+  const keyField = (
+    <div className="flex flex-col gap-0.5 shrink-0">
+      <label className="text-xs text-gray-500 uppercase tracking-wide">Key</label>
+      <select
+        value={metadata.key || ''}
+        onChange={e => set('key', e.target.value)}
+        // h-[42px] matches the sibling inputs exactly (a native select renders
+        // ~1px shorter than an input at the same py-2.5).
+        className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+      >
+        <option value="">—</option>
+        {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
+    </div>
+  );
+
+  const tempo = (
+    <div className="flex flex-col gap-0.5 shrink-0">
+      <label className="text-xs text-gray-500 uppercase tracking-wide">Tempo (BPM)</label>
+      <div className="flex items-center gap-1.5">
         <input
-          value={metadata.artist || ''}
-          onChange={e => set('artist', e.target.value)}
-          placeholder="Artist name"
-          className={inputCls}
+          value={metadata.tempo || ''}
+          onChange={e => set('tempo', e.target.value)}
+          placeholder="120"
+          size={4}
+          className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm ${fieldText} ${fieldMuted}`}
+        />
+        <TapTempo
+          bpm={metadata.tempo}
+          onBpm={v => set('tempo', v)}
+          timeSig={metadata.timeSig || '4/4'}
+          onTimeSig={v => set('timeSig', v)}
         />
       </div>
+    </div>
+  );
 
-      {/* Source key */}
-      <div className="flex flex-col gap-0.5">
-        <label className="text-xs text-gray-500 uppercase tracking-wide">Key</label>
-        <select
-          value={metadata.key || ''}
-          onChange={e => set('key', e.target.value)}
-          // h-[42px] matches the sibling inputs exactly (a native select renders
-          // ~1px shorter than an input at the same py-2.5).
-          className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
-        >
-          <option value="">—</option>
-          {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
-        </select>
-      </div>
+  const duration = (
+    <div className="flex flex-col gap-0.5 shrink-0">
+      <label className="text-xs text-gray-500 uppercase tracking-wide">Duration (M:SS)</label>
+      <DurationStepper value={metadata.duration || ''} onChange={v => set('duration', v)} />
+    </div>
+  );
 
-      {/* Tempo */}
-      <div className="flex flex-col gap-0.5">
-        <label className="text-xs text-gray-500 uppercase tracking-wide">Tempo (BPM)</label>
-        <div className="flex items-center gap-1.5">
-          <input
-            value={metadata.tempo || ''}
-            onChange={e => set('tempo', e.target.value)}
-            placeholder="120"
-            size={4}
-            className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm ${fieldText} ${fieldMuted}`}
-          />
-          <TapTempo
-            bpm={metadata.tempo}
-            onBpm={v => set('tempo', v)}
-            timeSig={metadata.timeSig || '4/4'}
-            onTimeSig={v => set('timeSig', v)}
-          />
+  const youtube = (
+    <div className="flex flex-col gap-0.5 min-w-48 flex-1">
+      <label className="text-xs text-gray-500 uppercase tracking-wide">YouTube URL</label>
+      <input
+        value={metadata.youtubeUrl || ''}
+        onChange={e => set('youtubeUrl', e.target.value)}
+        placeholder="https://youtube.com/watch?v=…"
+        className={inputCls}
+      />
+    </div>
+  );
+
+  // Phone: Artist/Key/Tempo/Duration on one horizontally swipeable row (so they
+  // stop stacking into several tall rows), with YouTube on its own line below.
+  // Wider screens keep the single wrapping row.
+  if (compact) {
+    return (
+      <>
+        <div className={`no-scrollbar flex flex-nowrap items-end gap-3 overflow-x-auto overscroll-x-contain ${rowBg}`}>
+          {artist}
+          {keyField}
+          {tempo}
+          {duration}
         </div>
-      </div>
+        <div className={`flex items-end ${rowBg}`}>
+          {youtube}
+        </div>
+      </>
+    );
+  }
 
-      {/* Duration */}
-      <div className="flex flex-col gap-0.5">
-        <label className="text-xs text-gray-500 uppercase tracking-wide">Duration (M:SS)</label>
-        <DurationStepper value={metadata.duration || ''} onChange={v => set('duration', v)} />
-      </div>
-
-      {/* YouTube URL */}
-      <div className="flex flex-col gap-0.5 min-w-48 flex-1">
-        <label className="text-xs text-gray-500 uppercase tracking-wide">YouTube URL</label>
-        <input
-          value={metadata.youtubeUrl || ''}
-          onChange={e => set('youtubeUrl', e.target.value)}
-          placeholder="https://youtube.com/watch?v=…"
-          className={inputCls}
-        />
-      </div>
+  return (
+    <div className={`flex flex-wrap items-end gap-3 ${rowBg}`}>
+      {artist}
+      {keyField}
+      {tempo}
+      {duration}
+      {youtube}
     </div>
   );
 }
