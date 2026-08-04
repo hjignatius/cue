@@ -712,7 +712,10 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                       ) : (
                         <p className={`font-medium truncate ${isActive && !selectMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
                       )}
-                      <p className="text-xs text-gray-400 dark:text-gray-600">{count} {count === 1 ? 'song' : 'songs'}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-600">
+                        {count} {count === 1 ? 'song' : 'songs'}
+                        {isPublished && <span className="text-indigo-500 dark:text-indigo-400"> · Published</span>}
+                      </p>
                     </div>
                     {/* Sync indicators — always visible (mutually exclusive). The
                         legend in the header row explains the colors. */}
@@ -1379,11 +1382,19 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   function toggleSelectMode() { setSelectMode(v => !v); setSelected(new Set()); }
   function toggleSelect(id) {
-    // Selection (and the blueish highlight) only happens in Select mode, where it
-    // drives an action — export, add-to-set, or delete. Outside Select mode a
-    // single click does nothing (double-click opens the song), so a plain click
-    // no longer looks "selected" when it can't be acted on.
-    if (!selectMode) return;
+    // Outside Select mode a tap highlights the row (light blue) so the user can
+    // see what they touched; the ⋮ menu carries the actions. Tapping the same
+    // row again clears it. In Select mode the tap drives the multi-select set
+    // (export / delete) as before.
+    if (!selectMode) {
+      setHighlightedSongId(prev => {
+        const next = prev === id ? null : id;
+        if (next) sessionStorage.setItem('cue:lib_highlighted_id', next);
+        else sessionStorage.removeItem('cue:lib_highlighted_id');
+        return next;
+      });
+      return;
+    }
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -1394,9 +1405,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   function deselectAll() { setSelected(new Set()); }
 
   // Add the given song ids to the active set, skipping any already present and
-  // reporting the outcome. `clearAfter` exits the multi-select flow (used by the
-  // header button, not the per-row menu). Returns nothing; alerts as needed.
-  async function addIdsToActiveSet(ids, { clearAfter = false } = {}) {
+  // reporting the outcome. Returns nothing; alerts as needed.
+  async function addIdsToActiveSet(ids) {
     const set = sets.find(s => s.id === activeSetId);
     if (!set) return;
     const already = ids.filter(id => set.songIds.includes(id));
@@ -1412,7 +1422,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
     await saveSet({ ...set, songIds: [...set.songIds, ...newIds] });
     onRefresh();
-    if (clearAfter) { setSelected(new Set()); setSelectMode(false); }
 
     if (already.length) {
       alert(already.length === 1
@@ -1421,7 +1430,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     }
   }
 
-  function handleAddSelectedToSet() { return addIdsToActiveSet([...selected], { clearAfter: true }); }
   function handleAddSongToSet(song) { return addIdsToActiveSet([song.id]); }
 
   function handleExportSelected() {
@@ -1636,13 +1644,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </>
               )}
             </div>
-            <HeaderPill
-              dark={dark} label="Add to Set"
-              title={!selectMode || selected.size === 0 ? undefined : !activeSetId ? 'Select a set in the Sets panel first' : `Add to "${activeSet?.name}"`}
-              active={selectMode && selected.size > 0 && !!activeSetId}
-              disabled={!selectMode || !(selected.size > 0 && activeSetId)}
-              onActivate={handleAddSelectedToSet}
-            />
+            {/* Add to Set now lives in each song's ⋮ menu. */}
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label={selectMode && selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
