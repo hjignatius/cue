@@ -165,6 +165,18 @@ export const CHORD_SIZE_BUTTON_SIZE = 44;
 export const PRESENT_ACTION_BUTTON_SIZE = 44;
 const PRESENT_ACTION_GAP = 12;
 
+// When Cue runs as an installed app (Home Screen / Add to Dock), the OS draws
+// window controls over the top-left of the content — macOS traffic lights, or
+// iPad Stage Manager's controls — which collide with the top action button. Push
+// the left gutter down to clear them. A normal browser tab has its own chrome
+// and needs no offset, so this only applies in standalone display mode.
+const IS_STANDALONE = typeof window !== 'undefined' &&
+  ((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+   window.navigator?.standalone === true);
+// Clears macOS traffic lights (~y 12–28) and the iPad Stage Manager control with
+// margin to spare; falls back to the normal edge margin in a browser tab.
+const GUTTER_TOP = IS_STANDALONE ? 56 : PRESENT_CONTROL_EDGE_MARGIN;
+
 // Artist line height, as a multiple of fontPx. The artist sits in the lyric flow
 // (inside contentWrapRef), so this IS the amount v1 annotations must be pushed
 // down by — see ANNOTATION_LAYOUT_VERSION. Styling the line and computing the
@@ -680,7 +692,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       <div
         className="fixed left-0 z-[35] flex flex-col items-center"
         style={{
-          top: PRESENT_CONTROL_EDGE_MARGIN, gap: PRESENT_ACTION_GAP, paddingLeft: 2,
+          top: GUTTER_TOP, gap: PRESENT_ACTION_GAP, paddingLeft: 2,
           opacity: gutterIdle ? PRESENT_CONTROL_IDLE_OPACITY : 1,
           transition: 'opacity 300ms ease',
         }}
