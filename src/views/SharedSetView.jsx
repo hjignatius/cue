@@ -783,10 +783,9 @@ function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange,
             <p className={`text-sm mt-0.5 truncate ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{meta.artist}</p>
           )}
           <div className="flex flex-wrap items-center gap-3 mt-2">
-            {meta.key    && <span className={`text-xs ${muted}`}>Key: {meta.key}</span>}
-            {meta.tempo  && <span className={`text-xs ${muted}`}>{meta.tempo} BPM</span>}
-            {meta.duration && <span className={`text-xs ${muted}`}>{meta.duration}</span>}
-            {/* Viewer-local View Key — stored in localStorage, never sent to server */}
+            {/* Only the viewer-local View Key remains under the title/artist —
+                Key / BPM / duration were removed at the owner's request.
+                Stored in localStorage, never sent to server. */}
             <label className={`flex items-center gap-1 text-xs ${muted}`}>
               View key
               <select
