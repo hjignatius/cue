@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSharedSet } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import { KEY_NAMES } from '../utils/transpose.js';
 import { saveSong, saveSet, loadSongs } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import PresentationView from './PresentationView.jsx';
@@ -15,12 +14,13 @@ function PillLabel({ children }) {
   return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
 }
 
-// Viewer-local key overrides: stored in localStorage, never written to any Supabase table.
+// Viewer-local key overrides from earlier versions: stored in localStorage, never
+// written to any Supabase table. The shared view no longer offers a picker, but
+// any previously-stored override still applies and shows in the read-only View key.
 const VIEWER_KEYS_KEY = 'cue:viewer_keys';
 function loadViewerKeys() {
   try { return JSON.parse(localStorage.getItem(VIEWER_KEYS_KEY) || '{}'); } catch { return {}; }
 }
-function saveViewerKeys(obj) { localStorage.setItem(VIEWER_KEYS_KEY, JSON.stringify(obj)); }
 
 // Shared-with-me bookmarks: { token, setName, savedAt, lastLoadedAt }[]
 export const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
@@ -65,7 +65,7 @@ export default function SharedSetView() {
   const [setData, setSetData]       = useState(null);      // { set, songs }
   const [presenting, setPresenting] = useState(null);      // { songs, startIndex }
   const [retryCount, setRetryCount] = useState(0);
-  const [viewerKeys, setViewerKeys] = useState(loadViewerKeys);
+  const [viewerKeys] = useState(loadViewerKeys);
 
   // Bookmark state
   const [savedShares, setSavedShares] = useState(loadSavedShares);
@@ -120,12 +120,6 @@ export default function SharedSetView() {
     persistSavedShares(shares);
     setSavedShares([...shares]);
   }, [status, token]);
-
-  function setViewerKey(songId, key) {
-    const updated = { ...viewerKeys, [songId]: key };
-    setViewerKeys(updated);
-    saveViewerKeys(updated);
-  }
 
   function songsWithViewerKeys(songs) {
     return songs.map(s => ({ ...s, displayKey: viewerKeys[s.id] || s.displayKey || '' }));
@@ -517,8 +511,6 @@ export default function SharedSetView() {
                 index={idx}
                 dark={dark}
                 muted={muted}
-                viewerKey={viewerKeys[song.id] || ''}
-                onViewerKeyChange={key => setViewerKey(song.id, key || '')}
                 onPresent={() => setPresenting({ songs: enriched, startIndex: idx })}
                 onCopy={() => handleCopySong(song)}
                 copying={copying}
@@ -767,7 +759,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange, onPresent, onCopy, copying }) {
+function SharedSongRow({ song, index, dark, muted, onPresent, onCopy, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -782,22 +774,13 @@ function SharedSongRow({ song, index, dark, muted, viewerKey, onViewerKeyChange,
           {meta.artist && (
             <p className={`text-sm mt-0.5 truncate ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{meta.artist}</p>
           )}
-          <div className="flex flex-wrap items-center gap-3 mt-2">
-            {/* Only the viewer-local View Key remains under the title/artist —
-                Key / BPM / duration were removed at the owner's request.
-                Stored in localStorage, never sent to server. */}
-            <label className={`flex items-center gap-1 text-xs ${muted}`}>
-              View key
-              <select
-                value={viewerKey}
-                onChange={e => onViewerKeyChange(e.target.value)}
-                className={`border rounded px-1.5 py-0.5 text-xs ${dark ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-white border-gray-300 text-gray-700'}`}
-              >
-                <option value="">Original</option>
-                {KEY_NAMES.map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </label>
-          </div>
+          {/* Read-only View key. `song` is enriched, so displayKey already folds
+              in any stored viewer key; fall back to the song's original. */}
+          {(song.displayKey || meta.key) && (
+            <div className="mt-2">
+              <span className={`text-xs ${muted}`}>View key: {song.displayKey || meta.key}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Round-button language: neutral copy circle, indigo present circle. */}
