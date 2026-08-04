@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, Copy, UploadCloud, DownloadCloud, Link2, CloudOff, ExternalLink, Settings, Archive, Tv, RefreshCw } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw } from 'lucide-react';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets } from '../utils/storage.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
@@ -23,6 +23,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import { useIsPhonePortrait, usePortraitPanels } from '../hooks/useIsPhonePortrait.js';
 import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
 import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
+import RowMenu from '../components/RowMenu.jsx';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -103,8 +104,8 @@ function formatDuration(totalSec) {
 
 // ---- Song row ---------------------------------------------------------------
 
-function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highlighted, hasAnnotation }) {
-  const { title, artist, key, tempo } = song.metadata || {};
+function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onAddToSet, canAddToSet, selected, onToggleSelect, highlighted, hasAnnotation }) {
+  const { title, artist, key } = song.metadata || {};
 
   return (
     <div
@@ -114,7 +115,6 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
         : 'hover:bg-gray-100 dark:hover:bg-gray-900'
       }`}
       onClick={() => onToggleSelect(song.id)}
-      onDoubleClick={onOpen}
     >
       <div className="flex-1 min-w-0">
         <p className={`font-medium truncate ${selected ? 'text-indigo-700 dark:text-indigo-300' : highlighted ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-900 dark:text-white'}`}>{title || 'Untitled'}</p>
@@ -140,15 +140,17 @@ function SongRow({ song, onOpen, onDuplicate, selected, onToggleSelect, highligh
             <Pencil size={9} className="text-white" strokeWidth={2.5} />
           </span>
         )}
-        {key   && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{key}</span>}
-        {tempo && <span className="text-xs text-gray-400 dark:text-gray-600">{tempo}</span>}
-        <button
-          onClick={e => { e.stopPropagation(); onDuplicate(song); }}
-          className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-all shrink-0"
-          title="Duplicate song"
-        >
-          <Copy size={19} />
-        </button>
+        {key && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{key}</span>}
+        <RowMenu
+          dark={dark}
+          label={`Actions for ${title || 'Untitled'}`}
+          items={[
+            { id: 'add',   label: 'Add to Set', disabled: !canAddToSet, onSelect: () => onAddToSet(song) },
+            { id: 'edit',  label: 'Edit',       onSelect: onOpen },
+            { id: 'pres',  label: 'Present',    onSelect: () => onPresent(song) },
+            { id: 'dup',   label: 'Duplicate',  onSelect: () => onDuplicate(song) },
+          ]}
+        />
       </div>
     </div>
   );
@@ -341,7 +343,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   }
 
   function startRename(set, e) {
-    e.stopPropagation();
+    e?.stopPropagation();
     setEditingSetId(set.id);
     setEditingSetName(set.name);
   }
@@ -592,7 +594,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         {/* Select-all / count — in the same always-present row so entering Select
             mode never shifts the list down. */}
         <div className="flex-1" />
-        {selectMode && (
+        {selectMode ? (
           <>
             <button
               onClick={() => setSelectedSets(selectedSets.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map(s => s.id)))}
@@ -606,6 +608,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
               </button>
             )}
           </>
+        ) : user && (
+          /* Sync-dot legend — sits in the same row as Export/Delete so it needs
+             no extra vertical space. Matters most on iPad/iPhone, where the dots'
+             hover tooltips are unreachable. */
+          <div className="flex items-center gap-2.5 shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />republish</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />cloud newer</span>
+          </div>
         )}
       </div>
 
@@ -700,87 +710,41 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                           className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5"
                         />
                       ) : (
-                        <div className="flex items-center gap-1 group/name">
-                          <p className={`font-medium truncate ${isActive && !selectMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
-                          {!selectMode && (
-                            <button
-                              onClick={e => startRename(set, e)}
-                              title="Rename set"
-                              className="opacity-0 group-hover/name:opacity-100 pointer-coarse:opacity-100 h-8 w-8 flex items-center justify-center rounded text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-opacity shrink-0"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                          )}
-                        </div>
+                        <p className={`font-medium truncate ${isActive && !selectMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
                       )}
                       <p className="text-xs text-gray-400 dark:text-gray-600">{count} {count === 1 ? 'song' : 'songs'}</p>
                     </div>
-                    {/* Cloud controls — signed-in users only */}
-                    {user && !selectMode && editingSetId !== set.id && (
-                      <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
-                        {/* Sync indicators — always visible (mutually exclusive). */}
-                        {isStale && (
-                          <span
-                            className="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-0.5 shrink-0"
-                            title="Local changes not yet published — republish to sync"
-                          />
-                        )}
-                        {cloudAhead && (
-                          <span
-                            className="w-1.5 h-1.5 rounded-full bg-red-500 mr-0.5 shrink-0"
-                            title="A newer version is in the cloud — pull to update"
-                          />
-                        )}
-                        {/* Publish / Republish button */}
-                        <button
-                          onClick={() => handlePublishClick(set)}
-                          title={isPublished ? 'Republish' : 'Publish to cloud'}
-                          className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
-                        >
-                          <UploadCloud size={19} />
-                        </button>
-                        {/* Share / Unpublish — only after at least one publish */}
-                        {isPublished && (
-                          <>
-                            <button
-                              onClick={() => setPullDialog({ setId: set.id })}
-                              disabled={presenting}
-                              title={presenting ? 'Not available while presenting' : 'Pull from cloud (overwrites this local set)'}
-                              className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            >
-                              <DownloadCloud size={19} />
-                            </button>
-                            <button
-                              onClick={() => setShareDialogSet(set)}
-                              title="Share link"
-                              className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
-                            >
-                              <Link2 size={19} />
-                            </button>
-                            <button
-                              onClick={() => handleUnpublishClick(set)}
-                              title="Remove from cloud"
-                              className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                            >
-                              <CloudOff size={19} />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                    {/* Sync indicators — always visible (mutually exclusive). The
+                        legend in the header row explains the colors. */}
+                    {user && !selectMode && editingSetId !== set.id && isStale && (
+                      <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" title="Local changes not yet published — republish to sync" />
                     )}
-                    {/* Duplicate — a plain icon button, matching the song row's
-                        duplicate. Local operation, so available to everyone. */}
-                    {!selectMode && editingSetId !== set.id && (
-                      <button
-                        onClick={e => { e.stopPropagation(); handleDuplicateSet(set); }}
-                        title="Duplicate set"
-                        className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-700 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-all shrink-0"
-                      >
-                        <Copy size={19} />
-                      </button>
+                    {user && !selectMode && editingSetId !== set.id && cloudAhead && (
+                      <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="A newer version is in the cloud — overwrite to update" />
                     )}
+                    {/* Right-pointing arrow, to the LEFT of the actions menu. */}
                     {!selectMode && editingSetId !== set.id && (
                       <ChevronRight size={14} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-300 dark:text-gray-700 group-hover:text-gray-500'}`} />
+                    )}
+                    {/* Actions menu. Cloud items appear only when signed in, and
+                        are grayed until the set has been published at least once. */}
+                    {!selectMode && editingSetId !== set.id && (
+                      <span onClick={e => e.stopPropagation()}>
+                        <RowMenu
+                          dark={dark}
+                          label={`Actions for ${set.name}`}
+                          items={[
+                            { id: 'rename', label: 'Rename', onSelect: () => startRename(set) },
+                            user && (isPublished
+                              ? { id: 'unpub', label: 'Unpublish', danger: true, onSelect: () => handleUnpublishClick(set) }
+                              : { id: 'pub',   label: 'Publish',   onSelect: () => handlePublishClick(set) }),
+                            user && { id: 'share',   label: 'Share',     disabled: !isPublished, onSelect: () => setShareDialogSet(set) },
+                            user && { id: 'over',    label: 'Overwrite', danger: true, disabled: !isPublished || presenting, onSelect: () => setPullDialog({ setId: set.id }) },
+                            user && { id: 'repub',   label: 'Republish', disabled: !isPublished, onSelect: () => handlePublishClick(set) },
+                            { id: 'dup', label: 'Duplicate', onSelect: () => handleDuplicateSet(set) },
+                          ]}
+                        />
+                      </span>
                     )}
                   </>
                 );
@@ -1052,7 +1016,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
 // of the row still selects/opens the song. The handle carries touch-action:none
 // and user-select:none so iOS Safari initiates a drag instead of scrolling /
 // highlighting text. Handle only renders in custom sort mode.
-function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, onOpen, onRemove }) {
+function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, onPresent, onEdit, onRemove, dark }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: song.id, disabled: !draggable });
 
@@ -1069,7 +1033,6 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
       ref={setNodeRef}
       style={style}
       onClick={onSelect}
-      onDoubleClick={onOpen}
       className={`flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-800 group transition-colors cursor-pointer ${
         isSelected ? 'bg-indigo-50 dark:bg-indigo-950/40' : isOver ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
       }`}
@@ -1092,13 +1055,17 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
       <span className="text-xs text-gray-400 dark:text-gray-600 w-5 shrink-0">{idx + 1}.</span>
       <span className={`flex-1 truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-900 dark:text-white'}`}>{song.metadata?.title || 'Untitled'}</span>
       {song.metadata?.key && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{song.metadata.key}</span>}
-      <button
-        onClick={e => { e.stopPropagation(); onRemove(); }}
-        className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-400 hover:text-red-500 transition-colors shrink-0"
-        title="Remove from set"
-      >
-        <Trash2 size={19} />
-      </button>
+      <span onClick={e => e.stopPropagation()}>
+        <RowMenu
+          dark={dark}
+          label={`Actions for ${song.metadata?.title || 'Untitled'}`}
+          items={[
+            { id: 'pres', label: 'Present', onSelect: onPresent },
+            { id: 'edit', label: 'Edit',    onSelect: onEdit },
+            { id: 'del',  label: 'Delete',  danger: true, onSelect: onRemove },
+          ]}
+        />
+      </span>
     </div>
   );
 }
@@ -1184,10 +1151,6 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
     onDeleteSet(set.id);
   }
 
-  const selectedSong = selectedSongId ? displaySongs.find(s => s.id === selectedSongId) ?? null : null;
-  const selectedIdx  = selectedSong ? displaySongs.indexOf(selectedSong) : -1;
-  const canAct       = selectedSong !== null;
-
   const totalSec      = displaySongs.reduce((sum, s) => sum + parseDuration(s.metadata?.duration), 0);
   const hasDurations  = displaySongs.some(s => parseDuration(s.metadata?.duration) > 0);
   const gapCount      = Math.max(0, displaySongs.length - 1);
@@ -1206,22 +1169,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
             <button onClick={() => applySort('custom')} className={`h-8 px-3 rounded transition-colors ${sortMode === 'custom' ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>Custom</button>
             <button onClick={() => applySort('alpha')}  className={`h-8 px-3 rounded transition-colors ${sortMode === 'alpha'  ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>A–Z</button>
           </div>
-          {displaySongs.length > 0 && (
-            <HeaderPill
-              dark={dark} icon={Tv} label="Present"
-              title={canAct ? 'Present from selected song' : 'Select a song first'}
-              active={canAct} disabled={!canAct}
-              onActivate={() => onPresent(displaySongs, selectedIdx)}
-            />
-          )}
-          {displaySongs.length > 0 && (
-            <HeaderPill
-              dark={dark} icon={Pencil} label="Edit"
-              title={canAct ? 'Edit selected song' : 'Select a song first'}
-              disabled={!canAct}
-              onActivate={() => selectedSong && onEdit?.(selectedSong, selectedIdx, displaySongs)}
-            />
-          )}
+          {/* Present / Edit now live in each row's ⋮ menu. */}
         </div>
       </div>
 
@@ -1269,11 +1217,13 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
                 key={song.id}
                 song={song}
                 idx={idx}
+                dark={dark}
                 draggable={sortMode === 'custom'}
                 isSelected={song.id === selectedSongId}
                 isOver={sortMode === 'custom' && song.id === overId && song.id !== selectedSongId}
                 onSelect={() => selectSong(song.id)}
-                onOpen={() => onPresent?.(displaySongs, idx)}
+                onPresent={() => onPresent?.(displaySongs, idx)}
+                onEdit={() => onEdit?.(song, idx, displaySongs)}
                 onRemove={() => handleRemove(song.id)}
               />
             ))}
@@ -1443,16 +1393,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   function selectAll()   { setSelected(new Set(sorted.map(s => s.id))); }
   function deselectAll() { setSelected(new Set()); }
 
-  async function handleAddSelectedToSet() {
+  // Add the given song ids to the active set, skipping any already present and
+  // reporting the outcome. `clearAfter` exits the multi-select flow (used by the
+  // header button, not the per-row menu). Returns nothing; alerts as needed.
+  async function addIdsToActiveSet(ids, { clearAfter = false } = {}) {
     const set = sets.find(s => s.id === activeSetId);
     if (!set) return;
-    const selectedIds = [...selected];
-    const already = selectedIds.filter(id => set.songIds.includes(id));
-    const newIds  = selectedIds.filter(id => !set.songIds.includes(id));
+    const already = ids.filter(id => set.songIds.includes(id));
+    const newIds  = ids.filter(id => !set.songIds.includes(id));
     const titleOf = id => songs.find(s => s.id === id)?.metadata?.title || 'That song';
 
-    // Nothing new to add — every selected song is already in the set. Say so
-    // rather than silently doing nothing.
     if (!newIds.length) {
       alert(already.length === 1
         ? `"${titleOf(already[0])}" is already in "${set.name}".`
@@ -1462,17 +1412,17 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
     await saveSet({ ...set, songIds: [...set.songIds, ...newIds] });
     onRefresh();
-    setSelected(new Set());
-    setSelectMode(false);
+    if (clearAfter) { setSelected(new Set()); setSelectMode(false); }
 
-    // Added the new ones; note any that were skipped because they were already
-    // present, so a partial add isn't confusing.
     if (already.length) {
       alert(already.length === 1
         ? `Added ${newIds.length}. "${titleOf(already[0])}" was already in "${set.name}" and was skipped.`
         : `Added ${newIds.length}. ${already.length} songs were already in "${set.name}" and were skipped.`);
     }
   }
+
+  function handleAddSelectedToSet() { return addIdsToActiveSet([...selected], { clearAfter: true }); }
+  function handleAddSongToSet(song) { return addIdsToActiveSet([song.id]); }
 
   function handleExportSelected() {
     const selectedSongs = sorted.filter(s => selected.has(s.id));
@@ -1775,6 +1725,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 <SongRow
                   key={song.id}
                   song={song}
+                  dark={dark}
                   onOpen={() => {
                     setSelected(new Set());
                     setHighlightedSongId(null);
@@ -1782,7 +1733,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     if (onOpenSongFromList) onOpenSongFromList(song, idx, sorted);
                     else onOpenSong(song);
                   }}
+                  onPresent={s => onPresent?.([s], 0)}
                   onDuplicate={handleDuplicate}
+                  onAddToSet={handleAddSongToSet}
+                  canAddToSet={!!activeSetId}
                   selected={selected.has(song.id)}
                   onToggleSelect={toggleSelect}
                   highlighted={!selected.has(song.id) && song.id === highlightedSongId}
