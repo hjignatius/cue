@@ -455,14 +455,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         </div>
         <div className="flex items-center gap-1">
           {user && (
-            <button
-              onClick={() => setPullDialog({ setId: null })}
-              disabled={presenting}
-              className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            <RoundButton
+              size={ROUND_SIZE_COMPACT}
+              label="Pull a set from the cloud"
               title={presenting ? 'Not available while presenting' : 'Pull a set from the cloud'}
+              fill={dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME}
+              disabled={presenting}
+              onActivate={() => setPullDialog({ setId: null })}
             >
-              <DownloadCloud size={16} />
-            </button>
+              <DownloadCloud size={18} />
+            </RoundButton>
           )}
           {!selectMode ? (
             <HeaderPill dark={dark} icon={CheckSquare} label="Select" onActivate={() => { setSelectMode(true); setSelectedSets(new Set()); }} />
