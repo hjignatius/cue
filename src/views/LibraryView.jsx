@@ -12,7 +12,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { useNavigate } from 'react-router-dom';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { parseHtmlSet, matchSong } from '../utils/importHtmlSet.js';
 import OnboardingTour from '../components/OnboardingTour.jsx';
 import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
@@ -166,7 +165,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   const [setSearch, setSetSearch] = useState(() => sessionStorage.getItem('cue:set_search') || '');
   const [creating, setCreating] = useState(false);
   const [newName, setNewName]   = useState('');
-  const [summary, setSummary]   = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedSets, setSelectedSets] = useState(new Set());
   const [setsExportOpen, setSetsExportOpen] = useState(false);
@@ -369,8 +367,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     onRefresh();
   }
 
-  // summary: { setName, matched: number, skipped: [{title, artist}] }
-
   useEffect(() => { sessionStorage.setItem('cue:set_search', setSearch); }, [setSearch]);
   useEffect(() => { sessionStorage.setItem('cue:set_sort', listSort); }, [listSort]);
 
@@ -450,47 +446,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     setSelectMode(false);
   }
 
-  function handleImportSet() {
-    const input = document.createElement('input');
-    input.type   = 'file';
-    input.accept = '.html,.htm';
-    // Attach before .click() — a detached input can be GC'd before its change
-    // event fires on iOS Safari, silently dropping the first import attempt.
-    input.style.display = 'none';
-    document.body.appendChild(input);
-    input.oncancel = () => input.remove();
-    input.onchange = async () => {
-      input.remove();
-      const file = input.files?.[0];
-      if (!file) return;
-      const result = parseHtmlSet(await file.text(), file.name);
-      if (result.error) { alert(result.error); return; }
-
-      // Unique set name — append (2), (3) … if name already taken
-      let setName = result.setName;
-      const taken = new Set(sets.map(s => s.name));
-      if (taken.has(setName)) {
-        let n = 2;
-        while (taken.has(`${setName} (${n})`)) n++;
-        setName = `${setName} (${n})`;
-      }
-
-      // Match each row against the library
-      const matchedIds = [];
-      const skipped    = [];
-      for (const row of result.songs) {
-        const found = matchSong(row, songs);
-        if (found) matchedIds.push(found.id);
-        else skipped.push(row);
-      }
-
-      await saveSet({ id: null, name: setName, songIds: matchedIds, sortMode: 'custom' });
-      onRefresh();
-      setSummary({ setName, matched: matchedIds.length, skipped });
-    };
-    input.click();
-  }
-
   return (
     <div className="flex flex-col h-full">
       <div className={`px-3 py-2 border-b ${border} flex items-center justify-between shrink-0`}>
@@ -509,13 +464,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
               <DownloadCloud size={16} />
             </button>
           )}
-          <button
-            onClick={handleImportSet}
-            className="h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-            title="Import set from OnSong HTML"
-          >
-            <Download size={16} />
-          </button>
           {!selectMode ? (
             <HeaderPill dark={dark} icon={CheckSquare} label="Select" onActivate={() => { setSelectMode(true); setSelectedSets(new Set()); }} />
           ) : (
@@ -966,48 +914,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
         );
       })()}
 
-      {/* Import summary modal */}
-      {summary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className={`w-96 max-h-[80vh] rounded-2xl shadow-2xl flex flex-col ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
-            <div className="px-6 pt-6 pb-4 shrink-0">
-              <h2 className={`text-base font-semibold mb-1.5 ${dark ? 'text-white' : 'text-gray-900'}`}>Set imported</h2>
-              <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                Created <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>"{summary.setName}"</span> with{' '}
-                <span className="font-medium text-indigo-500">{summary.matched} {summary.matched === 1 ? 'song' : 'songs'}</span>.
-                {summary.skipped.length > 0 && (
-                  <> {summary.skipped.length} {summary.skipped.length === 1 ? 'song was' : 'songs were'} not found in your library.</>
-                )}
-              </p>
-            </div>
-
-            {summary.skipped.length > 0 && (
-              <div className={`mx-4 mb-2 rounded-lg border flex flex-col min-h-0 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-                <div className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wide shrink-0 rounded-t-lg ${dark ? 'bg-gray-800 text-gray-500' : 'bg-gray-50 text-gray-400'}`}>
-                  Not found in library
-                </div>
-                <div className="overflow-y-auto">
-                  {summary.skipped.map((s, i) => (
-                    <div key={i} className={`px-3 py-2 ${i < summary.skipped.length - 1 ? `border-b ${dark ? 'border-gray-800' : 'border-gray-100'}` : ''}`}>
-                      <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{s.title}</p>
-                      {s.artist && <p className={`text-xs ${dark ? 'text-gray-600' : 'text-gray-400'}`}>{s.artist}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className={`px-4 py-4 shrink-0 border-t ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
-              <button
-                onClick={() => setSummary(null)}
-                className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

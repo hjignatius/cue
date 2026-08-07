@@ -168,7 +168,6 @@ function manualHTML() {
     <li class="toc-h2">Creating &amp; Managing Sets</li>
     <li class="toc-h2">Sets Select Mode</li>
     <li class="toc-h2">Searching &amp; Sorting Sets</li>
-    <li class="toc-h2">Importing a Set from HTML</li>
     <li class="toc-h2">The Setlist Column</li>
     <li class="toc-h1">5. The Editor</li>
     <li class="toc-h2">Metadata Bar</li>
@@ -305,19 +304,6 @@ function manualHTML() {
   <li><strong>Newest</strong> — most recently created or updated first</li>
   <li><strong>Oldest</strong> — oldest first</li>
 </ul>
-
-<h2>Importing a Set from HTML</h2>
-<p>If you have a setlist in an HTML file (for example, exported from a spreadsheet), you can import it directly. Tap the <strong>Import icon (↓)</strong> next to the <strong>+</strong> button in the Sets panel header to open the file picker, then select your <code>.html</code> or <code>.htm</code> file.</p>
-<p>The HTML file must contain a <code>&lt;table&gt;</code> with at least a <strong>Title</strong> column header. <strong>Artist</strong> and <strong>Key</strong> columns are also recognised if present. All other columns are ignored.</p>
-<p>Example table structure:</p>
-<pre>&lt;table&gt;
-  &lt;tr&gt;&lt;th&gt;Title&lt;/th&gt;&lt;th&gt;Artist&lt;/th&gt;&lt;th&gt;Key&lt;/th&gt;&lt;/tr&gt;
-  &lt;tr&gt;&lt;td&gt;Here Comes the Sun&lt;/td&gt;&lt;td&gt;The Beatles&lt;/td&gt;&lt;td&gt;A&lt;/td&gt;&lt;/tr&gt;
-  ...
-&lt;/table&gt;</pre>
-<p>Cue names the new set after the filename (minus the extension) and fuzzy-matches each row against your song library by title and artist. Matched songs are added to the set; unmatched rows are skipped without interrupting the import.</p>
-<p>After importing, a summary appears showing how many songs were matched and listing any titles that were not found in your library. If the filename matches an existing set name, Cue appends <em>(2)</em>, <em>(3)</em>, etc. to keep both.</p>
-<div class="tip"><strong>Tip:</strong> The import matches on normalised title and artist — punctuation, capitalisation, and curly quotes are ignored. If a song isn't matched, check that its title in Cue matches exactly what's in the HTML file.</div>
 
 <h2>The Setlist Column</h2>
 <p>With a set selected, the Setlist column shows its songs. From here you can:</p>
