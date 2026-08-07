@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus } from 'lucide-react';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets } from '../utils/storage.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
@@ -145,10 +145,10 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onAddToSet, canAd
           dark={dark}
           label={`Actions for ${title || 'Untitled'}`}
           items={[
-            { id: 'add',   label: 'Add to Set', disabled: !canAddToSet, onSelect: () => onAddToSet(song) },
-            { id: 'edit',  label: 'Edit',       onSelect: onOpen },
-            { id: 'pres',  label: 'Present',    onSelect: () => onPresent(song) },
-            { id: 'dup',   label: 'Duplicate',  onSelect: () => onDuplicate(song) },
+            { id: 'add',   label: 'Add to Set', icon: ListPlus, disabled: !canAddToSet, onSelect: () => onAddToSet(song) },
+            { id: 'edit',  label: 'Edit',       icon: SquarePen, onSelect: onOpen },
+            { id: 'pres',  label: 'Present',    icon: Tv,        onSelect: () => onPresent(song) },
+            { id: 'dup',   label: 'Duplicate',  icon: Copy,      onSelect: () => onDuplicate(song) },
           ]}
         />
       </div>
@@ -737,14 +737,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                           dark={dark}
                           label={`Actions for ${set.name}`}
                           items={[
-                            { id: 'rename', label: 'Rename', onSelect: () => startRename(set) },
+                            { id: 'rename', label: 'Rename', icon: SquarePen, onSelect: () => startRename(set) },
                             user && (isPublished
-                              ? { id: 'unpub', label: 'Unpublish', danger: true, onSelect: () => handleUnpublishClick(set) }
-                              : { id: 'pub',   label: 'Publish',   onSelect: () => handlePublishClick(set) }),
-                            user && { id: 'share',   label: 'Share',     disabled: !isPublished, onSelect: () => setShareDialogSet(set) },
-                            user && { id: 'over',    label: 'Overwrite', danger: true, disabled: !isPublished || presenting, onSelect: () => setPullDialog({ setId: set.id }) },
-                            user && { id: 'repub',   label: 'Republish', disabled: !isPublished, onSelect: () => handlePublishClick(set) },
-                            { id: 'dup', label: 'Duplicate', onSelect: () => handleDuplicateSet(set) },
+                              ? { id: 'unpub', label: 'Unpublish', icon: CloudOff, danger: true, onSelect: () => handleUnpublishClick(set) }
+                              : { id: 'pub',   label: 'Publish',   icon: UploadCloud, onSelect: () => handlePublishClick(set) }),
+                            user && { id: 'share',   label: 'Share',     icon: Share,         disabled: !isPublished, onSelect: () => setShareDialogSet(set) },
+                            user && { id: 'over',    label: 'Overwrite', icon: DownloadCloud, danger: true, disabled: !isPublished || presenting, onSelect: () => setPullDialog({ setId: set.id }) },
+                            user && { id: 'repub',   label: 'Republish', icon: UploadCloud,   disabled: !isPublished, onSelect: () => handlePublishClick(set) },
+                            { id: 'dup', label: 'Duplicate', icon: Copy, onSelect: () => handleDuplicateSet(set) },
                           ]}
                         />
                       </span>
@@ -1063,9 +1063,9 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
           dark={dark}
           label={`Actions for ${song.metadata?.title || 'Untitled'}`}
           items={[
-            { id: 'pres', label: 'Present', onSelect: onPresent },
-            { id: 'edit', label: 'Edit',    onSelect: onEdit },
-            { id: 'del',  label: 'Delete',  danger: true, onSelect: onRemove },
+            { id: 'pres', label: 'Present', icon: Tv,       onSelect: onPresent },
+            { id: 'edit', label: 'Edit',    icon: SquarePen, onSelect: onEdit },
+            { id: 'del',  label: 'Delete',  icon: Trash2, danger: true, onSelect: onRemove },
           ]}
         />
       </span>
