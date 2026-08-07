@@ -1048,7 +1048,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       {/* py-1 in compact chrome: the overflow trigger pads its hit area to the
           44px minimum, which is 8px taller than the h-9 pills it replaces. The
           tighter padding absorbs that so the row is no taller than before. */}
-      <div className={`px-4 ${compactChrome ? 'py-1' : 'py-2'} border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex items-center gap-3 shrink-0 ${compactChrome ? 'flex-nowrap' : 'flex-wrap'}`}>
+      <div className={`px-4 ${compactChrome ? 'py-1 gap-2' : 'py-2 gap-3'} border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex items-center shrink-0 ${compactChrome ? 'flex-nowrap' : 'flex-wrap'}`}>
 
         {/* Compact chrome keeps only Save + the overflow trigger in this row;
             everything else moves into the menu below. */}
@@ -1099,6 +1099,47 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         >
           <Save size={11} /> Save
         </button>
+
+        {/* Compact chrome: Find, View Key, and Revert fit on this row alongside
+            Save at phone width, so they stay out of the overflow menu. */}
+        {compactChrome && (<>
+          <button
+            onClick={showFR ? closeFR : openFR}
+            className={`flex items-center gap-1 ${toolCtl} ${
+              showFR
+                ? 'bg-indigo-600 border-indigo-600 text-white'
+                : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
+            }`}
+            title="Find & Replace (Cmd+F)"
+          >
+            {showFR ? 'Done' : <><Search size={11} /> Find</>}
+          </button>
+          {/* Compact View Key — just the select showing the current key. */}
+          <select
+            value={displayKey}
+            onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
+            title="View Key"
+            aria-label="View key"
+            className={`h-9 px-1.5 text-xs rounded-lg border focus:border-indigo-500 outline-none cursor-pointer shrink-0 ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+          >
+            <option value="">{metadata.key || '—'}</option>
+            {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowRevertConfirm(true)}
+            disabled={!isDirty}
+            title="Discard changes since last save"
+            className={`flex items-center gap-1 ${toolCtl} ${
+              isDirty
+                ? dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
+                : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <RotateCcw size={11} /> Revert
+          </button>
+        </>)}
 
         {!compactChrome && (<>
         {/* Revert — discard changes since the last save (or since opening, before
@@ -1189,41 +1230,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </RoundButton>
 
             <OverflowMenu open={menuOpen} onClose={closeMenu} dark={dark}>
-              <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
-                onClick={() => runFromMenu(openFR)}>
-                <Search size={14} className="opacity-60" /> Find &amp; Replace
-              </button>
-
-              {/* View Key — the row itself is the menuitem; the existing select
-                  is laid over it at zero opacity so a tap anywhere opens the
-                  native picker, and it keeps its own keyboard behaviour. */}
-              <div
-                role="menuitem"
-                tabIndex={-1}
-                className={`${menuItem} relative justify-between`}
-                onKeyDown={e => {
-                  if (e.key !== 'Enter' && e.key !== ' ') return;
-                  e.preventDefault();
-                  const sel = e.currentTarget.querySelector('select');
-                  if (sel?.showPicker) { try { sel.showPicker(); return; } catch { /* fall through */ } }
-                  sel?.focus();
-                }}
-              >
-                <span>Key: {displayKey || metadata.key || '—'}</span>
-                <select
-                  tabIndex={-1}
-                  value={displayKey}
-                  onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); closeMenu(); }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  aria-label="View key"
-                >
-                  <option value="">{metadata.key || '—'}</option>
-                  {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-
+              {/* Find, View Key, and Revert now live on the toolbar row itself
+                  (they fit at phone width), so the menu holds only the format
+                  toggles and ink controls. */}
               <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
                 onClick={() => runFromMenu(toggleEditorFormat)}>
                 <span>Editor format</span>
@@ -1243,25 +1252,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 </button>
               )}
 
-              {/* Destructive group. Revert is always present, so the separator
-                  never orphans — and Clear ink simply omits itself. */}
-              <div className={`my-1 border-t ${border}`} role="separator" />
-
-              <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
-                onClick={() => runFromMenu(() => setShowRevertConfirm(true))}
-                aria-disabled={!isDirty || undefined}>
-                <RotateCcw size={14} className="opacity-60" /> Revert changes
-              </button>
-
+              {/* Clear ink is the only destructive item left here, so its
+                  separator renders only when it does — never orphaned. */}
               {hasAnnotation && (
-                <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
-                  onClick={() => runFromMenu(() => {
-                    // The inline Yes/No confirm lives in the full toolbar, which
-                    // is hidden here, so confirm natively as the app does elsewhere.
-                    if (confirm('Delete all ink annotations for this song?')) handleClearAnnotations();
-                  })}>
-                  <X size={14} className="opacity-60" /> Clear ink
-                </button>
+                <>
+                  <div className={`my-1 border-t ${border}`} role="separator" />
+                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
+                    onClick={() => runFromMenu(() => {
+                      // The inline Yes/No confirm lives in the full toolbar, which
+                      // is hidden here, so confirm natively as the app does elsewhere.
+                      if (confirm('Delete all ink annotations for this song?')) handleClearAnnotations();
+                    })}>
+                    <X size={14} className="opacity-60" /> Clear ink
+                  </button>
+                </>
               )}
             </OverflowMenu>
           </span>
