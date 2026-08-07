@@ -261,7 +261,7 @@ export default function App() {
           }
 
         } else if (file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')) {
-          alert(`"${file.name}" looks like an HTML set file. Use the Import button in the Sets panel (next to "+ New Set") to import it instead.`);
+          alert(`"${file.name}" is an HTML file. Cue no longer imports sets from HTML. Import songs as .cho / .txt or a Cue .json bundle instead.`);
           continue;
 
         } else {
