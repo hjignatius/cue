@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, X, Download, Upload, Pencil } from 'lucide-react';
+import { Plus, X, Download, Upload, SquarePen } from 'lucide-react';
 import { UKULELE_CHORDS } from '../data/ukuleleChords.js';
 import ChordDiagram from './ChordDiagram.jsx';
 import { detectChords } from '../utils/chordDetect.js';
@@ -580,7 +580,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     disabled={!selectedChordName}
                     onClick={handleEditSelected}
                     className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
-                    <Pencil size={18} />
+                    <SquarePen size={18} />
                   </button>
                   <div className="flex-1" />
                   <div className="relative">
