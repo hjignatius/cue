@@ -7,7 +7,7 @@ import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
-import { useCompactChrome } from '../hooks/useCompactChrome.js';
+import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
@@ -444,6 +444,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Phone portrait (width) or phone landscape (height) — the editor chrome
   // collapses in both. iPad and desktop are unaffected.
   const compactChrome = useCompactChrome();
+  const phoneLandscape = usePhoneLandscape();
+  // Show one panel at a time (with the segmented selector) only on portrait
+  // phones and narrow iPads. A phone in landscape has the width for the
+  // side-by-side layout, so it uses the same multi-panel view as the desktop.
+  const oneAtATime = isNarrow && !phoneLandscape;
+  // Format toggles (OL/B) sit inline on the landscape phone toolbar; they stay
+  // in the overflow menu in the tighter portrait layout.
+  const formatsInline = phoneLandscape;
   // Shared by the in-toolbar (sm) and compact (lg) renderings of the selector.
   const panelOptions = [
     { id: 'text',    label: 'Text' },
@@ -1048,7 +1056,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       {/* py-1 in compact chrome: the overflow trigger pads its hit area to the
           44px minimum, which is 8px taller than the h-9 pills it replaces. The
           tighter padding absorbs that so the row is no taller than before. */}
-      <div className={`px-4 ${compactChrome ? 'py-1 gap-2' : 'py-2 gap-3'} border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex items-center shrink-0 ${compactChrome ? 'flex-nowrap' : 'flex-wrap'}`}>
+      <div className={`px-4 ${compactChrome ? 'py-1 gap-1' : 'py-2 gap-3'} border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} flex items-center shrink-0 ${compactChrome ? 'flex-nowrap' : 'flex-wrap'}`}>
 
         {/* Compact chrome keeps only Save + the overflow trigger in this row;
             everything else moves into the menu below. */}
@@ -1087,22 +1095,42 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
         </>)}
 
-        {/* Save — always visible, keeps its dirty-state indicator. */}
-        <button
-          onClick={handleSave}
-          disabled={!isDirty}
-          className={`flex items-center gap-1 ${toolCtl} ${
-            isDirty
-              ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
-              : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
-          }`}
-        >
-          <Save size={11} /> Save
-        </button>
+        {/* Save — always visible outside compact; the compact cluster below
+            renders its own Save in the requested VK · Find · Save · Revert order. */}
+        {!compactChrome && (
+          <button
+            onClick={handleSave}
+            disabled={!isDirty}
+            className={`flex items-center gap-1 ${toolCtl} ${
+              isDirty
+                ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
+                : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <Save size={11} /> Save
+          </button>
+        )}
 
-        {/* Compact chrome: Find, View Key, and Revert fit on this row alongside
-            Save at phone width, so they stay out of the overflow menu. */}
+        {/* Compact chrome line: VK · Find · Save · Revert, plus the OL/B format
+            toggles when there is room (landscape). Portrait keeps the toggles in
+            the overflow menu. */}
         {compactChrome && (<>
+          {/* View Key — labelled "VK", showing the current key. */}
+          <label className={`flex items-center gap-1 shrink-0 text-xs ${mutedText}`}>
+            <span>VK</span>
+            <select
+              value={displayKey}
+              onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
+              title="View Key"
+              aria-label="View key"
+              className={`h-9 px-1.5 text-xs rounded-lg border focus:border-indigo-500 outline-none cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+            >
+              <option value="">{metadata.key || '—'}</option>
+              {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={showFR ? closeFR : openFR}
             className={`flex items-center gap-1 ${toolCtl} ${
@@ -1114,19 +1142,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           >
             {showFR ? 'Done' : <><Search size={11} /> Find</>}
           </button>
-          {/* Compact View Key — just the select showing the current key. */}
-          <select
-            value={displayKey}
-            onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
-            title="View Key"
-            aria-label="View key"
-            className={`h-9 px-1.5 text-xs rounded-lg border focus:border-indigo-500 outline-none cursor-pointer shrink-0 ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+          <button
+            onClick={handleSave}
+            disabled={!isDirty}
+            className={`flex items-center gap-1 ${toolCtl} ${
+              isDirty
+                ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
+                : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
+            }`}
           >
-            <option value="">{metadata.key || '—'}</option>
-            {KEY_NAMES.filter(n => n !== metadata.key).map(n => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
+            <Save size={11} /> Save
+          </button>
           <button
             onClick={() => setShowRevertConfirm(true)}
             disabled={!isDirty}
@@ -1139,6 +1165,27 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           >
             <RotateCcw size={11} /> Revert
           </button>
+          {/* OL → B format toggles inline (landscape only): Editor format on the
+              left, Preview format on the right, matching the desktop arrow. */}
+          {formatsInline && (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={toggleEditorFormat}
+                title="Editor text format — click to convert"
+                className={`${toolCtl} ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
+              >
+                {displayMode === 'over' ? 'OL' : 'B'}
+              </button>
+              <span className={`text-xs ${mutedText}`}>→</span>
+              <button
+                onClick={togglePreviewFormat}
+                title="Preview display format — click to change"
+                className={`${toolCtl} ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
+              >
+                {previewFormat === 'over' ? 'OL' : 'B'}
+              </button>
+            </div>
+          )}
         </>)}
 
         {!compactChrome && (<>
@@ -1212,80 +1259,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Spacer pushes Preview + Chords to the right */}
         <div className="flex-1" />
 
-        {/* Overflow menu — compact chrome only. Everything cut from the row
-            above lives here, so the toolbar stays a single line. */}
-        {compactChrome && (
-          <span ref={menuAnchorRef} className="relative inline-flex shrink-0">
-            <RoundButton
-              size={32}
-              label="More actions"
-              title="More actions"
-              fill={headerFill}
-              active={menuOpen}
-              ariaHasPopup="menu"
-              ariaExpanded={menuOpen}
-              onActivate={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
-            >
-              <MoreHorizontal size={18} />
-            </RoundButton>
-
-            <OverflowMenu open={menuOpen} onClose={closeMenu} dark={dark}>
-              {/* Find, View Key, and Revert now live on the toolbar row itself
-                  (they fit at phone width), so the menu holds only the format
-                  toggles and ink controls. */}
-              <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
-                onClick={() => runFromMenu(toggleEditorFormat)}>
-                <span>Editor format</span>
-                <span className={mutedText}>{displayMode === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
-              </button>
-
-              <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
-                onClick={() => runFromMenu(togglePreviewFormat)}>
-                <span>Preview format</span>
-                <span className={mutedText}>{previewFormat === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
-              </button>
-
-              {hasAnnotation && (
-                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
-                  onClick={() => runFromMenu(() => setShowAnnotations(v => !v))}>
-                  <Pencil size={14} className="opacity-60" /> {showAnnotations ? 'Hide ink' : 'Show ink'}
-                </button>
-              )}
-
-              {/* Clear ink is the only destructive item left here, so its
-                  separator renders only when it does — never orphaned. */}
-              {hasAnnotation && (
-                <>
-                  <div className={`my-1 border-t ${border}`} role="separator" />
-                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
-                    onClick={() => runFromMenu(() => {
-                      // The inline Yes/No confirm lives in the full toolbar, which
-                      // is hidden here, so confirm natively as the app does elsewhere.
-                      if (confirm('Delete all ink annotations for this song?')) handleClearAnnotations();
-                    })}>
-                    <X size={14} className="opacity-60" /> Clear ink
-                  </button>
-                </>
-              )}
-            </OverflowMenu>
-          </span>
-        )}
-
-        {/* Compact chrome moves this selector to its own full-width row below —
-            see after this toolbar. Narrow-but-not-compact (iPad) keeps the
-            in-toolbar sm selector; wide keeps the Preview/Chords toggles. */}
-        {compactChrome ? null : isNarrow ? (
-          <SegmentedControl
-            ariaLabel="Editor panel"
-            options={panelOptions}
-            // State variable and handler are unchanged — only the presentation.
-            // 'text' is the option id; 'editor' is the long-standing state value.
-            value={narrowTab === 'editor' ? 'text' : narrowTab}
-            onChange={setPanelFromOption}
-            size="sm"
-          />
-        ) : (
-          <div className="flex items-center gap-2">
+        {/* Panel controls. Preview/Chords toggles on wide screens AND landscape
+            phones (both use the side-by-side layout); the Text/Preview/Chords
+            segmented picker on narrow iPads. Portrait phones show nothing here —
+            their full-width selector row sits below the toolbar. */}
+        {(!isNarrow || phoneLandscape) ? (
+          <div className="flex items-center gap-2 shrink-0">
             {/* Round-button language: state-carrying pills — indigo when on,
                 neutral grey when off. */}
             <RoundButton
@@ -1307,12 +1286,87 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <span className="text-xs font-medium leading-none whitespace-nowrap">{showChordPanel ? 'Chords On' : 'Chords Off'}</span>
             </RoundButton>
           </div>
+        ) : compactChrome ? null : (
+          <SegmentedControl
+            ariaLabel="Editor panel"
+            options={panelOptions}
+            // State variable and handler are unchanged — only the presentation.
+            // 'text' is the option id; 'editor' is the long-standing state value.
+            value={narrowTab === 'editor' ? 'text' : narrowTab}
+            onChange={setPanelFromOption}
+            size="sm"
+          />
+        )}
+
+        {/* Overflow menu — compact only, and only when it holds something:
+            portrait keeps the format toggles here; the ink controls appear only
+            with annotations. In landscape the formats move onto the row, so with
+            no annotations there is nothing left and the trigger is omitted. */}
+        {compactChrome && (!formatsInline || hasAnnotation) && (
+          <span ref={menuAnchorRef} className="relative inline-flex shrink-0">
+            <RoundButton
+              size={32}
+              label="More actions"
+              title="More actions"
+              fill={headerFill}
+              active={menuOpen}
+              ariaHasPopup="menu"
+              ariaExpanded={menuOpen}
+              onActivate={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
+            >
+              <MoreHorizontal size={18} />
+            </RoundButton>
+
+            <OverflowMenu open={menuOpen} onClose={closeMenu} dark={dark}>
+              {/* Format toggles live here only in portrait; landscape shows them
+                  inline on the toolbar row. */}
+              {!formatsInline && (
+                <>
+                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
+                    onClick={() => runFromMenu(toggleEditorFormat)}>
+                    <span>Editor format</span>
+                    <span className={mutedText}>{displayMode === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
+                  </button>
+
+                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
+                    onClick={() => runFromMenu(togglePreviewFormat)}>
+                    <span>Preview format</span>
+                    <span className={mutedText}>{previewFormat === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
+                  </button>
+                </>
+              )}
+
+              {hasAnnotation && (
+                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
+                  onClick={() => runFromMenu(() => setShowAnnotations(v => !v))}>
+                  <Pencil size={14} className="opacity-60" /> {showAnnotations ? 'Hide ink' : 'Show ink'}
+                </button>
+              )}
+
+              {/* Separator only when both a group above it and Clear ink exist,
+                  so it never orphans. */}
+              {hasAnnotation && (
+                <>
+                  {!formatsInline && <div className={`my-1 border-t ${border}`} role="separator" />}
+                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
+                    onClick={() => runFromMenu(() => {
+                      // The inline Yes/No confirm lives in the full toolbar, which
+                      // is hidden here, so confirm natively as the app does elsewhere.
+                      if (confirm('Delete all ink annotations for this song?')) handleClearAnnotations();
+                    })}>
+                    <X size={14} className="opacity-60" /> Clear ink
+                  </button>
+                </>
+              )}
+            </OverflowMenu>
+          </span>
         )}
       </div>
 
-      {/* Compact chrome: the panel selector gets its own full-width row directly
-          below the toolbar, at the 44px touch size. */}
-      {compactChrome && (
+      {/* Portrait phone: the panel selector gets its own full-width row directly
+          below the toolbar, at the 44px touch size. Landscape phones drop it —
+          they use the Preview/Chords toggles and the side-by-side layout. */}
+      {compactChrome && !phoneLandscape && (
         // Centered compact pill, sized to its labels — matching the Library /
         // Sets / Setlist selector rather than stretching the full editor width.
         <div className={`px-4 pb-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} shrink-0 flex justify-center`}>
@@ -1331,8 +1385,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
 
-        {isNarrow ? (
-          /* ── Narrow (iPad / phone): one panel at a time ── */
+        {oneAtATime ? (
+          /* ── One panel at a time (portrait phone / narrow iPad) ── */
           <>
             {/* Text editor — always mounted (preserves cursor/scroll); hidden via CSS when inactive */}
             <div className={`flex-col min-w-0 min-h-0 flex-1 overflow-hidden ${narrowTab === 'editor' ? 'flex' : 'hidden'}`}>

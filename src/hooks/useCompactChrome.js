@@ -33,3 +33,23 @@ export function useCompactChrome() {
 
   return compact;
 }
+
+// A phone held in landscape: short, touch, and wider than tall. Distinguishes
+// iPhone-landscape from iPhone-portrait (both are compact chrome) so the editor
+// can spread controls out and use the side-by-side panel layout there. iPad is
+// excluded by the height cap; a mouse desktop by pointer: coarse.
+const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 500px) and (pointer: coarse)';
+
+export function usePhoneLandscape() {
+  const [landscape, setLandscape] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(LANDSCAPE_QUERY).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(LANDSCAPE_QUERY);
+    const update = () => setLandscape(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+  return landscape;
+}
