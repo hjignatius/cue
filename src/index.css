@@ -39,3 +39,24 @@ html, body {
   height: 100%;
   overflow: hidden;
 }
+
+/* Library / Sets / Setlist panel scrollbars.
+   Native overlay scrollbars float over the rows (the Setlist bar cut across the
+   key column) and iPadOS hides them entirely. Styling the WebKit scrollbar turns
+   it into a slim, space-reserving bar pinned to the panel's right edge, rendered
+   consistently on macOS, iPhone, and iPad. */
+[data-phone-scroll] {
+  scrollbar-width: thin;                                  /* Firefox */
+  scrollbar-color: rgba(120,120,128,0.5) transparent;
+}
+[data-phone-scroll]::-webkit-scrollbar { width: 10px; }
+[data-phone-scroll]::-webkit-scrollbar-track { background: transparent; }
+[data-phone-scroll]::-webkit-scrollbar-thumb {
+  /* 2px transparent border + padding-box clip = a thin thumb inside the track,
+     sitting flush at the edge. */
+  background: rgba(120,120,128,0.5);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+[data-phone-scroll]::-webkit-scrollbar-thumb:hover { background: rgba(120,120,128,0.75); }
