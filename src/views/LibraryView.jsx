@@ -1459,16 +1459,13 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Body — three columns */}
       <div ref={layoutRef} className="flex-1 min-h-0 flex overflow-hidden">
 
-        {/* Column 1: Library. As the leftmost column it pads its own left edge by
-            the landscape notch inset, so its content clears the notch without
-            shrinking the other panels. env() is 0 in portrait / non-notched. */}
+        {/* Column 1: Library */}
         <div
           data-onboard="songs-panel"
           data-phone-panel="library"
           className={stacked
             ? (phonePanel === 'library' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
-          style={stacked ? undefined : { paddingLeft: 'env(safe-area-inset-left)' }}
         >
           <div className={`px-4 py-2 border-b ${border} flex items-center justify-between`}>
             <div className="flex flex-col leading-tight">
@@ -1680,16 +1677,13 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           />
         </div>
 
-        {/* Column 3: Setlist. As the rightmost column it pads its own right edge
-            by the landscape notch inset, so its rows and scrollbar clear the
-            notch without shrinking the other panels. env() is 0 otherwise. */}
+        {/* Column 3: Setlist */}
         <div
           data-onboard="setlist-panel"
           data-phone-panel="setlist"
           className={stacked
             ? (phonePanel === 'setlist' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden`}
-          style={stacked ? undefined : { paddingRight: 'env(safe-area-inset-right)' }}
         >
           <SetlistColumn
             key={activeSetId}
