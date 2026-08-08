@@ -1412,7 +1412,14 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const btnBorder = `border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`;
 
   return (
-    <div className={`h-dvh flex flex-col ${dark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    // Respect the notch safe area in landscape: without this the rightmost panel
+    // runs edge-to-edge under the notch while iOS insets its scroll indicator,
+    // leaving the Setlist scrollbar floating ~a finger-width in, over the keys.
+    // env() is 0 in portrait and on non-notched devices, so nothing else shifts.
+    <div
+      className={`h-dvh flex flex-col ${dark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}
+      style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
+    >
       {/* Header */}
       {/* px-4 in phone portrait: removing the mark left only ~1px of slack at
           390px, which a 375pt device would still overflow. */}
