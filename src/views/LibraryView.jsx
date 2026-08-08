@@ -1412,14 +1412,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const btnBorder = `border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`;
 
   return (
-    // Respect the notch safe area in landscape: without this the rightmost panel
-    // runs edge-to-edge under the notch while iOS insets its scroll indicator,
-    // leaving the Setlist scrollbar floating ~a finger-width in, over the keys.
-    // env() is 0 in portrait and on non-notched devices, so nothing else shifts.
-    <div
-      className={`h-dvh flex flex-col ${dark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}
-      style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
-    >
+    <div className={`h-dvh flex flex-col ${dark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* Header */}
       {/* px-4 in phone portrait: removing the mark left only ~1px of slack at
           390px, which a 375pt device would still overflow. */}
@@ -1466,13 +1459,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Body — three columns */}
       <div ref={layoutRef} className="flex-1 min-h-0 flex overflow-hidden">
 
-        {/* Column 1: Library */}
+        {/* Column 1: Library. As the leftmost column it pads its own left edge by
+            the landscape notch inset, so its content clears the notch without
+            shrinking the other panels. env() is 0 in portrait / non-notched. */}
         <div
           data-onboard="songs-panel"
           data-phone-panel="library"
           className={stacked
             ? (phonePanel === 'library' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
+          style={stacked ? undefined : { paddingLeft: 'env(safe-area-inset-left)' }}
         >
           <div className={`px-4 py-2 border-b ${border} flex items-center justify-between`}>
             <div className="flex flex-col leading-tight">
@@ -1684,13 +1680,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           />
         </div>
 
-        {/* Column 3: Setlist */}
+        {/* Column 3: Setlist. As the rightmost column it pads its own right edge
+            by the landscape notch inset, so its rows and scrollbar clear the
+            notch without shrinking the other panels. env() is 0 otherwise. */}
         <div
           data-onboard="setlist-panel"
           data-phone-panel="setlist"
           className={stacked
             ? (phonePanel === 'setlist' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden`}
+          style={stacked ? undefined : { paddingRight: 'env(safe-area-inset-right)' }}
         >
           <SetlistColumn
             key={activeSetId}
