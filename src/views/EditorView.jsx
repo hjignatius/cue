@@ -445,10 +445,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // collapses in both. iPad and desktop are unaffected.
   const compactChrome = useCompactChrome();
   const phoneLandscape = usePhoneLandscape();
-  // Show one panel at a time (with the segmented selector) only on portrait
-  // phones and narrow iPads. A phone in landscape has the width for the
-  // side-by-side layout, so it uses the same multi-panel view as the desktop.
-  const oneAtATime = isNarrow && !phoneLandscape;
+  // Show one panel at a time (with the full-width selector) ONLY on a portrait
+  // phone, where there is no room for more. Everywhere else — phone landscape,
+  // iPad (either orientation), desktop — uses the side-by-side layout with the
+  // Preview On / Chords On toggles; iPad portrait is tight but the toggles let
+  // the user reclaim space by turning panels off.
+  const oneAtATime = compactChrome && !phoneLandscape;
   // Format toggles (OL/B) sit inline on the landscape phone toolbar; they stay
   // in the overflow menu in the tighter portrait layout.
   const formatsInline = phoneLandscape;
@@ -1259,11 +1261,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Spacer pushes Preview + Chords to the right */}
         <div className="flex-1" />
 
-        {/* Panel controls. Preview/Chords toggles on wide screens AND landscape
-            phones (both use the side-by-side layout); the Text/Preview/Chords
-            segmented picker on narrow iPads. Portrait phones show nothing here —
-            their full-width selector row sits below the toolbar. */}
-        {(!isNarrow || phoneLandscape) ? (
+        {/* Panel controls: the Preview On / Chords On toggles, shown everywhere
+            the side-by-side layout is used. A portrait phone is the only place
+            that shows nothing here — it uses the full-width Text/Preview/Chords
+            selector row below the toolbar instead. */}
+        {!oneAtATime && (
           <div className="flex items-center gap-2 shrink-0">
             {/* Round-button language: state-carrying pills — indigo when on,
                 neutral grey when off. */}
@@ -1286,16 +1288,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <span className="text-xs font-medium leading-none whitespace-nowrap">{showChordPanel ? 'Chords On' : 'Chords Off'}</span>
             </RoundButton>
           </div>
-        ) : compactChrome ? null : (
-          <SegmentedControl
-            ariaLabel="Editor panel"
-            options={panelOptions}
-            // State variable and handler are unchanged — only the presentation.
-            // 'text' is the option id; 'editor' is the long-standing state value.
-            value={narrowTab === 'editor' ? 'text' : narrowTab}
-            onChange={setPanelFromOption}
-            size="sm"
-          />
         )}
 
         {/* Overflow menu — compact only, and only when it holds something:
