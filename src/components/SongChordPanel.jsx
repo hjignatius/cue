@@ -538,10 +538,14 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                       {selectedIdx + 1}/{shapes.length}
                     </div>
                   )}
+                  {/* No touch (pointer-coarse) reveal in the browse grid: on a
+                      touchscreen every tile would show a delete X, inviting
+                      accidental deletes. Deleting happens in the picker (tap a
+                      chord to open it) instead. Mouse keeps the hover reveal. */}
                   {!readonly && (
                     <button
                       onClick={() => isCustom ? handleDeleteCustom(name, selectedShape.frets) : handleDeleteBuiltin(selectedShape)}
-                      className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity ${dark ? 'bg-gray-800 border-gray-700 text-gray-500 hover:text-red-400' : 'bg-white border-gray-300 text-gray-400 hover:text-red-500'}`}
+                      className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${dark ? 'bg-gray-800 border-gray-700 text-gray-500 hover:text-red-400' : 'bg-white border-gray-300 text-gray-400 hover:text-red-500'}`}
                       title={isCustom ? 'Delete custom shape' : 'Hide built-in shape'}
                     >
                       <X size={9} />
