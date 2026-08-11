@@ -241,8 +241,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // the user's 0–5s setting. Clamped defensively in case an out-of-range value
   // is ever stored.
   const idleDelayMs = Math.max(0, Math.min(5, presentIdleSec ?? 3)) * 1000;
-  // Lead-in before auto-scroll actually moves after the button is pressed (0–5s).
-  const scrollStartDelayMs = Math.max(0, Math.min(5, scrollStartDelaySec ?? 0)) * 1000;
+  // Lead-in before auto-scroll actually moves after the button is pressed (0–10s).
+  const scrollStartDelayMs = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0)) * 1000;
   const dark = theme === 'dark';
   // isNarrow (1024) drives the lyric column: fixed 65-char width on wide screens,
   // flex-1 below (so tablet-portrait and phones don't need to scroll the column

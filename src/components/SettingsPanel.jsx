@@ -66,7 +66,7 @@ const OTP_AUTOSUBMIT_MS = 400;
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, updatePref } = usePrefs();
   const idleSec = Math.max(0, Math.min(5, presentIdleSec ?? 3));
-  const scrollDelaySec = Math.max(0, Math.min(5, scrollStartDelaySec ?? 0));
+  const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
 
@@ -363,10 +363,10 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 <span className={`text-sm ${label}`}>Scroll start delay</span>
                 <span className={`text-sm tabular-nums ${muted}`}>{scrollDelaySec === 0 ? 'None' : `${scrollDelaySec}s`}</span>
               </div>
-              {/* 0–5s lead-in after the scroll button is pressed before
+              {/* 0–10s lead-in after the scroll button is pressed before
                   auto-scroll actually begins. */}
               <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                {[0, 1, 2, 3, 4, 5].map((n, i) => (
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n, i) => (
                   <button
                     key={n}
                     onClick={() => updatePref('scrollStartDelaySec', n)}
