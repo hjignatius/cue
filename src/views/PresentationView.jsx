@@ -26,6 +26,13 @@ function parseDuration(dur) {
   return Number(s) || 0;
 }
 
+// Seconds → "M:SS" (mirrors the editor's DurationStepper formatting) so a speed
+// baked into the song reads as a normal duration everywhere else.
+function formatDuration(secs) {
+  secs = Math.max(0, Math.round(secs));
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+}
+
 function playMetronome(bpm, timeSig = '4/4') {
   if (!bpm) return;
   const beatsPerMeasure = timeSig === '3/4' ? 3 : 4;
@@ -144,13 +151,19 @@ const FONT_KEY = 'cue:present_font_px';
 // Fallback scroll speed (px/s) when no duration is set
 const FALLBACK_SPEED = 10;
 
-// Auto-scroll speed multiplier, adjusted by the D−/D+ buttons. D− steps toward
-// the faster end, D+ toward the slower. Applied on top of the duration-derived
-// (or fallback) rate, so the base pacing is preserved and this just scales it.
-// Geometric steps read as even changes; 1 is the neutral default.
-const SPEED_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
+// Auto-scroll speed multiplier, adjusted by the F/S buttons (F faster, S slower).
+// Applied on top of the duration-derived (or fallback) rate, so the base pacing
+// is preserved and this just scales it. Each press is an even ±5% proportional
+// step (geometric), so the change reads the same on short and long songs and the
+// per-press amount is predictable rather than a guess. 1 is the neutral default;
+// the Save-speed control bakes the current multiplier into the song's duration.
+const SPEED_STEP = 1.05;   // one F/S press = ×/÷ 1.05  (≈ ±5%)
+const MIN_SPEED  = 0.25;
+const MAX_SPEED  = 4;
 const DEFAULT_SPEED = 1;
 const SPEED_KEY = 'cue:present_scroll_mult';
+// Keep the multiplier off binary-float cruft so ×1.05 then ÷1.05 lands back on 1.
+const roundMult = (m) => Math.round(m * 1000) / 1000;
 // Whether the left-gutter tool tray (Edit / YouTube / ink / chords) is expanded.
 // Persisted so it stays as the user left it from song to song and across
 // re-entering Present.
@@ -235,7 +248,7 @@ function lyricColumnWidth(fontPx) {
   return Math.round(textW + LYRIC_COL_PADDING);
 }
 
-export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, showEdit = true, disableAnnotations = false }) {
+export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, showEdit = true, disableAnnotations = false }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, updatePref } = usePrefs();
   // One idle delay for every Present control surface (pill + left gutter), from
   // the user's 0–5s setting. Clamped defensively in case an out-of-range value
@@ -269,7 +282,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [speedMult, setSpeedMult] = useState(() => {
     try {
       const n = parseFloat(localStorage.getItem(SPEED_KEY));
-      if (SPEED_LEVELS.includes(n)) return n;
+      if (Number.isFinite(n) && n >= MIN_SPEED && n <= MAX_SPEED) return roundMult(n);
     } catch { /* ignore */ }
     return DEFAULT_SPEED;
   });
@@ -323,9 +336,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const smallerAction = useCallback(() => setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
   const largerAction  = useCallback(() => setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
 
-  // D− faster (next level up), D+ slower (next level down).
-  const fasterScroll = useCallback(() => setSpeedMult(m => SPEED_LEVELS[Math.min(SPEED_LEVELS.length - 1, SPEED_LEVELS.indexOf(m) + 1)]), []);
-  const slowerScroll = useCallback(() => setSpeedMult(m => SPEED_LEVELS[Math.max(0, SPEED_LEVELS.indexOf(m) - 1)]), []);
+  // F faster, S slower — each press a ±5% proportional step, clamped to range.
+  const fasterScroll = useCallback(() => setSpeedMult(m => roundMult(Math.min(MAX_SPEED, m * SPEED_STEP))), []);
+  const slowerScroll = useCallback(() => setSpeedMult(m => roundMult(Math.max(MIN_SPEED, m / SPEED_STEP))), []);
+
+  // Bake the current multiplier into the song's stored duration, then reset to
+  // neutral so the song now scrolls at the chosen pace on its own. effective
+  // time = base / multiplier (faster ⇒ shorter). Only meaningful when the song
+  // has a base duration and the pace is actually off neutral.
+  const saveSpeed = useCallback(() => {
+    const base = parseDuration(song?.metadata?.duration);
+    if (!onSaveDuration || !song?.id || !(base > 0)) return;
+    onSaveDuration(song.id, formatDuration(base / speedMult));
+    setSpeedMult(DEFAULT_SPEED);
+  }, [onSaveDuration, song?.id, song?.metadata?.duration, speedMult]);
 
   // Pause in place and resume from there — no rewind. Scroll position is only
   // reset when the song itself changes (see goTo). Matches the spacebar toggle.
@@ -492,6 +516,21 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   const hasDuration = parseDuration(meta.duration) > 0;
   const timeSig = meta.timeSig || '4/4';
+
+  // Save-speed control state. The feature is offered only when a save callback is
+  // wired (Present-from-library; the read-only shared view passes none). It can
+  // actually commit only when the song has a base duration AND the pace is off
+  // neutral. The label carries the concrete target time so there's no guessing.
+  const durationSec = parseDuration(meta.duration);
+  const speedAdjusted = Math.abs(speedMult - 1) > 0.001;
+  const canSaveSpeed = !!onSaveDuration && durationSec > 0 && speedAdjusted;
+  const saveSpeedLabel = !onSaveDuration
+    ? ''
+    : durationSec <= 0
+      ? 'Set a duration first'
+      : speedAdjusted
+        ? `Save duration ${formatDuration(durationSec / speedMult)}`
+        : `Duration ${formatDuration(durationSec)}`;
 
   // Fixed lyrics-column width for the wide layout. Recomputes only on font-size
   // change (A-/A+), never on chord-panel resize — so contentWrapRef.offsetWidth
@@ -797,8 +836,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         canNext={index < total - 1}
         onFaster={fasterScroll}
         onSlower={slowerScroll}
-        canFaster={speedMult < SPEED_LEVELS[SPEED_LEVELS.length - 1]}
-        canSlower={speedMult > SPEED_LEVELS[0]}
+        canFaster={speedMult < MAX_SPEED}
+        canSlower={speedMult > MIN_SPEED}
+        showSaveSpeed={!!onSaveDuration}
+        canSaveSpeed={canSaveSpeed}
+        onSaveSpeed={saveSpeed}
+        saveSpeedLabel={saveSpeedLabel}
         onCountIn={handleMetronomeTap}
         canCountIn={!!Number(meta.tempo)}
         onToggleScroll={toggleScroll}

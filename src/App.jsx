@@ -340,6 +340,24 @@ export default function App() {
     setView('editor');
   }
 
+  // Present mode's Save-speed control bakes the chosen scroll pace into the
+  // song's stored duration. Update the in-memory presented copy immediately (so
+  // the new base rate takes effect without a jump), then persist by merging into
+  // the stored record — loading the full record first so no other field is lost,
+  // since saveSong replaces the whole entry.
+  async function handleSavePresentDuration(songId, duration) {
+    setPresenting(p => p && {
+      ...p,
+      songs: p.songs.map(s =>
+        s.id === songId ? { ...s, metadata: { ...s.metadata, duration } } : s
+      ),
+    });
+    const stored = (await loadSongs()).find(s => s.id === songId);
+    if (stored) {
+      await saveSong({ ...stored, metadata: { ...stored.metadata, duration } });
+    }
+  }
+
   function handleReturnToPresentation(updatedSong) {
     if (!returnToPresenting) return;
     const updatedSongs = returnToPresenting.songs.map(s =>
@@ -417,6 +435,7 @@ export default function App() {
             setView(dest);
           }}
           onEdit={handleEditFromPresentation}
+          onSaveDuration={handleSavePresentDuration}
           onNavigate={song => sessionStorage.setItem('cue:setlist_selected_id', song.id)}
         />
       )}

@@ -36,6 +36,9 @@ export const PRESENT_CONTROL_EDGE_MARGIN   = 16;   // min gap from any viewport 
 const PANEL_PADDING     = 12;
 const HANDLE_H          = 24;
 const FLASH_MS          = 180;
+// Full-width "Save speed" row below the button grid. Present only when a save
+// handler is wired (Present-from-library), so its height is added conditionally.
+const SAVE_ROW_H        = 40;
 
 const GRID_ROWS = 4; // A−/A+ · Prev/Next · D−/D+ · Count-in/Scroll
 const GRID_W = PRESENT_CONTROL_BUTTON_SIZE * 2 + PRESENT_CONTROL_GAP;
@@ -83,8 +86,11 @@ export function ControlGrid({
   onFaster, onSlower, canFaster, canSlower,
   onCountIn, canCountIn,
   onToggleScroll, scrolling,
+  showSaveSpeed, canSaveSpeed, onSaveSpeed, saveSpeedLabel,
 }) {
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY;
+  const saveDisabledBg    = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+  const saveDisabledColor = dark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.40)';
 
   // The count-in is a one-shot two-bar cue, not a running metronome, so it gets
   // a brief press-flash instead of a persistent active state.
@@ -100,6 +106,7 @@ export function ControlGrid({
   }
 
   return (
+    <div className="flex flex-col" style={{ gap: PRESENT_CONTROL_GAP }}>
     <div className="grid grid-cols-2" style={{ gap: PRESENT_CONTROL_GAP }}>
       <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Smaller text" fill={fill} disabled={!canSmaller} onActivate={onSmaller}>
         <Glyph>A−</Glyph>
@@ -138,6 +145,29 @@ export function ControlGrid({
         {scrolling ? <Pause size={26} fill="currentColor" /> : <ArrowDown size={28} strokeWidth={2.5} />}
       </RoundButton>
     </div>
+
+    {/* Bakes the current F/S speed into this song's stored length. The label
+        carries the concrete target time, so the change is a number, not a
+        guess. Disabled until the pace is off neutral (nothing to commit). */}
+    {showSaveSpeed && (
+      <button
+        type="button"
+        disabled={!canSaveSpeed}
+        onClick={onSaveSpeed}
+        aria-label={saveSpeedLabel || 'Save scroll speed to song'}
+        className="w-full rounded-xl text-sm font-semibold flex items-center justify-center px-2 transition-colors select-none disabled:cursor-default"
+        style={{
+          height: SAVE_ROW_H,
+          background: canSaveSpeed ? '#4f46e5' : saveDisabledBg,
+          color: canSaveSpeed ? '#ffffff' : saveDisabledColor,
+          touchAction: 'none',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <span className="truncate">{saveSpeedLabel}</span>
+      </button>
+    )}
+    </div>
   );
 }
 
@@ -155,8 +185,11 @@ export default function PresentControls(props) {
     try { localStorage.setItem(COLLAPSED_KEY, v ? '1' : '0'); } catch { /* ignore */ }
   }, []);
 
+  // The save-speed row adds a button + one gap to the expanded panel; reserve it
+  // whenever the feature is wired so the panel size stays stable as it enables.
+  const expandedH = EXPANDED_H + (props.showSaveSpeed ? SAVE_ROW_H + PRESENT_CONTROL_GAP : 0);
   const width  = collapsed ? COLLAPSED_W : EXPANDED_W;
-  const height = collapsed ? COLLAPSED_H : EXPANDED_H;
+  const height = collapsed ? COLLAPSED_H : expandedH;
 
   const defaultPos = useCallback(
     ({ vw, vh, width: w, height: h, margin }) => ({ x: vw - w - margin, y: vh - h - margin }),
