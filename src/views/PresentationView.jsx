@@ -148,8 +148,11 @@ const DEFAULT_FONT = 28;
 // Present-mode lyric font size persists across sessions (survives exiting to the
 // editor / setlist and returning, which unmounts and remounts this view).
 const FONT_KEY = 'cue:present_font_px';
-// Fallback scroll speed (px/s) when no duration is set
-const FALLBACK_SPEED = 10;
+// Assumed base duration for songs with no duration set. Auto-scroll paces as if
+// the song were this long, and F/S fine-tune from here, so the speed buttons and
+// the Save-speed control work even before a real duration exists — one Save bakes
+// the tuned value in. 3:30 is a reasonable mid-length song.
+const DEFAULT_DURATION_SEC = 210; // 3:30
 
 // Auto-scroll speed multiplier, adjusted by the F/S buttons (F faster, S slower).
 // Applied on top of the duration-derived (or fallback) rate, so the base pacing
@@ -348,8 +351,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // time = base / multiplier (faster ⇒ shorter). Only meaningful when the song
   // has a base duration and the pace is actually off neutral.
   const saveSpeed = useCallback(() => {
-    const base = parseDuration(song?.metadata?.duration);
-    if (!onSaveDuration || !song?.id || !(base > 0)) return;
+    if (!onSaveDuration || !song?.id) return;
+    const base = parseDuration(song?.metadata?.duration) || DEFAULT_DURATION_SEC;
     onSaveDuration(song.id, formatDuration(base / speedMult));
     setSpeedMult(DEFAULT_SPEED);
   }, [onSaveDuration, song?.id, song?.metadata?.duration, speedMult]);
@@ -466,13 +469,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const el = scrollRef.current;
     if (!el) return;
 
-    const durationSec = parseDuration(meta.duration);
+    const durationSec = parseDuration(meta.duration) || DEFAULT_DURATION_SEC;
     const scrollable  = el.scrollHeight - el.clientHeight;
     if (scrollable <= 0) { setScrolling(false); return; }
 
-    const basePxPerSec = durationSec > 0
-      ? scrollable / durationSec
-      : FALLBACK_SPEED;
+    const basePxPerSec = scrollable / durationSec;
     const pxPerSec = basePxPerSec * speedMult;
 
     let last  = performance.now();
@@ -521,19 +522,18 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const timeSig = meta.timeSig || '4/4';
 
   // Save-speed control state. The feature is offered only when a save callback is
-  // wired (Present-from-library; the read-only shared view passes none). It can
-  // actually commit only when the song has a base duration AND the pace is off
-  // neutral. The label carries the concrete target time so there's no guessing.
-  const durationSec = parseDuration(meta.duration);
+  // wired (Present-from-library; the read-only shared view passes none). Songs
+  // with no duration fall back to the assumed 3:30 base, so F/S + Save work for
+  // them too — committing writes a real duration. It can commit once the pace is
+  // off neutral; the label carries the concrete target time so there's no guessing.
+  const baseDurationSec = parseDuration(meta.duration) || DEFAULT_DURATION_SEC;
   const speedAdjusted = Math.abs(speedMult - 1) > 0.001;
-  const canSaveSpeed = !!onSaveDuration && durationSec > 0 && speedAdjusted;
+  const canSaveSpeed = !!onSaveDuration && speedAdjusted;
   const saveSpeedLabel = !onSaveDuration
     ? ''
-    : durationSec <= 0
-      ? 'Set a duration first'
-      : speedAdjusted
-        ? `Save duration ${formatDuration(durationSec / speedMult)}`
-        : `Duration ${formatDuration(durationSec)}`;
+    : speedAdjusted
+      ? `Save duration ${formatDuration(baseDurationSec / speedMult)}`
+      : `Duration ${formatDuration(baseDurationSec)}`;
 
   // Fixed lyrics-column width for the wide layout. Recomputes only on font-size
   // change (A-/A+), never on chord-panel resize — so contentWrapRef.offsetWidth
