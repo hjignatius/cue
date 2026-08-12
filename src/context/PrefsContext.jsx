@@ -13,7 +13,10 @@ const DEFAULT_SYMBOLS = '↑ ↓ ← → ↔ ↕ ⤴ ⤵ ↻ • ✓ ✗ ★ ♪
 
 // Seconds the Present controls wait after the last interaction before ghosting
 // (and collapsing) out of the way. User-configurable 0–5; 3 is the default.
+// The sentinel PRESENT_NO_FADE (-1) means "never fade" — practice mode, where
+// the floating controls and side gutter stay fully lit until manually collapsed.
 const DEFAULT_PRESENT_IDLE_SEC = 3;
+export const PRESENT_NO_FADE = -1;
 // Seconds Present waits after the scroll button is pressed before auto-scroll
 // actually begins — a lead-in to get set. 0–5; 0 (start immediately) is default.
 const DEFAULT_SCROLL_START_DELAY_SEC = 0;

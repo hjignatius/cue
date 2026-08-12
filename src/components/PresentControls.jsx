@@ -219,6 +219,9 @@ export default function PresentControls(props) {
   const wake = useCallback(() => {
     setIdle(false);
     clearTimeout(idleTimer.current);
+    // Practice mode (idleDelayMs === Infinity): never schedule the auto
+    // fade/collapse, so the panel stays fully up until manually collapsed.
+    if (!Number.isFinite(idleDelayMs)) return;
     idleTimer.current = setTimeout(() => {
       if (draggingRef.current) return;
       setIdle(true);

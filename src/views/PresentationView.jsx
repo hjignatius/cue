@@ -12,7 +12,7 @@ import { transposeText, semitonesBetween, useFlatsForKey } from '../utils/transp
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { Fragment } from 'react';
 import SongChordPanel from '../components/SongChordPanel.jsx';
-import { usePrefs } from '../context/PrefsContext.jsx';
+import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 // Parse "3:30" or "210" → seconds
@@ -252,8 +252,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, updatePref } = usePrefs();
   // One idle delay for every Present control surface (pill + left gutter), from
   // the user's 0–5s setting. Clamped defensively in case an out-of-range value
-  // is ever stored.
-  const idleDelayMs = Math.max(0, Math.min(5, presentIdleSec ?? 3)) * 1000;
+  // is ever stored. The no-fade sentinel maps to Infinity, which every idle timer
+  // reads as "never schedule" — practice mode keeps the controls up all the time.
+  const idleDelayMs = presentIdleSec === PRESENT_NO_FADE
+    ? Infinity
+    : Math.max(0, Math.min(5, presentIdleSec ?? 3)) * 1000;
   // Lead-in before auto-scroll actually moves after the button is pressed (0–10s).
   const scrollStartDelayMs = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0)) * 1000;
   const dark = theme === 'dark';
@@ -547,6 +550,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const wake = () => {
       setGutterIdle(false);
       clearTimeout(gutterIdleTimer.current);
+      if (!Number.isFinite(idleDelayMs)) return; // practice mode: gutter stays lit
       gutterIdleTimer.current = setTimeout(() => setGutterIdle(true), idleDelayMs);
     };
     wake();
