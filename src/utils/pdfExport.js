@@ -6,16 +6,24 @@ import { detectChords } from './chordDetect.js';
 import { lookupChordDiagrams } from './chordLookup.js';
 import { SongDocument, SetDocument } from './SongDocument.jsx';
 import { saveFilePicker } from './filePicker.js';
+import { sanitizeForPdf } from './pdfFonts.js';
 
 function sanitize(name) {
   return (name || 'song').replace(/[/\\:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 100) || 'song';
+}
+
+// Swap the couple of palette glyphs DejaVu lacks (⤴ ⤵) for supported arrows in
+// every string the PDF prints — the song body and the shown metadata fields.
+function metaForPdf(metadata) {
+  const m = metadata || {};
+  return { ...m, title: sanitizeForPdf(m.title), artist: sanitizeForPdf(m.artist), key: sanitizeForPdf(m.key) };
 }
 
 export async function exportToPdf(song, { displayKey, includeChords = false, chordColor, accidentals } = {}) {
   const { metadata, text } = song;
   const semitones  = semitonesBetween(metadata?.key, displayKey);
   const useFlats   = useFlatsForKey(accidentals, displayKey);
-  const parsedLines = expandSections(parseChordPro(convertToBrackets(text || '')));
+  const parsedLines = expandSections(parseChordPro(convertToBrackets(sanitizeForPdf(text || ''))));
 
   let chordDiagrams = null;
   if (includeChords) {
@@ -23,7 +31,7 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
     chordDiagrams = lookupChordDiagrams(names);
   }
 
-  const blob = await pdf(SongDocument({ metadata, parsedLines, semitones, useFlats, chordDiagrams, chordColor })).toBlob();
+  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, useFlats, chordDiagrams, chordColor })).toBlob();
   await saveFilePicker(blob, `${sanitize(metadata?.title)}.pdf`);
 }
 
@@ -40,8 +48,8 @@ function songsForPdf(sets, allSongs, accidentals) {
       const song = byId.get(id);
       if (!song) continue;
       out.push({
-        metadata:    song.metadata || {},
-        parsedLines: expandSections(parseChordPro(convertToBrackets(song.text || ''))),
+        metadata:    metaForPdf(song.metadata),
+        parsedLines: expandSections(parseChordPro(convertToBrackets(sanitizeForPdf(song.text || '')))),
         text:        song.text || '',
         semitones:   semitonesBetween(song.metadata?.key, song.displayKey),
         useFlats:    useFlatsForKey(accidentals, song.displayKey),
