@@ -158,7 +158,9 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onAddToSet, canAd
 // ---- Sets column (middle) ---------------------------------------------------
 
 function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, presenting, border }) {
-  const { theme } = usePrefs();
+  // chordColor/accidentals feed the set PDF export (render lens); without them
+  // the PDF branch of runSetsExport throws a ReferenceError.
+  const { theme, chordColor, accidentals } = usePrefs();
   const { user }  = useAuth();
   const dark = theme === 'dark';
   const [listSort, setListSort] = useState(() => sessionStorage.getItem('cue:set_sort') || 'newest');
