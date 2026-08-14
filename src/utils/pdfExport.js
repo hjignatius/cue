@@ -3,7 +3,7 @@ import { parseChordPro, expandSections } from './chordPro.js';
 import { semitonesBetween, transposeChord, useFlatsForKey } from './transpose.js';
 import { convertToBrackets } from './chordStyle.js';
 import { detectChords } from './chordDetect.js';
-import { lookupChordDiagrams } from './chordLookup.js';
+import { lookupChordDiagrams, resolveChordShape } from './chordLookup.js';
 import { SongDocument, SetDocument } from './SongDocument.jsx';
 import { saveFilePicker } from './filePicker.js';
 import { sanitizeForPdf } from './pdfFonts.js';
@@ -28,7 +28,7 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
   let chordDiagrams = null;
   if (includeChords) {
     const names = detectChords(convertToBrackets(text || '')).map(n => semitones ? transposeChord(n, semitones, useFlats) : n);
-    chordDiagrams = lookupChordDiagrams(names);
+    chordDiagrams = lookupChordDiagrams(names, song.chordPrefs || {});
   }
 
   const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, useFlats, chordDiagrams, chordColor })).toBlob();
@@ -53,6 +53,7 @@ function songsForPdf(sets, allSongs, accidentals) {
         text:        song.text || '',
         semitones:   semitonesBetween(song.metadata?.key, song.displayKey),
         useFlats:    useFlatsForKey(accidentals, song.displayKey),
+        chordPrefs:  song.chordPrefs || {},
       });
     }
   }
@@ -60,17 +61,22 @@ function songsForPdf(sets, allSongs, accidentals) {
 }
 
 // Unique chord diagrams across the shaped songs, matching each song's transposed,
-// re-spelled body (so the Chord Reference page agrees with the printed chords).
+// re-spelled body (so the Chord Reference page agrees with the printed chords) and
+// honoring each song's selected voicing. Deduped by displayed name — first
+// occurrence (with its song's chosen shape) wins.
 function chordDiagramsFor(songs) {
   const seen = new Set();
-  const names = [];
+  const out = [];
   for (const song of songs) {
     for (const name of detectChords(convertToBrackets(song.text))) {
       const displayed = song.semitones ? transposeChord(name, song.semitones, song.useFlats) : name;
-      if (!seen.has(displayed)) { seen.add(displayed); names.push(displayed); }
+      if (seen.has(displayed)) continue;
+      seen.add(displayed);
+      const shape = resolveChordShape(displayed, song.chordPrefs || {});
+      if (shape) out.push(shape);
     }
   }
-  return lookupChordDiagrams(names);
+  return out;
 }
 
 export async function exportSetToPdf(set, allSongs, { includeChords = false, chordColor, accidentals } = {}) {
