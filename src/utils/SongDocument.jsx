@@ -75,20 +75,23 @@ function ChordLine({ segments, semitones, useFlats, styles }) {
 // Reusable song page — can be embedded in SongDocument or SetDocument
 function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordColor }) {
   const styles = buildStyles(scale, chordColor);
-  const { title, artist, key } = metadata;
-  const lines = attachSectionLabels(parsedLines);
+  // Guard against a song with missing/null metadata — otherwise destructuring
+  // throws and, inside a SetDocument, one bad song aborts the whole PDF.
+  const meta = metadata || {};
+  const { title, artist, key } = meta;
+  const lines = attachSectionLabels(parsedLines || []);
   const displayKey = semitones && key ? transposeChord(key, semitones, useFlats) : key;
 
   return (
     <Page size="A4" style={styles.page}>
-      {(title || artist || key || metadata.tempo) ? (
+      {(title || artist || key || meta.tempo) ? (
         <View style={styles.header}>
           {title  ? <Text style={styles.title}>{title}</Text>  : null}
           {artist ? <Text style={styles.artist}>{artist}</Text> : null}
-          {(displayKey || metadata.tempo) ? (
+          {(displayKey || meta.tempo) ? (
             <View style={styles.metaRow}>
-              {displayKey     ? <Text style={styles.meta}>Key: {displayKey}</Text>           : null}
-              {metadata.tempo ? <Text style={styles.meta}>Tempo: {metadata.tempo} BPM</Text> : null}
+              {displayKey ? <Text style={styles.meta}>Key: {displayKey}</Text>       : null}
+              {meta.tempo ? <Text style={styles.meta}>Tempo: {meta.tempo} BPM</Text> : null}
             </View>
           ) : null}
         </View>

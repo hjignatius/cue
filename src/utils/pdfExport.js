@@ -40,7 +40,7 @@ function songsForPdf(sets, allSongs, accidentals) {
       const song = byId.get(id);
       if (!song) continue;
       out.push({
-        metadata:    song.metadata,
+        metadata:    song.metadata || {},
         parsedLines: expandSections(parseChordPro(convertToBrackets(song.text || ''))),
         text:        song.text || '',
         semitones:   semitonesBetween(song.metadata?.key, song.displayKey),

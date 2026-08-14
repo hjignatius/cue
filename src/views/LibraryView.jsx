@@ -431,19 +431,26 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   // Export the selected set(s) in the chosen format. One set uses the single-set
   // functions; several combine (one PDF, one JSON bundle). 'setlist' is one set
   // only (a numbered performance list) and is disabled in the menu when >1.
-  function runSetsExport(kind) {
+  async function runSetsExport(kind) {
     const chosen = [...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean);
     if (chosen.length === 0) return;
     const single = chosen.length === 1;
-    if (kind === 'pdf')        single ? exportSetToPdf(chosen[0], songs, { chordColor, accidentals })
-                                      : exportSetsToPdf(chosen, songs, { chordColor, accidentals });
-    else if (kind === 'pdf-charts') single ? exportSetToPdf(chosen[0], songs, { includeChords: true, chordColor, accidentals })
-                                            : exportSetsToPdf(chosen, songs, { includeChords: true, chordColor, accidentals });
-    else if (kind === 'json')  single ? exportSetJson(chosen[0], songs) : exportSetsJson(chosen, songs);
-    else if (kind === 'setlist' && single) exportSetText(chosen[0], songs);
     setSetsExportOpen(false);
     setSelectedSets(new Set());
     setSelectMode(false);
+    // Await + surface failures: the PDF path is async, so an unhandled rejection
+    // (e.g. a malformed song) would otherwise fail silently and look like a no-op.
+    try {
+      if (kind === 'pdf')        single ? await exportSetToPdf(chosen[0], songs, { chordColor, accidentals })
+                                        : await exportSetsToPdf(chosen, songs, { chordColor, accidentals });
+      else if (kind === 'pdf-charts') single ? await exportSetToPdf(chosen[0], songs, { includeChords: true, chordColor, accidentals })
+                                              : await exportSetsToPdf(chosen, songs, { includeChords: true, chordColor, accidentals });
+      else if (kind === 'json')  single ? exportSetJson(chosen[0], songs) : exportSetsJson(chosen, songs);
+      else if (kind === 'setlist' && single) exportSetText(chosen[0], songs);
+    } catch (err) {
+      console.error('Set export failed:', err);
+      alert(`Export failed: ${err?.message || err}`);
+    }
   }
 
   return (
@@ -1366,20 +1373,25 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     setSelectMode(false);
   }
 
-  function handleExportSelectedPdf(includeChords = false) {
+  async function handleExportSelectedPdf(includeChords = false) {
     const selectedSongs = sorted.filter(s => selected.has(s.id));
     if (selectedSongs.length === 0) return;
-    if (selectedSongs.length === 1) {
-      const s = selectedSongs[0];
-      // Same render lens as the set PDF: transpose to the song's saved View Key.
-      exportToPdf(s, { displayKey: s.displayKey, includeChords, chordColor, accidentals });
-    } else {
-      // Multiple selected → one combined PDF, via a one-off synthesized set.
-      exportSetToPdf({ name: 'Songs', songIds: selectedSongs.map(s => s.id) }, songs, { includeChords, chordColor, accidentals });
-    }
     setExportDropOpen(false);
     setSelected(new Set());
     setSelectMode(false);
+    try {
+      if (selectedSongs.length === 1) {
+        const s = selectedSongs[0];
+        // Same render lens as the set PDF: transpose to the song's saved View Key.
+        await exportToPdf(s, { displayKey: s.displayKey, includeChords, chordColor, accidentals });
+      } else {
+        // Multiple selected → one combined PDF, via a one-off synthesized set.
+        await exportSetToPdf({ name: 'Songs', songIds: selectedSongs.map(s => s.id) }, songs, { includeChords, chordColor, accidentals });
+      }
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      alert(`Export failed: ${err?.message || err}`);
+    }
   }
 
   function handleDeleteSelected() {
