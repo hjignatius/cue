@@ -23,18 +23,21 @@ export default function RowMenu({ items, dark, label = 'More actions', iconSize 
 
   const visible = (items || []).filter(Boolean);
 
-  // Held tap feedback: highlight the tapped item, let the browser paint it, then
-  // run the action. On a slow device the action may block or navigate (unmounting
-  // this menu), so the pressed item stays visibly gray through the wait instead of
-  // the menu just vanishing with no confirmation of which command was chosen.
+  // Held tap feedback: highlight the tapped item, hold it a clearly perceptible
+  // beat so the choice registers, then run the action. On a slow device the action
+  // then blocks or navigates (unmounting this menu) while that gray is still
+  // painted, so the press stays visible through the wait rather than the menu just
+  // vanishing. The hold must exceed a couple of frames — otherwise the item
+  // navigates away before the highlight is ever seen.
+  const HOLD_MS = 150;
   function choose(it) {
     if (it.disabled) return;
     setPending(it.id);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    setTimeout(() => {
       it.onSelect?.();
       setOpen(false);
       setPending(null);
-    }));
+    }, HOLD_MS);
   }
 
   // Clear any held highlight whenever the menu closes (e.g. dismissed by an
@@ -132,7 +135,7 @@ export default function RowMenu({ items, dark, label = 'More actions', iconSize 
                 role="menuitem"
                 disabled={it.disabled}
                 onClick={() => choose(it)}
-                className={`w-full flex items-center gap-2 px-3 py-3 pointer-fine:py-2.5 text-sm text-left transition-colors ${text} ${bg}`}
+                className={`w-full flex items-center gap-2 px-3 py-3 pointer-fine:py-2.5 text-sm text-left ${text} ${bg}`}
               >
                 {it.icon && <it.icon size={16} strokeWidth={2} className="shrink-0" />}
                 {it.label}
