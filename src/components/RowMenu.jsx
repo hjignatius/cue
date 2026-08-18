@@ -17,10 +17,29 @@ import { MoreVertical } from 'lucide-react';
 export default function RowMenu({ items, dark, label = 'More actions', iconSize = 19, buttonClassName }) {
   const [open, setOpen]     = useState(false);
   const [coords, setCoords] = useState(null); // { top, left } in viewport px
+  const [pending, setPending] = useState(null); // id of a just-tapped item, held highlighted
   const wrapRef = useRef(null);
   const menuRef = useRef(null);
 
   const visible = (items || []).filter(Boolean);
+
+  // Held tap feedback: highlight the tapped item, let the browser paint it, then
+  // run the action. On a slow device the action may block or navigate (unmounting
+  // this menu), so the pressed item stays visibly gray through the wait instead of
+  // the menu just vanishing with no confirmation of which command was chosen.
+  function choose(it) {
+    if (it.disabled) return;
+    setPending(it.id);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      it.onSelect?.();
+      setOpen(false);
+      setPending(null);
+    }));
+  }
+
+  // Clear any held highlight whenever the menu closes (e.g. dismissed by an
+  // outside tap) so it never lingers into the next open.
+  useEffect(() => { if (!open) setPending(null); }, [open]);
 
   useLayoutEffect(() => {
     if (!open) { setCoords(null); return; }
@@ -74,7 +93,7 @@ export default function RowMenu({ items, dark, label = 'More actions', iconSize 
         className={buttonClassName || `h-9 w-9 flex items-center justify-center rounded-lg transition-colors shrink-0 ${
           open
             ? (dark ? 'text-white bg-gray-800' : 'text-gray-900 bg-gray-200')
-            : 'text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-gray-200/60 dark:hover:bg-gray-800'
+            : 'text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-gray-200/60 dark:hover:bg-gray-800 active:bg-gray-300/60 dark:active:bg-gray-700'
         }`}
       >
         <MoreVertical size={iconSize} />
@@ -95,25 +114,31 @@ export default function RowMenu({ items, dark, label = 'More actions', iconSize 
             visibility: coords ? 'visible' : 'hidden',
           }}
         >
-          {visible.map(it => (
-            <button
-              key={it.id}
-              type="button"
-              role="menuitem"
-              disabled={it.disabled}
-              onClick={() => { if (it.disabled) return; setOpen(false); it.onSelect?.(); }}
-              className={`w-full flex items-center gap-2 px-3 py-3 pointer-fine:py-2.5 text-sm text-left transition-colors ${
-                it.disabled
-                  ? (dark ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 cursor-not-allowed')
-                  : it.danger
-                    ? (dark ? 'text-red-400 hover:bg-gray-800' : 'text-red-600 hover:bg-gray-100')
-                    : (dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100')
-              }`}
-            >
-              {it.icon && <it.icon size={16} strokeWidth={2} className="shrink-0" />}
-              {it.label}
-            </button>
-          ))}
+          {visible.map(it => {
+            const isPending = pending === it.id;
+            const text = it.disabled
+              ? (dark ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 cursor-not-allowed')
+              : it.danger ? (dark ? 'text-red-400' : 'text-red-600')
+                          : (dark ? 'text-gray-200' : 'text-gray-800');
+            // Held highlight while pending; otherwise hover (mouse) + a stronger
+            // active shade for the press itself (touch).
+            const bg = it.disabled ? ''
+              : isPending ? (dark ? 'bg-gray-700' : 'bg-gray-200')
+                          : (dark ? 'hover:bg-gray-800 active:bg-gray-700' : 'hover:bg-gray-100 active:bg-gray-200');
+            return (
+              <button
+                key={it.id}
+                type="button"
+                role="menuitem"
+                disabled={it.disabled}
+                onClick={() => choose(it)}
+                className={`w-full flex items-center gap-2 px-3 py-3 pointer-fine:py-2.5 text-sm text-left transition-colors ${text} ${bg}`}
+              >
+                {it.icon && <it.icon size={16} strokeWidth={2} className="shrink-0" />}
+                {it.label}
+              </button>
+            );
+          })}
         </div>,
         document.body
       )}

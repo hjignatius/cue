@@ -119,14 +119,14 @@ export default function RoundButton({
           padded hit area does not scale its transparent surround. */}
       {pill ? (
         <span
-          className="flex items-center gap-2 rounded-full text-white select-none transition-transform group-active:scale-95"
+          className="flex items-center gap-2 rounded-full text-white select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90"
           style={{ height: size, paddingLeft: 12, paddingRight: 16, background: bg, opacity }}
         >
           {children}
         </span>
       ) : (
         <span
-          className="flex items-center justify-center rounded-full text-white select-none transition-transform group-active:scale-95"
+          className="flex items-center justify-center rounded-full text-white select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90"
           style={{ width: size, height: size, background: bg, opacity }}
         >
           {children}

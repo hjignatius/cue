@@ -101,6 +101,24 @@ function formatDuration(totalSec) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// A row in an Export dropdown. Press feedback only (gray on touch-down via
+// active:, hover on mouse) — unlike RowMenu it must NOT defer the action a frame
+// for a "held" highlight, because export actions open the file-save picker / iOS
+// share sheet, which require the live user gesture and would be blocked if the
+// call were pushed to a later tick.
+function ExportMenuItem({ label, onSelect, disabled = false, title, px = 'px-3' }) {
+  const state = disabled
+    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+    : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600';
+  return (
+    <button type="button" disabled={disabled} title={title}
+      onClick={() => { if (!disabled) onSelect?.(); }}
+      className={`w-full text-left ${px} py-2 text-xs transition-colors ${state}`}>
+      {label}
+    </button>
+  );
+}
+
 // ---- Song row ---------------------------------------------------------------
 
 function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onAddToSet, canAddToSet, selected, onToggleSelect, highlighted, hasAnnotation }) {
@@ -527,15 +545,15 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
             <>
               <div className="fixed inset-0 z-10" onClick={() => setSetsExportOpen(false)} />
               <div className="absolute left-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf')}>PDF</button>
-                <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('pdf-charts')}>PDF + Chord Charts</button>
-                <button className="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => runSetsExport('json')}>.json</button>
-                <button
+                <ExportMenuItem label="PDF" onSelect={() => runSetsExport('pdf')} />
+                <ExportMenuItem label="PDF + Chord Charts" onSelect={() => runSetsExport('pdf-charts')} />
+                <ExportMenuItem label=".json" onSelect={() => runSetsExport('json')} />
+                <ExportMenuItem
+                  label="Setlist"
                   disabled={selectedSets.size > 1}
                   title={selectedSets.size > 1 ? 'Setlist exports one set at a time' : undefined}
-                  className={`w-full text-left px-3 py-2 text-xs ${selectedSets.size > 1 ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                  onClick={() => runSetsExport('setlist')}
-                >Setlist</button>
+                  onSelect={() => runSetsExport('setlist')}
+                />
               </div>
             </>
           )}
@@ -1550,18 +1568,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
                   <div className="absolute left-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelected}>
-                      {selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'}
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={handleExportSelectedJson}>
-                      JSON
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(false)}>
-                      PDF
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white" onClick={() => handleExportSelectedPdf(true)}>
-                      PDF + Chord Charts
-                    </button>
+                    <ExportMenuItem px="px-4" label={selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'} onSelect={handleExportSelected} />
+                    <ExportMenuItem px="px-4" label="JSON" onSelect={handleExportSelectedJson} />
+                    <ExportMenuItem px="px-4" label="PDF" onSelect={() => handleExportSelectedPdf(false)} />
+                    <ExportMenuItem px="px-4" label="PDF + Chord Charts" onSelect={() => handleExportSelectedPdf(true)} />
                   </div>
                 </>
               )}

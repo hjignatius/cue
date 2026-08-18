@@ -8,6 +8,12 @@ import YouTubePlayer from './components/YouTubePlayer.jsx';
 import App from './App.jsx';
 import SharedSetView from './views/SharedSetView.jsx';
 
+// iOS/iPadOS only paints :active (and Tailwind's active:/group-active:) styles
+// during a tap when the document carries a touch listener. Without this, press
+// feedback — the round buttons' scale, the menu highlights — silently never
+// shows on iPad. One empty passive listener is enough to enable it globally.
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
