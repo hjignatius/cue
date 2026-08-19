@@ -416,7 +416,7 @@ function CharRuler({ textareaRef, text, target, dark }) {
 }
 
 
-export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0 }) {
+export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi }) {
   const { theme, chordDiagramSize, accidentals, symbols, updatePref } = usePrefs();
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
@@ -543,6 +543,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
     onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
   }
+
+  // Publish { isDirty, save } so App's "Update Cue" button can detect unsaved work
+  // and optionally save it before reloading. No deps → always the latest closure;
+  // cleared on unmount so it reads falsy anywhere outside the editor.
+  useEffect(() => {
+    if (!editorApi) return undefined;
+    editorApi.current = { isDirty, save: handleSave };
+    return () => { editorApi.current = null; };
+  });
 
   function handleRevert() {
     const b = baselineRef.current;

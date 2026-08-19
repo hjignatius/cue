@@ -7,6 +7,11 @@ import { YouTubeProvider } from './context/YouTubeContext.jsx';
 import YouTubePlayer from './components/YouTubePlayer.jsx';
 import App from './App.jsx';
 import SharedSetView from './views/SharedSetView.jsx';
+import { registerSw } from './swUpdate.js';
+
+// Offline launch + user-controlled updates. Registers public/sw.js on window
+// load; never reloads without a user tap (see swUpdate.js).
+registerSw();
 
 // iOS/iPadOS only paints :active (and Tailwind's active:/group-active:) styles
 // during a tap when the document carries a touch listener. Without this, press

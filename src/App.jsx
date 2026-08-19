@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import LibraryView from './views/LibraryView.jsx';
 import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
+import UpdateButton from './components/UpdateButton.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary } from './utils/storage.js';
 import { parseCho, mergeCustomChords, replaceCustomChords } from './utils/fileIO.js';
 import { usePrefs } from './context/PrefsContext.jsx';
+import { useSwUpdate, applyUpdate, dismissUpdate } from './swUpdate.js';
 import './index.css';
 
 // Case/punctuation-insensitive title comparison for conflict detection
@@ -15,6 +17,12 @@ function normalizeTitle(str) {
 export default function App() {
   const { theme } = usePrefs();
   const dark = theme === 'dark';
+
+  // Service-worker update state + a handle the editor fills with { isDirty, save }
+  // so the Update button can confirm/save unsaved work at tap time (cleared when
+  // the editor unmounts, so it reads falsy anywhere else).
+  const { updateAvailable, dismissed } = useSwUpdate();
+  const editorApiRef = useRef(null);
 
   const [view, setView]             = useState('library');
   const [songs, setSongs]           = useState([]);
@@ -402,6 +410,7 @@ export default function App() {
         <EditorView
           key={editorKey}
           song={activeSong}
+          editorApi={editorApiRef}
           annotationStamp={editorAnnotStamp}
           onBack={() => { refresh(); setReturnToPresenting(null); setSetlistContext(null); setLibraryContext(null); setView('library'); }}
           onSaved={savedSong => {
@@ -437,6 +446,17 @@ export default function App() {
           onEdit={handleEditFromPresentation}
           onSaveDuration={handleSavePresentDuration}
           onNavigate={song => sessionStorage.setItem('cue:setlist_selected_id', song.id)}
+        />
+      )}
+
+      {/* Floating "Update Cue" — only when a new worker is waiting and we're not
+          presenting, so it never appears over the performance surface. */}
+      {updateAvailable && !dismissed && !presenting && (
+        <UpdateButton
+          onApply={applyUpdate}
+          onDismiss={dismissUpdate}
+          getDirty={() => !!editorApiRef.current?.isDirty}
+          onSave={() => editorApiRef.current?.save?.()}
         />
       )}
 
