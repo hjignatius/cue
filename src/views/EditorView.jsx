@@ -417,7 +417,9 @@ function CharRuler({ textareaRef, text, target, dark }) {
 
 
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi }) {
-  const { theme, chordDiagramSize, accidentals, symbols, updatePref } = usePrefs();
+  const { theme, chordDiagramSize, accidentals, symbols, instrument, updatePref } = usePrefs();
+  // 'none' turns chord diagrams off entirely: no panel, no toggle, no Chords tab.
+  const chordsAvailable = instrument !== 'none';
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
 
@@ -440,6 +442,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [chordPrefs, setChordPrefs]         = useState(song?.chordPrefs ?? {});
   const [showPreview, setShowPreview]       = useState(true);
   const [showChordPanel, setShowChordPanel] = useState(true);
+  // Effective chord-panel visibility: the user toggle AND chords being available.
+  const chordsOn = showChordPanel && chordsAvailable;
   const [narrowTab, setNarrowTab]           = useState('editor');
   // Phone portrait (width) or phone landscape (height) — the editor chrome
   // collapses in both. iPad and desktop are unaffected.
@@ -458,9 +462,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const panelOptions = [
     { id: 'text',    label: 'Text' },
     { id: 'preview', label: 'Preview' },
-    { id: 'chords',  label: 'Chords' },
+    ...(chordsAvailable ? [{ id: 'chords', label: 'Chords' }] : []),
   ];
   const setPanelFromOption = (id) => setNarrowTab(id === 'text' ? 'editor' : id);
+  // If chords get turned off (instrument → none) while the narrow Chords tab is
+  // active, fall back to the editor so no blank panel is shown.
+  useEffect(() => {
+    if (!chordsAvailable && narrowTab === 'chords') setNarrowTab('editor');
+  }, [chordsAvailable, narrowTab]);
 
   // Compact-toolbar overflow menu. The anchor wraps the trigger so focus can be
   // returned to it on close (RoundButton renders its own button).
@@ -1287,6 +1296,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             >
               <span className="text-xs font-medium leading-none whitespace-nowrap">{showPreview ? 'Preview On' : 'Preview Off'}</span>
             </RoundButton>
+            {chordsAvailable && (
             <RoundButton
               size={ROUND_SIZE_COMPACT} pill
               label={showChordPanel ? 'Chords On' : 'Chords Off'}
@@ -1296,6 +1306,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             >
               <span className="text-xs font-medium leading-none whitespace-nowrap">{showChordPanel ? 'Chords On' : 'Chords Off'}</span>
             </RoundButton>
+            )}
           </div>
         )}
 
@@ -1427,7 +1438,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </div>
             )}
 
-            {narrowTab === 'chords' && (
+            {chordsAvailable && narrowTab === 'chords' && (
               <div className="flex-1 flex flex-col overflow-hidden">
                 <div className={`px-3 py-1.5 border-b ${border} shrink-0`}>
                   <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Chords</span>
@@ -1455,7 +1466,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             {/* Handle: editor / preview (or editor / chords when preview hidden) */}
             {showPreview
               ? <ResizeHandle handleProps={previewHandleProps} dark={dark} />
-              : showChordPanel
+              : chordsOn
                 ? <ResizeHandle handleProps={chordsHandleProps} dark={dark} />
                 : null
             }
@@ -1492,12 +1503,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             )}
 
             {/* Handle: preview / chords */}
-            {showPreview && showChordPanel && (
+            {showPreview && chordsOn && (
               <ResizeHandle handleProps={chordsHandleProps} dark={dark} />
             )}
 
             {/* Chord reference panel */}
-            {showChordPanel && (
+            {chordsOn && (
               <div className={`shrink-0 flex flex-col overflow-hidden border-l ${border}`} style={{ width: chordsWidth }}>
                 <div className={`px-3 py-1.5 border-b ${border} shrink-0`}>
                   <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Chords</span>

@@ -28,7 +28,8 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
   const lib = getActiveLibrary(instrument);
 
   let chordDiagrams = null;
-  if (includeChords) {
+  // Under 'none' there are no diagrams — omit the chord reference page entirely.
+  if (includeChords && instrument !== 'none') {
     const names = detectChords(convertToBrackets(text || '')).map(n => semitones ? transposeChord(n, semitones, useFlats) : n);
     chordDiagrams = lookupChordDiagrams(names, song.chordPrefs || {}, instrument);
   }
@@ -84,7 +85,7 @@ function chordDiagramsFor(songs, instrument = DEFAULT_INSTRUMENT) {
 export async function exportSetToPdf(set, allSongs, { includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
   const songs = songsForPdf([set], allSongs, accidentals);
   const lib = getActiveLibrary(instrument);
-  const chordDiagrams = includeChords ? chordDiagramsFor(songs, instrument) : null;
+  const chordDiagrams = (includeChords && instrument !== 'none') ? chordDiagramsFor(songs, instrument) : null;
   const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
   await saveFilePicker(blob, `${sanitize(set.name)}.pdf`);
 }
@@ -94,7 +95,7 @@ export async function exportSetToPdf(set, allSongs, { includeChords = false, cho
 export async function exportSetsToPdf(sets, allSongs, { includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
   const songs = songsForPdf(sets, allSongs, accidentals);
   const lib = getActiveLibrary(instrument);
-  const chordDiagrams = includeChords ? chordDiagramsFor(songs, instrument) : null;
+  const chordDiagrams = (includeChords && instrument !== 'none') ? chordDiagramsFor(songs, instrument) : null;
   const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
   const date = new Date().toISOString().slice(0, 10);
   await saveFilePicker(blob, `cue-sets-${date}.pdf`);

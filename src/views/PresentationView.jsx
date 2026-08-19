@@ -252,7 +252,9 @@ function lyricColumnWidth(fontPx) {
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, showEdit = true, disableAnnotations = false }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, updatePref } = usePrefs();
+  // 'none' turns chord diagrams off: no docked panel and no C toggle button.
+  const chordsAvailable = instrument !== 'none';
   // One idle delay for every Present control surface (pill + left gutter), from
   // the user's 0–5s setting. Clamped defensively in case an out-of-range value
   // is ever stored. The no-fade sentinel maps to Infinity, which every idle timer
@@ -661,7 +663,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         {/* Scroll-clear spacer. Matches the docked panel's live width so the end
             of the longest line can be scrolled out from under it; without it the
             tail would sit under the panel even at maximum scrollLeft. */}
-        {showChords && (
+        {chordsAvailable && showChords && (
           <div className="shrink-0" style={{ width: chordsWidth }} aria-hidden="true" />
         )}
       </div>
@@ -674,7 +676,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             PresentControls (z-40) so the control pill stays reachable.
             overflow-hidden lives on the inner column, not here, so the handle's
             44px touch target can overflow the panel's left edge. */}
-        {showChords && (
+        {chordsAvailable && showChords && (
           <div
             className={`absolute right-0 inset-y-0 z-30 flex border-l ${dark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-200 bg-gray-50'}`}
             style={{ width: chordsWidth }}
@@ -812,6 +814,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           </RoundButton>
         )}
 
+        {chordsAvailable && (
         <RoundButton
           size={PRESENT_ACTION_BUTTON_SIZE}
           label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
@@ -821,6 +824,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         >
           <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
         </RoundButton>
+        )}
         </>)}
       </div>
 

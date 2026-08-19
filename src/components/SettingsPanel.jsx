@@ -3,8 +3,19 @@ import { X } from 'lucide-react';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
+import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
+
+// Chord-diagram instrument selector. Ukulele/Baritone labels come from the
+// registry; None turns diagrams off; Guitar is a disabled placeholder (no
+// library/geometry is built — selecting it is impossible).
+const INSTRUMENT_OPTIONS = [
+  { id: 'none',          label: 'None' },
+  { id: 'ukulele_gcea',  label: CHORD_LIBRARIES.ukulele_gcea.label },
+  { id: 'baritone_dgbe', label: CHORD_LIBRARIES.baritone_dgbe.label },
+  { id: 'guitar',        label: 'Guitar', disabled: true },
+];
 
 // Supabase returns a 422 with wording like "Signups not allowed for otp" when
 // sign-ups are disabled. Match on content rather than the exact string, since
@@ -64,7 +75,7 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, updatePref } = usePrefs();
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
   const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
@@ -238,6 +249,46 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Chord instrument — which diagram library the chord panel shows */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Chord instrument</span>
+              <div className="grid grid-cols-2 gap-2">
+                {INSTRUMENT_OPTIONS.map(opt => {
+                  const active = instrument === opt.id;
+                  if (opt.disabled) {
+                    // Guitar: present but non-selectable. No onClick, disabled — a
+                    // click cannot set the pref. "Soon" marks it as coming later.
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled
+                        title="Coming soon"
+                        className={`flex items-center justify-center gap-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border ${border} ${muted} opacity-50 cursor-not-allowed`}
+                      >
+                        {opt.label}<span className="text-[10px] uppercase tracking-wide opacity-70">Soon</span>
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => updatePref('instrument', opt.id)}
+                      className={`py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors ${
+                        active
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className={`text-[11px] ${muted}`}>Which chord-diagram library the chord panel shows. “None” hides the diagram panel entirely. Chord names in your lyrics are unaffected.</p>
             </div>
 
             {/* Chord color */}
