@@ -176,9 +176,9 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onAddToSet, canAd
 // ---- Sets column (middle) ---------------------------------------------------
 
 function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, presenting, border }) {
-  // chordColor/accidentals feed the set PDF export (render lens); without them
-  // the PDF branch of runSetsExport throws a ReferenceError.
-  const { theme, chordColor, accidentals } = usePrefs();
+  // chordColor/accidentals/instrument feed the set PDF export (render lens +
+  // which chord library); without them the PDF branch throws a ReferenceError.
+  const { theme, chordColor, accidentals, instrument } = usePrefs();
   const { user }  = useAuth();
   const dark = theme === 'dark';
   const [listSort, setListSort] = useState(() => sessionStorage.getItem('cue:set_sort') || 'newest');
@@ -302,7 +302,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   async function publishWithRemediation(set, setSongs, userId) {
     // Embed each song's custom chord shapes in its published content so another
     // device can render them after pulling (the custom-chord library is local).
-    const enrich = (list) => list.map(s => ({ ...s, customChords: customChordsForSong(s) }));
+    const enrich = (list) => list.map(s => ({ ...s, customChords: customChordsForSong(s, instrument) }));
     try {
       return await publishSet(set, enrich(setSongs), userId);
     } catch (err) {
@@ -461,10 +461,10 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     // Await + surface failures: the PDF path is async, so an unhandled rejection
     // (e.g. a malformed song) would otherwise fail silently and look like a no-op.
     try {
-      if (kind === 'pdf')        single ? await exportSetToPdf(chosen[0], songs, { chordColor, accidentals })
-                                        : await exportSetsToPdf(chosen, songs, { chordColor, accidentals });
-      else if (kind === 'pdf-charts') single ? await exportSetToPdf(chosen[0], songs, { includeChords: true, chordColor, accidentals })
-                                              : await exportSetsToPdf(chosen, songs, { includeChords: true, chordColor, accidentals });
+      if (kind === 'pdf')        single ? await exportSetToPdf(chosen[0], songs, { chordColor, accidentals, instrument })
+                                        : await exportSetsToPdf(chosen, songs, { chordColor, accidentals, instrument });
+      else if (kind === 'pdf-charts') single ? await exportSetToPdf(chosen[0], songs, { includeChords: true, chordColor, accidentals, instrument })
+                                              : await exportSetsToPdf(chosen, songs, { includeChords: true, chordColor, accidentals, instrument });
       else if (kind === 'json')  single ? exportSetJson(chosen[0], songs) : exportSetsJson(chosen, songs);
       else if (kind === 'setlist' && single) exportSetText(chosen[0], songs);
     } catch (err) {
@@ -1176,7 +1176,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
 // ---- Library view -----------------------------------------------------------
 
 export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
-  const { theme, updatePref, chordColor, accidentals } = usePrefs();
+  const { theme, updatePref, chordColor, accidentals, instrument } = usePrefs();
   const dark = theme === 'dark';
 
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('cue:onboarding_done'));
@@ -1403,10 +1403,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       if (selectedSongs.length === 1) {
         const s = selectedSongs[0];
         // Same render lens as the set PDF: transpose to the song's saved View Key.
-        await exportToPdf(s, { displayKey: s.displayKey, includeChords, chordColor, accidentals });
+        await exportToPdf(s, { displayKey: s.displayKey, includeChords, chordColor, accidentals, instrument });
       } else {
         // Multiple selected → one combined PDF, via a one-off synthesized set.
-        await exportSetToPdf({ name: 'Songs', songIds: selectedSongs.map(s => s.id) }, songs, { includeChords, chordColor, accidentals });
+        await exportSetToPdf({ name: 'Songs', songIds: selectedSongs.map(s => s.id) }, songs, { includeChords, chordColor, accidentals, instrument });
       }
     } catch (err) {
       console.error('PDF export failed:', err);

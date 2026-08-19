@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, X, Download, Upload, SquarePen } from 'lucide-react';
-import { UKULELE_CHORDS } from '../data/ukuleleChords.js';
+import { getActiveChords, getActiveTuning, chordPrefKey } from '../data/chordLibraries.js';
+import { loadCustomChords, saveCustomChords, loadHiddenChords, saveHiddenChords } from '../utils/chordStorage.js';
 import ChordDiagram from './ChordDiagram.jsx';
 import { detectChords } from '../utils/chordDetect.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
@@ -8,23 +9,11 @@ import { transposeChord } from '../utils/transpose.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveFilePicker } from '../utils/filePicker.js';
 
-const CUSTOM_KEY = 'cue_custom_chords';
-const HIDDEN_KEY = 'cue_hidden_chords';
-
 // Scale levels: index 0–4 → multiplier
 const SCALES = [0.7, 0.85, 1.0, 1.3, 1.65];
 // Base chord diagram SVG width at scale 1.0: padLeft*2 + strGap*3 = 20 + 30 = 50px
 const DIAG_BASE_W = 50;
 
-function loadCustom() {
-  try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'); } catch { return []; }
-}
-function saveCustom(c) { localStorage.setItem(CUSTOM_KEY, JSON.stringify(c)); }
-
-function loadHidden() {
-  try { return new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]')); } catch { return new Set(); }
-}
-function saveHidden(set) { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...set])); }
 function builtinKey(chord) { return `${chord.name}:${chord.frets.join(',')}`; }
 
 // ---- Add custom chord form -------------------------------------------------
@@ -62,7 +51,7 @@ function isValidFretStr(raw) {
   return /^[0-9X]{4}$/.test(raw);
 }
 
-function CustomChordForm({ onSave, onCancel, theme, initialName = '', initialFretsStr = '', initialFingersStr = '' }) {
+function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', initialFretsStr = '', initialFingersStr = '' }) {
   const [name,       setName]       = useState(initialName);
   const [fretsStr,   setFretsStr]   = useState(initialFretsStr);
   const [fingersStr, setFingersStr] = useState(initialFingersStr);
@@ -89,7 +78,7 @@ function CustomChordForm({ onSave, onCancel, theme, initialName = '', initialFre
     <form onSubmit={handleSave} className={`border rounded-lg p-3 space-y-3 ${dark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
       {/* Live preview */}
       <div className="flex justify-center py-1">
-        <ChordDiagram chord={previewChord} scale={1.3} theme={theme} chordColor={chordColor} />
+        <ChordDiagram chord={previewChord} scale={1.3} theme={theme} chordColor={chordColor} tuning={tuning} />
       </div>
 
       <div>
@@ -133,11 +122,19 @@ function CustomChordForm({ onSave, onCancel, theme, initialName = '', initialFre
 // ---- SongChordPanel --------------------------------------------------------
 
 export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [] }) {
-  const { theme, chordColor } = usePrefs();
+  const { theme, chordColor, instrument } = usePrefs();
   const dark = theme === 'dark';
+  const tuning = getActiveTuning(instrument);
 
-  const [customChords, setCustomChords] = useState(loadCustom);
-  const [hiddenBuiltins, setHiddenBuiltins] = useState(loadHidden);
+  // Custom + hidden shapes are scoped to the active instrument. Re-sync when the
+  // instrument changes (a live selector arrives in PR3; today it changes only on
+  // reload, but this keeps the panel correct either way).
+  const [customChords, setCustomChords] = useState(() => loadCustomChords(instrument));
+  const [hiddenBuiltins, setHiddenBuiltins] = useState(() => new Set(loadHiddenChords(instrument)));
+  useEffect(() => {
+    setCustomChords(loadCustomChords(instrument));
+    setHiddenBuiltins(new Set(loadHiddenChords(instrument)));
+  }, [instrument]);
   const [addingCustom, setAddingCustom] = useState(null); // null = closed, string = open (pre-filled name)
   const [expandedChord, setExpandedChord] = useState(null); // name of chord whose picker is open
   const [editingChord, setEditingChord] = useState(null); // { originalName, originalFrets, isCustom, initialFretsStr, initialFingersStr }
@@ -171,11 +168,11 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
     detectedNames.map(name => ({
       name,
       shapes: [
-        ...UKULELE_CHORDS.filter(c => c.name === name && !hiddenBuiltins.has(builtinKey(c))),
+        ...getActiveChords(instrument).filter(c => c.name === name && !hiddenBuiltins.has(builtinKey(c))),
         ...displayCustoms.filter(c => c.name === name),
       ],
     })),
-    [detectedNames, displayCustoms, hiddenBuiltins]
+    [detectedNames, displayCustoms, hiddenBuiltins, instrument]
   );
 
   const scale   = SCALES[Math.max(0, Math.min(4, sizeLevel))];
@@ -185,8 +182,11 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
   // list (and thus shape order) differs. Older songs stored a numeric index, still
   // honored as a fallback. shapeKey/prefIndex convert between the two.
   const shapeKey = (shape) => (shape?.frets ? shape.frets.join(',') : '');
+  // Read/write the voicing pref under the instrument-namespaced key: ukulele uses
+  // the bare chord name (existing records), other instruments a prefixed key, so
+  // a baritone selection never overwrites the ukulele one (finding 6i).
   function prefIndex(name, shapes) {
-    const p = chordPrefs?.[name];
+    const p = chordPrefs?.[chordPrefKey(instrument, name)];
     if (p == null) return 0;
     if (typeof p === 'number') return Math.min(Math.max(0, p), Math.max(0, shapes.length - 1));
     const i = shapes.findIndex(s => shapeKey(s) === p);
@@ -194,14 +194,14 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
   }
   function selectShape(name, idx) {
     const shapes = groups.find(g => g.name === name)?.shapes ?? [];
-    onChordPrefsChange?.({ ...chordPrefs, [name]: shapeKey(shapes[idx]) || idx });
+    onChordPrefsChange?.({ ...chordPrefs, [chordPrefKey(instrument, name)]: shapeKey(shapes[idx]) || idx });
     setExpandedChord(null);
   }
 
   function handleSaveCustom(chord) {
     const updated = [...customChords, chord];
     setCustomChords(updated);
-    saveCustom(updated);
+    saveCustomChords(instrument, updated);
     setAddingCustom(null);
   }
 
@@ -215,7 +215,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
       updated.push(chord);
     }
     setCustomChords(updated);
-    saveCustom(updated);
+    saveCustomChords(instrument, updated);
     setEditingChord(null);
   }
 
@@ -253,30 +253,33 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
   }
 
   async function handleExportChordsCsv() {
-    const allShapes = [...UKULELE_CHORDS, ...customChords];
+    const allShapes = [...getActiveChords(instrument), ...customChords];
     const rows = allShapes.map(c => {
       const frets   = c.frets.map(f => f === -1 ? 'X' : String(f)).join('-');
       const fingers = c.fingers ? c.fingers.join('') : '';
       return fingers ? `${c.name},${frets},${fingers}` : `${c.name},${frets}`;
     });
+    // Header comment names the instrument so a later import isn't silently
+    // cross-tuning; import ignores '#' rows and writes to the active instrument.
+    const header = `# Cue chords — instrument: ${instrument} (${tuning.join('')})`;
     const date = new Date().toISOString().slice(0, 10);
-    await saveFilePicker(new Blob([rows.join('\n')], { type: 'text/csv' }), `cue-chords-${date}.csv`);
+    await saveFilePicker(new Blob([[header, ...rows].join('\n')], { type: 'text/csv' }), `cue-chords-${date}.csv`);
   }
 
   function handleDeleteBuiltin(chord) {
     const updated = new Set(hiddenBuiltins);
     updated.add(builtinKey(chord));
     setHiddenBuiltins(updated);
-    saveHidden(updated);
+    saveHiddenChords(instrument, [...updated]);
   }
 
   function handleDeleteCustom(name, frets) {
     const key = frets.join(',');
     const updated = customChords.filter(c => !(c.name === name && c.frets.join(',') === key));
     setCustomChords(updated);
-    saveCustom(updated);
+    saveCustomChords(instrument, updated);
     const next = { ...chordPrefs };
-    delete next[name];
+    delete next[chordPrefKey(instrument, name)];
     onChordPrefsChange?.(next);
   }
 
@@ -322,7 +325,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
       }
 
       setCustomChords(existing);
-      saveCustom(existing);
+      saveCustomChords(instrument, existing);
 
       const summary = [`${added} shape${added !== 1 ? 's' : ''} added`];
       if (skipped) summary.push(`${skipped} skipped (already present)`);
@@ -357,7 +360,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         added++;
       }
       setCustomChords(existing);
-      saveCustom(existing);
+      saveCustomChords(instrument, existing);
       alert(`Import complete: ${added} chord shape${added !== 1 ? 's' : ''} added, ${skipped} skipped (already present).`);
     };
     input.click();
@@ -395,7 +398,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         <p className={`text-xs text-center ${mutedTx}`}>No chords detected</p>
         {!readonly && (
           addingCustom !== null
-            ? <div className="w-full px-2"><CustomChordForm key={addingCustom} theme={theme} initialName={addingCustom} onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} /></div>
+            ? <div className="w-full px-2"><CustomChordForm key={addingCustom} theme={theme} tuning={tuning} initialName={addingCustom} onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} /></div>
             : <button onClick={() => setAddingCustom('')} className="text-xs text-indigo-600 hover:text-indigo-400 transition-colors">+ Add custom chord</button>
         )}
       </div>
@@ -435,7 +438,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                         : dark ? 'border-gray-700 hover:border-gray-500 bg-gray-900/50' : 'border-gray-300 hover:border-gray-400 bg-white'
                     }`}
                   >
-                    <ChordDiagram chord={shape} scale={scale} theme={theme} chordColor={chordColor} />
+                    <ChordDiagram chord={shape} scale={scale} theme={theme} chordColor={chordColor} tuning={tuning} />
                   </div>
                   {!readonly && (
                     <button
@@ -465,7 +468,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
 
           {!readonly && addingCustom === pickerName && (
             <div className="mt-3">
-              <CustomChordForm key={pickerName} theme={theme} initialName={pickerName} onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} />
+              <CustomChordForm key={pickerName} theme={theme} tuning={tuning} initialName={pickerName} onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} />
             </div>
           )}
         </div>
@@ -497,7 +500,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                 if (!readonly && addingCustom === name) {
                   return (
                     <div key={name} className="col-span-full">
-                      <CustomChordForm key={name} theme={theme} initialName={name} onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} />
+                      <CustomChordForm key={name} theme={theme} tuning={tuning} initialName={name} onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} />
                     </div>
                   );
                 }
@@ -531,7 +534,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     }` : ''}
                     title={!readonly ? (hasAlternates ? `${shapes.length} voicings — click to pick · double-click to edit` : 'Click to manage voicings · double-click to edit') : undefined}
                   >
-                    <ChordDiagram chord={selectedShape} scale={scale} theme={theme} chordColor={chordColor} />
+                    <ChordDiagram chord={selectedShape} scale={scale} theme={theme} chordColor={chordColor} tuning={tuning} />
                   </div>
                   {hasAlternates && (
                     <div className={`absolute bottom-1 right-1 text-[8px] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}>
@@ -564,6 +567,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
               ? <CustomChordForm
                   key={`edit-${editingChord.originalName}-${editingChord.originalFrets.join(',')}`}
                   theme={theme}
+                  tuning={tuning}
                   initialName={editingChord.originalName}
                   initialFretsStr={editingChord.initialFretsStr}
                   initialFingersStr={editingChord.initialFingersStr}
@@ -571,7 +575,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                   onCancel={() => setEditingChord(null)}
                 />
               : addingCustom === ''
-              ? <CustomChordForm key="" theme={theme} initialName="" onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} />
+              ? <CustomChordForm key="" theme={theme} tuning={tuning} initialName="" onSave={handleSaveCustom} onCancel={() => setAddingCustom(null)} />
               : (
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => { setAddingCustom(''); setEditingChord(null); }}

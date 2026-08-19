@@ -32,7 +32,7 @@ const COL = {
   lbl:    '#b0b8c8',
 };
 
-export function PdfChordDiagram({ chord }) {
+export function PdfChordDiagram({ chord, tuning = ['G', 'C', 'E', 'A'] }) {
   const { name, frets } = chord;
 
   const validFrets = frets.filter(f => f > 0);
@@ -123,7 +123,7 @@ export function PdfChordDiagram({ chord }) {
 
       {/* String labels */}
       <Text style={{ fontSize: 5, fontFamily: 'Helvetica', color: COL.lbl, letterSpacing: 1.8, marginTop: 1 }}>
-        G C E A
+        {tuning.join(' ')}
       </Text>
     </View>
   );

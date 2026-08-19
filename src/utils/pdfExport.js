@@ -4,6 +4,7 @@ import { semitonesBetween, transposeChord, useFlatsForKey } from './transpose.js
 import { convertToBrackets } from './chordStyle.js';
 import { detectChords } from './chordDetect.js';
 import { lookupChordDiagrams, resolveChordShape } from './chordLookup.js';
+import { getActiveLibrary, DEFAULT_INSTRUMENT } from '../data/chordLibraries.js';
 import { SongDocument, SetDocument } from './SongDocument.jsx';
 import { saveFilePicker } from './filePicker.js';
 import { sanitizeForPdf } from './pdfFonts.js';
@@ -19,19 +20,20 @@ function metaForPdf(metadata) {
   return { ...m, title: sanitizeForPdf(m.title), artist: sanitizeForPdf(m.artist), key: sanitizeForPdf(m.key) };
 }
 
-export async function exportToPdf(song, { displayKey, includeChords = false, chordColor, accidentals } = {}) {
+export async function exportToPdf(song, { displayKey, includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
   const { metadata, text } = song;
   const semitones  = semitonesBetween(metadata?.key, displayKey);
   const useFlats   = useFlatsForKey(accidentals, displayKey);
   const parsedLines = expandSections(parseChordPro(convertToBrackets(sanitizeForPdf(text || ''))));
+  const lib = getActiveLibrary(instrument);
 
   let chordDiagrams = null;
   if (includeChords) {
     const names = detectChords(convertToBrackets(text || '')).map(n => semitones ? transposeChord(n, semitones, useFlats) : n);
-    chordDiagrams = lookupChordDiagrams(names, song.chordPrefs || {});
+    chordDiagrams = lookupChordDiagrams(names, song.chordPrefs || {}, instrument);
   }
 
-  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, useFlats, chordDiagrams, chordColor })).toBlob();
+  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, useFlats, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
   await saveFilePicker(blob, `${sanitize(metadata?.title)}.pdf`);
 }
 
@@ -64,7 +66,7 @@ function songsForPdf(sets, allSongs, accidentals) {
 // re-spelled body (so the Chord Reference page agrees with the printed chords) and
 // honoring each song's selected voicing. Deduped by displayed name — first
 // occurrence (with its song's chosen shape) wins.
-function chordDiagramsFor(songs) {
+function chordDiagramsFor(songs, instrument = DEFAULT_INSTRUMENT) {
   const seen = new Set();
   const out = [];
   for (const song of songs) {
@@ -72,26 +74,28 @@ function chordDiagramsFor(songs) {
       const displayed = song.semitones ? transposeChord(name, song.semitones, song.useFlats) : name;
       if (seen.has(displayed)) continue;
       seen.add(displayed);
-      const shape = resolveChordShape(displayed, song.chordPrefs || {});
+      const shape = resolveChordShape(displayed, song.chordPrefs || {}, instrument);
       if (shape) out.push(shape);
     }
   }
   return out;
 }
 
-export async function exportSetToPdf(set, allSongs, { includeChords = false, chordColor, accidentals } = {}) {
+export async function exportSetToPdf(set, allSongs, { includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
   const songs = songsForPdf([set], allSongs, accidentals);
-  const chordDiagrams = includeChords ? chordDiagramsFor(songs) : null;
-  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor })).toBlob();
+  const lib = getActiveLibrary(instrument);
+  const chordDiagrams = includeChords ? chordDiagramsFor(songs, instrument) : null;
+  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
   await saveFilePicker(blob, `${sanitize(set.name)}.pdf`);
 }
 
 // Several sets as one combined PDF — every selected set's songs as consecutive
 // pages (in selection order), sharing a single Chord Reference page when asked.
-export async function exportSetsToPdf(sets, allSongs, { includeChords = false, chordColor, accidentals } = {}) {
+export async function exportSetsToPdf(sets, allSongs, { includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
   const songs = songsForPdf(sets, allSongs, accidentals);
-  const chordDiagrams = includeChords ? chordDiagramsFor(songs) : null;
-  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor })).toBlob();
+  const lib = getActiveLibrary(instrument);
+  const chordDiagrams = includeChords ? chordDiagramsFor(songs, instrument) : null;
+  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
   const date = new Date().toISOString().slice(0, 10);
   await saveFilePicker(blob, `cue-sets-${date}.pdf`);
 }

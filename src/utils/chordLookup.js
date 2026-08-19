@@ -1,37 +1,43 @@
-import { UKULELE_CHORDS } from '../data/ukuleleChords.js';
+import { getActiveChords, chordPrefKey, DEFAULT_INSTRUMENT } from '../data/chordLibraries.js';
+import { loadCustomChords, loadHiddenChords } from './chordStorage.js';
 
-function loadCustom() {
-  try { return JSON.parse(localStorage.getItem('cue_custom_chords') || '[]'); } catch { return []; }
-}
+const shapeKey  = (shape) => (shape?.frets ? shape.frets.join(',') : '');
+const builtinKey = (c) => `${c.name}:${c.frets.join(',')}`;
 
-const shapeKey = (shape) => (shape?.frets ? shape.frets.join(',') : '');
-
-// All shapes for a chord name: built-ins first, then custom shapes — the same
-// order SongChordPanel builds, so a saved preference resolves to the same shape.
-export function shapesForName(name, custom = loadCustom()) {
+// All shapes for a chord name in the ACTIVE instrument: its built-ins (minus any
+// the user hid) first, then that instrument's custom shapes — the same order and
+// filtering SongChordPanel builds, so a saved preference resolves to the same
+// shape everywhere. NO cross-instrument fallback: if the active instrument has no
+// shape for a name, the result is empty and the caller renders the name alone.
+export function shapesForName(name, instrument = DEFAULT_INSTRUMENT, custom, hidden) {
+  const customs   = custom ?? loadCustomChords(instrument);
+  const hiddenSet = hidden ?? new Set(loadHiddenChords(instrument));
   return [
-    ...UKULELE_CHORDS.filter(c => c.name === name),
-    ...custom.filter(c => c.name === name),
+    ...getActiveChords(instrument).filter(c => c.name === name && !hiddenSet.has(builtinKey(c))),
+    ...customs.filter(c => c.name === name),
   ];
 }
 
-// Resolve one chord name to its selected shape. chordPrefs is the per-song map
-// (name → the chosen shape's frets key, e.g. "2,0,2,0"; older songs stored a
-// numeric index, still honored). Mirrors SongChordPanel's prefIndex so Preview,
-// Present and the PDF all agree. Returns null for unknown chords.
-export function resolveChordShape(name, chordPrefs = {}, custom = loadCustom()) {
-  const shapes = shapesForName(name, custom);
+// Resolve one chord name to its selected shape for the active instrument.
+// chordPrefs is the per-song map; the voicing key is read via chordPrefKey so
+// ukulele uses the bare name (existing records) and other instruments use the
+// namespaced key. Older ukulele songs stored a numeric index, still honored.
+// Returns null when the active instrument has no shape (decision B — no fallback).
+export function resolveChordShape(name, chordPrefs = {}, instrument = DEFAULT_INSTRUMENT, custom, hidden) {
+  const shapes = shapesForName(name, instrument, custom, hidden);
   if (!shapes.length) return null;
-  const p = chordPrefs?.[name];
+  const p = chordPrefs?.[chordPrefKey(instrument, name)];
   let idx = 0;
   if (typeof p === 'number') idx = Math.min(Math.max(0, p), shapes.length - 1);
   else if (typeof p === 'string') { const i = shapes.findIndex(s => shapeKey(s) === p); if (i >= 0) idx = i; }
   return shapes[idx];
 }
 
-// Chord objects {name, frets, fingers?} for the given names, honoring the song's
-// shape preferences and custom chords. Unknown chords are omitted.
-export function lookupChordDiagrams(names, chordPrefs = {}) {
-  const custom = loadCustom();
-  return names.map(name => resolveChordShape(name, chordPrefs, custom)).filter(Boolean);
+// Chord objects {name, frets, fingers?} for the given names in the active
+// instrument, honoring the song's shape preferences, customs and hidden shapes.
+// Names with no shape in the active instrument are omitted.
+export function lookupChordDiagrams(names, chordPrefs = {}, instrument = DEFAULT_INSTRUMENT) {
+  const custom = loadCustomChords(instrument);
+  const hidden = new Set(loadHiddenChords(instrument));
+  return names.map(name => resolveChordShape(name, chordPrefs, instrument, custom, hidden)).filter(Boolean);
 }

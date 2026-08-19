@@ -10,8 +10,8 @@ import { BARITONE_CHORDS } from './baritoneChords.js';
 // chord site still reads the ukulele set directly. PR2 switches them to read the
 // active library via getActiveLibrary(). Guitar is deferred to a later phase.
 export const CHORD_LIBRARIES = {
-  ukulele_gcea:  { chords: UKULELE_CHORDS,  tuning: ['G', 'C', 'E', 'A'], label: 'GCEA Ukulele' },
-  baritone_dgbe: { chords: BARITONE_CHORDS, tuning: ['D', 'G', 'B', 'E'], label: 'DGBE Baritone' },
+  ukulele_gcea:  { name: 'Ukulele',  chords: UKULELE_CHORDS,  tuning: ['G', 'C', 'E', 'A'], label: 'GCEA Ukulele' },
+  baritone_dgbe: { name: 'Baritone', chords: BARITONE_CHORDS, tuning: ['D', 'G', 'B', 'E'], label: 'DGBE Baritone' },
 };
 
 // The safe fallback for any unknown/missing/legacy instrument id. Existing users
@@ -30,4 +30,13 @@ export function getActiveChords(instrument) {
 }
 export function getActiveTuning(instrument) {
   return getActiveLibrary(instrument).tuning;
+}
+
+// Namespaced key for a song's per-chord voicing preference (finding 6i). Ukulele
+// keeps the bare chord name so EXISTING song records are read/written unchanged;
+// every other instrument uses an "<instrument>:<name>" key, so selecting a
+// baritone voicing can never touch the ukulele selection stored under the bare
+// name. Song records are never migrated — namespaced keys are added lazily.
+export function chordPrefKey(instrument, name) {
+  return (!instrument || instrument === DEFAULT_INSTRUMENT) ? name : `${instrument}:${name}`;
 }

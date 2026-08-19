@@ -9,28 +9,36 @@ import { detectChords } from './chordDetect.js';
 // a separate 'annotations' store and are intentionally never read here, so they
 // can never appear in .cho, .json, .zip, or backup exports.
 
-// ---- Custom chord library (localStorage) ------------------------------------
+// ---- Custom chord library (per-instrument, localStorage) --------------------
+//
+// The .cho/.json/backup transfer format carries a flat, untagged customs array
+// (historically all ukulele). Per the PR2 decision, this channel is PINNED to
+// ukulele on both export and import: legacy backups always round-trip correctly,
+// and non-ukulele customs wait for an instrument-tagged format (deferred, 6ii).
+// So these default to the ukulele scope; only customChordsForSong takes the
+// active instrument (the publish embed, point 7).
 
-const CUSTOM_CHORDS_KEY = 'cue_custom_chords';
+import { loadCustomChords as loadScopedCustom, saveCustomChords as saveScopedCustom } from './chordStorage.js';
+import { DEFAULT_INSTRUMENT } from '../data/chordLibraries.js';
 
-export function loadCustomChords() {
-  try { return JSON.parse(localStorage.getItem(CUSTOM_CHORDS_KEY) || '[]'); } catch { return []; }
+export function loadCustomChords(instrument = DEFAULT_INSTRUMENT) {
+  return loadScopedCustom(instrument);
 }
 
-export function mergeCustomChords(incoming = []) {
-  const existing = loadCustomChords();
+export function mergeCustomChords(incoming = [], instrument = DEFAULT_INSTRUMENT) {
+  const existing = loadScopedCustom(instrument);
   let added = 0;
   for (const chord of incoming) {
     if (!Array.isArray(chord.frets)) continue;
     const isDupe = existing.some(c => c.name === chord.name && c.frets.join(',') === chord.frets.join(','));
     if (!isDupe) { existing.push(chord); added++; }
   }
-  localStorage.setItem(CUSTOM_CHORDS_KEY, JSON.stringify(existing));
+  saveScopedCustom(instrument, existing);
   return added;
 }
 
-export function replaceCustomChords(chords = []) {
-  localStorage.setItem(CUSTOM_CHORDS_KEY, JSON.stringify(chords));
+export function replaceCustomChords(chords = [], instrument = DEFAULT_INSTRUMENT) {
+  saveScopedCustom(instrument, chords);
 }
 
 // The custom chord shapes a song might display — those whose name matches a chord
@@ -38,13 +46,14 @@ export function replaceCustomChords(chords = []) {
 // render them after pulling, since the custom-chord library is otherwise
 // device-local (localStorage) and never travels through publish/pull.
 //
-// KNOWN LIMITATION (multi-instrument): these embedded customs are the ukulele
-// shapes (the current single flat store). Once instruments are wired up, a
-// baritone puller would see wrong-tuning fingerings. Deferred (finding 6ii):
-// embed/render customs tagged by instrument, matching the puller's active one.
-export function customChordsForSong(song) {
+// KNOWN LIMITATION (multi-instrument): these embed the ACTIVE instrument's custom
+// shapes, but the published payload is NOT tagged with which instrument they are.
+// A puller on a different instrument would see wrong-tuning fingerings. Deferred
+// (finding 6ii): tag embedded customs by instrument and match the puller's active
+// one. PR2 embeds the active instrument's customs so newly added shapes travel.
+export function customChordsForSong(song, instrument = DEFAULT_INSTRUMENT) {
   const names = new Set(detectChords(convertToBrackets(song?.text || '')));
-  return loadCustomChords().filter(c => names.has(c.name));
+  return loadScopedCustom(instrument).filter(c => names.has(c.name));
 }
 
 // -----------------------------------------------------------------------------

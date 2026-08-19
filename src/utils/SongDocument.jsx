@@ -119,18 +119,19 @@ function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scal
   );
 }
 
-// One chord reference page appended after song content
-function ChordReferencePage({ chords }) {
+// One chord reference page appended after song content. tuning/instrumentName
+// default to ukulele so any caller that omits them is unchanged.
+function ChordReferencePage({ chords, tuning = ['G', 'C', 'E', 'A'], instrumentName = 'Ukulele' }) {
   return (
     <Page size="A4" style={{ padding: 48, fontFamily: FONT_SANS, backgroundColor: '#ffffff' }}>
       <View style={{ borderBottomWidth: 1, borderBottomColor: '#cccccc', paddingBottom: 10, marginBottom: 20 }}>
         <Text style={{ fontSize: 18, fontFamily: FONT_SANS, fontWeight: 'bold', color: '#1a1a2e' }}>Chord Reference</Text>
-        <Text style={{ fontSize: 8, color: '#9ca3af', marginTop: 3 }}>Ukulele — G C E A tuning</Text>
+        <Text style={{ fontSize: 8, color: '#9ca3af', marginTop: 3 }}>{instrumentName} — {tuning.join(' ')} tuning</Text>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {chords.map((chord, i) => (
           <View key={i} style={{ width: '20%', alignItems: 'center', marginBottom: 18, paddingHorizontal: 4 }}>
-            <PdfChordDiagram chord={chord} />
+            <PdfChordDiagram chord={chord} tuning={tuning} />
           </View>
         ))}
       </View>
@@ -139,23 +140,23 @@ function ChordReferencePage({ chords }) {
 }
 
 // Single-song PDF document
-export function SongDocument({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordDiagrams, chordColor }) {
+export function SongDocument({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordDiagrams, chordColor, tuning, instrumentName }) {
   return (
     <Document>
       <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} useFlats={useFlats} scale={scale} chordColor={chordColor} />
-      {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} />}
+      {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>
   );
 }
 
 // Multi-song PDF document for full-set export
-export function SetDocument({ songs, chordDiagrams, chordColor }) {
+export function SetDocument({ songs, chordDiagrams, chordColor, tuning, instrumentName }) {
   return (
     <Document>
       {songs.map((song, i) => (
         <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} />
       ))}
-      {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} />}
+      {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>
   );
 }

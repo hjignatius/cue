@@ -3,7 +3,7 @@
 // scale: multiplier on base dimensions (default 1.0)
 // theme: 'dark' | 'light'
 
-export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordColor }) {
+export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordColor, tuning = ['G', 'C', 'E', 'A'] }) {
   const { name, frets } = chord;
 
   // Base layout (at scale 1)
@@ -143,9 +143,9 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
         );
       })}
 
-      {/* String labels G C E A */}
-      {['G', 'C', 'E', 'A'].map((lbl, i) => (
-        <text key={lbl} x={strX(i)} y={h - 1} textAnchor="middle"
+      {/* String labels — tuning-driven (G C E A ukulele, D G B E baritone) */}
+      {tuning.map((lbl, i) => (
+        <text key={i} x={strX(i)} y={h - 1} textAnchor="middle"
           fontSize={B.fontSize.string * s} fontFamily="ui-sans-serif, sans-serif" fill={col.strLbl}>{lbl}</text>
       ))}
     </svg>
