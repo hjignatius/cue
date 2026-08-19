@@ -21,7 +21,12 @@ export const PRESENT_NO_FADE = -1;
 // actually begins — a lead-in to get set. 0–5; 0 (start immediately) is default.
 const DEFAULT_SCROLL_START_DELAY_SEC = 0;
 
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC };
+// Global chord-diagram instrument (which built-in library the chord panel renders
+// from). ukulele_gcea preserves today's behavior for every existing user. Nothing
+// reads this functionally until PR2 — PR1 only establishes the default + storage.
+const DEFAULT_INSTRUMENT = 'ukulele_gcea';
+
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 

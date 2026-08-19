@@ -8,6 +8,11 @@ import YouTubePlayer from './components/YouTubePlayer.jsx';
 import App from './App.jsx';
 import SharedSetView from './views/SharedSetView.jsx';
 import { registerSw } from './swUpdate.js';
+import { migrateChordLibraries } from './utils/chordStorage.js';
+
+// One-time, localStorage-only migration to per-instrument chord keys. Runs before
+// React mounts (and thus before any chord read); non-destructive and idempotent.
+migrateChordLibraries();
 
 // Offline launch + user-controlled updates. Registers public/sw.js on window
 // load; never reloads without a user tap (see swUpdate.js).

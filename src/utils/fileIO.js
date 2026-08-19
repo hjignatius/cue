@@ -37,6 +37,11 @@ export function replaceCustomChords(chords = []) {
 // in the song. Embedded in a song's published content so another device can
 // render them after pulling, since the custom-chord library is otherwise
 // device-local (localStorage) and never travels through publish/pull.
+//
+// KNOWN LIMITATION (multi-instrument): these embedded customs are the ukulele
+// shapes (the current single flat store). Once instruments are wired up, a
+// baritone puller would see wrong-tuning fingerings. Deferred (finding 6ii):
+// embed/render customs tagged by instrument, matching the puller's active one.
 export function customChordsForSong(song) {
   const names = new Set(detectChords(convertToBrackets(song?.text || '')));
   return loadCustomChords().filter(c => names.has(c.name));
