@@ -121,7 +121,7 @@ function ExportMenuItem({ label, onSelect, disabled = false, title, px = 'px-3' 
 
 // ---- Song row ---------------------------------------------------------------
 
-function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onAddToSet, canAddToSet, selected, onToggleSelect, highlighted, hasAnnotation }) {
+function SongRow({ song, dark, onOpen, onPresent, onDuplicate, selected, onToggleSelect, highlighted, hasAnnotation }) {
   const { title, artist, key } = song.metadata || {};
 
   return (
@@ -162,10 +162,9 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onAddToSet, canAd
           dark={dark}
           label={`Actions for ${title || 'Untitled'}`}
           items={[
-            { id: 'add',   label: 'Add to Set', icon: ListPlus, disabled: !canAddToSet, onSelect: () => onAddToSet(song) },
-            { id: 'edit',  label: 'Edit',       icon: SquarePen, onSelect: onOpen },
-            { id: 'pres',  label: 'Present',    icon: Tv,        onSelect: () => onPresent(song) },
-            { id: 'dup',   label: 'Duplicate',  icon: Copy,      onSelect: () => onDuplicate(song) },
+            { id: 'edit',  label: 'Edit',      icon: SquarePen, onSelect: onOpen },
+            { id: 'pres',  label: 'Present',   icon: Tv,        onSelect: () => onPresent(song) },
+            { id: 'dup',   label: 'Duplicate', icon: Copy,      onSelect: () => onDuplicate(song) },
           ]}
         />
       </div>
@@ -1206,6 +1205,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [selectMode, setSelectMode]   = useState(false);
   const [selected, setSelected]       = useState(new Set());
   const [exportDropOpen, setExportDropOpen] = useState(false);
+  const [addToSetOpen, setAddToSetOpen] = useState(false); // create/select-target dialog
+  const [newSetName, setNewSetName]     = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
   const [setsSelectMode, setSetsSelectMode] = useState(false); // mirrors SetsColumn select mode
@@ -1339,10 +1340,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   function selectAll()   { setSelected(new Set(sorted.map(s => s.id))); }
   function deselectAll() { setSelected(new Set()); }
 
-  // Add the given song ids to the active set, skipping any already present and
-  // reporting the outcome. Returns nothing; alerts as needed.
-  async function addIdsToActiveSet(ids) {
-    const set = sets.find(s => s.id === activeSetId);
+  // Add the given song ids to a set by id, skipping any already present and
+  // reporting the outcome. Alerts on success and on partial/duplicate.
+  async function addIdsToSet(setId, ids) {
+    const set = sets.find(s => s.id === setId);
     if (!set) return;
     const already = ids.filter(id => set.songIds.includes(id));
     const newIds  = ids.filter(id => !set.songIds.includes(id));
@@ -1358,14 +1359,46 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     await saveSet({ ...set, songIds: [...set.songIds, ...newIds] });
     onRefresh();
 
-    if (already.length) {
-      alert(already.length === 1
-        ? `Added ${newIds.length}. "${titleOf(already[0])}" was already in "${set.name}" and was skipped.`
-        : `Added ${newIds.length}. ${already.length} songs were already in "${set.name}" and were skipped.`);
+    const base = `Added ${newIds.length} ${newIds.length === 1 ? 'song' : 'songs'} to "${set.name}".`;
+    alert(already.length
+      ? `${base} ${already.length} already there ${already.length === 1 ? 'was' : 'were'} skipped.`
+      : base);
+  }
+
+  // Toolbar "Add to Set": if a set is currently selected, add the selected songs
+  // straight to it; otherwise open the create/select dialog.
+  function handleAddSelectedToSet() {
+    if (selected.size === 0) return;
+    if (activeSetId && sets.some(s => s.id === activeSetId)) {
+      addSelectedToSetId(activeSetId);
+    } else {
+      setNewSetName('');
+      setAddToSetOpen(true);
     }
   }
 
-  function handleAddSongToSet(song) { return addIdsToActiveSet([song.id]); }
+  async function addSelectedToSetId(setId) {
+    const ids = [...selected];
+    await addIdsToSet(setId, ids);
+    setSelected(new Set());
+    setSelectMode(false);
+    setAddToSetOpen(false);
+  }
+
+  // Create a new set from the current selection (via the dialog), select it, and
+  // exit select mode.
+  async function createSetAndAddSelected() {
+    const name = newSetName.trim();
+    if (!name) return;
+    const ids = [...selected];
+    const saved = await saveSet({ id: null, name, songIds: ids, sortMode: 'custom' });
+    setActiveSetId(saved.id);
+    onRefresh();
+    setSelected(new Set());
+    setSelectMode(false);
+    setAddToSetOpen(false);
+    alert(`Created "${name}" with ${ids.length} ${ids.length === 1 ? 'song' : 'songs'}.`);
+  }
 
   // Success feedback (incl. the silent export-folder path) is centralized in
   // saveFilePicker; here we only surface a failure so it isn't silent.
@@ -1583,7 +1616,14 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </>
               )}
             </div>
-            {/* Add to Set now lives in each song's ⋮ menu. */}
+            {/* Add the selected songs to a set. Active in Select mode with a
+                selection; if no set is selected, opens a create/select dialog. */}
+            <HeaderPill
+              dark={dark} icon={ListPlus} label="Add to Set"
+              title="Add selected songs to a set"
+              disabled={!selectMode || selected.size === 0}
+              onActivate={handleAddSelectedToSet}
+            />
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label={selectMode && selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
@@ -1676,8 +1716,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   }}
                   onPresent={s => onPresent?.([s], 0)}
                   onDuplicate={handleDuplicate}
-                  onAddToSet={handleAddSongToSet}
-                  canAddToSet={!!activeSetId}
                   selected={selected.has(song.id)}
                   onToggleSelect={toggleSelect}
                   highlighted={!selected.has(song.id) && song.id === highlightedSongId}
@@ -1762,6 +1800,70 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {showTour && <OnboardingTour onDone={finishTour} />}
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* Add-to-Set target picker — shown when the toolbar button is used with no
+          set selected. Create a new set from the selection, or add to an existing. */}
+      {addToSetOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setAddToSetOpen(false)}>
+          <div
+            className={`w-80 max-h-[80vh] rounded-2xl shadow-2xl p-5 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1">
+              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+                Add {selected.size} {selected.size === 1 ? 'song' : 'songs'} to a set
+              </h2>
+              <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Create a new set or choose an existing one.</p>
+            </div>
+
+            {/* Create new */}
+            <form
+              onSubmit={e => { e.preventDefault(); createSetAndAddSelected(); }}
+              className="flex gap-2"
+            >
+              <input
+                autoFocus
+                value={newSetName}
+                onChange={e => setNewSetName(e.target.value)}
+                placeholder="New set name"
+                className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+              />
+              <button
+                type="submit"
+                disabled={!newSetName.trim()}
+                className="px-3 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors whitespace-nowrap"
+              >
+                Create
+              </button>
+            </form>
+
+            {sets.length > 0 && (
+              <>
+                <div className={`text-xs uppercase tracking-wide ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Or add to existing</div>
+                <div className={`flex-1 overflow-y-auto -mx-1 rounded-lg border ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
+                  {sets.map(set => (
+                    <button
+                      key={set.id}
+                      onClick={() => addSelectedToSetId(set.id)}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors ${dark ? 'text-gray-200 hover:bg-gray-800 active:bg-gray-700' : 'text-gray-800 hover:bg-gray-100 active:bg-gray-200'}`}
+                    >
+                      <span className="truncate">{set.name}</span>
+                      <span className={`text-xs shrink-0 tabular-nums ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{set.songIds.length} {set.songIds.length === 1 ? 'song' : 'songs'}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <button
+              onClick={() => setAddToSetOpen(false)}
+              className={`w-full py-2 text-sm rounded-lg transition-colors ${dark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

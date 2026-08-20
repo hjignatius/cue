@@ -166,6 +166,7 @@ function manualHTML() {
     <li class="toc-h2">Select Mode</li>
     <li class="toc-h1">4. Sets &amp; Setlist</li>
     <li class="toc-h2">Creating &amp; Managing Sets</li>
+    <li class="toc-h2">Adding Songs to a Set</li>
     <li class="toc-h2">Sets Select Mode</li>
     <li class="toc-h2">Searching &amp; Sorting Sets</li>
     <li class="toc-h2">The Setlist Column</li>
@@ -272,7 +273,7 @@ function manualHTML() {
   <li>Tap a row or its checkbox to select / deselect that song</li>
   <li><strong>Select all</strong> / <strong>Deselect all</strong> toggle at the top of the list</li>
   <li><strong>Export ▾</strong> — exports selected songs. One song: download as ChordPro (<code>.cho</code>) or JSON. Multiple songs: download as a ZIP of <code>.cho</code> files or a JSON bundle.</li>
-  <li><strong>Add to Set</strong> — adds all selected songs to the currently active set (the one highlighted in the Sets panel). The button is grayed out if no set is active; first tap a set in the Sets panel to make it active, then return to the Library and use Select mode.</li>
+  <li><strong>Add to Set</strong> — adds all selected songs to a set (see <em>Adding Songs to a Set</em> below). If a set is already selected in the Sets panel, the songs go straight into it; otherwise a dialog opens so you can create a new set or pick an existing one.</li>
   <li><strong>Delete</strong> — permanently removes selected songs from the library and any sets they appear in</li>
 </ul>
 <p>Tap <strong>Done</strong> in the Library panel header to exit selection mode.</p>
@@ -282,8 +283,16 @@ function manualHTML() {
 <p>The <strong>Sets</strong> column (middle) lists all your sets. The <strong>Setlist</strong> column (right) shows the songs inside whichever set is currently selected.</p>
 
 <h2>Creating &amp; Managing Sets</h2>
-<p>Tap <strong>New Set</strong> in the Sets panel header, type a name, and press Enter or tap <strong>Create</strong>.</p>
-<p>To add songs to a set: tap the set row to make it active (it highlights in indigo), then go to the Library panel, enter Select mode, check the songs you want, and tap <strong>Add to Set</strong>. The button shows the active set name in its tooltip and is grayed out if no set is selected.</p>
+<p>Tap <strong>New Set</strong> in the Sets panel header, type a name, and press Enter or tap <strong>Create</strong>. You can also create a set on the fly while adding songs — see below.</p>
+
+<h2>Adding Songs to a Set</h2>
+<p>Adding songs is driven from the <strong>Library</strong> panel:</p>
+<ol>
+  <li>Tap <strong>Select</strong> in the Library header and check the songs you want. <strong>Select all</strong> checks every song currently listed — so you can search or filter first (for example sort <strong>By Artist</strong> and open one artist, or type an artist's name in the search bar) and then Select all to grab that whole group.</li>
+  <li>Tap <strong>Add to Set</strong> (next to <strong>Export</strong>).</li>
+  <li>If a set is already selected in the Sets panel (highlighted in indigo), the songs are added straight to it. If no set is selected, a dialog opens: type a name and tap <strong>Create</strong> to make a new set from your selection, or tap an existing set in the list to add them there.</li>
+</ol>
+<p>Songs already in the target set are skipped, and Cue confirms how many were added. A song can live in any number of sets — adding it to a set never removes it from the library or from other sets.</p>
 <p>Tap a set row to select it — its songs appear in the Setlist column. Tap it again to deselect.</p>
 <p>To <strong>duplicate</strong> a set, tap the copy icon on its row. Cue creates a new set with the same songs under a <em>"(2)"</em> name — the songs are shared, not copied, so nothing is added to your library. The duplicate is a fresh local set: it is <em>not</em> published, even if the original was, so you can edit it and publish it separately when ready.</p>
 <p>To delete a set, enter <strong>Select</strong> mode (see <em>Sets Select Mode</em> below), check it, and tap <strong>Delete</strong>. Songs stay in your library.</p>
