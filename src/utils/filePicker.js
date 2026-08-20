@@ -107,6 +107,15 @@ function fallbackDownload(blob, filename) {
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
+// The only feedback for the SILENT save paths (a saved export folder, or the
+// download fallback) — they show no dialog, so without this an export looks like
+// nothing happened. The native Save dialog / iOS Share Sheet are self-confirming,
+// so those paths never call this. Guarded so a non-browser context can't throw.
+function announceSave(filename, folderName) {
+  const where = folderName ? `“${folderName}”` : 'your Downloads folder';
+  try { alert(`Saved “${filename}” to ${where}.`); } catch { /* no alert available */ }
+}
+
 export async function saveFilePicker(blob, filename) {
   const ext = filename.split('.').pop().toLowerCase();
 
@@ -121,8 +130,8 @@ export async function saveFilePicker(blob, filename) {
         const writable = await fileHandle.createWritable();
         await writable.write(blob);
         await writable.close();
-        // Written silently to the saved folder — the caller shows the only
-        // possible feedback (there is no dialog), naming where it went.
+        // Written silently to the saved folder — confirm where it went.
+        announceSave(filename, dir.name);
         return { ok: true, method: 'folder', location: dir.name };
       } catch { /* fall through to the save dialog */ }
     }
@@ -152,6 +161,7 @@ export async function saveFilePicker(blob, filename) {
       // IndexedDB (loadSongs/loadSets) before reaching this call. Don't fail
       // silently: fall back to a plain download so the file still saves.
       fallbackDownload(blob, filename);
+      announceSave(filename, null);
       return { ok: true, method: 'download' };
     }
   }
@@ -173,6 +183,7 @@ export async function saveFilePicker(blob, filename) {
       }
     }
     fallbackDownload(blob, filename);
+    announceSave(filename, null);
     return { ok: true, method: 'download' };
   }
 
@@ -180,5 +191,6 @@ export async function saveFilePicker(blob, filename) {
   //    Mac Safari users can set Safari › Settings › General ›
   //    "File download location" to "Ask for each download" to choose per-file.
   fallbackDownload(blob, filename);
+  announceSave(filename, null);
   return { ok: true, method: 'download' };
 }

@@ -1367,17 +1367,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   function handleAddSongToSet(song) { return addIdsToActiveSet([song.id]); }
 
-  // Backup has no visible result on desktop with a saved export folder (it writes
-  // silently, no dialog), so confirm where it landed. The native Save dialog /
-  // iOS Share Sheet are self-confirming, so only the silent paths get an alert.
+  // Success feedback (incl. the silent export-folder path) is centralized in
+  // saveFilePicker; here we only surface a failure so it isn't silent.
   async function handleBackup() {
-    try {
-      const r = await exportBackup();
-      if (r?.method === 'folder')        alert(`Backup saved to “${r.location}”.`);
-      else if (r?.method === 'download') alert('Backup saved to your Downloads folder.');
-    } catch (err) {
-      alert(`Backup failed: ${err?.message || err}`);
-    }
+    try { await exportBackup(); }
+    catch (err) { alert(`Backup failed: ${err?.message || err}`); }
   }
 
   function handleExportSelected() {
