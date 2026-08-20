@@ -142,10 +142,17 @@ export async function saveFilePicker(blob, filename) {
       await writable.write(blob);
       await writable.close();
       await setLastHandle(fileHandle);
+      return;
     } catch (err) {
-      if (err.name !== 'AbortError') throw err;
+      if (err.name === 'AbortError') return; // user cancelled the dialog
+      // The picker can reject with a SecurityError ("Must be handling a user
+      // gesture") when transient activation was lost — e.g. the export awaited
+      // IndexedDB (loadSongs/loadSets) before reaching this call. Don't fail
+      // silently: fall back to a plain download so the file still saves. This is
+      // why exports that gather data first (Backup) could appear to do nothing.
+      fallbackDownload(blob, filename);
+      return;
     }
-    return;
   }
 
   // 2. iOS / iPadOS — Web Share API opens the native Share Sheet which includes
