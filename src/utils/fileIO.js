@@ -64,7 +64,7 @@ function sanitizeFilename(name) {
 
 async function download(filename, content, mimeType) {
   const blob = new Blob([content], { type: mimeType });
-  await saveFilePicker(blob, filename);
+  return saveFilePicker(blob, filename); // { ok, method, location? } — for caller feedback
 }
 
 function readFile(accept) {
@@ -231,7 +231,7 @@ export async function exportBackup() {
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
   const payload = JSON.stringify({ type: 'cue-backup', version: 2, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, customChords }, null, 2);
-  download(`cue-backup-${date}.json`, payload, 'application/json');
+  return download(`cue-backup-${date}.json`, payload, 'application/json');
 }
 
 // Plain-text set export — numbered song list for sharing via message/print.

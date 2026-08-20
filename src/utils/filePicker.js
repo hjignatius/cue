@@ -121,7 +121,9 @@ export async function saveFilePicker(blob, filename) {
         const writable = await fileHandle.createWritable();
         await writable.write(blob);
         await writable.close();
-        return;
+        // Written silently to the saved folder — the caller shows the only
+        // possible feedback (there is no dialog), naming where it went.
+        return { ok: true, method: 'folder', location: dir.name };
       } catch { /* fall through to the save dialog */ }
     }
   }
@@ -142,16 +144,15 @@ export async function saveFilePicker(blob, filename) {
       await writable.write(blob);
       await writable.close();
       await setLastHandle(fileHandle);
-      return;
+      return { ok: true, method: 'picker' };
     } catch (err) {
-      if (err.name === 'AbortError') return; // user cancelled the dialog
+      if (err.name === 'AbortError') return { ok: false, method: 'cancelled' };
       // The picker can reject with a SecurityError ("Must be handling a user
       // gesture") when transient activation was lost — e.g. the export awaited
       // IndexedDB (loadSongs/loadSets) before reaching this call. Don't fail
-      // silently: fall back to a plain download so the file still saves. This is
-      // why exports that gather data first (Backup) could appear to do nothing.
+      // silently: fall back to a plain download so the file still saves.
       fallbackDownload(blob, filename);
-      return;
+      return { ok: true, method: 'download' };
     }
   }
 
@@ -165,18 +166,19 @@ export async function saveFilePicker(blob, filename) {
         // otherwise writes the title string out as a separate `text.txt`
         // alongside the real file. The saved name comes from the File anyway.
         await navigator.share({ files: [file] });
-        return;
+        return { ok: true, method: 'share' };
       } catch (err) {
-        if (err.name === 'AbortError') return; // user cancelled
+        if (err.name === 'AbortError') return { ok: false, method: 'cancelled' };
         // Share failed — fall through to direct download
       }
     }
     fallbackDownload(blob, filename);
-    return;
+    return { ok: true, method: 'download' };
   }
 
   // 3. Mac Safari, Firefox, everything else — download to Downloads folder.
   //    Mac Safari users can set Safari › Settings › General ›
   //    "File download location" to "Ask for each download" to choose per-file.
   fallbackDownload(blob, filename);
+  return { ok: true, method: 'download' };
 }

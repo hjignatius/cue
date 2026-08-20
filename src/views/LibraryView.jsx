@@ -1367,6 +1367,19 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   function handleAddSongToSet(song) { return addIdsToActiveSet([song.id]); }
 
+  // Backup has no visible result on desktop with a saved export folder (it writes
+  // silently, no dialog), so confirm where it landed. The native Save dialog /
+  // iOS Share Sheet are self-confirming, so only the silent paths get an alert.
+  async function handleBackup() {
+    try {
+      const r = await exportBackup();
+      if (r?.method === 'folder')        alert(`Backup saved to “${r.location}”.`);
+      else if (r?.method === 'download') alert('Backup saved to your Downloads folder.');
+    } catch (err) {
+      alert(`Backup failed: ${err?.message || err}`);
+    }
+  }
+
   function handleExportSelected() {
     const selectedSongs = sorted.filter(s => selected.has(s.id));
     if (selectedSongs.length === 0) return;
@@ -1479,7 +1492,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     <Download size={18} /><PillLabel>Import</PillLabel>
                   </RoundButton>
                 </span>
-                <RoundButton size={ROUND_SIZE_ACTION} pill label="Backup" title="Backup" fill={headerFill} onActivate={() => exportBackup()}>
+                <RoundButton size={ROUND_SIZE_ACTION} pill label="Backup" title="Backup" fill={headerFill} onActivate={handleBackup}>
                   <Archive size={18} /><PillLabel>Backup</PillLabel>
                 </RoundButton>
               </>
