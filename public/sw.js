@@ -4,7 +4,7 @@
 // (a user tap on "Update Cue"), so a live performance is never reloaded — and the
 // old cache is evicted only then, so a running session never loses a lazy chunk.
 
-const CACHE = 'cue-v1';
+const CACHE = 'cue-v2';
 
 // App shell + icons. NOT the hashed JS/CSS (names unknown here — cached at
 // runtime on first online launch) and NOT cue-icon-square.svg (unreferenced).
@@ -51,7 +51,20 @@ self.addEventListener('fetch', (event) => {
   if (isNavigation) {
     // Network-first so a fresh index.html wins online; the cached shell serves
     // offline. Covers every SPA route, including /shared/:token, when offline.
-    event.respondWith(fetch(request).catch(() => caches.match('/index.html')));
+    // On a successful online fetch, refresh the cached shell so the NEXT launch
+    // (including offline) serves the latest version last seen online — the update
+    // lands on next launch, never mid-session, so a running set is undisturbed.
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put('/index.html', copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
     return;
   }
 
