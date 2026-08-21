@@ -3,7 +3,7 @@ import { Plus, X, Download, Upload, SquarePen } from 'lucide-react';
 import { getActiveChords, getActiveTuning, chordPrefKey } from '../data/chordLibraries.js';
 import { loadCustomChords, saveCustomChords, loadHiddenChords, saveHiddenChords } from '../utils/chordStorage.js';
 import ChordDiagram from './ChordDiagram.jsx';
-import { detectChords } from '../utils/chordDetect.js';
+import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { transposeChord } from '../utils/transpose.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -67,7 +67,9 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
     if (!name.trim() || !isValidFretStr(fretsStr.toUpperCase())) return;
     const frets   = parseFretStr(fretsStr.toUpperCase());
     const fingers = parseFingerStr(fingersStr);
-    onSave({ name: name.trim(), type: 'custom', frets, ...(fingers ? { fingers } : {}) });
+    // Canonicalize the name (Am7-5 → Am7b5, Am7(b5) → Am7b5) so the shape matches
+    // the same canonical name the song's chords are detected under.
+    onSave({ name: normalizeChordName(name.trim()), type: 'custom', frets, ...(fingers ? { fingers } : {}) });
   }
 
   const inp = `w-full border rounded px-2 py-1.5 text-sm font-mono outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`;
@@ -299,7 +301,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
 
       for (const line of lines) {
         const cols = line.split(',');
-        const name      = cols[0]?.trim() ?? '';
+        const name      = normalizeChordName(cols[0]?.trim() ?? '');
         const fretsRaw  = (cols[1]?.trim() ?? '').toUpperCase();
         const fingersRaw = (cols[2]?.trim() ?? '').replace(/-/g, '0');
 

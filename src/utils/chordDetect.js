@@ -8,9 +8,25 @@ const STRUM_SUFFIX = /[^a-zA-Z0-9#b\/]+$/;
 // Normalize uppercase-M major shorthand: BbM7 → Bbmaj7, GM9 → Gmaj9
 const MAJOR_M = /^([A-G][b#]?)M(\d+)/;
 
-export function normalizeMajorSuffix(name) {
-  return name ? name.replace(MAJOR_M, '$1maj$2') : name;
+// Canonicalize the alternate spellings a chord can be written in, so lookup /
+// grouping always uses one form (and finds the built-in shape). Instrument-
+// agnostic — names are the same across ukulele/baritone/guitar.
+//   BbM7    → Bbmaj7   (uppercase-M major)
+//   Am7(b5) → Am7b5    (parenthesised alterations)
+//   Am7-5   → Am7b5    (dash = flat, jazz shorthand; only between digits so
+//                       "A-7"/"F-150"/"B-52" are untouched)
+//   C7+5    → C7#5     (plus = sharp)
+export function normalizeChordName(name) {
+  if (!name) return name;
+  return name
+    .replace(MAJOR_M, '$1maj$2')
+    .replace(/\(([^)]*)\)/g, '$1')   // strip parens around alterations
+    .replace(/(\d)-(\d)/g, '$1b$2')  // 7-5 → 7b5  (dash only between digits)
+    .replace(/(\d)\+(\d)/g, '$1#$2'); // 7+5 → 7#5
 }
+
+// Back-compat alias — this used to only fold uppercase-M.
+export const normalizeMajorSuffix = normalizeChordName;
 
 // Returns unique chord names in order of first appearance in the song.
 // Strum decorations are stripped and major-M shorthand is normalized so
@@ -22,8 +38,11 @@ export function detectChords(text) {
   for (const line of lines) {
     if (line.type !== 'chords') continue;
     for (const seg of line.segments) {
-      const bare  = seg.chord?.replace(STRUM_SUFFIX, '');
-      const chord = normalizeMajorSuffix(bare);
+      // Canonicalize first (folds parens/dash/plus alterations), THEN strip any
+      // trailing strum glyph — so "Am7(b5)"'s ")" isn't stripped before the
+      // parens are folded away.
+      const norm  = normalizeChordName(seg.chord);
+      const chord = norm ? norm.replace(STRUM_SUFFIX, '') : norm;
       if (chord && IS_CHORD.test(chord) && !seen.has(chord)) {
         seen.add(chord);
         out.push(chord);
