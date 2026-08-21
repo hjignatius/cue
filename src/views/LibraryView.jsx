@@ -566,7 +566,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                 <ExportMenuItem label="PDF + Chord Charts" onSelect={() => runSetsExport('pdf-charts')} />
                 <ExportMenuItem label=".json" onSelect={() => runSetsExport('json')} />
                 <ExportMenuItem
-                  label="Setlist"
+                  label="Setlist (.csv)"
                   disabled={selectedSets.size > 1}
                   title={selectedSets.size > 1 ? 'Setlist exports one set at a time' : undefined}
                   onSelect={() => runSetsExport('setlist')}
@@ -1626,10 +1626,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
                   <div className="absolute left-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                    <ExportMenuItem px="px-4" label={selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'} onSelect={handleExportSelected} />
-                    <ExportMenuItem px="px-4" label="JSON" onSelect={handleExportSelectedJson} />
                     <ExportMenuItem px="px-4" label="PDF" onSelect={() => handleExportSelectedPdf(false)} />
                     <ExportMenuItem px="px-4" label="PDF + Chord Charts" onSelect={() => handleExportSelectedPdf(true)} />
+                    <ExportMenuItem px="px-4" label=".json" onSelect={handleExportSelectedJson} />
+                    <ExportMenuItem px="px-4" label={selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'} onSelect={handleExportSelected} />
                   </div>
                 </>
               )}
