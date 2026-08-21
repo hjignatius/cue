@@ -82,6 +82,14 @@ function normSearch(s) {
     .replace(/[“”„″]/g, '"');       // “ ” „ ″ → "
 }
 
+// The key a song is performed in: its View Key (displayKey) when set, otherwise
+// its written key. Used for the Library key badge, search, key filter and sort
+// so everything reflects the key you actually play in, not the source key.
+function effectiveKey(song) {
+  const view = (song?.displayKey || '').trim();
+  return view || (song?.metadata?.key || '').trim();
+}
+
 function parseDuration(dur) {
   if (!dur) return 0;
   const s = String(dur);
@@ -157,7 +165,17 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, selected, onToggl
             <Pencil size={9} className="text-white" strokeWidth={2.5} />
           </span>
         )}
-        {key && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{key}</span>}
+        {(() => {
+          const view = effectiveKey(song);
+          if (!view) return null;
+          const transposed = view !== (key || '').trim();
+          return (
+            <span
+              className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0"
+              title={transposed ? `Played in ${view} (written ${key})` : undefined}
+            >{view}</span>
+          );
+        })()}
         <RowMenu
           dark={dark}
           label={`Actions for ${title || 'Untitled'}`}
@@ -991,7 +1009,7 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
       )}
       <span className="text-xs text-gray-400 dark:text-gray-600 w-5 shrink-0">{idx + 1}.</span>
       <span className={`flex-1 truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-900 dark:text-white'}`}>{song.metadata?.title || 'Untitled'}</span>
-      {song.metadata?.key && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0">{song.metadata.key}</span>}
+      {effectiveKey(song) && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0" title={effectiveKey(song) !== (song.metadata?.key || '').trim() ? `Played in ${effectiveKey(song)} (written ${song.metadata?.key})` : undefined}>{effectiveKey(song)}</span>}
       <span onClick={e => e.stopPropagation()}>
         <RowMenu
           dark={dark}
@@ -1268,12 +1286,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     return (
       normSearch(s.metadata?.title).includes(q) ||
       normSearch(s.metadata?.artist).includes(q) ||
-      normSearch(s.metadata?.key).includes(q)
+      normSearch(effectiveKey(s)).includes(q)
     );
   });
 
   const artistFiltered = artistFilter !== null ? filtered.filter(s => (s.metadata?.artist || '') === artistFilter) : filtered;
-  const keyFiltered    = keyFilter ? artistFiltered.filter(s => (s.metadata?.key || '') === keyFilter) : artistFiltered;
+  const keyFiltered    = keyFilter ? artistFiltered.filter(s => effectiveKey(s) === keyFilter) : artistFiltered;
   // 'shared' narrows rather than reorders, exactly like the Sets panel: only
   // songs copied in from a shared set (which carry copiedFrom) are shown.
   const sharedFiltered = sortBy === 'shared' ? keyFiltered.filter(s => !!s.copiedFrom) : keyFiltered;
@@ -1283,14 +1301,14 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     if (sortBy === 'newest') return (b.updatedAt || '').localeCompare(a.updatedAt || '');
     if (sortBy === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
     if (sortBy === 'artist') return (a.metadata?.artist || '').localeCompare(b.metadata?.artist || '');
-    if (sortBy === 'key')    return (a.metadata?.key    || '').localeCompare(b.metadata?.key    || '');
+    if (sortBy === 'key')    return effectiveKey(a).localeCompare(effectiveKey(b));
     // 'shared' has no ordering of its own — list alphabetically, the library's
     // default, so the filtered set reads like the normal list, just narrowed.
     if (sortBy === 'shared') return (a.metadata?.title || '').localeCompare(b.metadata?.title || '');
     return 0;
   });
 
-  const uniqueKeys = [...new Set(songs.map(s => s.metadata?.key).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const uniqueKeys = [...new Set(songs.map(effectiveKey).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   const artists = sortBy === 'artist'
     ? [...new Map(songs.filter(s => s.metadata?.artist).map(s => [s.metadata.artist, s])).keys()]

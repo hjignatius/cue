@@ -239,6 +239,7 @@ function manualHTML() {
 </ul>
 <p><strong>Double-tap</strong> any song row to open it in the editor. Single-tap to select it for batch operations in Select mode. Tap <strong>New Song</strong> in the Library panel header to create a blank song.</p>
 <p>Tap any <strong>key chip</strong> in the count bar (visible after sorting or filtering by key) to filter the list to songs in that key. A <strong>Clear key</strong> button appears to remove the filter.</p>
+<p><strong>Which key the Library shows:</strong> the key beside each song title — and the key used for search, the <em>By Key</em> sort, and the key filter — is the song's <strong>View Key</strong> (the key you actually perform it in). If a song has no View Key set, its written key is used instead. So a song written in C but set to play in G shows, sorts, and is found as <strong>G</strong>. Hover the key to see the original written key when the two differ.</p>
 
 <h2>Backup &amp; Restore</h2>
 <p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file.</p>
@@ -381,7 +382,7 @@ Here comes the sun, little darlin</pre>
 <h2>Toolbar Controls</h2>
 <table>
   <tr><th>Control</th><th>What it does</th></tr>
-  <tr><td><strong>View Key</strong></td><td>Sets a saved <em>display key</em> for the song. The preview, Present mode, and the exported set PDF all render transposed to this key, without ever changing the source text or the song's real key. Your choice is saved with the song, so it reopens the same way; choose the top option (the song's own key) to render untransposed.</td></tr>
+  <tr><td><strong>View Key</strong></td><td>Sets a saved <em>display key</em> for the song. The preview, Present mode, and the exported set PDF all render transposed to this key, without ever changing the source text or the song's real key. The Library also treats the View Key as the song's key — it is what the key badge shows and what search, the <em>By Key</em> sort, and the key filter use. Your choice is saved with the song, so it reopens the same way; choose the top option (the song's own key) to render untransposed.</td></tr>
   <tr><td><strong>Preview</strong></td><td>Toggles the live preview panel that renders the song with chords above lyrics.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar.</td></tr>
   <tr><td><strong>✎ Ink</strong></td><td>Shows or hides ink annotations drawn in Present mode, overlaid on the preview (read-only here). Only appears when the song has saved annotations. A <strong>Clear ink</strong> button beside it deletes them — see <em>Annotation Overlay</em> below.</td></tr>
