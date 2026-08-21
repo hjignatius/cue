@@ -9,11 +9,10 @@ const G = {
   padH:     10,
   nutH:     2,
   strokeW:  0.7,
-  strings:  4,
   fretRows: 4,
 };
 
-const SVG_W  = G.padH * 2 + G.strGap * (G.strings - 1);
+// SVG_W is per-render (depends on string count) — computed inside the component.
 const NUT_Y  = G.openR * 2 + 3;  // space above nut for open-string indicators
 const BODY_H = G.fretRows * G.fretGap;   // fixed body height (4-fret window)
 const SVG_H  = NUT_Y + BODY_H + 4;
@@ -34,6 +33,11 @@ const COL = {
 
 export function PdfChordDiagram({ chord, tuning = ['G', 'C', 'E', 'A'] }) {
   const { name, frets } = chord;
+
+  // String count from the voicing (4 uke/baritone, 6 guitar). SVG_W uses the same
+  // formula as before, so a 4-string diagram is identical in width to today.
+  const strings = frets.length;
+  const SVG_W   = G.padH * 2 + G.strGap * (strings - 1);
 
   const validFrets = frets.filter(f => f > 0);
   const maxFret    = validFrets.length ? Math.max(...validFrets) : 0;
@@ -67,7 +71,7 @@ export function PdfChordDiagram({ chord, tuning = ['G', 'C', 'E', 'A'] }) {
           <Rect
             x={G.padH - 0.5}
             y={NUT_Y}
-            width={G.strGap * (G.strings - 1) + 1}
+            width={G.strGap * (strings - 1) + 1}
             height={startFret === 1 ? G.nutH : 0.7}
             fill={COL.nut}
           />
@@ -76,13 +80,13 @@ export function PdfChordDiagram({ chord, tuning = ['G', 'C', 'E', 'A'] }) {
           {Array.from({ length: fretRows }, (_, i) => i + 1).map(f => (
             <Line key={f}
               x1={G.padH} y1={NUT_Y + f * rowGap}
-              x2={G.padH + G.strGap * (G.strings - 1)} y2={NUT_Y + f * rowGap}
+              x2={G.padH + G.strGap * (strings - 1)} y2={NUT_Y + f * rowGap}
               stroke={COL.fret} strokeWidth={G.strokeW}
             />
           ))}
 
           {/* String lines */}
-          {[0, 1, 2, 3].map(i => (
+          {Array.from({ length: strings }, (_, i) => (
             <Line key={i}
               x1={sx(i)} y1={NUT_Y}
               x2={sx(i)} y2={BODY_BOTTOM}

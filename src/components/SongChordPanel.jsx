@@ -11,19 +11,25 @@ import { saveFilePicker } from '../utils/filePicker.js';
 
 // Scale levels: index 0–4 → multiplier
 const SCALES = [0.7, 0.85, 1.0, 1.3, 1.65];
-// Base chord diagram SVG width at scale 1.0: padLeft*2 + strGap*3 = 20 + 30 = 50px
-const DIAG_BASE_W = 50;
+// Base chord-diagram SVG width at scale 1.0 for N strings, matching ChordDiagram's
+// geometry (padLeft*2 + strGap*(N-1) = 20 + 10*(N-1)): 50px for 4 strings, 70px
+// for 6. All diagrams in the panel share one instrument, so a single width is
+// correct; the auto-fill grid then packs fewer columns for wider (guitar) shapes.
+const diagBaseW = (strings) => 20 + 10 * (strings - 1);
 
 function builtinKey(chord) { return `${chord.name}:${chord.frets.join(',')}`; }
 
 // ---- Add custom chord form -------------------------------------------------
 
 // Accept both dash-separated ("0-0-0-3", "8-10-11-10") and compact ("0003") formats.
+// Parse a fret string to its NATURAL position count (4 uke/baritone, 6 guitar).
+// Dash-separated for two-digit frets ("0-10-9-0"); compact one-char-per-string
+// otherwise ("0003"). Empty input defaults to a plain open 4-string so the live
+// preview stays sensible while typing. 'X'/'x' → -1 (muted).
 function parseFretStr(str) {
-  const parts = str.includes('-')
-    ? str.split('-')
-    : str.padEnd(4, '0').slice(0, 4).split('');
-  return parts.slice(0, 4).map(p => {
+  if (!str) return [0, 0, 0, 0];
+  const parts = str.includes('-') ? str.split('-') : str.split('');
+  return parts.map(p => {
     const c = p.trim();
     if (c === 'X' || c === 'x') return -1;
     const n = parseInt(c, 10);
@@ -33,22 +39,23 @@ function parseFretStr(str) {
 
 function parseFingerStr(str) {
   if (!str.trim()) return null;
-  const parts = str.includes('-')
-    ? str.split('-')
-    : str.padEnd(4, '0').slice(0, 4).split('');
-  const arr = parts.slice(0, 4).map(p => {
+  const parts = str.includes('-') ? str.split('-') : str.split('');
+  const arr = parts.map(p => {
     const n = parseInt(p.trim(), 10);
     return (n >= 1 && n <= 4) ? n : null;
   });
   return arr.some(Boolean) ? arr : null;
 }
 
+// Accept EXACTLY 4 (ukulele/baritone) or EXACTLY 6 (guitar) positions — nothing
+// else. Per-position chars stay strict: digits and X only; two-digit frets are
+// allowed via the dash form.
 function isValidFretStr(raw) {
   if (raw.includes('-')) {
     const parts = raw.split('-');
-    return parts.length === 4 && parts.every(p => /^([0-9]+|X)$/i.test(p.trim()));
+    return (parts.length === 4 || parts.length === 6) && parts.every(p => /^([0-9]+|X)$/i.test(p.trim()));
   }
-  return /^[0-9X]{4}$/.test(raw);
+  return /^([0-9X]{4}|[0-9X]{6})$/i.test(raw);
 }
 
 function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', initialFretsStr = '', initialFingersStr = '' }) {
@@ -92,8 +99,8 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
       <div>
         <label className={lbl}>Fret Numbers <span className={`font-normal ${dark ? 'text-gray-600' : 'text-gray-400'}`}>(G · C · E · A)</span></label>
         <input value={fretsStr}
-          onChange={e => setFretsStr(e.target.value.toUpperCase().replace(/[^0-9X\-]/g, '').slice(0, 11))}
-          placeholder="0-0-0-3" maxLength={11}
+          onChange={e => setFretsStr(e.target.value.toUpperCase().replace(/[^0-9X\-]/g, '').slice(0, 17))}
+          placeholder="0-0-0-3" maxLength={17}
           className={inp} />
         <p className={hint}>0 = open · X = muted · use dashes between strings (e.g. 8-10-11-10)</p>
       </div>
@@ -101,8 +108,8 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
       <div>
         <label className={lbl}>Finger Numbers <span className={`font-normal ${dark ? 'text-gray-600' : 'text-gray-400'}`}>(optional)</span></label>
         <input value={fingersStr}
-          onChange={e => setFingersStr(e.target.value.replace(/[^0-4]/g, '').slice(0, 4))}
-          placeholder="0000" maxLength={4}
+          onChange={e => setFingersStr(e.target.value.replace(/[^0-4]/g, '').slice(0, 6))}
+          placeholder="0000" maxLength={6}
           className={`${inp} tracking-[0.35em]`} />
         <p className={hint}>1=index · 2=middle · 3=ring · 4=pinky · 0=none</p>
       </div>
@@ -460,7 +467,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
               <button
                 onClick={() => setAddingCustom(pickerName)}
                 className={`border border-dashed rounded-lg p-1 text-center transition-colors cursor-pointer ${dark ? 'border-gray-700 hover:border-indigo-600 text-gray-600 hover:text-indigo-400' : 'border-gray-300 hover:border-indigo-400 text-gray-400 hover:text-indigo-600'}`}
-                style={{ minWidth: `${Math.round(DIAG_BASE_W * scale)}px`, minHeight: '60px' }}
+                style={{ minWidth: `${Math.round(diagBaseW(tuning.length) * scale)}px`, minHeight: '60px' }}
               >
                 <Plus size={14} className="mx-auto mb-0.5" />
                 <span className="text-[9px]">Add</span>
@@ -494,7 +501,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
 
         {/* Chord diagrams */}
         <div className="flex-1 overflow-y-auto p-2">
-          <div className="grid gap-2 justify-center" style={{ gridTemplateColumns: `repeat(auto-fill, ${Math.round(DIAG_BASE_W * scale)}px)` }}>
+          <div className="grid gap-2 justify-center" style={{ gridTemplateColumns: `repeat(auto-fill, ${Math.round(diagBaseW(tuning.length) * scale)}px)` }}>
             {groups.map(({ name, shapes }) => {
               const selectedIdx = prefIndex(name, shapes);
 

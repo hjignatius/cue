@@ -1,5 +1,8 @@
-// Renders an SVG ukulele chord diagram.
-// frets = [G, C, E, A]  (4 strings, left to right)
+// Renders an SVG chord diagram with a variable number of strings.
+// frets = per-string fret array, left to right (4 for ukulele/baritone, 6 for
+//   guitar). String count is derived from frets.length, so the same geometry
+//   serves any instrument; 0 = open, -1 = muted (×), >0 = fretted.
+// tuning: per-string label array (e.g. ['G','C','E','A']); aligned by index.
 // scale: multiplier on base dimensions (default 1.0)
 // theme: 'dark' | 'light'
 
@@ -21,7 +24,7 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
   };
 
   const s        = scale;
-  const strings  = 4;
+  const strings  = frets.length;   // 4 (uke/baritone) or 6 (guitar) — drives all width/x math
   const strGap   = B.strGap  * s;
   const fretGap  = B.fretGap * s;
   const dotR     = B.dotR    * s;
@@ -143,10 +146,13 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
         );
       })}
 
-      {/* String labels — tuning-driven (G C E A ukulele, D G B E baritone) */}
-      {tuning.map((lbl, i) => (
+      {/* String labels — one per rendered string, from the tuning array by index
+          (G C E A ukulele, D G B E baritone, E A D G B E guitar). Iterating by
+          `strings` (not tuning.length) keeps labels aligned to the actual strings
+          if the two ever disagree. */}
+      {Array.from({ length: strings }, (_, i) => (
         <text key={i} x={strX(i)} y={h - 1} textAnchor="middle"
-          fontSize={B.fontSize.string * s} fontFamily="ui-sans-serif, sans-serif" fill={col.strLbl}>{lbl}</text>
+          fontSize={B.fontSize.string * s} fontFamily="ui-sans-serif, sans-serif" fill={col.strLbl}>{tuning[i] ?? ''}</text>
       ))}
     </svg>
   );
