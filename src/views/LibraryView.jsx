@@ -1516,10 +1516,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             {!isPhonePortrait && <Music size={28} className="text-indigo-400" />}
             <h1 className="text-3xl font-bold tracking-tight leading-none">Cue</h1>
           </div>
-          {/* Revision stamp (git short-sha + build date), injected at build time.
-              Tells the user which build is running — useful for a cached/offline copy. */}
+          {/* App version, sourced from package.json at build time. Tells the user
+              which release is running — useful for a cached/offline copy. */}
           <span className="mt-1 text-[10px] leading-none font-mono text-gray-400 dark:text-gray-600 tabular-nums">
-            {import.meta.env.VITE_BUILD_DATE} · {import.meta.env.VITE_APP_REV}
+            v{import.meta.env.VITE_APP_VERSION}
           </span>
         </div>
         {/* Round-button language, matching the editor header: ? and Settings are
