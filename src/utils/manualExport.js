@@ -155,6 +155,7 @@ function manualHTML() {
   <div class="toc-title">Contents</div>
   <ul>
     <li class="toc-h1">1. Overview</li>
+    <li class="toc-h2">Offline Use &amp; Updates</li>
     <li class="toc-h1">2. Settings</li>
     <li class="toc-h2">Appearance</li>
     <li class="toc-h2">Metronome</li>
@@ -203,6 +204,10 @@ function manualHTML() {
 <p>Cue is designed to be fast to set up. Open it in Safari on an iPad, mirror to an Apple TV, and you are ready to go. An optional account lets you share sets with other Cue users via a private link — see <em>Shared Sets</em>.</p>
 <p>Appearance preferences (theme, chord color) are controlled from the <strong>Settings</strong> panel, opened with the gear icon (⚙) in the top-right of the Library header. Settings persist in your browser and apply immediately across all views.</p>
 
+<h2>Offline Use &amp; Updates</h2>
+<p>After you have opened Cue online once, it keeps a copy of itself on the device and <strong>runs without an internet connection</strong> — your songs and sets live in the browser, so they open and edit offline too. (Publishing and viewing <em>shared</em> sets still needs a connection, since those live in the cloud.)</p>
+<p>Because Cue caches itself for offline use, a new version does not always appear the instant it is released. Cue checks for an update <strong>each time you open or reload it</strong> while online. When a newer version is ready, an <strong>Update Cue</strong> button appears — tap it to reload into the latest version. Until you tap it, Cue keeps running the copy you already have, so an update never interrupts a performance.</p>
+
 <!-- 2 -->
 <h1>2. Settings</h1>
 <p>Tap the <strong>⚙ gear icon</strong> in the top-right of the Library header to open Settings. The same gear icon appears in the shared-set viewer. Settings are stored in your browser's local storage and apply globally — changes take effect immediately.</p>
@@ -214,6 +219,7 @@ function manualHTML() {
   <tr><td><strong>Chord color</strong></td><td>Tap the color swatch to choose any color for chord names. Applied in the editor preview and Present mode. Default is black.</td></tr>
   <tr><td><strong>Chord label size</strong></td><td>Seven-step scale from −30% to +30% that adjusts the size of chord names above lyrics (<strong>Over Lyrics</strong> format only). The center step (0) is the default size. Has no effect on the Brackets format.</td></tr>
   <tr><td><strong>Accidentals</strong></td><td>Controls how transposed chords spell the five ambiguous notes (C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭). <strong>Auto</strong> (default) matches the View Key — flat keys use flats, sharp keys use sharps; <strong>Flats</strong> and <strong>Sharps</strong> force one spelling. Whatever the mode, every chord in a transposed song is spelled consistently (no sharp/flat mix). The stored chords are never changed — this affects display only.</td></tr>
+  <tr><td><strong>Chord instrument</strong></td><td>Chooses which instrument's fingering diagrams the Chords panel and PDF chord charts show: <strong>GCEA Ukulele</strong> (default), <strong>DGBE Baritone</strong>, <strong>Guitar</strong> (6-string, E A D G B E), or <strong>None</strong> to hide chord diagrams entirely. Chord <em>names</em> are the same across instruments — only the fingering changes. Your preferred voicing and any custom shapes are remembered <em>per instrument</em>, so switching instruments never disturbs another instrument's choices.</td></tr>
 </table>
 
 <h2>Metronome</h2>
@@ -424,7 +430,7 @@ Here comes the sun, little darlin</pre>
 <p>PDF export is available from <strong>Export ▾</strong> in the <strong>Setlist column</strong>. Select a set, then choose from the Export menu:</p>
 <ul>
   <li><strong>PDF</strong> — all songs in the set as consecutive A4 pages, each with title, artist, key, tempo, and chord/lyric content.</li>
-  <li><strong>PDF + Chord Charts</strong> — same as above, plus a single <em>Chord Reference</em> page at the end listing every unique chord across the entire set as a ukulele fretboard diagram (G C E A tuning, 5 diagrams per row). Diagrams respect your preferred voicings and any custom chord shapes you have defined.</li>
+  <li><strong>PDF + Chord Charts</strong> — same as above, plus a single <em>Chord Reference</em> page at the end listing every unique chord across the entire set as a fretboard diagram, drawn for the instrument chosen in <strong>Settings → Chord instrument</strong> (Ukulele, Baritone, or Guitar). Diagrams respect your preferred voicings and any custom chord shapes you have defined.</li>
   <li><strong>JSON bundle</strong> — the set and all its songs in one portable file.</li>
   <li><strong>Setlist</strong> — a plain-text numbered list of song titles, suitable for printing or sharing.</li>
 </ul>
@@ -432,10 +438,10 @@ Here comes the sun, little darlin</pre>
 
 <!-- 6 -->
 <h1>6. Chord Diagram Sidebar</h1>
-<p>The <strong>Chords</strong> panel (toggle in the toolbar) shows a ukulele chord diagram for every chord detected in the current song.</p>
+<p>The <strong>Chords</strong> panel (toggle in the toolbar) shows a chord diagram for every chord detected in the current song, drawn for the instrument chosen in <strong>Settings → Chord instrument</strong> — Ukulele or Baritone (4 strings) or Guitar (6 strings). Setting the instrument to <strong>None</strong> hides the panel entirely.</p>
 <ul>
   <li>Use <strong>−</strong> / <strong>+</strong> at the top to scale diagrams smaller or larger (5 size levels)</li>
-  <li>When a chord has multiple voicings, all options are shown — tap one to select it as the preferred shape for that chord name</li>
+  <li>When a chord has multiple voicings, all options are shown — tap one to select it as the preferred shape for that chord name. The preferred voicing is remembered per instrument.</li>
 </ul>
 
 <h2>Adding Custom Chord Shapes</h2>
@@ -443,8 +449,8 @@ Here comes the sun, little darlin</pre>
 <table>
   <tr><th>Field</th><th>Description</th></tr>
   <tr><td><strong>Chord Name</strong></td><td>The label shown above the diagram (e.g. <code>G</code>, <code>Dm7</code>, <code>Bb</code>)</td></tr>
-  <tr><td><strong>Fret Numbers</strong></td><td>Fret positions for strings G · C · E · A, separated by dashes. Use <code>0</code> for open, <code>X</code> for muted, and any number for fret position. Example: <code>0-0-0-3</code> or <code>8-10-11-10</code> for higher positions.</td></tr>
-  <tr><td><strong>Finger Numbers</strong></td><td>Optional fingering for G · C · E · A order (no dashes needed). Use <code>1</code>=index, <code>2</code>=middle, <code>3</code>=ring, <code>4</code>=pinky, <code>0</code>=none</td></tr>
+  <tr><td><strong>Fret Numbers</strong></td><td>One fret position per string, in string order, separated by dashes — <strong>4 values</strong> for a ukulele or baritone (G · C · E · A / D · G · B · E) or <strong>6</strong> for a guitar (E · A · D · G · B · E). Use <code>0</code> for open, <code>X</code> for muted, and any number for a fret position. Example: <code>0-0-0-3</code> (ukulele) or <code>X-3-2-0-1-0</code> (guitar C).</td></tr>
+  <tr><td><strong>Finger Numbers</strong></td><td>Optional fingering in the same string order (no dashes needed) — 4 or 6 digits to match the frets. Use <code>1</code>=index, <code>2</code>=middle, <code>3</code>=ring, <code>4</code>=pinky, <code>0</code>=none</td></tr>
 </table>
 <p>Tap <strong>Save</strong> to add the shape. To edit an existing custom shape, <strong>double-click</strong> its diagram in the Chords panel — the form opens pre-filled with that chord's data. To delete a custom shape, hover over its diagram and tap the <strong>×</strong> badge in the top-right corner.</p>
 
@@ -460,7 +466,7 @@ Here comes the sun, little darlin</pre>
 <pre>C,0-0-0-3,0001
 G,0-2-3-2,0213
 Bb,8-10-11-10,1243</pre>
-<p>Frets are dash-separated numbers in G · C · E · A string order. Use <code>0</code> for open, <code>X</code> for muted. Fingers are optional (no dashes): 1=index, 2=middle, 3=ring, 4=pinky.</p>
+<p>Frets are dash-separated numbers in string order — 4 values for ukulele/baritone (e.g. G · C · E · A), 6 for guitar (E · A · D · G · B · E). Use <code>0</code> for open, <code>X</code> for muted. Fingers are optional (no dashes): 1=index, 2=middle, 3=ring, 4=pinky. Custom shapes belong to the active <strong>Chord instrument</strong> — export/import while that instrument is selected.</p>
 <div class="tip"><strong>Tip:</strong> Download the <strong>Starter</strong> CSV to see the built-in chord shapes in spreadsheet form. Edit them in any spreadsheet app and import your changes back into Cue. Export to iCloud Drive or email to yourself before switching devices.</div>
 
 <!-- 7 -->

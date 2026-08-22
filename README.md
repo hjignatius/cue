@@ -22,7 +22,7 @@ A ChordPro song sheet manager for musicians. Organize your songs into setlists, 
 - **View Key:** transpose the display without altering the saved text — choose any key and the chords render shifted in real time
 - **Make Permanent:** writes the transposed chords back into the song text
 - **Character ruler:** a passive scale above the text box — ticks every 5 columns, labels every 10, and a marked target width showing where Present wraps lyric lines. Long lines scroll horizontally rather than wrapping, and the ruler scrolls with them
-- **Chord diagrams:** ukulele fingering diagrams (G C E A tuning) with adjustable size; supports a custom chord library
+- **Chord diagrams:** fingering diagrams for a selectable instrument — GCEA ukulele, DGBE baritone, or 6-string guitar (EADGBE), or off — with adjustable size; supports a per-instrument custom chord library
 - **Tap Tempo:** tap a button in rhythm to set BPM; toggle 4/4 ↔ 3/4; preview with a metronome click
 - **YouTube URL:** paste any YouTube link in the metadata bar; a YouTube button appears in the toolbar to open the embedded player in an overlay
 - **Prev / Next navigation:** when a song is opened from the library list or a setlist, arrow buttons let you move between songs without going back to the library
@@ -143,7 +143,8 @@ Icon-only anchor and toggle circles turn indigo when active; neutral actions kee
 | IndexedDB `songs` | song id | `{ id, metadata, text, chordStyle, diagramScale, chordPrefs, displayKey, createdAt, updatedAt }` |
 | IndexedDB `sets` | set id | `{ id, name, songIds[], sortMode, createdAt, updatedAt }` |
 | IndexedDB `annotations` | song id | Device-local ink strokes. **Never** exported, published, or shared; survives a cloud pull overwriting its song |
-| `localStorage` | `cue_custom_chords` | Custom ukulele chord fingerings |
+| `localStorage` | `cue_custom_chords:<instrument>` | Custom chord fingerings, namespaced per instrument (`ukulele_gcea`, `baritone_dgbe`, `guitar`) |
+| `localStorage` | `cue_hidden_chords:<instrument>` | Built-in shapes the user has hidden, per instrument |
 | `localStorage` | `cue:schema_version` | Current schema version (integer) |
 | `localStorage` | `cue:onboarding_done` | Flag — tour has been seen |
 | `localStorage` | `cue_prefs` | Theme and other user preferences |
