@@ -1507,13 +1507,20 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* px-4 in phone portrait: removing the mark left only ~1px of slack at
           390px, which a 375pt device would still overflow. */}
       <header className={`${isPhonePortrait ? 'px-4' : 'px-6'} py-4 border-b ${border} flex items-center justify-between shrink-0`}>
-        <div className="flex items-center gap-3">
-          {/* The mark costs icon + gap of header width, which iPhone portrait
-              can't spare. The wordmark alone still identifies the app. Restored
-              at every larger width — including iPhone landscape, which is above
-              the hook's 767px breakpoint, so no orientation check is needed. */}
-          {!isPhonePortrait && <Music size={28} className="text-indigo-400" />}
-          <h1 className="text-3xl font-bold tracking-tight">Cue</h1>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-3">
+            {/* The mark costs icon + gap of header width, which iPhone portrait
+                can't spare. The wordmark alone still identifies the app. Restored
+                at every larger width — including iPhone landscape, which is above
+                the hook's 767px breakpoint, so no orientation check is needed. */}
+            {!isPhonePortrait && <Music size={28} className="text-indigo-400" />}
+            <h1 className="text-3xl font-bold tracking-tight leading-none">Cue</h1>
+          </div>
+          {/* Revision stamp (git short-sha + build date), injected at build time.
+              Tells the user which build is running — useful for a cached/offline copy. */}
+          <span className="mt-1 text-[10px] leading-none font-mono text-gray-400 dark:text-gray-600 tabular-nums">
+            {import.meta.env.VITE_BUILD_DATE} · {import.meta.env.VITE_APP_REV}
+          </span>
         </div>
         {/* Round-button language, matching the editor header: ? and Settings are
             icon-only circles; Import and Backup are icon+label pills. Neutral fill
