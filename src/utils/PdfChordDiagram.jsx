@@ -28,10 +28,9 @@ const COL = {
   fret:   '#d1d5db',
   str:    '#9ca3af',
   pos:    '#6b7280',
-  lbl:    '#b0b8c8',
 };
 
-export function PdfChordDiagram({ chord, tuning = ['G', 'C', 'E', 'A'] }) {
+export function PdfChordDiagram({ chord }) {
   const { name, frets } = chord;
 
   // String count from the voicing (4 uke/baritone, 6 guitar). SVG_W uses the same
@@ -124,11 +123,6 @@ export function PdfChordDiagram({ chord, tuning = ['G', 'C', 'E', 'A'] }) {
           })}
         </Svg>
       </View>
-
-      {/* String labels */}
-      <Text style={{ fontSize: 5, fontFamily: 'Helvetica', color: COL.lbl, letterSpacing: 1.8, marginTop: 1 }}>
-        {tuning.join(' ')}
-      </Text>
     </View>
   );
 }

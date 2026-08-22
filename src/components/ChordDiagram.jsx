@@ -2,11 +2,11 @@
 // frets = per-string fret array, left to right (4 for ukulele/baritone, 6 for
 //   guitar). String count is derived from frets.length, so the same geometry
 //   serves any instrument; 0 = open, -1 = muted (×), >0 = fretted.
-// tuning: per-string label array (e.g. ['G','C','E','A']); aligned by index.
+// No string-name labels are drawn — players know their instrument's strings.
 // scale: multiplier on base dimensions (default 1.0)
 // theme: 'dark' | 'light'
 
-export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordColor, tuning = ['G', 'C', 'E', 'A'] }) {
+export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordColor }) {
   const { name, frets } = chord;
 
   // Base layout (at scale 1)
@@ -45,7 +45,8 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
   const bodyH    = 4 * fretGap;            // fixed physical height
   const rowGap   = bodyH / fretRows;       // 8px at 5 rows, 10px at 4
   const w = padLeft * 2 + strGap * (strings - 1);
-  const h = padTop + labelH + bodyH + openR + 4 * s;
+  // Bottom pad only — the string-name label row was removed, so its space is gone.
+  const h = padTop + labelH + bodyH + 4 * s;
 
   // Slide the window up so both minFret and maxFret are visible.
   const startFret = maxFret <= fretRows ? 1 : Math.max(minFret, maxFret - fretRows + 1);
@@ -66,7 +67,6 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
     dot:    accent,
     open:   accent,
     pos:    dark ? '#94a3b8' : '#6b7280',
-    strLbl: dark ? '#6b7280' : '#94a3b8',
   };
 
   return (
@@ -145,15 +145,6 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
           </g>
         );
       })}
-
-      {/* String labels — one per rendered string, from the tuning array by index
-          (G C E A ukulele, D G B E baritone, E A D G B E guitar). Iterating by
-          `strings` (not tuning.length) keeps labels aligned to the actual strings
-          if the two ever disagree. */}
-      {Array.from({ length: strings }, (_, i) => (
-        <text key={i} x={strX(i)} y={h - 1} textAnchor="middle"
-          fontSize={B.fontSize.string * s} fontFamily="ui-sans-serif, sans-serif" fill={col.strLbl}>{tuning[i] ?? ''}</text>
-      ))}
     </svg>
   );
 }
