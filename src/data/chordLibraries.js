@@ -1,5 +1,6 @@
 import { UKULELE_CHORDS } from './ukuleleChords.js';
 import { BARITONE_CHORDS } from './baritoneChords.js';
+import { GUITAR_CHORDS } from './guitarChords.js';
 
 // Registry of the built-in chord-diagram libraries, keyed by instrument id. The
 // chord NAMES are instrument-agnostic; only the fingering (frets) and the string
@@ -16,6 +17,7 @@ export const CHORD_LIBRARIES = {
   none:          { name: 'None',      chords: [],             tuning: [],                  label: 'None' },
   ukulele_gcea:  { name: 'Ukulele',  chords: UKULELE_CHORDS,  tuning: ['G', 'C', 'E', 'A'], label: 'GCEA Ukulele' },
   baritone_dgbe: { name: 'Baritone', chords: BARITONE_CHORDS, tuning: ['D', 'G', 'B', 'E'], label: 'DGBE Baritone' },
+  guitar:        { name: 'Guitar',   chords: GUITAR_CHORDS,   tuning: ['E', 'A', 'D', 'G', 'B', 'E'], label: 'Guitar' },
 };
 
 // True when chord diagrams are switched off entirely.
