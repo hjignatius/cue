@@ -343,7 +343,7 @@ function manualHTML() {
 <table>
   <tr><th>Field</th><th>Description</th></tr>
   <tr><td><strong>Artist</strong></td><td>Artist or band name</td></tr>
-  <tr><td><strong>Key</strong></td><td>Source key — 24 options covering all major and minor keys. Tap the <strong>wand icon</strong> (✦) next to the Key field to auto-detect the key from chords in the song. If the result is unambiguous (≥90% match), the key fills in automatically; otherwise a popover shows the top candidates to choose from.</td></tr>
+  <tr><td><strong>Key</strong></td><td>Source key — choose from 24 options covering all major and minor keys. This is the key the song is written in; use <strong>View Key</strong> (in the toolbar) to transpose the display to a different key without changing the saved text.</td></tr>
   <tr><td><strong>Tempo (BPM)</strong></td><td>Beats per minute</td></tr>
   <tr><td><strong>Tap</strong></td><td>Tap repeatedly in rhythm to measure BPM automatically</td></tr>
   <tr><td><strong>▶</strong></td><td>Plays 8 beats of audio to preview the current tempo and time signature</td></tr>
@@ -646,7 +646,7 @@ Pulling will discard them. Continue?</pre>
 <!-- 11 -->
 <h1>11. Tips</h1>
 <ul>
-  <li><strong>Auto-detect key</strong> — tap the wand icon next to the Key field in the metadata bar to score all chords in the song against every major and minor key. If the result is clear (≥90% match), the key fills in automatically. If the song is ambiguous, a small popover lets you pick from the top candidates with their match percentage shown.</li>
+  <li><strong>Transpose without rewriting</strong> — set the song’s written key in the metadata bar, then use <strong>View Key</strong> in the editor toolbar to display it in any other key. The chords render shifted in real time and the saved text is untouched, so you can perform in a singer-friendly key without altering the original.</li>
   <li><strong>Theme and chord color</strong> — open Settings (⚙ gear in the Library header) to switch between Light and Dark mode and to choose a chord color. These settings apply everywhere including Present mode and the shared-set viewer.</li>
   <li><strong>Chord label size</strong> — use the Chord label size control in Settings to make chord names above lyrics larger or smaller. This is useful if your display is small or if you are mirroring to a screen from a distance.</li>
   <li><strong>YouTube URL</strong> — paste a YouTube link into the metadata bar to keep a reference track alongside the song. Tap the YouTube button in the editor or Present mode toolbar to open it in an overlay player. Useful for learning a song or playing along during rehearsal. The button is grayed out when no URL is set.</li>

@@ -37,7 +37,7 @@ const STEPS = [
   {
     selector: null,
     title: 'Inside the Editor',
-    body: 'The wand icon next to Key auto-detects the key from your chords. Add a YouTube URL in the metadata bar to pull up the track while you play. When opened from a list, use the Prev/Next arrows to navigate without going back.',
+    body: 'Set the song’s key in the metadata bar, then use View Key to transpose the display to any key without changing the saved text. Add a YouTube URL to pull up the track while you play. When opened from a list, use the Prev/Next arrows to navigate without going back.',
   },
 ];
 
