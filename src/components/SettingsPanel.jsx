@@ -438,7 +438,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
               so the section is hidden rather than shown as unavailable. */}
           {canPickFolder && (
             <section className="flex flex-col gap-4">
-              <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Exports</h3>
+              <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Exports <span className="normal-case">(Chrome Only)</span></h3>
               <div className="flex flex-col gap-2">
                 <span className={`text-sm ${label}`}>Save location</span>
                 <p className={`text-[11px] ${muted}`}>
