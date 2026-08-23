@@ -470,7 +470,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
           {/* Account */}
           {isConfigured && !hideAccount && (
             <section className="flex flex-col gap-4">
-              <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Account</h3>
+              <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Cloud Account <span className="normal-case">(Optional)</span></h3>
 
               {user ? (
                 <div className="flex flex-col gap-3">
