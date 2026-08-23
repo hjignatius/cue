@@ -323,7 +323,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
 
             {/* Accidentals — how transposed chords spell the five ambiguous pitch classes */}
             <div className="flex flex-col gap-2">
-              <span className={`text-sm ${label}`}>Accidentals</span>
+              <span className={`text-sm ${label}`}>Sharps / Flats</span>
               <div className={`flex rounded-lg border ${border} overflow-hidden`}>
                 {[['auto', 'Auto'], ['flats', '♭ Flats'], ['sharps', '♯ Sharps']].map(([val, text], i) => (
                   <button
