@@ -48,7 +48,7 @@ Title · Artist · Key · Tempo / BPM · Time Signature · Duration · YouTube U
 - YouTube player available per song during performance
 
 ### Cloud Sync & Sharing
-Optional, and off unless Supabase env vars are set. Everything above works with no account; an account is only needed to publish or pull. Sign in via **Settings → Account** (magic link — `signInWithOtp` with `shouldCreateUser: false`; accounts are provisioned in the Supabase dashboard, not by self-signup).
+Optional, and off unless Supabase env vars are set. Everything above works with no account; an account is only needed to publish or pull. Sign in via **Settings → Cloud Account (Optional)** (magic link — `signInWithOtp` with `shouldCreateUser: false`; accounts are provisioned in the Supabase dashboard, not by self-signup).
 
 | Action | Control | Effect |
 |---|---|---|
