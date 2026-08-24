@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy, Check, X } from 'lucide-react';
 import { getShareTokens, createShareToken, revokeShareToken } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -17,8 +17,30 @@ export default function ShareSetDialog({ set, onClose }) {
   const [errMsg, setErrMsg]         = useState('');
   const [generating, setGenerating] = useState(false);
   const [copiedToken, setCopiedToken] = useState(null);
+  // Revoke is destructive and can't be undone, so it takes two taps: the first
+  // arms this token, the second (a separate red button) actually revokes. The
+  // armed state auto-cancels after a few seconds so a stray first tap is
+  // harmless. Only one row can be armed at a time.
+  const [confirmingToken, setConfirmingToken] = useState(null);
+  const revokeTimer = useRef(null);
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => clearTimeout(revokeTimer.current), []);
+
+  function armRevoke(token) {
+    clearTimeout(revokeTimer.current);
+    setConfirmingToken(token);
+    revokeTimer.current = setTimeout(() => setConfirmingToken(null), 4000);
+  }
+  function cancelRevoke() {
+    clearTimeout(revokeTimer.current);
+    setConfirmingToken(null);
+  }
+  function confirmRevoke(token) {
+    clearTimeout(revokeTimer.current);
+    setConfirmingToken(null);
+    handleRevoke(token);
+  }
 
   async function load() {
     setLoading(true);
@@ -101,30 +123,62 @@ export default function ShareSetDialog({ set, onClose }) {
                 key={t.token}
                 className={`rounded-xl p-3 border ${dark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`flex-1 text-xs font-mono truncate ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    /shared/{t.token}
-                  </span>
-                  <button
-                    onClick={() => copyUrl(t.token)}
-                    title="Copy link"
-                    className={`shrink-0 p-1.5 rounded-lg transition-colors ${dark ? 'hover:bg-gray-700 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-900'}`}
-                  >
-                    {copiedToken === t.token
-                      ? <Check size={13} className="text-green-500" />
-                      : <Copy size={13} />}
-                  </button>
-                  <button
-                    onClick={() => handleRevoke(t.token)}
-                    title="Revoke this link"
-                    className={`shrink-0 px-2 py-1 rounded-lg text-xs transition-colors ${dark ? 'hover:bg-gray-700 text-gray-500 hover:text-red-400' : 'hover:bg-gray-200 text-gray-400 hover:text-red-500'}`}
-                  >
-                    Revoke
-                  </button>
-                </div>
+                {/* Link + created date */}
+                <span className={`block text-xs font-mono truncate ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  /shared/{t.token}
+                </span>
                 <p className={`text-[10px] mt-1.5 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
                   Created {fmtDate(t.created_at)}
                 </p>
+
+                {/* Actions — Copy is the primary, frequent action on the left;
+                    Revoke is destructive so it sits far right and takes a second
+                    confirming tap (which replaces the row until confirmed/cancelled). */}
+                <div className="flex items-center gap-2 mt-2.5">
+                  {confirmingToken === t.token ? (
+                    <>
+                      <span className={`text-xs ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+                        Revoke for everyone?
+                      </span>
+                      <button
+                        onClick={cancelRevoke}
+                        className={`ml-auto shrink-0 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${dark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-200'}`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => confirmRevoke(t.token)}
+                        title="Permanently revoke this link"
+                        className="shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-500 text-white transition-colors"
+                      >
+                        Revoke
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => copyUrl(t.token)}
+                        title="Copy link"
+                        className={`inline-flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          copiedToken === t.token
+                            ? (dark ? 'bg-green-900/40 text-green-400' : 'bg-green-50 text-green-600')
+                            : (dark ? 'bg-gray-700 text-gray-100 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300')
+                        }`}
+                      >
+                        {copiedToken === t.token
+                          ? <><Check size={13} /> Copied</>
+                          : <><Copy size={13} /> Copy link</>}
+                      </button>
+                      <button
+                        onClick={() => armRevoke(t.token)}
+                        title="Revoke this link"
+                        className={`ml-auto shrink-0 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${dark ? 'text-red-400/80 hover:text-red-300 hover:bg-red-950/40' : 'text-red-500 hover:text-red-600 hover:bg-red-50'}`}
+                      >
+                        Revoke
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             ))
           )}
