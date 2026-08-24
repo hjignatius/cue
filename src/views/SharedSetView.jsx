@@ -14,6 +14,19 @@ function PillLabel({ children }) {
   return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
 }
 
+// The Cue app icon — indigo rounded square with a white "C" arc, matching
+// public/cue-icon.svg (the home-screen mark). Inlined as SVG so it stays crisp
+// at small sizes, needs no asset load, and works offline. Its own indigo fill
+// reads on both light and dark headers.
+function CueMark({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="Cue" className="shrink-0 block">
+      <rect width="100" height="100" rx="23" fill="#4f46e5" />
+      <path d="M66.7 30.1 A26 26 0 1 0 66.7 69.9" fill="none" stroke="#ffffff" strokeWidth="11" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // Viewer-local key overrides from earlier versions: stored in localStorage, never
 // written to any Supabase table. The shared view no longer offers a picker, but
 // any previously-stored override still applies and shows in the read-only View key.
@@ -365,10 +378,11 @@ export default function SharedSetView() {
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
           <button
             onClick={() => navigate('/')}
-            className={`text-base font-bold tracking-tight transition-colors ${dark ? 'text-white hover:text-indigo-400' : 'text-gray-900 hover:text-indigo-600'}`}
             title="Open Cue"
+            aria-label="Open Cue"
+            className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
           >
-            Cue
+            <CueMark size={26} />
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -397,10 +411,11 @@ export default function SharedSetView() {
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
           <button
             onClick={() => navigate('/')}
-            className={`text-base font-bold tracking-tight transition-colors ${dark ? 'text-white hover:text-indigo-400' : 'text-gray-900 hover:text-indigo-600'}`}
             title="Open Cue"
+            aria-label="Open Cue"
+            className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
           >
-            Cue
+            <CueMark size={26} />
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -444,11 +459,11 @@ export default function SharedSetView() {
           <button
             onClick={handleOpenCue}
             title="Open Cue"
-            className={`text-base font-bold tracking-tight shrink-0 transition-colors ${dark ? 'text-white hover:text-indigo-400' : 'text-gray-900 hover:text-indigo-600'}`}
+            aria-label="Open Cue"
+            className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
           >
-            Cue
+            <CueMark size={26} />
           </button>
-          <span className={`shrink-0 ${muted}`}>·</span>
           <h1 className={`text-base font-semibold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{set.name}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
