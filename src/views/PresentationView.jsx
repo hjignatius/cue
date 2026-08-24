@@ -418,12 +418,29 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear flash timers on unmount
   useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — also the wiring for Bluetooth page-turner pedals, which
+  // present to the OS as HID keyboards: each pedal press sends one of these keys.
+  // Listener lives with Present mode and is torn down on close (effect cleanup).
   useEffect(() => {
     function onKey(e) {
-      if      (e.key === 'ArrowRight' || e.key === 'PageDown') next();
-      else if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   prev();
-      else if (e.key === 'Escape')  onExit();
+      // Never hijack typing — if a text field is focused (e.g. any future
+      // edit-in-place control), let the keystroke through untouched.
+      const el = e.target;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+
+      // Page navigation (arrows / page keys / pedal presses). Skip auto-repeat so
+      // a held-down pedal flips one page, not many; preventDefault so the
+      // browser's own scroll on these keys doesn't also fire.
+      const isNext = e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown';
+      const isPrev = e.key === 'ArrowLeft'  || e.key === 'ArrowUp'   || e.key === 'PageUp';
+      if (isNext || isPrev) {
+        if (e.repeat) return;
+        e.preventDefault();
+        if (isNext) next(); else prev();
+        return;
+      }
+
+      if      (e.key === 'Escape')  onExit();
       else if (e.key === '+' || e.key === '=') setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP));
       else if (e.key === '-' || e.key === '_') setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP));
       else if (e.key === ' ') { e.preventDefault(); setScrolling(s => !s); }
