@@ -3,6 +3,14 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.3 — 2026-08-25
+
+- **Smooth page turns in pedal paging mode.** Within-song page turns can now
+  glide to the next screen instead of jumping. A **Page turn glide** slider
+  (Settings → Present, 0–2000 ms, default 550) sets the speed — 0 is an instant
+  jump. Crossing into a new song stays an instant cut, and two quick presses
+  still advance two full screens.
+
 ## v1.0.2 — 2026-08-25
 
 - **Page-turner pedal support.** Bluetooth page-turner pedals (which pair as
