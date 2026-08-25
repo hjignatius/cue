@@ -163,6 +163,12 @@ const DEFAULT_DURATION_SEC = 210; // 3:30
 const SPEED_STEP = 1.05;   // one F/S press = ×/÷ 1.05  (≈ ±5%)
 const MIN_SPEED  = 0.25;
 const MAX_SPEED  = 4;
+
+// Duration of a smooth pedal-paging glide, in ms. A touch slower than the
+// browser's native smooth scroll (~350-450ms for a screenful) so the move reads
+// as a deliberate glide rather than a snap. Every page step is the same
+// distance, so a constant duration is fine.
+const PAGE_GLIDE_MS = 550;
 const DEFAULT_SPEED = 1;
 const SPEED_KEY = 'cue:present_scroll_mult';
 // Keep the multiplier off binary-float cruft so ×1.05 then ÷1.05 lands back on 1.
@@ -329,6 +335,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // shortly after the last press so it can't go stale after manual scrolling.
   const pagingTargetRef = useRef(null);
   const pagingIdleTimer = useRef(null);
+  const pageAnimRef     = useRef(0); // rAF id for an in-flight smooth-paging glide
 
   const song  = songs[index];
   const total = songs.length;
@@ -348,15 +355,36 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear the intended-target tracking a short moment after the last page press,
   // so a later press (or one after manual scrolling) recomputes from the real
   // scrollTop rather than a stale target. Only used on the smooth path.
-  // 700ms comfortably outlasts a one-screen native smooth scroll (~350-450ms),
-  // so the target is never cleared mid-flight; it only relaxes once settled.
+  // Glide the scroll container to `target` over PAGE_GLIDE_MS with an ease-out
+  // curve. A fresh press cancels any in-flight glide and starts a new one from
+  // the current position toward the (already retargeted) destination, so rapid
+  // presses chain smoothly. Manual rAF rather than native smooth so the speed is
+  // tunable and identical on every browser.
+  const animatePageTo = useCallback((el, target) => {
+    cancelAnimationFrame(pageAnimRef.current);
+    const start = el.scrollTop;
+    const dist  = target - start;
+    if (Math.abs(dist) < 1) { el.scrollTop = target; return; }
+    const t0 = performance.now();
+    const ease = (t) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+    function frame(now) {
+      const p = Math.min(1, (now - t0) / PAGE_GLIDE_MS);
+      el.scrollTop = start + dist * ease(p);
+      if (p < 1) pageAnimRef.current = requestAnimationFrame(frame);
+    }
+    pageAnimRef.current = requestAnimationFrame(frame);
+  }, []);
+
+  // 700ms comfortably outlasts a glide (PAGE_GLIDE_MS), so the intended target
+  // is never cleared mid-flight; it only relaxes once settled.
   const armPagingIdleReset = useCallback(() => {
     clearTimeout(pagingIdleTimer.current);
     pagingIdleTimer.current = setTimeout(() => { pagingTargetRef.current = null; }, 700);
   }, []);
-  useEffect(() => () => clearTimeout(pagingIdleTimer.current), []);
-  // A song change resets the destination — the new song loads at its top.
-  useEffect(() => { pagingTargetRef.current = null; }, [index]);
+  useEffect(() => () => { clearTimeout(pagingIdleTimer.current); cancelAnimationFrame(pageAnimRef.current); }, []);
+  // A song change resets the destination and cancels any glide — the new song
+  // loads at its top (an instant cut).
+  useEffect(() => { pagingTargetRef.current = null; cancelAnimationFrame(pageAnimRef.current); }, [index]);
 
   // Pedal paging: move within the current song by ~one screenful (dir 1 = down,
   // -1 = up), keeping a small overlap so the reader doesn't lose their place.
@@ -390,24 +418,24 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const base = pagingTargetRef.current ?? el.scrollTop;
     if (dir > 0) {
       if (base >= maxScroll - 1) {
-        if (index < total - 1) { pagingTargetRef.current = null; goTo(index + 1); }
+        if (index < total - 1) { cancelAnimationFrame(pageAnimRef.current); pagingTargetRef.current = null; goTo(index + 1); }
       } else {
         const target = Math.min(maxScroll, base + amount);
         pagingTargetRef.current = target;
-        el.scrollTo({ top: target, behavior: 'smooth' });
+        animatePageTo(el, target);
         armPagingIdleReset();
       }
     } else {
       if (base <= 0) {
-        if (index > 0) { pagingTargetRef.current = null; goTo(index - 1); }
+        if (index > 0) { cancelAnimationFrame(pageAnimRef.current); pagingTargetRef.current = null; goTo(index - 1); }
       } else {
         const target = Math.max(0, base - amount);
         pagingTargetRef.current = target;
-        el.scrollTo({ top: target, behavior: 'smooth' });
+        animatePageTo(el, target);
         armPagingIdleReset();
       }
     }
-  }, [smoothPaging, fontPx, index, total, goTo, armPagingIdleReset]);
+  }, [smoothPaging, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
 
   // Shared navigation, reused by the keyboard/pedal and the on-screen ◀/▶. The
   // mode — not the input — decides what they mean: page within a song when pedal
