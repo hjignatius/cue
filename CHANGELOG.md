@@ -3,6 +3,21 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.2 — 2026-08-25
+
+- **Page-turner pedal support.** Bluetooth page-turner pedals (which pair as
+  keyboards) now drive Present mode with no setup — Next is → / ↓ / Page Down,
+  Previous is ← / ↑ / Page Up, and a held pedal turns one page, not several.
+- **Pedal paging mode** (Settings → Present, off by default). When on, Next /
+  Previous page through the current song by a screenful (with a small overlap)
+  instead of skipping songs, advancing to the next/previous song only at a
+  song's bottom/top; auto-scroll is turned off in this mode. The mode also
+  applies to the on-screen ◀ / ▶ and the keyboard, not just a pedal.
+- **Share links** are safer against mistakes: Copy is a clear primary button,
+  and Revoke sits apart and now takes a second confirming tap.
+- **Shared-set header** shows the Cue app icon (tap to open Cue) in place of
+  the plain "Cue" text.
+
 ## v1.0.1 — 2026-08-23
 
 - **Settings — clearer labels.** The **Exports** section is now marked

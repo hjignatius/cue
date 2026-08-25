@@ -190,6 +190,7 @@ function manualHTML() {
     <li class="toc-h2">Count-In</li>
     <li class="toc-h2">Auto-Scroll</li>
     <li class="toc-h2">Navigating a Set</li>
+    <li class="toc-h2">Page-Turner Pedals</li>
     <li class="toc-h2">Editing During Performance</li>
     <li class="toc-h1">8. Shared Sets &amp; Cloud Sync</li>
     <li class="toc-h1">9. File Formats</li>
@@ -501,7 +502,7 @@ Bb,8-10-11-10,1243</pre>
   <li><strong>Collapse it.</strong> The small chevron at the top shrinks the panel to a single round pill. Tap the pill to bring it back. Collapsed or expanded is remembered.</li>
   <li><strong>It fades when idle.</strong> After about 4 seconds without input the panel dims so it does not compete with the lyrics. Any touch brings it straight back to full strength.</li>
 </ul>
-<p>The keyboard shortcuts still work too: <code>+</code> / <code>−</code> for text size, <code>←</code> / <code>→</code> for songs, and <code>space</code> for auto-scroll.</p>
+<p>The keyboard shortcuts still work too: <code>+</code> / <code>−</code> for text size, the arrow keys (or Page Up / Page Down) for songs, and <code>space</code> for auto-scroll. A page-turner pedal uses these same keys — see <em>Page-Turner Pedals</em>.</p>
 <div class="tip"><strong>Note:</strong> On a narrow screen the chord sidebar opens as a panel over the song and covers the floating controls. Close it with its <strong>✕</strong> — or the <strong>Chords</strong> button in the top bar — to reach them again.</div>
 
 <h2>Annotations</h2>
@@ -537,8 +538,22 @@ Bb,8-10-11-10,1243</pre>
 <div class="tip"><strong>Screen wake lock:</strong> Cue requests a screen wake lock when entering Present mode so the display does not dim or sleep during a performance.</div>
 
 <h2>Navigating a Set</h2>
-<p>When presenting a set, use the <strong>◀</strong> and <strong>▶</strong> buttons on the floating control panel to move between songs. They dim at the first and last song. You can also use the keyboard arrow keys or Page Up / Page Down.</p>
+<p>When presenting a set, use the <strong>◀</strong> and <strong>▶</strong> buttons on the floating control panel to move between songs. They dim at the first and last song. You can also use the keyboard arrow keys (<code>←</code> <code>↑</code> / <code>→</code> <code>↓</code>), Page Up / Page Down, or a page-turner pedal — see <em>Page-Turner Pedals</em> below.</p>
 <p><strong>Starting from any song:</strong> select a song in the Setlist column by tapping its row, then tap <strong>Present</strong>. Presentation starts from that song and continues forward through the rest of the set.</p>
+
+<h2>Page-Turner Pedals</h2>
+<p>A Bluetooth page-turner pedal pairs with an iPad as a keyboard, so it works in Present mode with no setup — each press sends a key Cue already listens for. Cue maps <strong>Next</strong> to <code>→</code>, <code>↓</code>, or <code>Page Down</code>, and <strong>Previous</strong> to <code>←</code>, <code>↑</code>, or <code>Page Up</code>. A held-down pedal turns one page, not several. What Next / Previous <em>do</em> depends on the mode:</p>
+<h3>Auto-scroll mode (default)</h3>
+<p>Next / Previous skip song-to-song, exactly like the on-screen ◀ / ▶, and <code>space</code> (or the ↓ button) runs auto-scroll. Nothing to configure.</p>
+<h3>Pedal paging mode</h3>
+<p>Turn on <strong>Settings → Present → Pedal paging mode</strong> to page through long songs with the pedal instead of skipping songs:</p>
+<ul>
+  <li><strong>Next</strong> moves down the current song by about one screen, keeping a line or two of overlap so you don't lose your place; <strong>Previous</strong> moves back up the same way.</li>
+  <li>At the <strong>bottom</strong> of a song, Next continues to the next song (starting at its top); at the <strong>top</strong>, Previous goes to the previous song. It stops at the first song's top and the last song's bottom — there is no wrap-around.</li>
+  <li>When presenting a <strong>single song</strong>, paging simply stops at the top and bottom.</li>
+  <li><strong>Auto-scroll is turned off</strong> in this mode — the ↓ / ❚❚ button is disabled and <code>space</code> does nothing, since paging takes its place.</li>
+</ul>
+<div class="tip"><strong>Tip:</strong> The setting is global and remembered, and it applies to the on-screen ◀ / ▶ and the keyboard too — not just a pedal. Leave it off for the usual auto-scroll behavior.</div>
 
 <h2>Editing During Performance</h2>
 <p>Tap <strong>Edit</strong> in the top bar to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
@@ -635,9 +650,9 @@ Pulling will discard them. Continue?</pre>
 <table>
   <tr><th>Key</th><th>Action</th></tr>
   <tr><td><code>Cmd / Ctrl + F</code></td><td>Open Find &amp; Replace in the editor (also available via the <strong>Find</strong> toolbar button)</td></tr>
-  <tr><td><code>Space</code></td><td>Start / pause auto-scroll in Present mode</td></tr>
-  <tr><td><code>← / Page Up</code></td><td>Previous song (Present mode, sets only)</td></tr>
-  <tr><td><code>→ / Page Down</code></td><td>Next song (Present mode, sets only)</td></tr>
+  <tr><td><code>Space</code></td><td>Start / pause auto-scroll in Present mode (inactive in Pedal paging mode)</td></tr>
+  <tr><td><code>← / ↑ / Page Up</code></td><td>Present mode: previous song — or page up within the song in Pedal paging mode. Also sent by a page-turner pedal.</td></tr>
+  <tr><td><code>→ / ↓ / Page Down</code></td><td>Present mode: next song — or page down within the song in Pedal paging mode. Also sent by a page-turner pedal.</td></tr>
   <tr><td><code>+ / =</code></td><td>Increase font size in Present mode</td></tr>
   <tr><td><code>−</code></td><td>Decrease font size in Present mode</td></tr>
   <tr><td><code>Escape</code></td><td>Exit Present mode / close Find bar</td></tr>
