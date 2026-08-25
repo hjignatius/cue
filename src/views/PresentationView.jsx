@@ -164,11 +164,8 @@ const SPEED_STEP = 1.05;   // one F/S press = ×/÷ 1.05  (≈ ±5%)
 const MIN_SPEED  = 0.25;
 const MAX_SPEED  = 4;
 
-// Duration of a smooth pedal-paging glide, in ms. A touch slower than the
-// browser's native smooth scroll (~350-450ms for a screenful) so the move reads
-// as a deliberate glide rather than a snap. Every page step is the same
-// distance, so a constant duration is fine.
-const PAGE_GLIDE_MS = 550;
+// Pedal-paging glide duration is a user setting (pageGlideMs, 0–1000). 0 pages
+// instantly; any positive value glides over that many ms with an ease-out curve.
 const DEFAULT_SPEED = 1;
 const SPEED_KEY = 'cue:present_scroll_mult';
 // Keep the multiplier off binary-float cruft so ×1.05 then ÷1.05 lands back on 1.
@@ -258,7 +255,9 @@ function lyricColumnWidth(fontPx) {
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, showEdit = true, disableAnnotations = false }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, smoothPaging, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, updatePref } = usePrefs();
+  // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
+  const glideMs = Math.max(0, Math.min(1000, pageGlideMs ?? 550));
   // 'none' turns chord diagrams off: no docked panel and no C toggle button.
   const chordsAvailable = instrument !== 'none';
   // One idle delay for every Present control surface (pill + left gutter), from
@@ -355,11 +354,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear the intended-target tracking a short moment after the last page press,
   // so a later press (or one after manual scrolling) recomputes from the real
   // scrollTop rather than a stale target. Only used on the smooth path.
-  // Glide the scroll container to `target` over PAGE_GLIDE_MS with an ease-out
-  // curve. A fresh press cancels any in-flight glide and starts a new one from
-  // the current position toward the (already retargeted) destination, so rapid
+  // Glide the scroll container to `target` over glideMs with an ease-out curve.
+  // A fresh press cancels any in-flight glide and starts a new one from the
+  // current position toward the (already retargeted) destination, so rapid
   // presses chain smoothly. Manual rAF rather than native smooth so the speed is
-  // tunable and identical on every browser.
+  // user-tunable and identical on every browser.
   const animatePageTo = useCallback((el, target) => {
     cancelAnimationFrame(pageAnimRef.current);
     const start = el.scrollTop;
@@ -368,19 +367,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const t0 = performance.now();
     const ease = (t) => 1 - Math.pow(1 - t, 3); // easeOutCubic
     function frame(now) {
-      const p = Math.min(1, (now - t0) / PAGE_GLIDE_MS);
+      const p = Math.min(1, (now - t0) / glideMs);
       el.scrollTop = start + dist * ease(p);
       if (p < 1) pageAnimRef.current = requestAnimationFrame(frame);
     }
     pageAnimRef.current = requestAnimationFrame(frame);
-  }, []);
+  }, [glideMs]);
 
-  // 700ms comfortably outlasts a glide (PAGE_GLIDE_MS), so the intended target
-  // is never cleared mid-flight; it only relaxes once settled.
+  // Clear the intended target once a glide has surely finished (its duration plus
+  // a buffer), so it never relaxes mid-flight even at the 1000ms maximum; after
+  // that a later press recomputes from the real, settled scrollTop.
   const armPagingIdleReset = useCallback(() => {
     clearTimeout(pagingIdleTimer.current);
-    pagingIdleTimer.current = setTimeout(() => { pagingTargetRef.current = null; }, 700);
-  }, []);
+    pagingIdleTimer.current = setTimeout(() => { pagingTargetRef.current = null; }, glideMs + 250);
+  }, [glideMs]);
   useEffect(() => () => { clearTimeout(pagingIdleTimer.current); cancelAnimationFrame(pageAnimRef.current); }, []);
   // A song change resets the destination and cancels any glide — the new song
   // loads at its top (an instant cut).
@@ -400,7 +400,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const overlap   = Math.round(fontPx * 2.5); // ~2 lines kept on screen
     const amount    = Math.max(1, el.clientHeight - overlap);
 
-    if (!smoothPaging) {
+    if (glideMs <= 0) {
       // Instant path — byte-for-byte the original behavior.
       if (dir > 0) {
         if (el.scrollTop < maxScroll - 1) el.scrollTop = Math.min(maxScroll, el.scrollTop + amount);
@@ -435,7 +435,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         armPagingIdleReset();
       }
     }
-  }, [smoothPaging, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
+  }, [glideMs, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
 
   // Shared navigation, reused by the keyboard/pedal and the on-screen ◀/▶. The
   // mode — not the input — decides what they mean: page within a song when pedal

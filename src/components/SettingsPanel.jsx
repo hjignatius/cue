@@ -74,7 +74,8 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, smoothPaging, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, updatePref } = usePrefs();
+  const glideMs = Math.max(0, Math.min(1000, pageGlideMs ?? 550));
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
   const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
@@ -454,18 +455,19 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   otherwise). Nested under it with a left rule. */}
               {pedalPaging && (
                 <div className={`flex flex-col gap-2 mt-1 pl-3 border-l-2 ${border}`}>
-                  <span className={`text-sm ${label}`}>Smooth page turns</span>
-                  <button
-                    onClick={() => updatePref('smoothPaging', !smoothPaging)}
-                    className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
-                      smoothPaging
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {smoothPaging ? 'On' : 'Off'}
-                  </button>
-                  <p className={`text-xs ${muted}`}>Glide to the next screen instead of jumping. Turn off for an instant one-screen jump. (Some older iPads jump either way.)</p>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm ${label}`}>Page turn glide</span>
+                    <span className={`text-sm tabular-nums ${muted}`}>{glideMs === 0 ? 'Instant' : `${glideMs} ms`}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0" max="1000" step="50"
+                    value={glideMs}
+                    onChange={e => updatePref('pageGlideMs', Number(e.target.value))}
+                    aria-label="Page turn glide duration in milliseconds"
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                  <p className={`text-xs ${muted}`}>How long a page turn takes to glide to the next screen. 0 is an instant jump; higher is a slower, smoother glide.</p>
                 </div>
               )}
             </div>
