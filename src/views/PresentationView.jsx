@@ -164,7 +164,7 @@ const SPEED_STEP = 1.05;   // one F/S press = ×/÷ 1.05  (≈ ±5%)
 const MIN_SPEED  = 0.25;
 const MAX_SPEED  = 4;
 
-// Pedal-paging glide duration is a user setting (pageGlideMs, 0–1000). 0 pages
+// Pedal-paging glide duration is a user setting (pageGlideMs, 0–2000). 0 pages
 // instantly; any positive value glides over that many ms with an ease-out curve.
 const DEFAULT_SPEED = 1;
 const SPEED_KEY = 'cue:present_scroll_mult';
@@ -257,7 +257,7 @@ function lyricColumnWidth(fontPx) {
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, showEdit = true, disableAnnotations = false }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
-  const glideMs = Math.max(0, Math.min(1000, pageGlideMs ?? 550));
+  const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   // 'none' turns chord diagrams off: no docked panel and no C toggle button.
   const chordsAvailable = instrument !== 'none';
   // One idle delay for every Present control surface (pill + left gutter), from
@@ -375,7 +375,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   }, [glideMs]);
 
   // Clear the intended target once a glide has surely finished (its duration plus
-  // a buffer), so it never relaxes mid-flight even at the 1000ms maximum; after
+  // a buffer), so it never relaxes mid-flight even at the 2000ms maximum; after
   // that a later press recomputes from the real, settled scrollTop.
   const armPagingIdleReset = useCallback(() => {
     clearTimeout(pagingIdleTimer.current);

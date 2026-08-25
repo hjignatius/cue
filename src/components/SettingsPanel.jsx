@@ -75,7 +75,7 @@ const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
   const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, updatePref } = usePrefs();
-  const glideMs = Math.max(0, Math.min(1000, pageGlideMs ?? 550));
+  const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
   const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
@@ -461,7 +461,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   </div>
                   <input
                     type="range"
-                    min="0" max="1000" step="50"
+                    min="0" max="2000" step="50"
                     value={glideMs}
                     onChange={e => updatePref('pageGlideMs', Number(e.target.value))}
                     aria-label="Page turn glide duration in milliseconds"

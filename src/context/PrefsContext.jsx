@@ -32,7 +32,7 @@ const DEFAULT_INSTRUMENT = 'ukulele_gcea';
 const DEFAULT_PEDAL_PAGING = false;
 // Page turn glide: within pedal paging mode, how long (ms) a within-song page
 // turn takes to glide to the next screen. 0 = instant jump; larger = slower,
-// smoother glide (0–1000). Only meaningful while pedalPaging is on.
+// smoother glide (0–2000). Only meaningful while pedalPaging is on.
 const DEFAULT_PAGE_GLIDE_MS = 550;
 
 const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS };
