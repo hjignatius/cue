@@ -252,7 +252,7 @@ function lyricColumnWidth(fontPx) {
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, showEdit = true, disableAnnotations = false }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, updatePref } = usePrefs();
   // 'none' turns chord diagrams off: no docked panel and no C toggle button.
   const chordsAvailable = instrument !== 'none';
   // One idle delay for every Present control surface (pill + left gutter), from
@@ -338,8 +338,31 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     setIndex(clamped);
   }, [index, total, songs]);
 
-  const prev = useCallback(() => goTo(index - 1), [goTo, index]);
-  const next = useCallback(() => goTo(index + 1), [goTo, index]);
+  // Pedal paging: move within the current song by ~one screenful (dir 1 = down,
+  // -1 = up), keeping a small overlap so the reader doesn't lose their place.
+  // Only when already at the song's bottom/top does it cross to the next/previous
+  // song (start at that song's top — a v1 simplification). Single-song context
+  // (total === 1) can never cross, since index stays 0. No wrap at the ends.
+  const pageStep = useCallback((dir) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    const overlap   = Math.round(fontPx * 2.5); // ~2 lines kept on screen
+    const amount    = Math.max(1, el.clientHeight - overlap);
+    if (dir > 0) {
+      if (el.scrollTop < maxScroll - 1) el.scrollTop = Math.min(maxScroll, el.scrollTop + amount);
+      else if (index < total - 1) goTo(index + 1);
+    } else {
+      if (el.scrollTop > 0) el.scrollTop = Math.max(0, el.scrollTop - amount);
+      else if (index > 0) goTo(index - 1);
+    }
+  }, [fontPx, index, total, goTo]);
+
+  // Shared navigation, reused by the keyboard/pedal and the on-screen ◀/▶. The
+  // mode — not the input — decides what they mean: page within a song when pedal
+  // paging is on, else skip song-to-song (today's behavior, unchanged when off).
+  const prev = useCallback(() => (pedalPaging ? pageStep(-1) : goTo(index - 1)), [pedalPaging, pageStep, goTo, index]);
+  const next = useCallback(() => (pedalPaging ? pageStep(1)  : goTo(index + 1)), [pedalPaging, pageStep, goTo, index]);
 
   const smallerAction = useCallback(() => setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
   const largerAction  = useCallback(() => setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
@@ -361,7 +384,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   // Pause in place and resume from there — no rewind. Scroll position is only
   // reset when the song itself changes (see goTo). Matches the spacebar toggle.
-  const toggleScroll = useCallback(() => setScrolling(s => !s), []);
+  // Inert in pedal paging mode (auto-scroll is disabled there).
+  const toggleScroll = useCallback(() => { if (!pedalPaging) setScrolling(s => !s); }, [pedalPaging]);
+
+  // Pedal paging disables auto-scroll entirely — make sure any in-progress scroll
+  // stops the moment the mode turns on, so the loop can never run alongside paging.
+  useEffect(() => { if (pedalPaging) setScrolling(false); }, [pedalPaging]);
 
   // Persist the lyric font size so A-/A+ changes survive leaving and re-entering.
   useEffect(() => {
@@ -443,11 +471,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       if      (e.key === 'Escape')  onExit();
       else if (e.key === '+' || e.key === '=') setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP));
       else if (e.key === '-' || e.key === '_') setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP));
-      else if (e.key === ' ') { e.preventDefault(); setScrolling(s => !s); }
+      // Space toggles auto-scroll — inert in pedal paging mode (nothing to toggle).
+      else if (e.key === ' ') { e.preventDefault(); if (!pedalPaging) setScrolling(s => !s); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [next, prev, onExit]);
+  }, [next, prev, onExit, pedalPaging]);
 
   // Screen wake lock
   useEffect(() => {
@@ -847,7 +876,9 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
       {/* Floating control panel — the only in-view control surface for text size,
           song navigation, count-in and auto-scroll. Always present; collapsing to
-          the pill is the only way to hide it. */}
+          the pill is the only way to hide it. In pedal paging mode the ◀/▶ stay
+          enabled at set boundaries (they page within a song), and the auto-scroll
+          button is disabled since that mode has no auto-scroll. */}
       <PresentControls
         dark={dark}
         idleDelayMs={idleDelayMs}
@@ -857,8 +888,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         canLarger={fontPx < MAX_FONT}
         onPrev={prev}
         onNext={next}
-        canPrev={index > 0}
-        canNext={index < total - 1}
+        canPrev={pedalPaging || index > 0}
+        canNext={pedalPaging || index < total - 1}
         onFaster={fasterScroll}
         onSlower={slowerScroll}
         canFaster={speedMult < MAX_SPEED}
@@ -871,6 +902,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         canCountIn={!!Number(meta.tempo)}
         onToggleScroll={toggleScroll}
         scrolling={scrolling}
+        scrollDisabled={pedalPaging}
       />
 
     </div>

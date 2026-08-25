@@ -26,7 +26,12 @@ const DEFAULT_SCROLL_START_DELAY_SEC = 0;
 // reads this functionally until PR2 — PR1 only establishes the default + storage.
 const DEFAULT_INSTRUMENT = 'ukulele_gcea';
 
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT };
+// Pedal paging mode: when ON, Present's next/prev page within a song by a
+// screenful (advancing song-to-song only at the song's bottom/top) and auto-
+// scroll is disabled. OFF (default) keeps today's behavior exactly.
+const DEFAULT_PEDAL_PAGING = false;
+
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, pedalPaging: DEFAULT_PEDAL_PAGING };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 

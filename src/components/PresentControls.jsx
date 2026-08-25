@@ -85,7 +85,7 @@ export function ControlGrid({
   onPrev, onNext, canPrev, canNext,
   onFaster, onSlower, canFaster, canSlower,
   onCountIn, canCountIn,
-  onToggleScroll, scrolling,
+  onToggleScroll, scrolling, scrollDisabled,
   showSaveSpeed, canSaveSpeed, onSaveSpeed, saveSpeedLabel,
 }) {
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY;
@@ -137,12 +137,13 @@ export function ControlGrid({
       </RoundButton>
       <RoundButton
         size={PRESENT_CONTROL_BUTTON_SIZE}
-        label={scrolling ? 'Pause auto-scroll' : 'Start auto-scroll'}
+        label={scrollDisabled ? 'Auto-scroll off in pedal paging mode' : scrolling ? 'Pause auto-scroll' : 'Start auto-scroll'}
         fill={fill}
-        active={scrolling}
+        active={scrolling && !scrollDisabled}
+        disabled={scrollDisabled}
         onActivate={onToggleScroll}
       >
-        {scrolling ? <Pause size={26} fill="currentColor" /> : <ArrowDown size={28} strokeWidth={2.5} />}
+        {scrolling && !scrollDisabled ? <Pause size={26} fill="currentColor" /> : <ArrowDown size={28} strokeWidth={2.5} />}
       </RoundButton>
     </div>
 

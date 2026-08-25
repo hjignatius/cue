@@ -74,7 +74,7 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, updatePref } = usePrefs();
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
   const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
@@ -431,6 +431,24 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 ))}
               </div>
               <p className={`text-xs ${muted}`}>Seconds to wait after pressing the scroll button before scrolling starts.</p>
+            </div>
+
+            {/* Pedal paging: switch next/prev from song-to-song skipping to
+                paging through the current song a screenful at a time (for a
+                page-turner pedal). Disables auto-scroll while on. */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Pedal paging mode</span>
+              <button
+                onClick={() => updatePref('pedalPaging', !pedalPaging)}
+                className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
+                  pedalPaging
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                }`}
+              >
+                {pedalPaging ? 'On' : 'Off'}
+              </button>
+              <p className={`text-xs ${muted}`}>Next/Previous page through the current song by one screen instead of skipping songs; at a song's end they move to the next/previous song. Auto-scroll is turned off in this mode.</p>
             </div>
           </section>
 
