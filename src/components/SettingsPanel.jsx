@@ -74,7 +74,7 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, smoothPaging, updatePref } = usePrefs();
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
   const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
@@ -449,6 +449,25 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 {pedalPaging ? 'On' : 'Off'}
               </button>
               <p className={`text-xs ${muted}`}>Next/Previous page through the current song by one screen instead of skipping songs; at a song's end they move to the next/previous song. Auto-scroll is turned off in this mode.</p>
+
+              {/* Sub-setting: only shown while pedal paging is on (no effect
+                  otherwise). Nested under it with a left rule. */}
+              {pedalPaging && (
+                <div className={`flex flex-col gap-2 mt-1 pl-3 border-l-2 ${border}`}>
+                  <span className={`text-sm ${label}`}>Smooth page turns</span>
+                  <button
+                    onClick={() => updatePref('smoothPaging', !smoothPaging)}
+                    className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
+                      smoothPaging
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                    }`}
+                  >
+                    {smoothPaging ? 'On' : 'Off'}
+                  </button>
+                  <p className={`text-xs ${muted}`}>Glide to the next screen instead of jumping. Turn off for an instant one-screen jump. (Some older iPads jump either way.)</p>
+                </div>
+              )}
             </div>
           </section>
 

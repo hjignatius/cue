@@ -252,7 +252,7 @@ function lyricColumnWidth(fontPx) {
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, showEdit = true, disableAnnotations = false }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, smoothPaging, updatePref } = usePrefs();
   // 'none' turns chord diagrams off: no docked panel and no C toggle button.
   const chordsAvailable = instrument !== 'none';
   // One idle delay for every Present control surface (pill + left gutter), from
@@ -322,6 +322,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const contentWrapRef = useRef(null);
   const rafRef         = useRef(0);
   const flashTimers    = useRef([]);
+  // Smooth pedal paging tracks the INTENDED scroll destination separately from
+  // the live (mid-animation) scrollTop, so two fast presses advance two full
+  // pages instead of computing the second off an interpolated position. null =
+  // idle (next press starts from the actual scrollTop). An idle timer clears it
+  // shortly after the last press so it can't go stale after manual scrolling.
+  const pagingTargetRef = useRef(null);
+  const pagingIdleTimer = useRef(null);
 
   const song  = songs[index];
   const total = songs.length;
@@ -338,25 +345,69 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     setIndex(clamped);
   }, [index, total, songs]);
 
+  // Clear the intended-target tracking a short moment after the last page press,
+  // so a later press (or one after manual scrolling) recomputes from the real
+  // scrollTop rather than a stale target. Only used on the smooth path.
+  // 700ms comfortably outlasts a one-screen native smooth scroll (~350-450ms),
+  // so the target is never cleared mid-flight; it only relaxes once settled.
+  const armPagingIdleReset = useCallback(() => {
+    clearTimeout(pagingIdleTimer.current);
+    pagingIdleTimer.current = setTimeout(() => { pagingTargetRef.current = null; }, 700);
+  }, []);
+  useEffect(() => () => clearTimeout(pagingIdleTimer.current), []);
+  // A song change resets the destination — the new song loads at its top.
+  useEffect(() => { pagingTargetRef.current = null; }, [index]);
+
   // Pedal paging: move within the current song by ~one screenful (dir 1 = down,
   // -1 = up), keeping a small overlap so the reader doesn't lose their place.
   // Only when already at the song's bottom/top does it cross to the next/previous
-  // song (start at that song's top — a v1 simplification). Single-song context
-  // (total === 1) can never cross, since index stays 0. No wrap at the ends.
+  // song (start at that song's top — a v1 simplification, always an instant cut).
+  // Single-song context (total === 1) can never cross, since index stays 0. No
+  // wrap at the ends. The target/overlap math is identical on both paths — only
+  // HOW we move to that target differs (instant assign vs smooth glide).
   const pageStep = useCallback((dir) => {
     const el = scrollRef.current;
     if (!el) return;
     const maxScroll = el.scrollHeight - el.clientHeight;
     const overlap   = Math.round(fontPx * 2.5); // ~2 lines kept on screen
     const amount    = Math.max(1, el.clientHeight - overlap);
-    if (dir > 0) {
-      if (el.scrollTop < maxScroll - 1) el.scrollTop = Math.min(maxScroll, el.scrollTop + amount);
-      else if (index < total - 1) goTo(index + 1);
-    } else {
-      if (el.scrollTop > 0) el.scrollTop = Math.max(0, el.scrollTop - amount);
-      else if (index > 0) goTo(index - 1);
+
+    if (!smoothPaging) {
+      // Instant path — byte-for-byte the original behavior.
+      if (dir > 0) {
+        if (el.scrollTop < maxScroll - 1) el.scrollTop = Math.min(maxScroll, el.scrollTop + amount);
+        else if (index < total - 1) goTo(index + 1);
+      } else {
+        if (el.scrollTop > 0) el.scrollTop = Math.max(0, el.scrollTop - amount);
+        else if (index > 0) goTo(index - 1);
+      }
+      return;
     }
-  }, [fontPx, index, total, goTo]);
+
+    // Smooth path — compute from the last intended target (falling back to the
+    // real position when idle) so rapid presses chain reliably; glide there with
+    // native smooth scroll. Song crossings stay an instant cut.
+    const base = pagingTargetRef.current ?? el.scrollTop;
+    if (dir > 0) {
+      if (base >= maxScroll - 1) {
+        if (index < total - 1) { pagingTargetRef.current = null; goTo(index + 1); }
+      } else {
+        const target = Math.min(maxScroll, base + amount);
+        pagingTargetRef.current = target;
+        el.scrollTo({ top: target, behavior: 'smooth' });
+        armPagingIdleReset();
+      }
+    } else {
+      if (base <= 0) {
+        if (index > 0) { pagingTargetRef.current = null; goTo(index - 1); }
+      } else {
+        const target = Math.max(0, base - amount);
+        pagingTargetRef.current = target;
+        el.scrollTo({ top: target, behavior: 'smooth' });
+        armPagingIdleReset();
+      }
+    }
+  }, [smoothPaging, fontPx, index, total, goTo, armPagingIdleReset]);
 
   // Shared navigation, reused by the keyboard/pedal and the on-screen ◀/▶. The
   // mode — not the input — decides what they mean: page within a song when pedal

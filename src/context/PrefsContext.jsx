@@ -30,8 +30,12 @@ const DEFAULT_INSTRUMENT = 'ukulele_gcea';
 // screenful (advancing song-to-song only at the song's bottom/top) and auto-
 // scroll is disabled. OFF (default) keeps today's behavior exactly.
 const DEFAULT_PEDAL_PAGING = false;
+// Smooth page turns: within pedal paging mode, glide to the new position
+// (scrollTo behavior:'smooth') rather than jumping instantly. ON by default;
+// only meaningful while pedalPaging is on.
+const DEFAULT_SMOOTH_PAGING = true;
 
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, pedalPaging: DEFAULT_PEDAL_PAGING };
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, pedalPaging: DEFAULT_PEDAL_PAGING, smoothPaging: DEFAULT_SMOOTH_PAGING };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 
