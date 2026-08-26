@@ -74,7 +74,7 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, updatePref } = usePrefs();
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
@@ -455,7 +455,25 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   otherwise). Nested under it with a left rule. */}
               {pedalPaging && (
                 <div className={`flex flex-col gap-2 mt-1 pl-3 border-l-2 ${border}`}>
-                  <div className="flex items-center justify-between">
+                  <span className={`text-sm ${label}`}>Page turn size</span>
+                  <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                    {[['full', 'Full page'], ['half', 'Half page']].map(([val, text], i) => (
+                      <button
+                        key={val}
+                        onClick={() => updatePref('pageSize', val)}
+                        className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
+                          (pageSize ?? 'full') === val
+                            ? 'bg-indigo-600 text-white'
+                            : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                        }`}
+                      >
+                        {text}
+                      </button>
+                    ))}
+                  </div>
+                  <p className={`text-xs ${muted}`}>How far each Next / Previous press moves — a full screen or half a screen.</p>
+
+                  <div className="flex items-center justify-between mt-1">
                     <span className={`text-sm ${label}`}>Page turn glide</span>
                     <span className={`text-sm tabular-nums ${muted}`}>{glideMs === 0 ? 'Instant' : `${glideMs} ms`}</span>
                   </div>
