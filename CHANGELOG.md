@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.4 — 2026-08-25
+
+- **Half-page turns in pedal paging mode.** A new **Page turn size** choice
+  (Settings → Present: Full page / Half page) sets how far each Next / Previous
+  press moves — a whole screen or half a screen. Half page reuses the same glide
+  setting. Default is Full page.
+
 ## v1.0.3 — 2026-08-25
 
 - **Smooth page turns in pedal paging mode.** Within-song page turns can now

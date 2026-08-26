@@ -552,6 +552,7 @@ Bb,8-10-11-10,1243</pre>
   <li>At the <strong>bottom</strong> of a song, Next continues to the next song (starting at its top); at the <strong>top</strong>, Previous goes to the previous song. It stops at the first song's top and the last song's bottom — there is no wrap-around.</li>
   <li>When presenting a <strong>single song</strong>, paging simply stops at the top and bottom.</li>
   <li><strong>Auto-scroll is turned off</strong> in this mode — the ↓ / ❚❚ button is disabled and <code>space</code> does nothing, since paging takes its place.</li>
+  <li><strong>Page turn size</strong> — choose <strong>Full page</strong> (a whole screen per press, the default) or <strong>Half page</strong> (half a screen per press, so more of what you just read stays in view). It applies to both Next and Previous.</li>
   <li><strong>Page turn glide</strong> — a slider (0–2000&nbsp;ms) sets how the page turn moves. At <strong>0</strong> the screen jumps instantly; higher values glide smoothly to the next screen, keeping your eye with the text. The default is a gentle 550&nbsp;ms. Two quick presses still advance two full screens. (Crossing into a new song is always an instant cut, whatever the glide.)</li>
 </ul>
 <div class="tip"><strong>Tip:</strong> The setting is global and remembered, and it applies to the on-screen ◀ / ▶ and the keyboard too — not just a pedal. Leave it off for the usual auto-scroll behavior.</div>
