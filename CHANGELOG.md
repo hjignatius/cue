@@ -3,6 +3,21 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.5 — 2026-08-27
+
+- **PDF lead-sheet songs.** Import a PDF (e.g. a jazz chart that can't be typed
+  as ChordPro) as a song and present it fit-to-page, turning pages with the tap
+  zones or a foot pedal. Songs now carry a per-song **Foot pedal turns**
+  setting (Pages vs Songs). PDFs sync to your own devices; sharing PDFs with
+  other users is coming next.
+- **Page turn size** gains a **3/4** option — Full / 3/4 / 1/2 (was Full / Half).
+- **Chords:** recognizes more spellings — `A7aug`/`aug` and `dim` after a
+  degree, and the `+` / `°` symbols. Previously one such chord turned its whole
+  chord line to plain text.
+- **Fix:** creating a **New Set** now selects it, so adding a song right after
+  no longer lands it in the previously-active set (which showed as a confusing
+  "already in <other set>").
+
 ## v1.0.4 — 2026-08-25
 
 - **Half-page turns in pedal paging mode.** A new **Page turn size** choice
