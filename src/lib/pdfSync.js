@@ -1,35 +1,45 @@
-// PDF cloud-sync SEAM — Stage 1b, NOT IMPLEMENTED in Stage 1a.
+// PDF cloud-sync — Stage 1b (OWNER-ONLY). The PDF bytes for a 'pdf' song ride
+// through Supabase Storage alongside the song row's normal sync: uploaded on
+// publish (guarded so bytes aren't re-pushed every time) and downloaded on pull
+// when missing locally. No sharing / cross-owner / signed-URL path — that's
+// Stage 2, which adds an ADDITIVE read policy on the SAME bucket.
 //
-// In Stage 1a the PDF Blob is PURELY LOCAL (IndexedDB 'pdfs' store). No Supabase
-// Storage bucket, no upload, no download, no signed URLs exist yet. These
-// functions are deliberate, LOUD not-implemented markers so that "cloud isn't
-// wired yet" can never be mistaken for "cloud broke" once 1b turns it on: they
-// throw a clearly-labelled error rather than silently succeeding or no-op'ing.
-//
-// Callers in Stage 1a must NOT invoke these on the normal local path. They exist
-// so the wiring points are named and greppable for 1b.
+// The bucket 'song-pdfs' is PRIVATE; owner access is by RLS keyed on the path's
+// first segment ({owner_id}/{songId}.pdf). The authenticated owner reads/writes
+// their own objects directly — no signed URL needed here, which keeps the bucket
+// genuinely private for Stage 2.
 
-export class PdfSyncNotWiredError extends Error {
-  constructor(op) {
-    super(`[pdfSync] "${op}" is a Stage 1b feature and is NOT wired yet. ` +
-          `The PDF exists only locally in IndexedDB. This is expected in Stage 1a — ` +
-          `it is NOT a cloud failure. Do not call ${op} until Stage 1b lands.`);
-    this.name = 'PdfSyncNotWiredError';
-    this.op = op;
-  }
+import { supabase } from './supabase.js';
+import { loadPdfBlob, savePdfBlob } from '../utils/storage.js';
+
+const BUCKET = 'song-pdfs';
+
+// Storage path for a song's PDF. STAGE 2 NOTE: cross-owner copy re-ids the song
+// (reidSong), so a copied PDF lands at a NEW {owner}/{songId} path — Stage 2 will
+// decide duplicate-bytes vs reference-original. Nothing here hard-codes that.
+function pdfPath(ownerId, songId) {
+  return `${ownerId}/${songId}.pdf`;
 }
 
-// Upload a local PDF Blob to cloud Storage and return its storage ref. (1b)
-export async function uploadPdfBlob(/* songId, blob, userId */) {
-  throw new PdfSyncNotWiredError('uploadPdfBlob');
+// Upload a song's local PDF Blob to Storage (owner path). Throws on failure so
+// the caller can surface a LOUD retry state — a row synced with no bytes behind
+// it must never pass silently. upsert:true so a re-import overwrites cleanly.
+export async function uploadPdfBlob(songId, ownerId) {
+  if (!supabase) throw new Error('Supabase not configured');
+  const blob = await loadPdfBlob(songId);
+  if (!blob) throw new Error(`No local PDF to upload for song ${songId}`);
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(pdfPath(ownerId, songId), blob, { contentType: 'application/pdf', upsert: true });
+  if (error) throw error;
 }
 
-// Download a pdf song's Blob from cloud Storage when it's missing locally. (1b)
-export async function downloadPdfBlob(/* songId, ref */) {
-  throw new PdfSyncNotWiredError('downloadPdfBlob');
-}
-
-// Ensure a pdf song's Blob is present locally, fetching from cloud if not. (1b)
-export async function syncPdfBlob(/* song */) {
-  throw new PdfSyncNotWiredError('syncPdfBlob');
+// Download a pdf song's bytes from Storage into the local 'pdfs' store. Throws on
+// failure so pull-if-missing can keep the fail-soft placeholder + offer a retry.
+export async function downloadPdfBlob(songId, ownerId) {
+  if (!supabase) throw new Error('Supabase not configured');
+  const { data, error } = await supabase.storage.from(BUCKET).download(pdfPath(ownerId, songId));
+  if (error) throw error;
+  if (!data) throw new Error(`No PDF bytes returned for song ${songId}`);
+  await savePdfBlob(songId, data);
 }

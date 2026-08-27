@@ -4,7 +4,7 @@
 // (a user tap on "Update Cue"), so a live performance is never reloaded — and the
 // old cache is evicted only then, so a running session never loses a lazy chunk.
 
-const CACHE = 'cue-v2';
+const CACHE = 'cue-v3';
 
 // App shell + icons. NOT the hashed JS/CSS (names unknown here — cached at
 // runtime on first online launch) and NOT cue-icon-square.svg (unreferenced).
@@ -20,9 +20,25 @@ const PRECACHE_URLS = [
   '/cue-icon.svg',
 ];
 
+// The lazy pdfjs chunk + its worker are hashed assets whose names aren't known
+// in this hand-written file, so they are INJECTED AT BUILD TIME by
+// scripts/inject-sw-precache.mjs (it rewrites the array literal below using the
+// real dist filenames). Precaching them means a PDF song renders with the
+// network fully off even if no PDF was ever opened online first — the gig case.
+// The array stays empty in dev (fine: runtime cache-fill still covers online use).
+const PDF_PRECACHE = [];
+
 self.addEventListener('install', (event) => {
   // No skipWaiting here — an update must wait for the user's tap.
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE_URLS)));
+  // PDF assets are best-effort: if a hashed name drifts, addAll would reject the
+  // whole precache — so add the shell (must-have) first, then the pdfjs assets
+  // in a catch-guarded pass so one stale name can't break offline launch.
+  event.waitUntil(caches.open(CACHE).then(async (cache) => {
+    await cache.addAll(PRECACHE_URLS);
+    if (PDF_PRECACHE.length) {
+      try { await cache.addAll(PDF_PRECACHE); } catch (e) { /* runtime cache-fill still covers it */ }
+    }
+  }));
 });
 
 self.addEventListener('activate', (event) => {

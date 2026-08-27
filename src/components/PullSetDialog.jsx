@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listCloudSets, pullSet, toIsoTs } from '../lib/cloud.js';
-import { saveSong, saveSet, newestLocalAt } from '../utils/storage.js';
+import { saveSong, saveSet, newestLocalAt, hasPdfBlob } from '../utils/storage.js';
+import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
@@ -74,8 +75,9 @@ function describeRisk({ setNewer, songs }) {
 // The annotations store is never touched. Annotations are device-local and keyed
 // by song id, and saveSong only writes the 'songs' store, so a song overwritten
 // here keeps its annotations attached.
-export async function applyPulledSet({ set, songs }, localSongIds) {
+export async function applyPulledSet({ set, songs }, localSongIds, userId) {
   let added = 0, overwritten = 0;
+  const pdfDownloadFailures = [];
   const songIds = [];
   const incomingCustoms = [];
 
@@ -92,9 +94,24 @@ export async function applyPulledSet({ set, songs }, localSongIds) {
       chordPrefs: c.chordPrefs,
       displayKey: c.displayKey,
       copiedFrom: c.copiedFrom,
+      // Carry the pdf song fields, or a pulled pdf song would degrade to text.
+      type: c.type,
+      pedalActive: c.pedalActive,
+      pdf: c.pdf,
       createdAt: toIsoTs(row.created_at),
       updatedAt: toIsoTs(row.updated_at),
     });
+    // Pull-if-missing: fetch the PDF bytes when this device doesn't have them.
+    // Fail-soft — a failure leaves the 1a placeholder (with its retry) rather
+    // than aborting the whole pull. Owner-only in 1b (userId is the set owner).
+    if (c.type === 'pdf' && userId && !(await hasPdfBlob(row.id))) {
+      try {
+        await downloadPdfBlob(row.id, userId);
+      } catch (err) {
+        console.error(`[applyPulledSet] PDF download failed for song ${row.id}`, err);
+        pdfDownloadFailures.push(row.id);
+      }
+    }
     if (localSongIds.has(row.id)) overwritten++; else added++;
     songIds.push(row.id);
   }
@@ -115,7 +132,7 @@ export async function applyPulledSet({ set, songs }, localSongIds) {
     preserveTimestamps: true,
   });
 
-  return { added, overwritten };
+  return { added, overwritten, pdfDownloadFailures };
 }
 
 export default function PullSetDialog({ setId = null, localSets, localSongs, userId, onPulled, onClose }) {
@@ -168,7 +185,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
     setErrMsg('');
     try {
       const localSongIds = new Set(localSongs.map(s => s.id));
-      const result = await applyPulledSet(fetched, localSongIds);
+      const result = await applyPulledSet(fetched, localSongIds, userId);
       setSummary(result);
       // Mark the set as in-sync as of what we just wrote, so the publish "stale"
       // dot stays off until the next local edit.

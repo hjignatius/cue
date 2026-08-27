@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { FileWarning } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
 import { loadPdfBlob } from '../utils/storage.js';
+import { downloadPdfBlob } from '../lib/pdfSync.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 // Renders ONE PDF page fit to the container WIDTH (not continuous scroll) at
 // scale × devicePixelRatio for retina crispness. CONTROLLED: the parent owns the
@@ -11,12 +13,31 @@ import { loadPdfBlob } from '../utils/storage.js';
 // never throws into Present mode. Tap zones (left = previous, right = next) call
 // the parent so page-turn stays unified with the pedal/keyboard handler.
 export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNext, dark }) {
+  const { user } = useAuth();
   const wrapRef   = useRef(null);
   const canvasRef = useRef(null);
   const docRef    = useRef(null);
   const taskRef   = useRef(null);
   const [status, setStatus] = useState('loading'); // loading | ready | missing | error
   const [renderTick, setRenderTick] = useState(0);  // bump to re-render on resize
+  const [reloadKey, setReloadKey] = useState(0);    // bump to re-run the load
+  const [retrying, setRetrying]   = useState(false);
+
+  // Retry a missing download: pull the bytes from cloud (owner-only), then reload.
+  // A musician who pulled a set before losing wifi can recover it here rather than
+  // being stuck on the placeholder. No-op if not signed in (no owner to fetch as).
+  async function retryDownload() {
+    if (!user?.id || retrying) return;
+    setRetrying(true);
+    try {
+      await downloadPdfBlob(songId, user.id);
+      setReloadKey(k => k + 1);
+    } catch (err) {
+      console.error('[PdfSongView] retry download failed', err);
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   // Load the document for this song.
   useEffect(() => {
@@ -46,7 +67,7 @@ export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNex
       try { taskRef.current?.cancel(); } catch { /* ignore */ }
       try { docRef.current?.destroy(); } catch { /* ignore */ }
     };
-  }, [songId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [songId, reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-render on container resize (rotation / window resize).
   useEffect(() => {
@@ -104,9 +125,19 @@ export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNex
           </p>
           <p className="text-sm mt-1">
             {status === 'missing'
-              ? 'The lead sheet for this song is stored locally and is not here yet.'
+              ? 'The lead sheet is stored in the cloud and has not downloaded to this device yet.'
               : 'The file may be damaged. Try re-importing it in the editor.'}
           </p>
+          {status === 'missing' && user?.id && (
+            <button
+              type="button"
+              onClick={retryDownload}
+              disabled={retrying}
+              className={`mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${dark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'} disabled:opacity-50`}
+            >
+              {retrying ? 'Downloading…' : 'Retry download'}
+            </button>
+          )}
         </div>
       </div>
     );

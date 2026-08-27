@@ -24,8 +24,8 @@ export async function getDB() {
         if (!database.objectStoreNames.contains('annotations')) {
           database.createObjectStore('annotations', { keyPath: 'songId' });
         }
-        // v3: raw PDF blobs for pdf-type songs, keyed by song ID. Local-only in
-        // Stage 1a — nothing uploads these (see syncPdfBlob in pdfSync.js).
+        // v3: raw PDF blobs for pdf-type songs, keyed by song ID. Synced to cloud
+        // Storage on publish / pull (see pdfSync.js: upload/downloadPdfBlob).
         if (!database.objectStoreNames.contains('pdfs')) {
           database.createObjectStore('pdfs', { keyPath: 'songId' });
         }
@@ -221,6 +221,18 @@ export async function deletePdfBlob(songId) {
   return (await getDB()).delete('pdfs', songId);
 }
 
+// Record whether a pdf song's bytes are uploaded to cloud Storage (Stage 1b's
+// skip-if-unchanged guard). Written with a DIRECT put — NOT saveSong — so it does
+// not bump updatedAt and re-float the set as "locally newer". A false value
+// (upload attempted and failed) drives the loud "retry upload" state in the UI;
+// a re-import that replaces the bytes must reset this to false.
+export async function setPdfUploaded(songId, uploaded) {
+  const d = await getDB();
+  const song = await d.get('songs', songId);
+  if (!song || !song.pdf) return;
+  await d.put('songs', { ...song, pdf: { ...song.pdf, uploaded } });
+}
+
 // ---- Sets -------------------------------------------------------------------
 
 export async function loadSets() {
@@ -287,7 +299,11 @@ export async function reidSong(oldId, newId) {
   const sets  = tx.objectStore('sets');
   const anns  = tx.objectStore('annotations');
   const pdfs  = tx.objectStore('pdfs');
-  songs.put({ ...song, id: newId });
+  // A re-id changes the songId, hence the Storage path ({owner}/{songId}.pdf), so
+  // any prior upload no longer backs this song — reset pdf.uploaded to force a
+  // re-upload on the next publish. The local blob is moved below.
+  const movedPdf = song.pdf ? { ...song.pdf, uploaded: false } : song.pdf;
+  songs.put({ ...song, id: newId, ...(song.pdf ? { pdf: movedPdf } : {}) });
   songs.delete(oldId);
   for (const s of await sets.getAll()) {
     if (s.songIds?.includes(oldId)) {

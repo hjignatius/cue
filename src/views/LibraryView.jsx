@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus } from 'lucide-react';
-import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob } from '../utils/storage.js';
+import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
+import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong } from '../utils/fileIO.js';
@@ -129,7 +130,7 @@ function ExportMenuItem({ label, onSelect, disabled = false, title, px = 'px-3' 
 
 // ---- Song row ---------------------------------------------------------------
 
-function SongRow({ song, dark, onOpen, onPresent, onDuplicate, selected, onToggleSelect, highlighted, hasAnnotation }) {
+function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selected, onToggleSelect, highlighted, hasAnnotation }) {
   const { title, artist, key } = song.metadata || {};
 
   return (
@@ -165,6 +166,16 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, selected, onToggl
             <Pencil size={9} className="text-white" strokeWidth={2.5} />
           </span>
         )}
+        {/* Amber dot: this pdf song's bytes failed to upload to the cloud, so
+            other devices will see a placeholder. Retry via the row's ⋮ menu. */}
+        {song.type === 'pdf' && song.pdf?.uploaded === false && (
+          <span
+            title="This PDF didn't upload to the cloud. Use the ⋮ menu → Retry PDF upload."
+            className="flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 shrink-0"
+          >
+            <CloudOff size={9} className="text-white" strokeWidth={2.5} />
+          </span>
+        )}
         {(() => {
           const view = effectiveKey(song);
           if (!view) return null;
@@ -183,7 +194,9 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, selected, onToggl
             { id: 'edit',  label: 'Edit',      icon: SquarePen, onSelect: onOpen },
             { id: 'pres',  label: 'Present',   icon: Tv,        onSelect: () => onPresent(song) },
             { id: 'dup',   label: 'Duplicate', icon: Copy,      onSelect: () => onDuplicate(song) },
-          ]}
+            (song.type === 'pdf' && song.pdf?.uploaded === false && onRetryPdf) &&
+              { id: 'pdfretry', label: 'Retry PDF upload', icon: CloudOff, onSelect: () => onRetryPdf(song) },
+          ].filter(Boolean)}
         />
       </div>
     </div>
@@ -1343,6 +1356,21 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     onRefresh();
   }
 
+  // Retry a failed PDF upload from the library row (the persistent counterpart to
+  // the publish dialog's retry). Clears the amber warning on success.
+  async function handleRetryPdf(song) {
+    if (!user?.id) { alert('Sign in to upload PDFs to the cloud.'); return; }
+    try {
+      await uploadPdfBlob(song.id, user.id);
+      await setPdfUploaded(song.id, true);
+    } catch (err) {
+      console.error('Retry PDF upload failed:', err);
+      await setPdfUploaded(song.id, false);
+      alert('PDF upload failed again. Check your connection and try once more.');
+    }
+    onRefresh();
+  }
+
   function toggleSelectMode() { setSelectMode(v => !v); setSelected(new Set()); }
   function toggleSelect(id) {
     // Outside Select mode a tap highlights the row (light blue) so the user can
@@ -1750,6 +1778,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   }}
                   onPresent={s => onPresent?.([s], 0)}
                   onDuplicate={handleDuplicate}
+                  onRetryPdf={handleRetryPdf}
                   selected={selected.has(song.id)}
                   onToggleSelect={toggleSelect}
                   highlighted={!selected.has(song.id) && song.id === highlightedSongId}

@@ -1,4 +1,6 @@
 import { supabase } from './supabase.js';
+import { uploadPdfBlob } from './pdfSync.js';
+import { setPdfUploaded } from '../utils/storage.js';
 
 // Normalize a cloud timestamp to JS ISO ("…Z", ms precision). Supabase returns
 // Postgres timestamptz as "…+00:00" with microseconds; local records use JS ISO.
@@ -39,8 +41,33 @@ export async function ownedSongIds(ids, userId) {
 
 // Publish a set (and all its songs) to the cloud.
 // songs must be the resolved song objects (not just IDs).
+// Returns { pdfUploadFailures: string[] } — song ids whose PDF bytes failed to
+// upload (the row still published). Empty on a fully-clean publish.
 export async function publishSet(set, songs, userId) {
   if (!supabase) throw new Error('Supabase not configured');
+
+  // PDF bytes ride with the row: upload each pdf song's Blob to Storage BEFORE
+  // its row is upserted, so the row's content records the uploaded flag. Guarded
+  // on content.pdf.uploaded so bytes aren't re-pushed every publish (a re-import
+  // or a re-id resets that flag). A failure is COLLECTED, not thrown — the row
+  // still publishes, and the false flag drives a LOUD retry state in the UI, so a
+  // row-with-no-bytes is visible on the Mac, never a silent degrade found on
+  // stage. Additive: text songs never enter this loop. (Owner-only in 1b.)
+  const pdfUploadFailures = [];
+  for (const s of songs) {
+    if (s.type === 'pdf' && s.pdf && s.pdf.uploaded !== true) {
+      try {
+        await uploadPdfBlob(s.id, userId);
+        s.pdf = { ...s.pdf, uploaded: true };
+        await setPdfUploaded(s.id, true);
+      } catch (err) {
+        console.error(`[publishSet] PDF upload failed for song ${s.id}`, err);
+        s.pdf = { ...s.pdf, uploaded: false };
+        await setPdfUploaded(s.id, false);
+        pdfUploadFailures.push(s.id);
+      }
+    }
+  }
 
   // a. Upsert songs
   if (songs.length > 0) {
@@ -77,6 +104,8 @@ export async function publishSet(set, songs, userId) {
     const { error: insErr } = await supabase.from('set_songs').insert(rows);
     if (insErr) throw insErr;
   }
+
+  return { pdfUploadFailures };
 }
 
 // Return all share tokens for a set (active and revoked), newest first.
