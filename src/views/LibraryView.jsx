@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus } from 'lucide-react';
-import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets } from '../utils/storage.js';
+import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob } from '../utils/storage.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong } from '../utils/fileIO.js';
@@ -1322,7 +1322,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   }
 
   async function handleDuplicate(song) {
-    await saveSong({
+    const newId = await saveSong({
       id: null,
       metadata: { ...song.metadata, title: (song.metadata?.title || 'Untitled') + ' (Copy)' },
       text: song.text,
@@ -1330,7 +1330,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       diagramScale: song.diagramScale,
       chordPrefs: song.chordPrefs,
       displayKey: song.displayKey,
+      type: song.type,
+      pedalActive: song.pedalActive,
+      pdf: song.pdf,
     });
+    // A pdf song's bytes live in a separate local store — copy them to the new id
+    // so the duplicate renders. (Stage 1a: purely local.)
+    if (song.type === 'pdf') {
+      const blob = await loadPdfBlob(song.id);
+      if (blob) await savePdfBlob(newId, blob);
+    }
     onRefresh();
   }
 

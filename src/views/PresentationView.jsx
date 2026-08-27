@@ -12,8 +12,10 @@ import { transposeText, semitonesBetween, useFlatsForKey } from '../utils/transp
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { Fragment } from 'react';
 import SongChordPanel from '../components/SongChordPanel.jsx';
+import PdfSongView from '../components/PdfSongView.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
+import { advanceMode, isPdfSong } from '../utils/songType.js';
 
 // Parse "3:30" or "210" → seconds
 function parseDuration(dur) {
@@ -254,8 +256,8 @@ function lyricColumnWidth(fontPx) {
   return Math.round(textW + LYRIC_COL_PADDING);
 }
 
-export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, showEdit = true, disableAnnotations = false }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, updatePref } = usePrefs();
+export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetPedalActive, showEdit = true, disableAnnotations = false }) {
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pageGlideMs, pageSize, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   // Fraction of the viewport a page turn moves: 3/4 or 1/2, else null = a full
@@ -346,6 +348,34 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Accidental spelling for transposed chords/diagrams — auto follows the View Key.
   const useFlats = useFlatsForKey(accidentals, song?.displayKey);
 
+  // Per-song pedal control (replaces the old GLOBAL pedalPaging as the live
+  // switch) and the within-song advance unit. The pedal, the on-screen ◀/▶, and
+  // the pdf tap zones all resolve their meaning through `mode` — never an inline
+  // type check — so paged-text can later be added by teaching advanceMode() one
+  // override, not by editing callers.
+  // Live override so the Tools toggle takes effect immediately; null = use the
+  // song's stored value. Reset on song change (the stored value is authoritative
+  // once persisted). Persistence goes through onSetPedalActive.
+  const [pedalActiveOverride, setPedalActiveOverride] = useState(null);
+  useEffect(() => { setPedalActiveOverride(null); }, [index]);
+  const pedalActive = pedalActiveOverride ?? (song?.pedalActive === true);
+  function togglePedalActive() {
+    const nextVal = !pedalActive;
+    setPedalActiveOverride(nextVal);
+    if (song?.id) onSetPedalActive?.(song.id, nextVal);
+  }
+  const mode = advanceMode(song);            // 'page' (pdf) | 'scroll' (text)
+  const songIsPdf = isPdfSong(song);         // content-type gating only
+  // Auto-scroll exists only for a text song read manually (pedal off). Pedal-on
+  // and pdf songs have no timed auto-scroll.
+  const autoScrollAvailable = mode === 'scroll' && !pedalActive;
+  // Chord tools are text-only, and only when an instrument is selected.
+  const chordControlsAvailable = chordsAvailable && !songIsPdf;
+
+  // PDF paging state (1-based); pdfCount comes from the rendered document.
+  const [pdfPage, setPdfPage]   = useState(1);
+  const [pdfCount, setPdfCount] = useState(1);
+
   const goTo = useCallback((target) => {
     const clamped = Math.max(0, Math.min(total - 1, target));
     if (clamped === index) return;
@@ -386,8 +416,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   }, [glideMs]);
   useEffect(() => () => { clearTimeout(pagingIdleTimer.current); cancelAnimationFrame(pageAnimRef.current); }, []);
   // A song change resets the destination and cancels any glide — the new song
-  // loads at its top (an instant cut).
-  useEffect(() => { pagingTargetRef.current = null; cancelAnimationFrame(pageAnimRef.current); }, [index]);
+  // loads at its top (an instant cut). PDF paging resets to page 1.
+  useEffect(() => {
+    pagingTargetRef.current = null;
+    cancelAnimationFrame(pageAnimRef.current);
+    setPdfPage(1);
+    setPdfCount(1);
+  }, [index]);
 
   // Pedal paging: move within the current song by ~one screenful (dir 1 = down,
   // -1 = up), keeping a small overlap so the reader doesn't lose their place.
@@ -444,11 +479,37 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     }
   }, [glideMs, pageFraction, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
 
+  // PDF within-song advance for the pedal/keyboard: turn a page, and at the last
+  // page (or before the first) cross to the next/previous song — mirroring the
+  // scroll path's roll-to-next behavior. No wrap at the set's ends.
+  const pdfAdvance = useCallback((dir) => {
+    if (dir > 0) {
+      if (pdfPage < pdfCount) setPdfPage(p => p + 1);
+      else if (index < total - 1) goTo(index + 1);
+    } else {
+      if (pdfPage > 1) setPdfPage(p => p - 1);
+      else if (index > 0) goTo(index - 1);
+    }
+  }, [pdfPage, pdfCount, index, total, goTo]);
+
+  // PDF tap zones: pure page turn for manual reading — clamp at the ends (tapping
+  // never jumps you into another song; the ◀/▶ buttons or the pedal do that).
+  const pdfTapTurn = useCallback((dir) => {
+    setPdfPage(p => Math.max(1, Math.min(pdfCount, p + dir)));
+  }, [pdfCount]);
+
+  // The single within-song advance seam: 'page' for pdf, 'scroll' for text.
+  // Both the renderer and this handler consult advanceMode — no scattered checks.
+  const withinSongAdvance = useCallback((dir) => {
+    if (advanceMode(song) === 'page') pdfAdvance(dir);
+    else pageStep(dir);
+  }, [song, pdfAdvance, pageStep]);
+
   // Shared navigation, reused by the keyboard/pedal and the on-screen ◀/▶. The
-  // mode — not the input — decides what they mean: page within a song when pedal
-  // paging is on, else skip song-to-song (today's behavior, unchanged when off).
-  const prev = useCallback(() => (pedalPaging ? pageStep(-1) : goTo(index - 1)), [pedalPaging, pageStep, goTo, index]);
-  const next = useCallback(() => (pedalPaging ? pageStep(1)  : goTo(index + 1)), [pedalPaging, pageStep, goTo, index]);
+  // per-song pedalActive decides the meaning: ON pages WITHIN the song (via the
+  // advance seam), OFF skips song-to-song (today's default for a text song).
+  const prev = useCallback(() => (pedalActive ? withinSongAdvance(-1) : goTo(index - 1)), [pedalActive, withinSongAdvance, goTo, index]);
+  const next = useCallback(() => (pedalActive ? withinSongAdvance(1)  : goTo(index + 1)), [pedalActive, withinSongAdvance, goTo, index]);
 
   const smallerAction = useCallback(() => setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
   const largerAction  = useCallback(() => setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
@@ -471,11 +532,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Pause in place and resume from there — no rewind. Scroll position is only
   // reset when the song itself changes (see goTo). Matches the spacebar toggle.
   // Inert in pedal paging mode (auto-scroll is disabled there).
-  const toggleScroll = useCallback(() => { if (!pedalPaging) setScrolling(s => !s); }, [pedalPaging]);
+  const toggleScroll = useCallback(() => { if (autoScrollAvailable) setScrolling(s => !s); }, [autoScrollAvailable]);
 
   // Pedal paging disables auto-scroll entirely — make sure any in-progress scroll
   // stops the moment the mode turns on, so the loop can never run alongside paging.
-  useEffect(() => { if (pedalPaging) setScrolling(false); }, [pedalPaging]);
+  useEffect(() => { if (!autoScrollAvailable) setScrolling(false); }, [autoScrollAvailable]);
 
   // Persist the lyric font size so A-/A+ changes survive leaving and re-entering.
   useEffect(() => {
@@ -558,11 +619,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       else if (e.key === '+' || e.key === '=') setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP));
       else if (e.key === '-' || e.key === '_') setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP));
       // Space toggles auto-scroll — inert in pedal paging mode (nothing to toggle).
-      else if (e.key === ' ') { e.preventDefault(); if (!pedalPaging) setScrolling(s => !s); }
+      else if (e.key === ' ') { e.preventDefault(); if (autoScrollAvailable) setScrolling(s => !s); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [next, prev, onExit, pedalPaging]);
+  }, [next, prev, onExit, autoScrollAvailable]);
 
   // Screen wake lock
   useEffect(() => {
@@ -720,7 +781,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           panel's positioning context, so the panel sits below the top bar and
           does not scroll away with the lyrics. */}
       <div className="flex-1 relative min-h-0">
-      <div className="absolute inset-0 flex overflow-x-auto overflow-y-hidden">
+      {/* PDF songs render one page fit-to-width here; the text tree below is
+          hidden (not unmounted) so the scroll path stays byte-for-byte intact
+          for text songs. Which one shows is decided by the advance mode. */}
+      {mode === 'page' && (
+        <PdfSongView
+          songId={song?.id}
+          page={pdfPage}
+          onReady={setPdfCount}
+          onTapPrev={() => pdfTapTurn(-1)}
+          onTapNext={() => pdfTapTurn(1)}
+          dark={dark}
+        />
+      )}
+      <div className={`absolute inset-0 flex overflow-x-auto overflow-y-hidden ${mode === 'page' ? 'hidden' : ''}`}>
 
         {/* Lyrics column. Wide layout: fixed width from LYRIC_TARGET_CHARS at the
             current font size, so the chord panel never steals its width (contentWrapRef
@@ -734,7 +808,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
               (~46px wide) on narrow/phone widths, where px-6 (24px) let text run
               under them. md:px-12 restores symmetric 48px padding on wide, which
               already cleared the gutter. */}
-          <div ref={scrollRef} className="absolute inset-0 overflow-y-auto pl-14 pr-6 py-6 md:px-12">
+          {/* Manual (touch) scroll is disabled while the pedal drives a text
+              song, so the reader can't drift off the pedal's position; the glide
+              still moves scrollTop programmatically. Pedal-off keeps auto. */}
+          <div ref={scrollRef} className={`absolute inset-0 ${pedalActive ? 'overflow-y-hidden' : 'overflow-y-auto'} pl-14 pr-6 py-6 md:px-12`}>
             {/* relative wrapper so the canvas can use position:absolute inset-0 */}
             <div ref={contentWrapRef} className="pb-32 relative">
               {/* Song info, in the lyric flow rather than in chrome.
@@ -795,7 +872,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         {/* Scroll-clear spacer. Matches the docked panel's live width so the end
             of the longest line can be scrolled out from under it; without it the
             tail would sit under the panel even at maximum scrollLeft. */}
-        {chordsAvailable && showChords && (
+        {chordControlsAvailable && showChords && (
           <div className="shrink-0" style={{ width: chordsWidth }} aria-hidden="true" />
         )}
       </div>
@@ -808,7 +885,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             PresentControls (z-40) so the control pill stays reachable.
             overflow-hidden lives on the inner column, not here, so the handle's
             44px touch target can overflow the panel's left edge. */}
-        {chordsAvailable && showChords && (
+        {chordControlsAvailable && showChords && (
           <div
             className={`absolute right-0 inset-y-0 z-30 flex border-l ${dark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-200 bg-gray-50'}`}
             style={{ width: chordsWidth }}
@@ -908,6 +985,23 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           </RoundButton>
         )}
 
+        {/* Per-song foot-pedal mirror of the editor's "Foot pedal turns" control.
+            Active (indigo) = pedal turns PAGES within this song; off = pedal skips
+            to the next SONG. Glyph shows the current meaning at a glance. */}
+        {onSetPedalActive && (
+          <RoundButton
+            size={PRESENT_ACTION_BUTTON_SIZE}
+            label={pedalActive ? 'Foot pedal turns pages in this song' : 'Foot pedal skips to the next song'}
+            fill={actionFill}
+            active={pedalActive}
+            onActivate={togglePedalActive}
+          >
+            <span className="font-bold leading-none" style={{ fontSize: 13 }}>
+              {pedalActive ? 'PG' : 'SG'}
+            </span>
+          </RoundButton>
+        )}
+
         {(() => {
           const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
           return (
@@ -946,7 +1040,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           </RoundButton>
         )}
 
-        {chordsAvailable && (
+        {chordControlsAvailable && (
         <RoundButton
           size={PRESENT_ACTION_BUTTON_SIZE}
           label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
@@ -970,12 +1064,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         idleDelayMs={idleDelayMs}
         onSmaller={smallerAction}
         onLarger={largerAction}
-        canSmaller={fontPx > MIN_FONT}
-        canLarger={fontPx < MAX_FONT}
+        canSmaller={!songIsPdf && fontPx > MIN_FONT}
+        canLarger={!songIsPdf && fontPx < MAX_FONT}
         onPrev={prev}
         onNext={next}
-        canPrev={pedalPaging || index > 0}
-        canNext={pedalPaging || index < total - 1}
+        canPrev={pedalActive || index > 0}
+        canNext={pedalActive || index < total - 1}
         onFaster={fasterScroll}
         onSlower={slowerScroll}
         canFaster={speedMult < MAX_SPEED}
@@ -988,7 +1082,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         canCountIn={!!Number(meta.tempo)}
         onToggleScroll={toggleScroll}
         scrolling={scrolling}
-        scrollDisabled={pedalPaging}
+        scrollDisabled={!autoScrollAvailable}
       />
 
     </div>

@@ -138,7 +138,7 @@ function DurationStepper({ value, onChange }) {
   );
 }
 
-export default function MetadataForm({ metadata, onChange }) {
+export default function MetadataForm({ metadata, onChange, pedalActive = true, onPedalActiveChange }) {
   function set(key, val) { onChange(prev => ({ ...prev, [key]: val })); }
 
   const inputCls = `bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 ${fieldText} ${fieldMuted} w-full`;
@@ -195,6 +195,35 @@ export default function MetadataForm({ metadata, onChange }) {
       <div className="flex flex-col gap-0.5">
         <label className="text-xs text-gray-500 uppercase tracking-wide">Duration (M:SS)</label>
         <DurationStepper value={metadata.duration || ''} onChange={v => set('duration', v)} />
+      </div>
+
+      {/* Foot-pedal behavior (per song). Labelled as pages-vs-songs so it reads
+          plainly; a page-turner pedal (or the arrow keys) either advances through
+          THIS song or jumps to the next song. */}
+      <div className="flex flex-col gap-0.5">
+        <label className="text-xs text-gray-500 uppercase tracking-wide">Foot pedal turns</label>
+        <div className="flex h-[42px] rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            title="A pedal press moves through this song a screen (or page) at a time; at the end it moves to the next song."
+            onClick={() => onPedalActiveChange?.(true)}
+            className={`px-3 text-sm transition-colors ${pedalActive
+              ? 'bg-indigo-600 text-white'
+              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+          >
+            Pages
+          </button>
+          <button
+            type="button"
+            title="A pedal press jumps straight to the next song; you scroll this song yourself."
+            onClick={() => onPedalActiveChange?.(false)}
+            className={`px-3 text-sm border-l border-gray-300 dark:border-gray-700 transition-colors ${!pedalActive
+              ? 'bg-indigo-600 text-white'
+              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+          >
+            Songs
+          </button>
+        </div>
       </div>
 
       {/* YouTube URL */}

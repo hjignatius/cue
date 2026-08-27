@@ -1,8 +1,8 @@
 import { openDB } from 'idb';
 
 const DB_NAME    = 'cue-db';
-const DB_VERSION = 2;
-export const SCHEMA_VERSION = 2;
+const DB_VERSION = 3;
+export const SCHEMA_VERSION = 3;
 
 // Singleton — opened once, reused everywhere
 let _db = null;
@@ -23,6 +23,11 @@ export async function getDB() {
         // NEVER included in export/backup/publish paths — see annotations.js.
         if (!database.objectStoreNames.contains('annotations')) {
           database.createObjectStore('annotations', { keyPath: 'songId' });
+        }
+        // v3: raw PDF blobs for pdf-type songs, keyed by song ID. Local-only in
+        // Stage 1a — nothing uploads these (see syncPdfBlob in pdfSync.js).
+        if (!database.objectStoreNames.contains('pdfs')) {
+          database.createObjectStore('pdfs', { keyPath: 'songId' });
         }
       },
     });
@@ -60,6 +65,18 @@ async function migrateFromLocalStorage(database) {
   localStorage.setItem('cue:idb_migrated', '1');
 }
 
+// A2 seed: existing songs (and new text songs) take their pedalActive from the
+// user's prior GLOBAL pedal preference (cue_prefs.pedalPaging, default OFF), so
+// nobody's behavior changes when the per-song control replaces the global one.
+export function seedPedalActive() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem('cue_prefs') || '{}');
+    return prefs.pedalPaging === true;
+  } catch {
+    return false;
+  }
+}
+
 // Schema migrations — guarded by cue:schema_version in localStorage.
 // Each version block is idempotent: safe to re-run if the version flag is lost.
 async function runMigrations(database) {
@@ -95,6 +112,26 @@ async function runMigrations(database) {
     }
   }
 
+  if (v < 3) {
+    // v3: introduce the song `type` discriminator and per-song `pedalActive`.
+    // ADDITIVE and IDEMPOTENT — only fills a field that is missing, never
+    // overwrites one already set, so a re-run (or a lost version flag) is safe.
+    // Existing songs are all 'text'; pedalActive is seeded from the prior global
+    // pref so behavior is preserved. Nothing here deletes or rewrites data.
+    const seed = seedPedalActive();
+    const songs = await database.getAll('songs');
+    if (songs.length) {
+      const tx = database.transaction('songs', 'readwrite');
+      for (const song of songs) {
+        const patch = {};
+        if (song.type === undefined)        patch.type = 'text';
+        if (song.pedalActive === undefined) patch.pedalActive = seed;
+        if (Object.keys(patch).length) tx.store.put({ ...song, ...patch });
+      }
+      await tx.done;
+    }
+  }
+
   localStorage.setItem('cue:schema_version', String(SCHEMA_VERSION));
 }
 
@@ -110,12 +147,29 @@ export async function loadSong(id) {
 
 // createdAt / updatedAt may be passed explicitly when importing backup data so
 // that original edit times are preserved rather than reset to import time.
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom }) {
+// The KNOWN fields saveSong manages explicitly. Any OTHER field already present
+// on the stored row is carried forward untouched (forward-compat: a future
+// bundle may persist fields this one doesn't know — never strip them). Note this
+// preserves only fields already in STORED data, it does not blanket-accept
+// arbitrary caller input, which is why the whitelist shape is kept.
+const KNOWN_SONG_FIELDS = new Set([
+  'id', 'metadata', 'text', 'createdAt', 'updatedAt',
+  'chordStyle', 'previewMode', 'diagramScale', 'chordPrefs', 'displayKey',
+  'copiedFrom', 'type', 'pedalActive', 'pdf',
+]);
+
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
   const existing = id ? await d.get('songs', id) : null;
+
+  // Carry forward any persisted fields this version doesn't recognize.
+  const preserved = {};
+  if (existing) for (const k in existing) if (!KNOWN_SONG_FIELDS.has(k)) preserved[k] = existing[k];
+
   const entry = {
+    ...preserved,
     id: songId,
     metadata,
     text,
@@ -128,12 +182,43 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   if (chordPrefs   !== undefined) entry.chordPrefs   = chordPrefs;
   if (displayKey   !== undefined) entry.displayKey   = displayKey;
   if (copiedFrom   !== undefined) entry.copiedFrom   = copiedFrom;
+  // type / pedalActive are always present on a saved song: take the caller's
+  // value, else keep the existing one, else default (a new song seeds
+  // pedalActive from the prior global pref; type defaults to 'text').
+  entry.type        = type        ?? existing?.type        ?? 'text';
+  entry.pedalActive = pedalActive ?? existing?.pedalActive ?? seedPedalActive();
+  // pdf reference (storage-ref placeholder) — set it, keep it, or leave it off.
+  if (pdf !== undefined)          entry.pdf = pdf;
+  else if (existing?.pdf != null) entry.pdf = existing.pdf;
+
   await d.put('songs', entry);
   return songId;
 }
 
 export async function deleteSong(id) {
-  return (await getDB()).delete('songs', id);
+  const d = await getDB();
+  const tx = d.transaction(['songs', 'pdfs'], 'readwrite');
+  tx.objectStore('songs').delete(id);
+  tx.objectStore('pdfs').delete(id); // no-op if the song has no stored PDF
+  await tx.done;
+}
+
+// ---- PDF blobs (local-only; keyed by songId) --------------------------------
+// Raw PDF bytes for pdf-type songs. Stage 1a keeps these PURELY LOCAL — nothing
+// uploads or fetches them (see pdfSync.js). A missing blob is a normal state the
+// renderer must handle softly, never a crash.
+export async function savePdfBlob(songId, blob) {
+  return (await getDB()).put('pdfs', { songId, blob });
+}
+export async function loadPdfBlob(songId) {
+  const rec = await (await getDB()).get('pdfs', songId);
+  return rec?.blob ?? null;
+}
+export async function hasPdfBlob(songId) {
+  return !!(await (await getDB()).get('pdfs', songId));
+}
+export async function deletePdfBlob(songId) {
+  return (await getDB()).delete('pdfs', songId);
 }
 
 // ---- Sets -------------------------------------------------------------------
@@ -197,10 +282,11 @@ export async function reidSong(oldId, newId) {
   const d = await getDB();
   const song = await d.get('songs', oldId);
   if (!song) return;
-  const tx    = d.transaction(['songs', 'sets', 'annotations'], 'readwrite');
+  const tx    = d.transaction(['songs', 'sets', 'annotations', 'pdfs'], 'readwrite');
   const songs = tx.objectStore('songs');
   const sets  = tx.objectStore('sets');
   const anns  = tx.objectStore('annotations');
+  const pdfs  = tx.objectStore('pdfs');
   songs.put({ ...song, id: newId });
   songs.delete(oldId);
   for (const s of await sets.getAll()) {
@@ -210,6 +296,8 @@ export async function reidSong(oldId, newId) {
   }
   const ann = await anns.get(oldId);
   if (ann) { anns.put({ ...ann, songId: newId }); anns.delete(oldId); }
+  const pdf = await pdfs.get(oldId);
+  if (pdf) { pdfs.put({ ...pdf, songId: newId }); pdfs.delete(oldId); }
   await tx.done;
 }
 

@@ -3,7 +3,7 @@ import LibraryView from './views/LibraryView.jsx';
 import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
 import UpdateButton from './components/UpdateButton.jsx';
-import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary } from './utils/storage.js';
+import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob } from './utils/storage.js';
 import { parseCho, mergeCustomChords, replaceCustomChords } from './utils/fileIO.js';
 import { usePrefs } from './context/PrefsContext.jsx';
 import { useSwUpdate, applyUpdate, dismissUpdate } from './swUpdate.js';
@@ -93,6 +93,22 @@ export default function App() {
       let lastImportedSong = null;
 
       for (const file of files) {
+        // PDF lead sheet → a 'pdf' song with the raw bytes stored locally (Stage
+        // 1a: local-only, nothing uploads it). Branch BEFORE reading as text.
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          const title = file.name.replace(/\.pdf$/i, '') || 'Lead Sheet';
+          const id = await saveSong({
+            id: null,
+            metadata: { title },
+            text: '',
+            type: 'pdf',
+            pedalActive: true,
+            pdf: { filename: file.name, importedAt: new Date().toISOString() },
+          });
+          await savePdfBlob(id, file);
+          continue;
+        }
+
         const content = await file.text();
 
         if (file.name.toLowerCase().endsWith('.json')) {
@@ -366,6 +382,17 @@ export default function App() {
     }
   }
 
+  // Persist a live per-song pedal-mode change from Present's Tools, and reflect
+  // it in the presenting set so the current view updates immediately.
+  async function handleSetPedalActive(songId, pedalActive) {
+    setPresenting(p => p && {
+      ...p,
+      songs: p.songs.map(s => (s.id === songId ? { ...s, pedalActive } : s)),
+    });
+    const stored = (await loadSongs()).find(s => s.id === songId);
+    if (stored) await saveSong({ ...stored, pedalActive });
+  }
+
   function handleReturnToPresentation(updatedSong) {
     if (!returnToPresenting) return;
     const updatedSongs = returnToPresenting.songs.map(s =>
@@ -445,6 +472,7 @@ export default function App() {
           }}
           onEdit={handleEditFromPresentation}
           onSaveDuration={handleSavePresentDuration}
+          onSetPedalActive={handleSetPedalActive}
           onNavigate={song => sessionStorage.setItem('cue:setlist_selected_id', song.id)}
         />
       )}

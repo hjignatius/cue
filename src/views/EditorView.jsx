@@ -9,7 +9,7 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
-import { saveSong, saveDraft } from '../utils/storage.js';
+import { saveSong, saveDraft, seedPedalActive } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
@@ -426,6 +426,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [text, setText]         = useState(song?.text || '');
   const [metadata, setMetadata] = useState({ ...DEFAULT_METADATA, ...(song?.metadata || {}) });
   const [songId, setSongId]     = useState(song?.id || null);
+  // Per-song foot-pedal behavior (top-level song field, not metadata). A new
+  // song seeds from the prior global preference; type rides through unchanged so
+  // editing a pdf song keeps it a pdf.
+  const songType = song?.type || 'text';
+  const [pedalActive, setPedalActive] = useState(song?.pedalActive ?? seedPedalActive());
 
   const [displayMode, setDisplayMode] = useState(() => {
     if (song?.chordStyle) return song.chordStyle;
@@ -520,6 +525,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     previewFormat,
     chordPrefs: { ...chordPrefs },
     displayKey,
+    pedalActive,
   });
 
   // Re-check annotation existence whenever the song changes OR when returning from
@@ -546,11 +552,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }, [songId]);
 
   async function handleSave() {
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pedalActive });
     setSongId(id);
     setIsDirty(false);
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
-    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey });
+    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pedalActive });
   }
 
   // Publish { isDirty, save } so App's "Update Cue" button can detect unsaved work
@@ -572,6 +578,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setPreviewFormat(b.previewFormat);
     setChordPrefs(b.chordPrefs);
     setDisplayKey(b.displayKey);
+    if (b.pedalActive !== undefined) setPedalActive(b.pedalActive);
     setIsDirty(false);
     // Rewrite the draft to the baseline (in-memory + draft only, no song-record or
     // cloud write) so a reload cannot resurrect the discarded edits.
@@ -1039,7 +1046,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION}
               label="Return to Performance" title="Return to Performance"
               fill={headerFill}
-              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey })}
+              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pedalActive })}
             >
               <Undo2 size={22} strokeWidth={2} />
             </RoundButton>
@@ -1048,7 +1055,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION} pill
               label="Present" title="Present"
               fill={headerFill}
-              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs }], 0)}
+              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, pedalActive }], 0)}
             >
               <Tv size={22} strokeWidth={2} /><PillLabel>Present</PillLabel>
             </RoundButton>
@@ -1070,6 +1077,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       <MetadataForm
         metadata={metadata}
         onChange={m => { setMetadata(m); setIsDirty(true); }}
+        pedalActive={pedalActive}
+        onPedalActiveChange={v => { setPedalActive(v); setIsDirty(true); }}
       />
 
       {/* Toolbar */}
