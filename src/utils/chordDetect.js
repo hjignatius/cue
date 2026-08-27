@@ -16,13 +16,20 @@ const MAJOR_M = /^([A-G][b#]?)M(\d+)/;
 //   Am7-5   → Am7b5    (dash = flat, jazz shorthand; only between digits so
 //                       "A-7"/"F-150"/"B-52" are untouched)
 //   C7+5    → C7#5     (plus = sharp)
+//   A7aug   → A7#5     (aug after a degree = raised 5th)
+//   A+      → Aaug     (plus symbol on a bare triad = augmented)
+//   A°/A°7  → Adim/Adim7 (degree symbol = diminished)
 export function normalizeChordName(name) {
   if (!name) return name;
   return name
     .replace(MAJOR_M, '$1maj$2')
-    .replace(/\(([^)]*)\)/g, '$1')   // strip parens around alterations
-    .replace(/(\d)-(\d)/g, '$1b$2')  // 7-5 → 7b5  (dash only between digits)
-    .replace(/(\d)\+(\d)/g, '$1#$2'); // 7+5 → 7#5
+    .replace(/\(([^)]*)\)/g, '$1')    // strip parens around alterations
+    .replace(/(\d)-(\d)/g, '$1b$2')   // 7-5 → 7b5  (dash only between digits)
+    .replace(/(\d)\+(\d)/g, '$1#$2')  // 7+5 → 7#5
+    .replace(/°/g, 'dim')             // A° → Adim, A°7 → Adim7
+    .replace(/(\d)aug/g, '$1#5')      // 7aug → 7#5 (aug raising the 5th)
+    .replace(/(\d)\+(?!\d)/g, '$1#5') // 7+ → 7#5 (trailing plus)
+    .replace(/^([A-G][b#]?)\+/, '$1aug'); // A+ → Aaug (bare augmented triad)
 }
 
 // Back-compat alias — this used to only fold uppercase-M.
