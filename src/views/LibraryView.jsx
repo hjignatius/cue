@@ -455,8 +455,13 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   async function handleCreate(e) {
     e.preventDefault();
     if (!newName.trim()) return;
-    await saveSet({ id: null, name: newName.trim(), songIds: [], sortMode: 'custom' });
+    // Select the just-created set so it becomes the active target. Without this,
+    // the previously-active set stayed selected, and "Add to Set" (which silently
+    // targets the active set) would add songs to the OLD set — surfacing as a
+    // confusing "already in <old set>" when the song was already there.
+    const saved = await saveSet({ id: null, name: newName.trim(), songIds: [], sortMode: 'custom' });
     onRefresh();
+    onSelectSet?.(saved.id);
     setNewName('');
     setCreating(false);
   }
