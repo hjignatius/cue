@@ -258,7 +258,9 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
-  const halfPage = pageSize === 'half'; // else a full screenful (default)
+  // Fraction of the viewport a page turn moves: 3/4 or 1/2, else null = a full
+  // screenful (the default, which keeps a ~2-line overlap instead).
+  const pageFraction = pageSize === 'half' ? 0.5 : pageSize === 'threequarters' ? 0.75 : null;
   // 'none' turns chord diagrams off: no docked panel and no C toggle button.
   const chordsAvailable = instrument !== 'none';
   // One idle delay for every Present control surface (pill + left gutter), from
@@ -399,11 +401,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     if (!el) return;
     const maxScroll = el.scrollHeight - el.clientHeight;
     const overlap   = Math.round(fontPx * 2.5); // ~2 lines kept on screen
-    // Full page keeps a ~2-line overlap; half page moves half the viewport (its
-    // 50% overlap already keeps plenty of context, so no extra overlap needed).
-    const amount    = halfPage
-      ? Math.max(1, Math.round(el.clientHeight / 2))
-      : Math.max(1, el.clientHeight - overlap);
+    // Full page keeps a ~2-line overlap; a fractional page moves that share of
+    // the viewport (its larger overlap already keeps plenty of context).
+    const amount    = pageFraction == null
+      ? Math.max(1, el.clientHeight - overlap)
+      : Math.max(1, Math.round(el.clientHeight * pageFraction));
 
     if (glideMs <= 0) {
       // Instant path — byte-for-byte the original behavior.
@@ -440,7 +442,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         armPagingIdleReset();
       }
     }
-  }, [glideMs, halfPage, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
+  }, [glideMs, pageFraction, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
 
   // Shared navigation, reused by the keyboard/pedal and the on-screen ◀/▶. The
   // mode — not the input — decides what they mean: page within a song when pedal

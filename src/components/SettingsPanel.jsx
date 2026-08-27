@@ -457,11 +457,11 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 <div className={`flex flex-col gap-2 mt-1 pl-3 border-l-2 ${border}`}>
                   <span className={`text-sm ${label}`}>Page turn size</span>
                   <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                    {[['full', 'Full page'], ['half', 'Half page']].map(([val, text], i) => (
+                    {[['full', 'Full'], ['threequarters', '3/4'], ['half', '1/2']].map(([val, text], i) => (
                       <button
                         key={val}
                         onClick={() => updatePref('pageSize', val)}
-                        className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
+                        className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
                           (pageSize ?? 'full') === val
                             ? 'bg-indigo-600 text-white'
                             : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
@@ -471,7 +471,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                       </button>
                     ))}
                   </div>
-                  <p className={`text-xs ${muted}`}>How far each Next / Previous press moves — a full screen or half a screen.</p>
+                  <p className={`text-xs ${muted}`}>How far each Next / Previous press moves — a full screen, three quarters, or half a screen.</p>
 
                   <div className="flex items-center justify-between mt-1">
                     <span className={`text-sm ${label}`}>Page turn glide</span>
