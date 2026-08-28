@@ -205,7 +205,7 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
 
 // ---- Sets column (middle) ---------------------------------------------------
 
-function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, presenting, border }) {
+function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, onDeleteSet, onDeleteSets, presenting, border }) {
   // chordColor/accidentals/instrument feed the set PDF export (render lens +
   // which chord library); without them the PDF branch throws a ReferenceError.
   const { theme, chordColor, accidentals, instrument } = usePrefs();
@@ -466,21 +466,17 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     setCreating(false);
   }
 
-  async function handleDelete(id) {
-    if (confirm('Delete this set? Songs stay in your library.')) {
-      await deleteSet(id);
-      onRefresh();
-    }
-  }
+  // Delete routes through the parent's central lifecycle handler (confirmation,
+  // cloud-share revoke, cloud-first + abort-on-failure all live there).
+  function handleDelete(id) { onDeleteSet(id); }
 
   async function handleDeleteSelected() {
-    const count = selectedSets.size;
-    if (!count) return;
-    if (!confirm(`Delete ${count} ${count === 1 ? 'set' : 'sets'}? Songs stay in your library.`)) return;
-    for (const id of selectedSets) await deleteSet(id);
-    onRefresh();
-    setSelectedSets(new Set());
-    setSelectMode(false);
+    if (!selectedSets.size) return;
+    const done = await onDeleteSets([...selectedSets]);
+    if (done) {
+      setSelectedSets(new Set());
+      setSelectMode(false);
+    }
   }
 
   // Export the selected set(s) in the chosen format. One set uses the single-set
@@ -1119,10 +1115,8 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
     onUpdateSet({ ...set, songIds: reordered.map(s => s.id), sortMode: 'custom' });
   }
 
-  function handleDeleteSet() {
-    if (!confirm(`Delete "${set.name}"? This will not delete any songs from your library.`)) return;
-    onDeleteSet(set.id);
-  }
+  // Confirmation + cloud-share revoke live in the central lifecycle handler.
+  function handleDeleteSet() { onDeleteSet(set.id); }
 
   const totalSec      = displaySongs.reduce((sum, s) => sum + parseDuration(s.metadata?.duration), 0);
   const hasDurations  = displaySongs.some(s => parseDuration(s.metadata?.duration) > 0);
@@ -1523,11 +1517,70 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   }
 
   async function handleUpdateSet(updated) { await saveSet(updated); onRefresh(); }
-  async function handleDeleteSet(id) {
-    await deleteSet(id);
-    if (activeSetId === id) setActiveSetId(null);
-    onRefresh();
+
+  function clearPublishedMarker(setId) {
+    setPublishedSets(prev => {
+      if (!(setId in prev)) return prev;
+      const next = { ...prev };
+      delete next[setId];
+      localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(next));
+      return next;
+    });
   }
+
+  // Central set-delete lifecycle for EVERY delete path (Setlist panel, Sets
+  // single, Sets batch). One shared lifecycle: for a PUBLISHED set the cloud
+  // records + share token are removed FIRST (atomic RPC via unpublishSet), and
+  // ONLY on success is the local set deleted. If the cloud step fails, the delete
+  // aborts leaving both intact — so we can never strand a local-gone /
+  // cloud-lingering (still-shared) orphan. Returns true if the delete ran.
+  async function confirmAndDeleteSets(setIds) {
+    const ids = (setIds || []).filter(Boolean);
+    if (!ids.length) return false;
+    const anyPublished = ids.some(id => !!publishedSets[id]);
+
+    // A shared set can only be deleted online + signed in, because we must revoke
+    // its cloud share to avoid orphaning it. Unpublished sets have nothing to
+    // orphan and delete offline fine.
+    if (anyPublished && (!user || !navigator.onLine)) {
+      alert('Connect to the internet to delete a shared set. Deleting it removes the share link for everyone you shared it with.');
+      return false;
+    }
+
+    const many = ids.length > 1;
+    const msg = anyPublished
+      ? (many
+          ? `Delete ${ids.length} sets? The share links and everyone you shared them with will be deactivated and removed. Your songs stay in your library.`
+          : 'Are you sure? The share link and everyone you shared it with will be deactivated and removed. Your songs stay in your library.')
+      : (many
+          ? `Delete ${ids.length} sets? Your songs stay in your library.`
+          : 'Delete this set? Your songs stay in your library.');
+    if (!confirm(msg)) return false;
+
+    let failed = null;
+    for (const id of ids) {
+      if (publishedSets[id]) {
+        try {
+          await unpublishSet(id, user.id);  // cloud-first, atomic: set + set_songs + set_shares
+        } catch (err) {
+          failed = { id, err };
+          break;                             // abort — do NOT delete this set locally
+        }
+        clearPublishedMarker(id);
+      }
+      await deleteSet(id);                    // local, only after cloud success
+      if (activeSetId === id) setActiveSetId(null);
+    }
+    onRefresh();
+
+    if (failed) {
+      const name = sets.find(s => s.id === failed.id)?.name || 'the set';
+      alert(`Couldn't remove "${name}" from the cloud, so it wasn't deleted — nothing was left half-deleted. Check your connection and try again.\n\n${failed.err?.message || failed.err}`);
+    }
+    return true;
+  }
+
+  function handleDeleteSet(id) { confirmAndDeleteSets([id]); }
 
   function handleSelectSet(id) {
     const next = id === activeSetId ? null : id;
@@ -1808,6 +1861,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             onSelectSet={handleSelectSet}
             onRefresh={onRefresh}
             onSelectModeChange={setSetsSelectMode}
+            onDeleteSet={id => confirmAndDeleteSets([id])}
+            onDeleteSets={ids => confirmAndDeleteSets(ids)}
             presenting={presenting}
             border={border}
           />
