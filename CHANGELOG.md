@@ -3,6 +3,14 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.6 — 2026-08-28
+
+- **Fix: "Add to Set" now always asks which set.** It previously could add
+  songs to whichever set was active in the background rather than the one you
+  meant — surfacing as a confusing "already in <other set>". Now it always opens
+  the set picker, and both messages name the exact set you chose
+  ("Added N songs to …" / "… is already in …").
+
 ## v1.0.5 — 2026-08-27
 
 - **PDF lead-sheet songs.** Import a PDF (e.g. a jazz chart that can't be typed
