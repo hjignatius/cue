@@ -1425,16 +1425,15 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       : base);
   }
 
-  // Toolbar "Add to Set": if a set is currently selected, add the selected songs
-  // straight to it; otherwise open the create/select dialog.
+  // Toolbar "Add to Set": ALWAYS open the picker so the destination is the set
+  // the user explicitly taps for THIS action — never a silent fallback to
+  // activeSetId or any other ambient selection. Those ambient sources can
+  // disagree with what the user sees selected (the Sets-column highlight vs the
+  // Setlist panel), which silently added songs to the wrong (previous) set.
   function handleAddSelectedToSet() {
     if (selected.size === 0) return;
-    if (activeSetId && sets.some(s => s.id === activeSetId)) {
-      addSelectedToSetId(activeSetId);
-    } else {
-      setNewSetName('');
-      setAddToSetOpen(true);
-    }
+    setNewSetName('');
+    setAddToSetOpen(true);
   }
 
   async function addSelectedToSetId(setId) {
