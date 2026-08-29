@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.7 — 2026-08-29
+
+- **One share link per set.** Sharing a set now always shows a single link —
+  creating it the first time and reusing it after — so a set can no longer
+  accumulate multiple links. "Stop sharing" turns the link off (reversible);
+  sharing again mints a fresh single link.
+
 ## v1.0.6 — 2026-08-28
 
 - **Fix: "Add to Set" now always asks which set.** It previously could add

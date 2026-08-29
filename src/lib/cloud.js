@@ -121,9 +121,9 @@ export async function getShareTokens(setId) {
 }
 
 // ONE LINK PER SET: return the set's existing active (non-revoked) token if it
-// has one, otherwise mint exactly one. Share is create-or-reuse — it can never
-// produce a second link for a set. (A prior Stop-sharing revokes the token, so
-// the next Share finds no active token and mints a fresh single one.)
+// has one, otherwise mint exactly one. There is no way to create a SECOND link
+// for a set — Share is create-or-reuse. (A prior Stop-sharing revokes the token,
+// so the next Share finds no active token and mints a fresh single one.)
 export async function getOrCreateShareToken(setId) {
   if (!supabase) throw new Error('Supabase not configured');
   const { data: existing, error: selErr } = await supabase
@@ -154,36 +154,21 @@ export async function revokeShareToken(token) {
   if (error) throw error;
 }
 
-// Remove a set from the cloud ATOMICALLY — its set row, its set_songs links, AND
-// its set_shares tokens go together in one transaction, via a security-definer
-// RPC (delete_set_cascade). This does NOT rely on a DB ON DELETE CASCADE FK: the
-// RPC deletes set_shares explicitly, so the share token is guaranteed gone (not
-// merely revoked) whether or not a cascade exists. The RPC authorizes on
-// auth.uid() = the set's owner_id. Orphan-song cleanup follows as a best-effort,
-// non-critical step (a leftover song row is never a resolving share).
-//
-// Used by both the standalone Unpublish action and the delete cascade.
+// Remove a set from the cloud and clean up orphaned songs.
+// set_songs and set_shares are removed automatically by ON DELETE CASCADE.
+// Orphaned songs = user's songs no longer referenced by any set_songs row.
 export async function unpublishSet(setId, userId) {
   if (!supabase) throw new Error('Supabase not configured');
 
-  // Atomic cloud removal: set + set_songs + set_shares. Throws on any failure so
-  // the caller can abort and never delete locally while the cloud lingers.
-  const { error: rpcErr } = await supabase.rpc('delete_set_cascade', { p_set_id: setId });
-  if (rpcErr) throw rpcErr;
+  // Delete the set row — CASCADE handles set_songs and set_shares
+  const { error: setErr } = await supabase
+    .from('sets')
+    .delete()
+    .eq('id', setId)
+    .eq('owner_id', userId);
+  if (setErr) throw setErr;
 
-  // Best-effort orphan-song cleanup. The critical atomic unit (set + shares) is
-  // already gone above, so a failure here must NOT throw — otherwise the caller
-  // would abort and skip the local delete, stranding a local set with no cloud.
-  // A leftover cloud song row is harmless (owner-only, never a resolving share).
-  try {
-    await cleanupOrphanSongs(userId);
-  } catch (err) {
-    console.warn('[unpublishSet] orphan-song cleanup skipped (non-critical)', err);
-  }
-}
-
-// Delete the user's cloud song rows no longer referenced by any set_songs row.
-async function cleanupOrphanSongs(userId) {
+  // Find all songs owned by this user
   const { data: songRows, error: fetchErr } = await supabase
     .from('songs')
     .select('id')
@@ -193,6 +178,8 @@ async function cleanupOrphanSongs(userId) {
 
   const userSongIds = songRows.map(r => r.id);
 
+  // Of those, find which are still referenced in any set_songs row
+  // (the CASCADE above already removed rows for the deleted set)
   const { data: stillReferenced, error: refErr } = await supabase
     .from('set_songs')
     .select('song_id')
