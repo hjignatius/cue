@@ -1352,6 +1352,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [exportDropOpen, setExportDropOpen] = useState(false);
   const [addToSetOpen, setAddToSetOpen] = useState(false); // create/select-target dialog
   const [newSetName, setNewSetName]     = useState('');
+  const [setPickerSearch, setSetPickerSearch] = useState(''); // filter for the picker list
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
   const [setsSelectMode, setSetsSelectMode] = useState(false); // mirrors SetsColumn select mode
@@ -1542,6 +1543,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   function handleAddSelectedToSet() {
     if (selected.size === 0) return;
     setNewSetName('');
+    setSetPickerSearch('');
     setAddToSetOpen(true);
   }
 
@@ -2013,23 +2015,45 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               </button>
             </form>
 
-            {sets.length > 0 && (
-              <>
-                <div className={`text-xs uppercase tracking-wide ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Or add to existing</div>
-                <div className={`flex-1 overflow-y-auto -mx-1 rounded-lg border ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
-                  {sets.map(set => (
-                    <button
-                      key={set.id}
-                      onClick={() => addSelectedToSetId(set.id)}
-                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors ${dark ? 'text-gray-200 hover:bg-gray-800 active:bg-gray-700' : 'text-gray-800 hover:bg-gray-100 active:bg-gray-200'}`}
-                    >
-                      <span className="truncate">{set.name}</span>
-                      <span className={`text-xs shrink-0 tabular-nums ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{set.songIds.length} {set.songIds.length === 1 ? 'song' : 'songs'}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+            {sets.length > 0 && (() => {
+              // Sorted A→Z so a set is always where its name says, and filtered by
+              // the search box so it's findable among many.
+              const q = normSearch(setPickerSearch);
+              const pickable = [...sets]
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                .filter(s => !q || normSearch(s.name).includes(q));
+              return (
+                <>
+                  <div className={`text-xs uppercase tracking-wide ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Or add to existing</div>
+                  {/* Search — shown once there are enough sets to be worth filtering. */}
+                  {sets.length > 6 && (
+                    <div className="relative">
+                      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                      <input
+                        value={setPickerSearch}
+                        onChange={e => setSetPickerSearch(e.target.value)}
+                        placeholder="Search sets…"
+                        className={`w-full border rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                      />
+                    </div>
+                  )}
+                  <div className={`flex-1 min-h-0 overflow-y-auto -mx-1 rounded-lg border ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
+                    {pickable.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>No sets match “{setPickerSearch}”.</p>
+                    ) : pickable.map(set => (
+                      <button
+                        key={set.id}
+                        onClick={() => addSelectedToSetId(set.id)}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors ${dark ? 'text-gray-200 hover:bg-gray-800 active:bg-gray-700' : 'text-gray-800 hover:bg-gray-100 active:bg-gray-200'}`}
+                      >
+                        <span className="truncate">{set.name}</span>
+                        <span className={`text-xs shrink-0 tabular-nums ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{set.songIds.length} {set.songIds.length === 1 ? 'song' : 'songs'}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
 
             <button
               onClick={() => setAddToSetOpen(false)}
