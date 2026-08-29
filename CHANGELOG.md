@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.9 — 2026-08-29
+
+- **Fix: deleting a set works again.** The delete confirmation is now an in-app
+  window instead of the system pop-up, which the installed app on iPad/iPhone
+  was suppressing — so the delete silently did nothing. Deleting a set (and the
+  unpublish-first step for a shared set) now completes as expected.
+
 ## v1.0.8 — 2026-08-29
 
 - **Unpublish a shared set before deleting it.** Deleting a published (shared)

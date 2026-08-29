@@ -217,6 +217,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   const [newName, setNewName]   = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedSets, setSelectedSets] = useState(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // null | { ids } — in-app delete confirm
   const [setsExportOpen, setSetsExportOpen] = useState(false);
   const [editingSetId, setEditingSetId]     = useState(null);
   const [editingSetName, setEditingSetName] = useState('');
@@ -510,10 +511,15 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
       onDeleteBlocked?.(published);
       return;
     }
-    // Unpublished sets: the known-good v1.0.6 delete (native confirm reached
-    // directly in this click handler — works in the installed PWA).
-    if (!confirm(`Delete ${ids.length} ${ids.length === 1 ? 'set' : 'sets'}? Songs stay in your library.`)) return;
+    // Unpublished sets: confirm via a custom in-app modal, NOT native confirm()
+    // (which is suppressed in the installed iOS PWA, so the delete never ran).
+    setDeleteConfirm({ ids });
+  }
+
+  async function performDelete() {
+    const ids = deleteConfirm?.ids || [];
     for (const id of ids) await deleteSet(id);
+    setDeleteConfirm(null);
     onRefresh();
     setSelectedSets(new Set());
     setSelectMode(false);
@@ -546,6 +552,27 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
 
   return (
     <div className="flex flex-col h-full">
+      {/* In-app delete confirmation — replaces native confirm(), which is
+          suppressed in the installed iOS PWA (so the delete never ran). */}
+      {deleteConfirm && (() => {
+        const n = deleteConfirm.ids.length;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setDeleteConfirm(null)}>
+            <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col gap-1">
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Delete {n === 1 ? 'this set' : `${n} sets`}?</h2>
+                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Your songs stay in your library.</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button onClick={performDelete} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
+                  {n === 1 ? 'Delete set' : `Delete ${n} sets`}
+                </button>
+                <button onClick={() => setDeleteConfirm(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       <div className={`px-3 py-2 border-b ${border} flex items-center justify-between shrink-0`}>
         <div className="flex flex-col leading-tight">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sets</span>
