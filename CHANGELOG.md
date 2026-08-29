@@ -3,6 +3,12 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.10 — 2026-08-29
+
+- **Fix: deleting a set works again.** A coding error introduced with the
+  unpublish-before-delete step (v1.0.8) made the Delete button do nothing for
+  every set. Deleting sets — published or not — now works as expected.
+
 ## v1.0.9 — 2026-08-29
 
 - **Fix: deleting a set works again.** The delete confirmation is now an in-app

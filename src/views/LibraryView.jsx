@@ -205,7 +205,7 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
 
 // ---- Sets column (middle) ---------------------------------------------------
 
-function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, isPublished, onDeleteBlocked, presenting, border }) {
+function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, presenting, border }) {
   // chordColor/accidentals/instrument feed the set PDF export (render lens +
   // which chord library); without them the PDF branch throws a ReferenceError.
   const { theme, chordColor, accidentals, instrument } = usePrefs();
@@ -506,9 +506,9 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     // orphan a live share link. Show the in-app "unpublish first" window (which
     // carries an Unpublish button) instead of deleting. Selection is kept so the
     // user can delete again once it's unpublished.
-    const published = ids.filter(id => isPublished?.(id));
+    const published = ids.filter(id => !!publishedSets[id]);
     if (published.length > 0) {
-      onDeleteBlocked?.(published);
+      setDeleteBlockedDialog({ ids: published, phase: 'confirm', error: '' });
       return;
     }
     // Unpublished sets: confirm via a custom in-app modal, NOT native confirm()
@@ -1917,8 +1917,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             onSelectSet={handleSelectSet}
             onRefresh={onRefresh}
             onSelectModeChange={setSetsSelectMode}
-            isPublished={id => !!publishedSets[id]}
-            onDeleteBlocked={ids => setDeleteBlockedDialog({ ids, phase: 'confirm', error: '' })}
             presenting={presenting}
             border={border}
           />
