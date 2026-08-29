@@ -2016,11 +2016,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </form>
 
             {sets.length > 0 && (() => {
-              // Sorted A→Z so a set is always where its name says, and filtered by
-              // the search box so it's findable among many.
+              // Most-recent first (newest updated/created on top) so a set you just
+              // made or worked on is right there; the search box finds the rest.
               const q = normSearch(setPickerSearch);
               const pickable = [...sets]
-                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                .sort((a, b) => (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || ''))
                 .filter(s => !q || normSearch(s.name).includes(q));
               return (
                 <>
