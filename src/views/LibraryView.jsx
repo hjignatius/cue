@@ -205,7 +205,7 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
 
 // ---- Sets column (middle) ---------------------------------------------------
 
-function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, presenting, border }) {
+function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, isPublished, onDeleteBlocked, presenting, border }) {
   // chordColor/accidentals/instrument feed the set PDF export (render lens +
   // which chord library); without them the PDF branch throws a ReferenceError.
   const { theme, chordColor, accidentals, instrument } = usePrefs();
@@ -390,6 +390,31 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
     }
   }
 
+  // "Unpublish before deleting" gate: opened when a delete targets a published
+  // (shared) set. It carries an Unpublish button so the user can unshare in place,
+  // after which the set is deletable. null | { ids, phase, error }.
+  const [deleteBlockedDialog, setDeleteBlockedDialog] = useState(null);
+
+  async function runGateUnpublish() {
+    const ids = deleteBlockedDialog?.ids || [];
+    if (!ids.length) return;
+    if (!user) { setDeleteBlockedDialog(d => ({ ...d, error: 'Sign in to unpublish this set.' })); return; }
+    setDeleteBlockedDialog(d => ({ ...d, phase: 'running', error: '' }));
+    try {
+      const updated = { ...publishedSets };
+      for (const id of ids) {
+        await unpublishSet(id, user.id);   // cloud-first; frees the share link
+        delete updated[id];
+      }
+      setPublishedSets(updated);
+      localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(updated));
+      setDeleteBlockedDialog(null);
+      onRefresh();
+    } catch (err) {
+      setDeleteBlockedDialog(d => ({ ...d, phase: 'confirm', error: err.message || 'Unpublish failed. Check your connection and try again.' }));
+    }
+  }
+
   function startRename(set, e) {
     e?.stopPropagation();
     setEditingSetId(set.id);
@@ -474,10 +499,21 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   }
 
   async function handleDeleteSelected() {
-    const count = selectedSets.size;
-    if (!count) return;
-    if (!confirm(`Delete ${count} ${count === 1 ? 'set' : 'sets'}? Songs stay in your library.`)) return;
-    for (const id of selectedSets) await deleteSet(id);
+    const ids = [...selectedSets];
+    if (!ids.length) return;
+    // A published (shared) set must be unpublished first, so deleting it can't
+    // orphan a live share link. Show the in-app "unpublish first" window (which
+    // carries an Unpublish button) instead of deleting. Selection is kept so the
+    // user can delete again once it's unpublished.
+    const published = ids.filter(id => isPublished?.(id));
+    if (published.length > 0) {
+      onDeleteBlocked?.(published);
+      return;
+    }
+    // Unpublished sets: the known-good v1.0.6 delete (native confirm reached
+    // directly in this click handler — works in the installed PWA).
+    if (!confirm(`Delete ${ids.length} ${ids.length === 1 ? 'set' : 'sets'}? Songs stay in your library.`)) return;
+    for (const id of ids) await deleteSet(id);
     onRefresh();
     setSelectedSets(new Set());
     setSelectMode(false);
@@ -901,6 +937,52 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           onClose={() => setShareDialogSet(null)}
         />
       )}
+
+      {/* "Unpublish before deleting" gate — a published (shared) set must be
+          unpublished first, so deleting can't orphan a live share link. Custom
+          in-app modal (never native confirm, which is suppressed in the PWA). */}
+      {deleteBlockedDialog && (() => {
+        const names   = deleteBlockedDialog.ids.map(id => sets.find(s => s.id === id)?.name).filter(Boolean);
+        const many    = deleteBlockedDialog.ids.length > 1;
+        const running = deleteBlockedDialog.phase === 'running';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => !running && setDeleteBlockedDialog(null)}>
+            <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col gap-1">
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Unpublish before deleting</h2>
+                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {many
+                    ? 'These sets are shared. Unpublish them first, then you can delete them.'
+                    : 'This set needs to be unpublished first before you can delete it.'}
+                </p>
+                {names.length > 0 && (
+                  <p className={`text-sm font-medium mt-1 ${dark ? 'text-gray-200' : 'text-gray-800'}`}>
+                    {names.map(n => `"${n}"`).join(', ')}
+                  </p>
+                )}
+                <p className={`text-xs mt-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Unpublishing deactivates the share link. Your songs stay in your library.</p>
+              </div>
+              {deleteBlockedDialog.error && <p className="text-xs text-red-500">{deleteBlockedDialog.error}</p>}
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={runGateUnpublish}
+                  disabled={running}
+                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl transition-colors"
+                >
+                  {running ? 'Unpublishing…' : (many ? 'Unpublish sets' : 'Unpublish')}
+                </button>
+                <button
+                  onClick={() => setDeleteBlockedDialog(null)}
+                  disabled={running}
+                  className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Pull dialog — picker when setId is null, otherwise straight to that set */}
       {pullDialog && (
@@ -1808,6 +1890,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             onSelectSet={handleSelectSet}
             onRefresh={onRefresh}
             onSelectModeChange={setSetsSelectMode}
+            isPublished={id => !!publishedSets[id]}
+            onDeleteBlocked={ids => setDeleteBlockedDialog({ ids, phase: 'confirm', error: '' })}
             presenting={presenting}
             border={border}
           />

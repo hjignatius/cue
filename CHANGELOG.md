@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.0.8 — 2026-08-29
+
+- **Unpublish a shared set before deleting it.** Deleting a published (shared)
+  set now opens a window explaining it must be unpublished first, with an
+  **Unpublish** button right there — so deleting a set can't leave a live share
+  link stranded. Unpublished sets delete as before.
+
 ## v1.0.7 — 2026-08-29
 
 - **One share link per set.** Sharing a set now always shows a single link —
