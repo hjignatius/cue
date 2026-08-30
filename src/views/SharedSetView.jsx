@@ -59,6 +59,16 @@ function buildTitleMap(localSongs) {
   return map;
 }
 
+// A copied PDF hasn't been uploaded to the COPIER's cloud yet, so drop the
+// source's `uploaded` flag (leaving it undefined) rather than setting it false.
+// Undefined behaves like a fresh import — no "didn't upload" warning in the
+// Library — and publish still uploads it (its guard is `uploaded !== true`).
+function pdfRefForCopy(pdf) {
+  if (!pdf) return pdf;
+  const { uploaded, ...rest } = pdf; // eslint-disable-line no-unused-vars
+  return rest;
+}
+
 // Find the lowest available "(N)" suffix so the new title is unique.
 function makeUniqueTitle(baseTitle, existingTitlesSet) {
   const cleanBase = (baseTitle || 'Untitled').replace(/ \(\d+\)$/, '');
@@ -240,7 +250,7 @@ export default function SharedSetView() {
         createdAt: now,
         updatedAt: now,
         copiedFrom,
-        pdf: song.pdf ? { ...song.pdf, uploaded: false } : song.pdf,
+        pdf: pdfRefForCopy(song.pdf),
       });
 
       // Copy the PDF bytes (fetched locally when the shared set loaded) under the
@@ -320,7 +330,7 @@ export default function SharedSetView() {
             createdAt: now,
             updatedAt: now,
             copiedFrom: { songId: song.id, setName: set.name, copiedAt: now },
-            pdf: song.pdf ? { ...song.pdf, uploaded: false } : song.pdf,
+            pdf: pdfRefForCopy(song.pdf),
           });
           if (song.type === 'pdf') { const blob = await loadPdfBlob(song.id); if (blob) await savePdfBlob(newId, blob); }
           allTitles.add(titleKey);
@@ -338,7 +348,7 @@ export default function SharedSetView() {
               createdAt: now,
               updatedAt: now,
               copiedFrom: { songId: song.id, setName: set.name, copiedAt: now },
-              pdf: song.pdf ? { ...song.pdf, uploaded: false } : song.pdf,
+              pdf: pdfRefForCopy(song.pdf),
             });
             if (song.type === 'pdf') { const blob = await loadPdfBlob(song.id); if (blob) await savePdfBlob(newId, blob); }
             newSongIds.push(newId);

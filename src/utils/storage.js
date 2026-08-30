@@ -209,18 +209,46 @@ export async function deleteSong(id) {
 // Raw PDF bytes for pdf-type songs. Stage 1a keeps these PURELY LOCAL — nothing
 // uploads or fetches them (see pdfSync.js). A missing blob is a normal state the
 // renderer must handle softly, never a crash.
+// In-memory fallback for PDF blobs. Safari Private Browsing (and other restricted
+// contexts) can refuse or under-quota IndexedDB writes for a large Blob, which
+// would break both publishing (loadPdfBlob returns nothing → "didn't upload") and
+// the shared viewer (a downloaded PDF can't be cached → placeholder). Every write
+// also lands here, and reads fall back here, so a PDF works for the whole session
+// even when IndexedDB won't take it. Session-scoped (lost on reload), which is
+// fine — a shared viewer re-downloads, and an owner still has the durable copy
+// wherever IndexedDB does work.
+const _pdfMemCache = new Map();
+
 export async function savePdfBlob(songId, blob) {
-  return (await getDB()).put('pdfs', { songId, blob });
+  _pdfMemCache.set(songId, blob);
+  try {
+    return await (await getDB()).put('pdfs', { songId, blob });
+  } catch (err) {
+    console.warn('[storage] savePdfBlob: IndexedDB write failed; kept in memory', err);
+  }
 }
 export async function loadPdfBlob(songId) {
-  const rec = await (await getDB()).get('pdfs', songId);
-  return rec?.blob ?? null;
+  try {
+    const rec = await (await getDB()).get('pdfs', songId);
+    if (rec?.blob) return rec.blob;
+  } catch (err) {
+    console.warn('[storage] loadPdfBlob: IndexedDB read failed; trying memory', err);
+  }
+  return _pdfMemCache.get(songId) ?? null;
 }
 export async function hasPdfBlob(songId) {
-  return !!(await (await getDB()).get('pdfs', songId));
+  if (_pdfMemCache.has(songId)) return true;
+  try {
+    return !!(await (await getDB()).get('pdfs', songId));
+  } catch {
+    return false;
+  }
 }
 export async function deletePdfBlob(songId) {
-  return (await getDB()).delete('pdfs', songId);
+  _pdfMemCache.delete(songId);
+  try {
+    return await (await getDB()).delete('pdfs', songId);
+  } catch { /* ignore — nothing durable to delete */ }
 }
 
 // ---- PDF blobs in a JSON backup ---------------------------------------------
