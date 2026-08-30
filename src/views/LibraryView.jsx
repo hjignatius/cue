@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, CheckSquare, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus } from 'lucide-react';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -31,7 +31,7 @@ import RowMenu from '../components/RowMenu.jsx';
 // main app header, one tier smaller. `dataOnboard` wraps the pill in a span
 // carrying the attribute, since the OnboardingTour spotlight targets it and
 // RoundButton has no data-* passthrough.
-function HeaderPill({ dark, icon: Icon, label, title, active = false, disabled = false, onActivate, dataOnboard }) {
+function HeaderPill({ dark, icon: Icon, label, title, active = false, disabled = false, onActivate, dataOnboard, hideLabelWhenNarrow = false }) {
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
   const btn = (
     <RoundButton
@@ -41,7 +41,10 @@ function HeaderPill({ dark, icon: Icon, label, title, active = false, disabled =
       onActivate={onActivate}
     >
       {Icon && <Icon size={14} />}
-      <span className="text-xs font-medium leading-none whitespace-nowrap">{label}</span>
+      {/* hideLabelWhenNarrow: collapse to icon-only when the panel (a @container)
+          is too narrow to fit both this pill's label and its neighbours, and
+          ALWAYS on a phone (<640px) so the buttons become small icon circles. */}
+      <span className={`text-xs font-medium leading-none whitespace-nowrap ${hideLabelWhenNarrow ? 'hidden @[22rem]:inline max-sm:!hidden' : ''}`}>{label}</span>
     </RoundButton>
   );
   return dataOnboard ? <span data-onboard={dataOnboard} className="inline-flex">{btn}</span> : btn;
@@ -128,9 +131,28 @@ function ExportMenuItem({ label, onSelect, disabled = false, title, px = 'px-3' 
   );
 }
 
+// Always-visible selection checkbox for the Library and Sets rows and their
+// select-all headers. stopPropagation on click so ticking it never triggers the
+// row's own action (open / activate).
+function SelectCheckbox({ checked, indeterminate = false, onToggle, ariaLabel }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      aria-label={ariaLabel}
+      onClick={e => e.stopPropagation()}
+      onChange={() => onToggle()}
+      className="shrink-0 w-4 h-4 accent-indigo-600 cursor-pointer"
+    />
+  );
+}
+
 // ---- Song row ---------------------------------------------------------------
 
-function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selected, onToggleSelect, highlighted, hasAnnotation }) {
+function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selected, onToggleCheck, onRowClick, highlighted, hasAnnotation }) {
   const { title, artist, key } = song.metadata || {};
 
   return (
@@ -140,8 +162,9 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
         : highlighted ? 'bg-indigo-50 dark:bg-indigo-950/40'
         : 'hover:bg-gray-100 dark:hover:bg-gray-900'
       }`}
-      onClick={() => onToggleSelect(song.id)}
+      onClick={() => onRowClick(song.id)}
     >
+      <SelectCheckbox checked={selected} onToggle={() => onToggleCheck(song.id)} ariaLabel={`Select ${title || 'Untitled'}`} />
       <div className="flex-1 min-w-0">
         <p className={`font-medium truncate ${selected ? 'text-indigo-700 dark:text-indigo-300' : highlighted ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-900 dark:text-white'}`}>{title || 'Untitled'}</p>
         {artist && <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{artist}</p>}
@@ -205,7 +228,7 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
 
 // ---- Sets column (middle) ---------------------------------------------------
 
-function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelectModeChange, presenting, border }) {
+function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenting, border }) {
   // chordColor/accidentals/instrument feed the set PDF export (render lens +
   // which chord library); without them the PDF branch throws a ReferenceError.
   const { theme, chordColor, accidentals, instrument } = usePrefs();
@@ -215,17 +238,11 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   const [setSearch, setSetSearch] = useState(() => sessionStorage.getItem('cue:set_search') || '');
   const [creating, setCreating] = useState(false);
   const [newName, setNewName]   = useState('');
-  const [selectMode, setSelectMode] = useState(false);
   const [selectedSets, setSelectedSets] = useState(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState(null); // null | { ids } — in-app delete confirm
   const [setsExportOpen, setSetsExportOpen] = useState(false);
   const [editingSetId, setEditingSetId]     = useState(null);
   const [editingSetName, setEditingSetName] = useState('');
-
-  // Report select-mode changes up so the parent can blank the Setlist column
-  // (the active set's highlight is suppressed in select mode, so its setlist
-  // should clear too rather than look like it's tied to the selection).
-  useEffect(() => { onSelectModeChange?.(selectMode); }, [selectMode, onSelectModeChange]);
 
   // Publish/share state
   const [publishedSets, setPublishedSets] = useState(loadPublishedSets);
@@ -452,6 +469,12 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   const sharedOnly = listSort === 'shared';
 
   const sorted = [...sets].sort((a, b) => {
+    // 'checked' floats selected sets to the top LIVE, A–Z within each group.
+    if (listSort === 'checked') {
+      const ca = selectedSets.has(a.id), cb = selectedSets.has(b.id);
+      if (ca !== cb) return ca ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    }
     if (listSort === 'alpha')  return a.name.localeCompare(b.name);
     if (listSort === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
     return (b.updatedAt || '').localeCompare(a.updatedAt || '');
@@ -477,6 +500,12 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
 
   // Header count covers both groups so it matches what is actually on screen.
   const visibleCount = filtered.length + sharedWithMeMatches.length;
+
+  const allSetsSelected  = filtered.length > 0 && filtered.every(s => selectedSets.has(s.id));
+  const someSetsSelected = selectedSets.size > 0 && !allSetsSelected;
+  function toggleAllSets() {
+    setSelectedSets(allSetsSelected ? new Set() : new Set(filtered.map(s => s.id)));
+  }
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -551,7 +580,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="@container flex flex-col h-full">
       {/* In-app delete confirmation — replaces native confirm(), which is
           suppressed in the installed iOS PWA (so the delete never ran). */}
       {deleteConfirm && (() => {
@@ -591,12 +620,30 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
               <DownloadCloud size={18} />
             </RoundButton>
           )}
-          {!selectMode ? (
-            <HeaderPill dark={dark} icon={CheckSquare} label="Select" onActivate={() => { setSelectMode(true); setSelectedSets(new Set()); }} />
-          ) : (
-            <HeaderPill dark={dark} label="Done" onActivate={() => { setSelectMode(false); setSelectedSets(new Set()); }} />
-          )}
-          <HeaderPill dark={dark} icon={Plus} label="New Set" active onActivate={() => setCreating(v => !v)} />
+          <div className="relative">
+            <HeaderPill
+              dark={dark} icon={Upload} label="Export" hideLabelWhenNarrow
+              disabled={selectedSets.size === 0}
+              onActivate={() => setSetsExportOpen(v => !v)}
+            />
+            {setsExportOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setSetsExportOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                  <ExportMenuItem label="PDF" onSelect={() => runSetsExport('pdf')} />
+                  <ExportMenuItem label="PDF + Chord Charts" onSelect={() => runSetsExport('pdf-charts')} />
+                  <ExportMenuItem label=".json" onSelect={() => runSetsExport('json')} />
+                  <ExportMenuItem
+                    label="Setlist (.csv)"
+                    disabled={selectedSets.size > 1}
+                    title={selectedSets.size > 1 ? 'Setlist exports one set at a time' : undefined}
+                    onSelect={() => runSetsExport('setlist')}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <HeaderPill dark={dark} icon={Plus} label="New Set" active hideLabelWhenNarrow onActivate={() => setCreating(v => !v)} />
         </div>
       </div>
       <div className={`px-3 py-3 border-b ${border} flex gap-2 shrink-0`}>
@@ -627,71 +674,47 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
           <option value="shared">Shared</option>
+          <option value="checked">Checked</option>
         </select>
       </div>
 
       {/* Action buttons — always present; grayed out until Select is clicked (and,
           as before, until at least one set is selected). */}
       <div className={`px-3 border-b ${border} flex items-center gap-2 shrink-0 min-h-[44px]`}>
-        <div className="relative">
-          <HeaderPill
-            dark={dark} icon={Upload} label="Export"
-            disabled={!selectMode || selectedSets.size === 0}
-            onActivate={() => setSetsExportOpen(v => !v)}
-          />
-          {setsExportOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setSetsExportOpen(false)} />
-              <div className="absolute left-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                <ExportMenuItem label="PDF" onSelect={() => runSetsExport('pdf')} />
-                <ExportMenuItem label="PDF + Chord Charts" onSelect={() => runSetsExport('pdf-charts')} />
-                <ExportMenuItem label=".json" onSelect={() => runSetsExport('json')} />
-                <ExportMenuItem
-                  label="Setlist (.csv)"
-                  disabled={selectedSets.size > 1}
-                  title={selectedSets.size > 1 ? 'Setlist exports one set at a time' : undefined}
-                  onSelect={() => runSetsExport('setlist')}
-                />
-              </div>
-            </>
-          )}
-        </div>
-        <RoundButton
-          size={ROUND_SIZE_COMPACT}
-          label={selectMode && selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
-          title={selectMode && selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : undefined}
-          fill={selectMode && selectedSets.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
-          disabled={!selectMode || selectedSets.size === 0}
-          onActivate={handleDeleteSelected}
-        >
-          <Trash2 size={20} />
-        </RoundButton>
-        {/* Select-all / count — in the same always-present row so entering Select
-            mode never shifts the list down. */}
+        <SelectCheckbox
+          checked={allSetsSelected}
+          indeterminate={someSetsSelected}
+          onToggle={toggleAllSets}
+          ariaLabel="Select all sets"
+        />
+        {/* Left: N selected · Clear, beside the select-all checkbox. */}
+        {selectedSets.size > 0 && (
+          <button onClick={() => setSelectedSets(new Set())} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 whitespace-nowrap hover:text-indigo-500" title="Clear selection">
+            {selectedSets.size} selected ✕
+          </button>
+        )}
+
         <div className="flex-1" />
-        {selectMode ? (
-          <>
-            <button
-              onClick={() => setSelectedSets(selectedSets.size === filtered.length && filtered.length > 0 ? new Set() : new Set(filtered.map(s => s.id)))}
-              className="text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 whitespace-nowrap"
-            >
-              {selectedSets.size === filtered.length && filtered.length > 0 ? 'Deselect all' : 'Select all'}
-            </button>
-            {selectedSets.size > 0 && (
-              <button onClick={() => setSelectedSets(new Set())} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 whitespace-nowrap hover:text-indigo-500" title="Clear selection">
-                {selectedSets.size} ✕
-              </button>
-            )}
-          </>
-        ) : user && (
-          /* Sync-dot legend — sits in the same row as Export/Delete so it needs
-             no extra vertical space. Matters most on iPad/iPhone, where the dots'
-             hover tooltips are unreachable. */
-          <div className="flex items-center gap-2.5 shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
+        {/* Center: sync-dot legend, stacked two-up. Hidden while selecting. */}
+        {selectedSets.size === 0 && user && (
+          <div className="flex flex-col leading-tight shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />republish</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />cloud newer</span>
           </div>
         )}
+        <div className="flex-1" />
+
+        {/* Right: Delete. */}
+        <RoundButton
+          size={ROUND_SIZE_COMPACT}
+          label={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
+          title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : undefined}
+          fill={selectedSets.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
+          disabled={selectedSets.size === 0}
+          onActivate={handleDeleteSelected}
+        >
+          <Trash2 size={20} />
+        </RoundButton>
       </div>
 
       {creating && (
@@ -743,21 +766,22 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
             <div
               key={set.id}
               className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors cursor-pointer ${
-                selectMode && isSelected ? 'bg-indigo-100 dark:bg-indigo-950/60' : !selectMode && isActive ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
+                isSelected ? 'bg-indigo-100 dark:bg-indigo-950/60' : isActive ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
               }`}
               onClick={() => {
                 if (editingSetId === set.id) return;
-                if (selectMode) {
-                  setSelectedSets(prev => {
-                    const next = new Set(prev);
-                    if (next.has(set.id)) next.delete(set.id); else next.add(set.id);
-                    return next;
-                  });
-                } else {
-                  onSelectSet(set.id);
-                }
+                onSelectSet(set.id);
               }}
             >
+              <SelectCheckbox
+                checked={isSelected}
+                onToggle={() => setSelectedSets(prev => {
+                  const next = new Set(prev);
+                  if (next.has(set.id)) next.delete(set.id); else next.add(set.id);
+                  return next;
+                })}
+                ariaLabel={`Select ${set.name}`}
+              />
               {(() => {
                 const lastPub = publishedSets[set.id] ?? null;
                 const isPublished = !!lastPub;
@@ -785,7 +809,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                           className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5"
                         />
                       ) : (
-                        <p className={`font-medium truncate ${isActive && !selectMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
+                        <p className={`font-medium truncate ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
                       )}
                       <p className="text-xs text-gray-400 dark:text-gray-600">
                         {count} {count === 1 ? 'song' : 'songs'}
@@ -794,19 +818,19 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, onSelect
                     </div>
                     {/* Sync indicators — always visible (mutually exclusive). The
                         legend in the header row explains the colors. */}
-                    {user && !selectMode && editingSetId !== set.id && isStale && (
+                    {user && editingSetId !== set.id && isStale && (
                       <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" title="Local changes not yet published — republish to sync" />
                     )}
-                    {user && !selectMode && editingSetId !== set.id && cloudAhead && (
+                    {user && editingSetId !== set.id && cloudAhead && (
                       <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="A newer version is in the cloud — overwrite to update" />
                     )}
                     {/* Right-pointing arrow, to the LEFT of the actions menu. */}
-                    {!selectMode && editingSetId !== set.id && (
+                    {editingSetId !== set.id && (
                       <ChevronRight size={14} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-300 dark:text-gray-700 group-hover:text-gray-500'}`} />
                     )}
                     {/* Actions menu. Cloud items appear only when signed in, and
                         are grayed until the set has been published at least once. */}
-                    {!selectMode && editingSetId !== set.id && (
+                    {editingSetId !== set.id && (
                       <span onClick={e => e.stopPropagation()}>
                         <RowMenu
                           dark={dark}
@@ -1347,7 +1371,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [artistFilter, setArtistFilter] = useState(() => sessionStorage.getItem('cue:lib_artist_filter') || null);
   const [keyFilter, setKeyFilter]       = useState(() => sessionStorage.getItem('cue:lib_key_filter') || null);
 
-  const [selectMode, setSelectMode]   = useState(false);
   const [selected, setSelected]       = useState(new Set());
   const [exportDropOpen, setExportDropOpen] = useState(false);
   const [addToSetOpen, setAddToSetOpen] = useState(false); // create/select-target dialog
@@ -1355,7 +1378,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [setPickerSearch, setSetPickerSearch] = useState(''); // filter for the picker list
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
-  const [setsSelectMode, setSetsSelectMode] = useState(false); // mirrors SetsColumn select mode
 
   // ---- Portrait single-panel mode --------------------------------------------
   // `stacked` (any portrait phone OR tablet) drives the one-panel-at-a-time
@@ -1425,6 +1447,13 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const sharedFiltered = sortBy === 'shared' ? keyFiltered.filter(s => !!s.copiedFrom) : keyFiltered;
 
   const sorted = [...sharedFiltered].sort((a, b) => {
+    // 'checked' floats selected rows to the top LIVE (recomputes as `selected`
+    // changes), A–Z within each group.
+    if (sortBy === 'checked') {
+      const ca = selected.has(a.id), cb = selected.has(b.id);
+      if (ca !== cb) return ca ? -1 : 1;
+      return (a.metadata?.title || '').localeCompare(b.metadata?.title || '');
+    }
     if (sortBy === 'title')  return (a.metadata?.title  || '').localeCompare(b.metadata?.title  || '');
     if (sortBy === 'newest') return (b.updatedAt || '').localeCompare(a.updatedAt || '');
     if (sortBy === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
@@ -1487,21 +1516,18 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     onRefresh();
   }
 
-  function toggleSelectMode() { setSelectMode(v => !v); setSelected(new Set()); }
-  function toggleSelect(id) {
-    // Outside Select mode a tap highlights the row (light blue) so the user can
-    // see what they touched; the ⋮ menu carries the actions. Tapping the same
-    // row again clears it. In Select mode the tap drives the multi-select set
-    // (export / delete) as before.
-    if (!selectMode) {
-      setHighlightedSongId(prev => {
-        const next = prev === id ? null : id;
-        if (next) sessionStorage.setItem('cue:lib_highlighted_id', next);
-        else sessionStorage.removeItem('cue:lib_highlighted_id');
-        return next;
-      });
-      return;
-    }
+  // Row body: highlight the row (light blue) so you can see what you touched; the
+  // ⋮ menu carries the per-song actions. Tapping the same row clears it.
+  function highlightRow(id) {
+    setHighlightedSongId(prev => {
+      const next = prev === id ? null : id;
+      if (next) sessionStorage.setItem('cue:lib_highlighted_id', next);
+      else sessionStorage.removeItem('cue:lib_highlighted_id');
+      return next;
+    });
+  }
+  // Checkbox: toggle the row's membership in the multi-select set.
+  function toggleChecked(id) {
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -1510,6 +1536,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   }
   function selectAll()   { setSelected(new Set(sorted.map(s => s.id))); }
   function deselectAll() { setSelected(new Set()); }
+  function toggleSelectAll() { if (allVisibleSelected) deselectAll(); else selectAll(); }
 
   // Add the given song ids to a set by id, skipping any already present and
   // reporting the outcome. Alerts on success and on partial/duplicate.
@@ -1682,7 +1709,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div className="flex items-center gap-2">
           {(() => {
             const headerFill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
-            const PillLabel = ({ children }) => <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
+            // Icon-only on a phone (<640px): the label collapses so Import/Backup
+            // become small round icon buttons in the tight top bar.
+            const PillLabel = ({ children }) => <span className="hidden sm:inline text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
             return (
               <>
                 <RoundButton size={ROUND_SIZE_ACTION} label="Open user manual" title="Open user manual" fill={headerFill} onActivate={openManualPDF}>
@@ -1714,8 +1743,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           data-onboard="songs-panel"
           data-phone-panel="library"
           className={stacked
-            ? (phonePanel === 'library' ? 'w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
-            : `flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
+            ? (phonePanel === 'library' ? '@container w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
+            : `@container flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
         >
           <div className={`px-4 py-2 border-b ${border} flex items-center justify-between`}>
             <div className="flex flex-col leading-tight">
@@ -1723,11 +1752,25 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               <span className="text-xs text-gray-400 dark:text-gray-600 tabular-nums">{sorted.length} {sorted.length === 1 ? 'song' : 'songs'}</span>
             </div>
             <div className="flex items-center gap-2">
-              {selectMode
-                ? <HeaderPill dark={dark} label="Done" onActivate={toggleSelectMode} />
-                : <HeaderPill dark={dark} icon={CheckSquare} label="Select" onActivate={toggleSelectMode} />
-              }
-              <HeaderPill dark={dark} icon={Plus} label="New Song" active onActivate={onNewSong} dataOnboard="new-song-btn" />
+              <div className="relative">
+                <HeaderPill
+                  dark={dark} icon={Upload} label="Export" hideLabelWhenNarrow
+                  disabled={selected.size === 0}
+                  onActivate={() => setExportDropOpen(v => !v)}
+                />
+                {exportDropOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                      <ExportMenuItem px="px-4" label="PDF" onSelect={() => handleExportSelectedPdf(false)} />
+                      <ExportMenuItem px="px-4" label="PDF + Chord Charts" onSelect={() => handleExportSelectedPdf(true)} />
+                      <ExportMenuItem px="px-4" label=".json" onSelect={handleExportSelectedJson} />
+                      <ExportMenuItem px="px-4" label={selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'} onSelect={handleExportSelected} />
+                    </div>
+                  </>
+                )}
+              </div>
+              <HeaderPill dark={dark} icon={Plus} label="New Song" active hideLabelWhenNarrow onActivate={onNewSong} dataOnboard="new-song-btn" />
             </div>
           </div>
 
@@ -1737,7 +1780,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               <input
                 value={search}
                 onChange={e => { setSearch(e.target.value); setArtistFilter(null); }}
-                placeholder="Search songs, artists, keys…"
+                placeholder="Search songs, artists…"
                 className={`w-full border rounded-lg pl-9 pr-10 py-1.5 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
               />
               {search && (
@@ -1769,6 +1812,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               <option value="artist">By Artist</option>
               <option value="key">By Key</option>
               <option value="shared">Shared</option>
+              <option value="checked">Checked</option>
             </select>
           </div>
 
@@ -1776,73 +1820,53 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               (and, as before, until at least one song is selected). Artist / key
               filter breadcrumbs sit on the right. */}
           <div className={`px-4 border-b ${border} flex items-center gap-2 min-h-[44px]`}>
-            <div className="relative">
-              <HeaderPill
-                dark={dark} icon={Upload} label="Export"
-                disabled={!selectMode || selected.size === 0}
-                onActivate={() => setExportDropOpen(v => !v)}
-              />
-              {exportDropOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
-                  <div className="absolute left-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                    <ExportMenuItem px="px-4" label="PDF" onSelect={() => handleExportSelectedPdf(false)} />
-                    <ExportMenuItem px="px-4" label="PDF + Chord Charts" onSelect={() => handleExportSelectedPdf(true)} />
-                    <ExportMenuItem px="px-4" label=".json" onSelect={handleExportSelectedJson} />
-                    <ExportMenuItem px="px-4" label={selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'} onSelect={handleExportSelected} />
-                  </div>
-                </>
-              )}
-            </div>
-            {/* Add the selected songs to a set. Active in Select mode with a
-                selection; if no set is selected, opens a create/select dialog. */}
+            <SelectCheckbox
+              checked={allVisibleSelected}
+              indeterminate={selected.size > 0 && !allVisibleSelected}
+              onToggle={toggleSelectAll}
+              ariaLabel="Select all songs"
+            />
+            {/* Left: N selected · Clear, right beside the select-all checkbox. */}
+            {selected.size > 0 && (
+              <button onClick={deselectAll} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 whitespace-nowrap hover:text-indigo-500" title="Clear selection">
+                {selected.size} selected ✕
+              </button>
+            )}
+
+            <div className="flex-1" />
+            {/* Center: filter breadcrumbs, stacked two-up. Hidden while selecting. */}
+            {selected.size === 0 && ((artistFilter !== null && sortBy === 'artist') || keyFilter) && (
+              <div className="flex flex-col items-center leading-tight text-center min-w-0 shrink">
+                {artistFilter !== null && sortBy === 'artist' && (
+                  <span className="text-xs truncate max-w-[10rem]">
+                    <button onClick={() => setArtistFilter(null)} className="text-indigo-500 hover:text-indigo-400">← All artists</button>
+                    <span className="text-gray-400 dark:text-gray-600"> / {artistFilter || 'No artist'}</span>
+                  </span>
+                )}
+                {keyFilter && (
+                  <button onClick={() => setKeyFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400">Clear key</button>
+                )}
+              </div>
+            )}
+            <div className="flex-1" />
+
+            {/* Right: Add to Set + Delete. */}
             <HeaderPill
-              dark={dark} icon={ListPlus} label="Add to Set"
+              dark={dark} icon={ListPlus} label="Add to Set" hideLabelWhenNarrow
               title="Add selected songs to a set"
-              disabled={!selectMode || selected.size === 0}
+              disabled={selected.size === 0}
               onActivate={handleAddSelectedToSet}
             />
             <RoundButton
               size={ROUND_SIZE_COMPACT}
-              label={selectMode && selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
-              title={selectMode && selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
-              fill={selectMode && selected.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
-              disabled={!selectMode || selected.size === 0}
+              label={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
+              title={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
+              fill={selected.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
+              disabled={selected.size === 0}
               onActivate={handleDeleteSelected}
             >
               <Trash2 size={20} />
             </RoundButton>
-
-            <div className="flex-1" />
-            {/* Select-all / count in select mode; filter breadcrumbs otherwise —
-                all in this always-present row so the song list never shifts. */}
-            {selectMode ? (
-              <>
-                <button
-                  onClick={allVisibleSelected ? deselectAll : selectAll}
-                  className="text-sm text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 whitespace-nowrap"
-                >
-                  {allVisibleSelected ? 'Deselect all' : 'Select all'}
-                </button>
-                {selected.size > 0 && (
-                  <button onClick={deselectAll} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 whitespace-nowrap hover:text-indigo-500" title="Clear selection">
-                    {selected.size} ✕
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                {artistFilter !== null && sortBy === 'artist' && (
-                  <>
-                    <button onClick={() => setArtistFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">← All artists</button>
-                    <span className="text-xs text-gray-400 dark:text-gray-600 shrink-0 truncate">/ {artistFilter || 'No artist'}</span>
-                  </>
-                )}
-                {keyFilter && (
-                  <button onClick={() => setKeyFilter(null)} className="text-xs text-indigo-500 hover:text-indigo-400 shrink-0">Clear key</button>
-                )}
-              </>
-            )}
           </div>
 
           {sortBy === 'artist' && artistFilter === null && !search && artists && (
@@ -1896,7 +1920,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   onDuplicate={handleDuplicate}
                   onRetryPdf={handleRetryPdf}
                   selected={selected.has(song.id)}
-                  onToggleSelect={toggleSelect}
+                  onToggleCheck={toggleChecked}
+                  onRowClick={highlightRow}
                   highlighted={!selected.has(song.id) && song.id === highlightedSongId}
                   hasAnnotation={annotatedSongIds.has(song.id)}
                 />
@@ -1919,7 +1944,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             activeSetId={activeSetId}
             onSelectSet={handleSelectSet}
             onRefresh={onRefresh}
-            onSelectModeChange={setSetsSelectMode}
             presenting={presenting}
             border={border}
           />
@@ -1935,7 +1959,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         >
           <SetlistColumn
             key={activeSetId}
-            set={setsSelectMode ? null : activeSet}
+            set={activeSet}
             songs={songs}
             onUpdateSet={handleUpdateSet}
             onDeleteSet={handleDeleteSet}
