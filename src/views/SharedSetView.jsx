@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSharedSet } from '../lib/cloud.js';
+import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import { saveSong, saveSet, loadSongs } from '../utils/storage.js';
+import { saveSong, saveSet, loadSongs, loadPdfBlob, savePdfBlob } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv } from 'lucide-react';
@@ -107,6 +108,19 @@ export default function SharedSetView() {
         const songs = (data.songs ?? []).map(row => row.content ?? row);
         setSetData({ set: data.set, songs });
         setStatus('ok');
+        // Stage 2: fetch the bytes for any pdf songs so they render in Present.
+        // The published content carries `ownerId`, and the additive Storage read
+        // policy lets a shared viewer read {owner}/{songId}.pdf for a published set.
+        // Background + fail-soft — the set shows now; a miss leaves the placeholder.
+        for (const song of songs) {
+          if (cancelled || song?.type !== 'pdf' || !song.id) continue;
+          if (!song.ownerId) {
+            console.warn('[SharedSetView] pdf song has no ownerId — re-publish the set so its content carries it', song.id);
+            continue;
+          }
+          downloadPdfBlob(song.id, song.ownerId)
+            .catch(err => console.warn('[SharedSetView] pdf download failed', `${song.ownerId}/${song.id}.pdf`, err?.message || err));
+        }
       } catch (err) {
         if (cancelled) return;
         console.error('SharedSetView:', err);
@@ -216,19 +230,25 @@ export default function SharedSetView() {
         newTitle = makeUniqueTitle(title, allTitles);
       }
 
-      await saveSong({
+      // Spread the whole song so type / pdf / fullPage survive (a subset copy
+      // silently degraded a shared PDF to an empty text song). A copied pdf gets a
+      // fresh id, so its bytes must re-upload on the new owner's next publish.
+      const newId = await saveSong({
+        ...song,
         id: null,
         metadata: { ...song.metadata, title: newTitle },
-        text: song.text,
-        chordStyle: song.chordStyle,
-        previewMode: song.previewMode,
-        diagramScale: song.diagramScale,
-        chordPrefs: song.chordPrefs,
-        displayKey: song.displayKey,
         createdAt: now,
         updatedAt: now,
         copiedFrom,
+        pdf: song.pdf ? { ...song.pdf, uploaded: false } : song.pdf,
       });
+
+      // Copy the PDF bytes (fetched locally when the shared set loaded) under the
+      // new id so the duplicate renders.
+      if (song.type === 'pdf') {
+        const blob = await loadPdfBlob(song.id);
+        if (blob) await savePdfBlob(newId, blob);
+      }
 
       // Bring any custom chord shapes this song carries into the local library.
       if (Array.isArray(song.customChords) && song.customChords.length) mergeCustomChords(song.customChords);
@@ -295,18 +315,14 @@ export default function SharedSetView() {
 
         if (!hasConflict) {
           const newId = await saveSong({
+            ...song,
             id: null,
-            metadata: song.metadata,
-            text: song.text,
-            chordStyle: song.chordStyle,
-            previewMode: song.previewMode,
-            diagramScale: song.diagramScale,
-            chordPrefs: song.chordPrefs,
-            displayKey: song.displayKey,
             createdAt: now,
             updatedAt: now,
             copiedFrom: { songId: song.id, setName: set.name, copiedAt: now },
+            pdf: song.pdf ? { ...song.pdf, uploaded: false } : song.pdf,
           });
+          if (song.type === 'pdf') { const blob = await loadPdfBlob(song.id); if (blob) await savePdfBlob(newId, blob); }
           allTitles.add(titleKey);
           newSongIds.push(newId);
           copied++;
@@ -316,18 +332,15 @@ export default function SharedSetView() {
             const newTitle = makeUniqueTitle(song.metadata?.title || 'Untitled', allTitles);
             allTitles.add(normalizeTitle(newTitle));
             const newId = await saveSong({
+              ...song,
               id: null,
               metadata: { ...song.metadata, title: newTitle },
-              text: song.text,
-              chordStyle: song.chordStyle,
-              previewMode: song.previewMode,
-              diagramScale: song.diagramScale,
-              chordPrefs: song.chordPrefs,
-              displayKey: song.displayKey,
               createdAt: now,
               updatedAt: now,
               copiedFrom: { songId: song.id, setName: set.name, copiedAt: now },
+              pdf: song.pdf ? { ...song.pdf, uploaded: false } : song.pdf,
             });
+            if (song.type === 'pdf') { const blob = await loadPdfBlob(song.id); if (blob) await savePdfBlob(newId, blob); }
             newSongIds.push(newId);
             duplicated++;
           } else {

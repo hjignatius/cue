@@ -76,7 +76,10 @@ export async function publishSet(set, songs, userId) {
       id:         s.id,
       owner_id:   userId,
       title:      s.metadata?.title || 'Untitled',
-      content:    s,                                  // full Cue-native JSON
+      // full Cue-native JSON. `ownerId` is stamped in so a SHARED viewer can build
+      // the Storage path {owner}/{songId}.pdf to fetch a pdf song's bytes (Stage 2);
+      // it's not a known song field, so saveSong drops it on any pull/copy.
+      content:    { ...s, ownerId: userId },
       created_at: s.createdAt || now,
       updated_at: s.updatedAt || now,
     }));

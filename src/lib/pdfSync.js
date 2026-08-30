@@ -1,13 +1,14 @@
-// PDF cloud-sync — Stage 1b (OWNER-ONLY). The PDF bytes for a 'pdf' song ride
-// through Supabase Storage alongside the song row's normal sync: uploaded on
-// publish (guarded so bytes aren't re-pushed every time) and downloaded on pull
-// when missing locally. No sharing / cross-owner / signed-URL path — that's
-// Stage 2, which adds an ADDITIVE read policy on the SAME bucket.
+// PDF cloud-sync. The PDF bytes for a 'pdf' song ride through Supabase Storage
+// alongside the song row's normal sync: uploaded on publish (guarded so bytes
+// aren't re-pushed every time) and downloaded on pull when missing locally.
 //
 // The bucket 'song-pdfs' is PRIVATE; owner access is by RLS keyed on the path's
-// first segment ({owner_id}/{songId}.pdf). The authenticated owner reads/writes
-// their own objects directly — no signed URL needed here, which keeps the bucket
-// genuinely private for Stage 2.
+// first segment ({owner_id}/{songId}.pdf). The owner reads/writes their own
+// objects directly. Stage 2 added an ADDITIVE read policy on the SAME bucket
+// (supabase/stage2-shared-pdf-read.sql) that lets a SHARED viewer read a
+// published set's objects — so downloadPdfBlob(songId, ownerId) below serves
+// both the owner's own pull AND a shared viewer's fetch (the viewer passes the
+// owner id, which the published song content carries as `ownerId`).
 
 import { supabase } from './supabase.js';
 import { loadPdfBlob, savePdfBlob } from '../utils/storage.js';
