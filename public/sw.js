@@ -4,7 +4,7 @@
 // (a user tap on "Update Cue"), so a live performance is never reloaded — and the
 // old cache is evicted only then, so a running session never loses a lazy chunk.
 
-const CACHE = 'cue-v12';
+const CACHE = 'cue-v13';
 
 // App shell + icons. NOT the hashed JS/CSS (names unknown here — cached at
 // runtime on first online launch) and NOT cue-icon-square.svg (unreferenced).
