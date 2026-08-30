@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { uploadPdfBlob } from './pdfSync.js';
+import { uploadPdfBlob, pdfObjectExists, removePdfObjects } from './pdfSync.js';
 import { setPdfUploaded } from '../utils/storage.js';
 
 // Normalize a cloud timestamp to JS ISO ("…Z", ms precision). Supabase returns
@@ -55,17 +55,25 @@ export async function publishSet(set, songs, userId) {
   // stage. Additive: text songs never enter this loop. (Owner-only in 1b.)
   const pdfUploadFailures = [];
   for (const s of songs) {
-    if (s.type === 'pdf' && s.pdf && s.pdf.uploaded !== true) {
-      try {
-        await uploadPdfBlob(s.id, userId);
-        s.pdf = { ...s.pdf, uploaded: true };
-        await setPdfUploaded(s.id, true);
-      } catch (err) {
-        console.error(`[publishSet] PDF upload failed for song ${s.id}`, err);
-        s.pdf = { ...s.pdf, uploaded: false };
-        await setPdfUploaded(s.id, false);
-        pdfUploadFailures.push(s.id);
-      }
+    if (s.type !== 'pdf' || !s.pdf) continue;
+    // Self-heal a stale flag: skip the upload ONLY when uploaded===true AND the
+    // object is really still in Storage. A flag can lie after a manual delete or
+    // a bucket reset, which would leave a published row with no bytes behind it
+    // (shared viewers then get "Object not found"). Otherwise (re)upload.
+    let present = false;
+    if (s.pdf.uploaded === true) {
+      try { present = await pdfObjectExists(s.id, userId); } catch { present = false; }
+    }
+    if (present) continue;
+    try {
+      await uploadPdfBlob(s.id, userId);
+      s.pdf = { ...s.pdf, uploaded: true };
+      await setPdfUploaded(s.id, true);
+    } catch (err) {
+      console.error(`[publishSet] PDF upload failed for song ${s.id}`, err);
+      s.pdf = { ...s.pdf, uploaded: false };
+      await setPdfUploaded(s.id, false);
+      pdfUploadFailures.push(s.id);
     }
   }
 
@@ -198,6 +206,10 @@ export async function unpublishSet(setId, userId) {
       .delete()
       .in('id', orphanIds);
     if (delErr) throw delErr;
+
+    // Also drop the orphans' PDF bytes so Storage doesn't accumulate them. Paths
+    // for text songs simply don't exist — harmless. Best-effort (never throws).
+    await removePdfObjects(orphanIds, userId);
   }
 }
 

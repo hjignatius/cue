@@ -35,6 +35,31 @@ export async function uploadPdfBlob(songId, ownerId) {
   if (error) throw error;
 }
 
+// Does the owner's PDF object actually exist in Storage? Used to self-heal a
+// stale local `uploaded` flag on publish (the object can be deleted out of band
+// or lost in a bucket reset). A list error is treated as "not present" so the
+// caller re-uploads to be safe (upload is an idempotent upsert).
+export async function pdfObjectExists(songId, ownerId) {
+  if (!supabase) return false;
+  const name = `${songId}.pdf`;
+  const { data, error } = await supabase.storage.from(BUCKET).list(ownerId, { search: name, limit: 100 });
+  if (error) return false;
+  return Array.isArray(data) && data.some(f => f.name === name);
+}
+
+// Best-effort removal of PDF objects when songs are unpublished/deleted, so the
+// bucket doesn't accumulate orphans. Text songs have no object at these paths, so
+// those entries are harmless no-ops. NEVER throws — cleanup is off the critical
+// path; the unpublish/delete itself has already succeeded.
+export async function removePdfObjects(songIds, ownerId) {
+  if (!supabase || !ownerId || !songIds?.length) return;
+  try {
+    await supabase.storage.from(BUCKET).remove(songIds.map(id => pdfPath(ownerId, id)));
+  } catch (err) {
+    console.warn('[pdfSync] removePdfObjects failed', err);
+  }
+}
+
 // Download a pdf song's bytes from Storage into the local 'pdfs' store. Throws on
 // failure so pull-if-missing can keep the fail-soft placeholder + offer a retry.
 export async function downloadPdfBlob(songId, ownerId) {
