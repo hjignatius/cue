@@ -17,7 +17,6 @@ export default function ShareSetDialog({ set, onClose }) {
   const [token, setToken]   = useState(null);
   const [errMsg, setErrMsg] = useState('');
   const [copied, setCopied] = useState(false);
-  const [copiedInvite, setCopiedInvite] = useState(false);
   const [busy, setBusy]     = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const stopTimer = useRef(null);
@@ -42,30 +41,11 @@ export default function ShareSetDialog({ set, onClose }) {
 
   const url = token ? `${window.location.origin}/shared/${token}` : '';
 
-  // Two-purpose invite: a tap-to-follow link for people who just want to view the
-  // set, plus the bare code for people who want to catalog it (Cue's "Paste a
-  // share link" box accepts the code as-is, which is easier to paste than the URL).
-  const inviteText = token
-    ? `${set.name} — shared from Cue\n\n`
-      + `Follow along (opens in your browser):\n${url}\n\n`
-      + `To save it in your local Cue: open the Cue app → Sets → "Paste a share link" and paste this code:\n\n`
-      + `${token}\n\n`
-      + `Then click Open`
-    : '';
-
   function copyUrl() {
     if (!url) return;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
-  function copyInvite() {
-    if (!inviteText) return;
-    navigator.clipboard.writeText(inviteText).then(() => {
-      setCopiedInvite(true);
-      setTimeout(() => setCopiedInvite(false), 2000);
     });
   }
 
@@ -143,23 +123,9 @@ export default function ShareSetDialog({ set, onClose }) {
                       : (dark ? 'bg-gray-700 text-gray-100 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300')
                   }`}
                 >
-                  {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy link</>}
+                  {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
                 </button>
               </div>
-
-              {/* Two-purpose invite for email: one message that serves both people
-                  who just want to open-and-follow and people who want to catalog it. */}
-              <button
-                onClick={copyInvite}
-                className={`w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-colors ${
-                  copiedInvite
-                    ? (dark ? 'bg-green-900/40 text-green-400' : 'bg-green-50 text-green-600')
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                }`}
-              >
-                {copiedInvite ? <><Check size={15} /> Invite copied</> : <><Copy size={15} /> Copy invite for email</>}
-              </button>
-              <p className={sub}>Pastes a ready-made message: a tap-to-follow link, plus a code others can paste into Cue → Sets to save the set.</p>
 
               {/* Stop sharing — reversible. Two taps so it isn't hit by accident. */}
               <div className="flex items-center justify-end pt-1">

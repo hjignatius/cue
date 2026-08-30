@@ -6,7 +6,7 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadPdfBlob, savePdfBlob } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 
@@ -42,6 +42,16 @@ function loadSavedShares() {
   try { return JSON.parse(localStorage.getItem(SHARED_WITH_ME_KEY) || '[]'); } catch { return []; }
 }
 function persistSavedShares(arr) { localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(arr)); }
+
+// Tokens whose landing gate the viewer has already passed on this device, so a
+// repeat visit (or a bookmarked set) goes straight to the songs instead of the
+// follow-vs-save chooser.
+const CONTINUED_KEY = 'cue:shared_continued';
+function loadContinued() { try { return new Set(JSON.parse(localStorage.getItem(CONTINUED_KEY) || '[]')); } catch { return new Set(); } }
+function markContinued(tok) {
+  const s = loadContinued(); s.add(tok);
+  try { localStorage.setItem(CONTINUED_KEY, JSON.stringify([...s])); } catch { /* ignore */ }
+}
 
 // ---- Title-based duplicate helpers -------------------------------------------
 
@@ -94,6 +104,17 @@ export default function SharedSetView() {
   // Bookmark state
   const [savedShares, setSavedShares] = useState(loadSavedShares);
   const isBookmarked = savedShares.some(s => s.token === token);
+
+  // Landing gate: shown on a fresh open so the viewer can choose "follow along
+  // here" vs "copy the code to save in my own Cue". Skipped once passed on this
+  // device, or if the set is already bookmarked.
+  const [gatePassed, setGatePassed] = useState(() => loadContinued().has(token));
+  const [copiedCode, setCopiedCode] = useState(false);
+  function copyCode() {
+    if (!token) return;
+    navigator.clipboard.writeText(token).then(() => { setCopiedCode(true); setTimeout(() => setCopiedCode(false), 2000); });
+  }
+  function continueToSet() { markContinued(token); setGatePassed(true); }
 
   // Copy-to-library state
   const [copying, setCopying]           = useState(false);
@@ -471,6 +492,54 @@ export default function SharedSetView() {
         showEdit={false}
         disableAnnotations
       />
+    );
+  }
+
+  // Landing gate — a fresh open offers "follow along here" vs "copy the code to
+  // save in your own Cue" before showing the songs. Skipped once passed on this
+  // device, or when the set is already bookmarked.
+  if (!gatePassed && !isBookmarked) {
+    return (
+      <div className={`h-dvh flex flex-col items-center justify-center p-6 ${bg}`}>
+        <div className={`w-full max-w-md rounded-2xl border ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'} shadow-xl p-6 flex flex-col gap-5`}>
+          <div className="flex items-center gap-2">
+            <CueMark size={24} />
+            <span className={`text-xs uppercase tracking-wide ${muted}`}>Shared with you from Cue</span>
+          </div>
+          <div>
+            <h1 className={`text-xl font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{set.name}</h1>
+            <p className={`text-sm ${muted}`}>{songs.length} {songs.length === 1 ? 'song' : 'songs'}</p>
+          </div>
+
+          {/* Follow along — the common case. */}
+          <div className="flex flex-col gap-1.5">
+            <button onClick={continueToSet} className="w-full py-2.5 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
+              Continue to set
+            </button>
+            <p className={`text-xs text-center ${muted}`}>Opens the set here in your browser to follow along.</p>
+          </div>
+
+          {/* Save the code into the viewer's own Cue app. */}
+          <div className={`flex flex-col gap-2 border-t ${bdr} pt-4`}>
+            <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+              To save it in the Cue app on your device: open Cue → Sets → "Paste a share link", paste this code, then tap Open.
+            </p>
+            <div className={`flex items-center gap-2 rounded-xl border ${bdr} p-2 ${dark ? 'bg-gray-800/50' : 'bg-gray-50'}`}>
+              <span className={`flex-1 text-xs font-mono truncate px-1 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{token}</span>
+              <button
+                onClick={copyCode}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  copiedCode
+                    ? (dark ? 'bg-green-900/40 text-green-400' : 'bg-green-50 text-green-600')
+                    : (dark ? 'bg-gray-700 text-gray-100 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300')
+                }`}
+              >
+                {copiedCode ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy code</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
