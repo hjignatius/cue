@@ -9,10 +9,10 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
-import { saveSong, saveDraft, seedPedalActive } from '../utils/storage.js';
+import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
-import { KEY_NAMES, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
+import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { isChordLine } from '../utils/visualImport.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -430,19 +430,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // song seeds from the prior global preference; type rides through unchanged so
   // editing a pdf song keeps it a pdf.
   const songType = song?.type || 'text';
-  const [pedalActive, setPedalActive] = useState(song?.pedalActive ?? seedPedalActive());
+  // Per-song Full Page mode (top-level song field, not metadata). Off by default:
+  // continuous scroll. On: discrete full pages. Applies to text and pdf alike.
+  const [fullPage, setFullPage] = useState(song?.fullPage === true);
 
   const [displayMode, setDisplayMode] = useState(() => {
     if (song?.chordStyle) return song.chordStyle;
     return detectChordStyle(song?.text || '') || 'over';
   });
 
-  // previewFormat: how the preview panel renders (may differ from editor text format)
-  // linkedRef: while true, changing either toggle changes both (first-open mirror behavior)
+  // previewFormat: how the preview/Present renders. Kept equal to displayMode now
+  // (one Format control drives both); seeded the same way for older songs.
   const [previewFormat, setPreviewFormat] = useState(() =>
     song?.previewMode || (song?.chordStyle ?? (detectChordStyle(song?.text || '') || 'over'))
   );
-  const linkedRef = useRef(!song?.previewMode);
 
   const [chordPrefs, setChordPrefs]         = useState(song?.chordPrefs ?? {});
   const [showPreview, setShowPreview]       = useState(true);
@@ -512,6 +513,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   const hydrated      = useRef(false);
   const textareaRef   = useRef(null);
+  const pastedRef     = useRef(false); // set by onPaste so the next change auto-senses format
   const previewRef    = useRef(null); // wraps SongPreview; scoped [data-src] lookup for Preview styling
   const findInputRef  = useRef(null);
   // Revert baseline = the last-saved editor state (the entry state until the first
@@ -525,7 +527,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     previewFormat,
     chordPrefs: { ...chordPrefs },
     displayKey,
-    pedalActive,
+    fullPage,
   });
 
   // Re-check annotation existence whenever the song changes OR when returning from
@@ -552,11 +554,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }, [songId]);
 
   async function handleSave() {
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pedalActive });
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage });
     setSongId(id);
     setIsDirty(false);
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
-    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pedalActive });
+    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage });
   }
 
   // Publish { isDirty, save } so App's "Update Cue" button can detect unsaved work
@@ -578,7 +580,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setPreviewFormat(b.previewFormat);
     setChordPrefs(b.chordPrefs);
     setDisplayKey(b.displayKey);
-    if (b.pedalActive !== undefined) setPedalActive(b.pedalActive);
+    if (b.fullPage !== undefined) setFullPage(b.fullPage);
     setIsDirty(false);
     // Rewrite the draft to the baseline (in-memory + draft only, no song-record or
     // cloud write) so a reload cannot resurrect the discarded edits.
@@ -594,26 +596,39 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     await deleteAnnotation(songId);
   }
 
-  function toggleEditorFormat() {
+  // ONE control sets both the editor text format and the preview/Present format
+  // (they always match now). Converts the source text to the chosen format.
+  function toggleFormat() {
     const newFmt = displayMode === 'over' ? 'brackets' : 'over';
     const cur = detectChordStyle(text);
     if (newFmt === 'over' && cur === 'brackets') setText(convertToOver(text));
     else if (newFmt === 'brackets' && cur === 'over') setText(convertToBrackets(text));
     setDisplayMode(newFmt);
-    if (linkedRef.current) { setPreviewFormat(newFmt); linkedRef.current = false; }
+    setPreviewFormat(newFmt);
     setIsDirty(true);
   }
 
-  function togglePreviewFormat() {
-    const newFmt = previewFormat === 'over' ? 'brackets' : 'over';
-    if (linkedRef.current) {
-      const cur = detectChordStyle(text);
-      if (newFmt === 'over' && cur === 'brackets') setText(convertToOver(text));
-      else if (newFmt === 'brackets' && cur === 'over') setText(convertToBrackets(text));
-      setDisplayMode(newFmt);
-      linkedRef.current = false;
-    }
-    setPreviewFormat(newFmt);
+  // Auto-sense the chord format from pasted / first-entered content and set both
+  // formats to match. Runs on paste and when content first appears; a later manual
+  // toggle wins. No-op until the text has a detectable chord style.
+  function senseFormat(nextText) {
+    const detected = detectChordStyle(nextText);
+    if (!detected) return;
+    setDisplayMode(detected);
+    setPreviewFormat(detected);
+  }
+
+  // Bake the current Transpose into the source: rewrite the chords to the
+  // Transpose (view) key, make that the song's real key, and clear the lens.
+  // Destructive to the source text — recoverable via Revert until Save.
+  function transposeSource() {
+    const semis = semitonesBetween(metadata.key, displayKey);
+    if (!displayKey || semis === 0) return;
+    const bracketed = convertToBrackets(text);
+    const transposed = transposeText(bracketed, semis, chordUseFlats);
+    setText(displayMode === 'over' ? convertToOver(transposed) : transposed);
+    setMetadata(m => ({ ...m, key: displayKey }));
+    setDisplayKey('');
     setIsDirty(true);
   }
 
@@ -807,7 +822,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     <textarea
       ref={textareaRef}
       value={text}
-      onChange={e => { setText(e.target.value); setIsDirty(true); }}
+      onChange={e => {
+        const next = e.target.value;
+        const wasEmpty = text.trim() === '';
+        setText(next); setIsDirty(true);
+        // Sense the chord format on a paste, or when content first appears.
+        if (pastedRef.current || (wasEmpty && next.trim() !== '')) { senseFormat(next); pastedRef.current = false; }
+      }}
+      onPaste={() => { pastedRef.current = true; }}
       onKeyDown={e => { if (e.key === 'Escape' && showFR) closeFR(); }}
       spellCheck={false}
       wrap="off"
@@ -816,9 +838,19 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     />
   );
 
-  const chordSemitones = semitonesBetween(metadata.key, effectiveDisplayKey);
-  // Accidental spelling for transposed diagram labels — auto follows the View Key.
+  // Transpose is locked OFF for a PDF: its chords are entered to match the fixed
+  // printed sheet, so the diagrams render at that key (View Key must not move them).
+  const chordSemitones = songType === 'pdf' ? 0 : semitonesBetween(metadata.key, effectiveDisplayKey);
+  // Accidental spelling for transposed diagram labels — auto follows the Transpose key.
   const chordUseFlats = useFlatsForKey(accidentals, effectiveDisplayKey);
+
+  // Format control label: an empty editor invites a paste ("Sense Chords"); once
+  // there is content it names the current (auto-sensed) format.
+  const isEmptyText = text.trim() === '';
+  const formatName  = displayMode === 'over' ? 'Over Lyrics' : 'Brackets';
+  const formatShort = displayMode === 'over' ? 'OL' : 'B';
+  // The Transpose lens is active (non-zero) → "Transpose source" can bake it in.
+  const transposeActive = !!displayKey && semitonesBetween(metadata.key, displayKey) !== 0;
 
   // Lyric-styling toolbar, shown in the Text pane header. onMouseDown-preventDefault
   // keeps the textarea's selection alive when a button is clicked.
@@ -1046,7 +1078,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION}
               label="Return to Performance" title="Return to Performance"
               fill={headerFill}
-              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pedalActive })}
+              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage })}
             >
               <Undo2 size={22} strokeWidth={2} />
             </RoundButton>
@@ -1055,7 +1087,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION} pill
               label="Present" title="Present"
               fill={headerFill}
-              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, pedalActive }], 0)}
+              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage }], 0)}
             >
               <Tv size={22} strokeWidth={2} /><PillLabel>Present</PillLabel>
             </RoundButton>
@@ -1077,8 +1109,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       <MetadataForm
         metadata={metadata}
         onChange={m => { setMetadata(m); setIsDirty(true); }}
-        pedalActive={pedalActive}
-        onPedalActiveChange={v => { setPedalActive(v); setIsDirty(true); }}
+        fullPage={fullPage}
+        onFullPageChange={v => { setFullPage(v); setIsDirty(true); }}
       />
 
       {/* Toolbar */}
@@ -1090,14 +1122,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Compact chrome keeps only Save + the overflow trigger in this row;
             everything else moves into the menu below. */}
         {!compactChrome && (<>
-        {/* View Key — a saved, display-only lens. Sets the song's displayKey so
+        {/* Transpose — a saved, display-only lens. Sets the song's displayKey so
             Preview/Present render transposed; never rewrites the source text or
-            the real key (metadata.key). Persists on Save with the song. */}
+            the real key (metadata.key) until "Transpose source". Persists on Save. */}
         <div className="flex items-center gap-2">
-          <span className={`text-xs ${mutedText}`}>View Key:</span>
+          <span className={`text-xs ${mutedText}`}>Transpose:</span>
           <select
             value={displayKey}
             onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
+            title="Transpose the displayed chords to another key (a display lens; the source text is unchanged until you use Transpose source)"
             // Height matches the neighbouring buttons (h-9); other styling is the
             // select's own (not the button size).
             className={`h-9 px-2 text-sm rounded border focus:border-indigo-500 outline-none cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
@@ -1107,6 +1140,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
+          {/* Transpose source — bake the current transpose into the text and make
+              it the song's key. Enabled only when a transpose is active. */}
+          <button
+            onClick={transposeSource}
+            disabled={!transposeActive}
+            title="Rewrite the song's chords to the Transpose key and make it the song's key (recoverable via Revert until you Save)"
+            className={`flex items-center gap-1 ${toolCtl} ${
+              transposeActive
+                ? dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
+                : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            Transpose source
+          </button>
         </div>
 
         {/* Find */}
@@ -1144,14 +1191,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             toggles when there is room (landscape). Portrait keeps the toggles in
             the overflow menu. */}
         {compactChrome && (<>
-          {/* View Key — labelled "VK", showing the current key. */}
+          {/* Transpose — labelled "Tr", showing the current view key. */}
           <label className={`flex items-center gap-1 shrink-0 text-xs ${mutedText}`}>
-            <span>VK</span>
+            <span>Tr</span>
             <select
               value={displayKey}
               onChange={e => { setDisplayKey(e.target.value); setIsDirty(true); }}
-              title="View Key"
-              aria-label="View key"
+              title="Transpose"
+              aria-label="Transpose"
               className={`h-9 px-1.5 text-xs rounded-lg border focus:border-indigo-500 outline-none cursor-pointer ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
             >
               <option value="">{metadata.key || '—'}</option>
@@ -1194,26 +1241,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           >
             <RotateCcw size={11} /> Revert
           </button>
-          {/* OL → B format toggles inline (landscape only): Editor format on the
-              left, Preview format on the right, matching the desktop arrow. */}
+          {/* One Format toggle inline (landscape only) — sets editor + preview. */}
           {formatsInline && (
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={toggleEditorFormat}
-                title="Editor text format — click to convert"
-                className={`${toolCtl} ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
-              >
-                {displayMode === 'over' ? 'OL' : 'B'}
-              </button>
-              <span className={`text-xs ${mutedText}`}>→</span>
-              <button
-                onClick={togglePreviewFormat}
-                title="Preview display format — click to change"
-                className={`${toolCtl} ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
-              >
-                {previewFormat === 'over' ? 'OL' : 'B'}
-              </button>
-            </div>
+            <button
+              onClick={toggleFormat}
+              title="Chord format for the text and preview — click to convert. Pasting a song auto-senses this."
+              className={`${toolCtl} shrink-0 ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
+            >
+              {isEmptyText ? 'Sense' : formatShort}
+            </button>
           )}
         </>)}
 
@@ -1264,24 +1300,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </div>
         )}
 
-        {/* Format toggles: [Editor Format] → [Preview Format] */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={toggleEditorFormat}
-            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
-            title="Editor text format — click to convert"
-          >
-            {displayMode === 'over' ? 'Over Lyrics' : 'Brackets'}
-          </button>
-          <span className={`text-xs px-0.5 ${mutedText}`}>→</span>
-          <button
-            onClick={togglePreviewFormat}
-            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
-            title="Preview display format — click to change"
-          >
-            {previewFormat === 'over' ? 'Over Lyrics' : 'Brackets'}
-          </button>
-        </div>
+        {/* Format — one control for both editor text and preview/Present. Empty
+            editor shows "Sense Chords"; a paste auto-senses and names the format. */}
+        <button
+          onClick={toggleFormat}
+          className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
+          title="Chord format for the text and preview — click to convert between Over Lyrics and Brackets. Pasting a song auto-senses this."
+        >
+          {isEmptyText ? 'Sense Chords' : formatName}
+        </button>
 
         </>)}
 
@@ -1339,22 +1366,22 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </RoundButton>
 
             <OverflowMenu open={menuOpen} onClose={closeMenu} dark={dark}>
-              {/* Format toggles live here only in portrait; landscape shows them
+              {/* One Format item lives here only in portrait; landscape shows it
                   inline on the toolbar row. */}
               {!formatsInline && (
-                <>
-                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
-                    onClick={() => runFromMenu(toggleEditorFormat)}>
-                    <span>Editor format</span>
-                    <span className={mutedText}>{displayMode === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
-                  </button>
+                <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
+                  onClick={() => runFromMenu(toggleFormat)}>
+                  <span>Format</span>
+                  <span className={mutedText}>{isEmptyText ? 'Sense Chords' : formatName}</span>
+                </button>
+              )}
 
-                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
-                    onClick={() => runFromMenu(togglePreviewFormat)}>
-                    <span>Preview format</span>
-                    <span className={mutedText}>{previewFormat === 'over' ? 'Over Lyrics' : 'Brackets'}</span>
-                  </button>
-                </>
+              {/* Transpose source — bake the current transpose into the text. */}
+              {transposeActive && (
+                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
+                  onClick={() => runFromMenu(transposeSource)}>
+                  <span>Transpose source</span>
+                </button>
               )}
 
               {hasAnnotation && (

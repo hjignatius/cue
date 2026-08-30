@@ -46,6 +46,22 @@ export function applyUpdate() {
 export function registerSw() {
   if (!('serviceWorker' in navigator)) return;
 
+  // Never run the service worker in dev. Its cache-first asset strategy serves
+  // Vite's modules from a stale cache, which breaks HMR (the websocket client is
+  // cached stale) and hides new code behind an old build. Actively unregister any
+  // SW and delete its caches so a machine left in the broken state self-heals on
+  // the next dev load (one hard-reload may still be needed to drop the current
+  // controller). Production is unaffected.
+  if (import.meta.env.DEV) {
+    navigator.serviceWorker.getRegistrations()
+      .then((regs) => regs.forEach((r) => r.unregister()))
+      .catch(() => { /* ignore */ });
+    if (typeof caches !== 'undefined') {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => { /* ignore */ });
+    }
+    return;
+  }
+
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!userInitiatedReload || reloaded) return;
     reloaded = true;

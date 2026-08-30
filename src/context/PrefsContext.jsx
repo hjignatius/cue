@@ -26,9 +26,11 @@ const DEFAULT_SCROLL_START_DELAY_SEC = 0;
 // reads this functionally until PR2 — PR1 only establishes the default + storage.
 const DEFAULT_INSTRUMENT = 'ukulele_gcea';
 
-// Pedal paging mode: when ON, Present's next/prev page within a song by a
-// screenful (advancing song-to-song only at the song's bottom/top) and auto-
-// scroll is disabled. OFF (default) keeps today's behavior exactly.
+// Global foot-pedal behavior. false (default) = 'Songs': Next/Prev jump
+// song-to-song and you read each song by scrolling. true = 'Screen': the pedal
+// pages the current song a screenful at a time (advancing song-to-song only at
+// the song's bottom/top) with auto-scroll disabled. A per-song Full Page song
+// always turns whole pages regardless of this global setting.
 const DEFAULT_PEDAL_PAGING = false;
 // Page turn glide: within pedal paging mode, how long (ms) a within-song page
 // turn takes to glide to the next screen. 0 = instant jump; larger = slower,

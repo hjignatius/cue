@@ -434,9 +434,10 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
               <p className={`text-xs ${muted}`}>Seconds to wait after pressing the scroll button before scrolling starts.</p>
             </div>
 
-            {/* Pedal paging: switch next/prev from song-to-song skipping to
-                paging through the current song a screenful at a time (for a
-                page-turner pedal). Disables auto-scroll while on. */}
+            {/* Pedal paging (GLOBAL, not per song): switch Next/Previous from
+                song-to-song skipping to paging through the current song a
+                screenful at a time (for a page-turner pedal). Disables auto-scroll
+                while on. A per-song Full Page song always turns whole pages. */}
             <div className="flex flex-col gap-2">
               <span className={`text-sm ${label}`}>Pedal paging mode</span>
               <button
@@ -451,8 +452,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
               </button>
               <p className={`text-xs ${muted}`}>Next/Previous page through the current song by one screen instead of skipping songs; at a song's end they move to the next/previous song. Auto-scroll is turned off in this mode.</p>
 
-              {/* Sub-setting: only shown while pedal paging is on (no effect
-                  otherwise). Nested under it with a left rule. */}
+              {/* Sub-settings: only shown while pedal paging is on. */}
               {pedalPaging && (
                 <div className={`flex flex-col gap-2 mt-1 pl-3 border-l-2 ${border}`}>
                   <span className={`text-sm ${label}`}>Page turn size</span>

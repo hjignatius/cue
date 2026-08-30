@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import { saveFilePicker } from './filePicker.js';
-import { loadSongs, loadSets, SCHEMA_VERSION } from './storage.js';
+import { loadSongs, loadSets, collectPdfBackups, SCHEMA_VERSION } from './storage.js';
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
 import { stripStyling } from './chordPro.js';
 import { detectChords } from './chordDetect.js';
@@ -225,12 +225,15 @@ export async function importJson() {
   return data;
 }
 
-// Full library backup — all songs + all sets + custom chords in one file.
+// Full library backup — all songs + all sets + custom chords in one file. PDF
+// songs' bytes ride along as base64 under `pdfs` (version 3) so a restore brings
+// the lead sheets back; older v2 backups simply have no `pdfs`.
 export async function exportBackup() {
   const [songs, sets] = await Promise.all([loadSongs(), loadSets()]);
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
-  const payload = JSON.stringify({ type: 'cue-backup', version: 2, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, customChords }, null, 2);
+  const pdfs = await collectPdfBackups(songs); // { songId: base64 }
+  const payload = JSON.stringify({ type: 'cue-backup', version: 3, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, customChords, pdfs }, null, 2);
   return download(`cue-backup-${date}.json`, payload, 'application/json');
 }
 

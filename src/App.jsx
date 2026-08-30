@@ -3,7 +3,7 @@ import LibraryView from './views/LibraryView.jsx';
 import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
 import UpdateButton from './components/UpdateButton.jsx';
-import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob } from './utils/storage.js';
+import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
 import { parseCho, mergeCustomChords, replaceCustomChords } from './utils/fileIO.js';
 import { usePrefs } from './context/PrefsContext.jsx';
 import { useSwUpdate, applyUpdate, dismissUpdate } from './swUpdate.js';
@@ -202,9 +202,13 @@ export default function App() {
               // Build an idMap for the rare case of old files where a song has no id.
               const idMap = {};
               for (const s of data.songs) {
-                const savedId = await saveSong({ id: s.id || null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                // Spread the whole song so type / pdf / fullPage / pedalActive
+                // survive the round-trip (a subset copy silently degraded PDFs).
+                const savedId = await saveSong({ ...s, id: s.id || null });
                 if (s.id) idMap[s.id] = savedId;
               }
+              // Restore PDF bytes (base64 in the backup) under the saved ids.
+              if (data.pdfs) for (const [oldId, b64] of Object.entries(data.pdfs)) await restorePdfBackup(idMap[oldId] ?? oldId, b64);
               for (const set of data.sets) {
                 const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
                 await saveSet({ id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
@@ -221,21 +225,21 @@ export default function App() {
               for (const s of data.songs) {
                 if (!s.id) {
                   // Old file without UUID — always add as new
-                  const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                  const newId = await saveSong({ ...s, id: null });
                   idMap[s.id] = newId;
                   songsAdded++;
                   continue;
                 }
                 const existing = songById.get(s.id);
                 if (!existing) {
-                  await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                  await saveSong({ ...s });
                   idMap[s.id] = s.id;
                   songsAdded++;
                 } else {
                   const existingMs = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.savedAt || 0);
                   const incomingMs = s.updatedAt       ? new Date(s.updatedAt).getTime()        : (s.savedAt || 0);
                   if (incomingMs > existingMs) {
-                    await saveSong({ id: s.id, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey, createdAt: s.createdAt, updatedAt: s.updatedAt });
+                    await saveSong({ ...s });
                     songsUpdated++;
                   } else {
                     songsSkipped++;
@@ -243,6 +247,8 @@ export default function App() {
                   idMap[s.id] = s.id;
                 }
               }
+              // Restore PDF bytes for the songs that came in (base64 in the backup).
+              if (data.pdfs) for (const [oldId, b64] of Object.entries(data.pdfs)) await restorePdfBackup(idMap[oldId] ?? oldId, b64);
 
               let setsAdded = 0, setsUpdated = 0, setsSkipped = 0;
 
@@ -382,15 +388,15 @@ export default function App() {
     }
   }
 
-  // Persist a live per-song pedal-mode change from Present's Tools, and reflect
-  // it in the presenting set so the current view updates immediately.
-  async function handleSetPedalActive(songId, pedalActive) {
+  // Persist a live per-song Full Page change from Present's Tools, and reflect it
+  // in the presenting set so the current view switches scroll/page immediately.
+  async function handleSetFullPage(songId, fullPage) {
     setPresenting(p => p && {
       ...p,
-      songs: p.songs.map(s => (s.id === songId ? { ...s, pedalActive } : s)),
+      songs: p.songs.map(s => (s.id === songId ? { ...s, fullPage } : s)),
     });
     const stored = (await loadSongs()).find(s => s.id === songId);
-    if (stored) await saveSong({ ...stored, pedalActive });
+    if (stored) await saveSong({ ...stored, fullPage });
   }
 
   function handleReturnToPresentation(updatedSong) {
@@ -472,7 +478,7 @@ export default function App() {
           }}
           onEdit={handleEditFromPresentation}
           onSaveDuration={handleSavePresentDuration}
-          onSetPedalActive={handleSetPedalActive}
+          onSetFullPage={handleSetFullPage}
           onNavigate={song => sessionStorage.setItem('cue:setlist_selected_id', song.id)}
         />
       )}

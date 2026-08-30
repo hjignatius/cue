@@ -92,13 +92,16 @@ export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNex
         const pdfPage = await doc.getPage(pageNum);
         if (cancelled) return;
         const dpr = window.devicePixelRatio || 1;
-        const cssWidth = wrap.clientWidth;
+        const cssWidth  = wrap.clientWidth;
+        const cssHeight = wrap.clientHeight;
         const base = pdfPage.getViewport({ scale: 1 });
-        const fit = cssWidth / base.width;
+        // Full Page mode: fit the WHOLE page inside the area (min of width- and
+        // height-fit) so a tall page is never clipped — the entire page shows.
+        const fit = Math.min(cssWidth / base.width, cssHeight / base.height);
         const viewport = pdfPage.getViewport({ scale: fit * dpr });
         canvas.width  = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
-        canvas.style.width  = cssWidth + 'px';
+        canvas.style.width  = Math.floor(viewport.width / dpr) + 'px';
         canvas.style.height = Math.floor(viewport.height / dpr) + 'px';
         try { taskRef.current?.cancel(); } catch { /* ignore */ }
         const task = pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport });
@@ -145,8 +148,9 @@ export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNex
 
   return (
     <div ref={wrapRef} className="absolute inset-0 overflow-hidden flex items-start justify-center">
-      {/* The page canvas, fit to width and pinned to the top. */}
-      <canvas ref={canvasRef} className="block" />
+      {/* The page canvas, fit whole to the screen. data-page lets a page-anchored
+          ink overlay locate it and map strokes to this exact page. */}
+      <canvas ref={canvasRef} data-page={Math.max(1, Math.min(page || 1, 9999))} className="block" />
       {status === 'loading' && (
         <div className={`absolute inset-0 flex items-center justify-center text-sm ${muted}`}>Loading…</div>
       )}

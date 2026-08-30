@@ -1460,6 +1460,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       displayKey: song.displayKey,
       type: song.type,
       pedalActive: song.pedalActive,
+      fullPage: song.fullPage,
       pdf: song.pdf,
     });
     // A pdf song's bytes live in a separate local store — copy them to the new id

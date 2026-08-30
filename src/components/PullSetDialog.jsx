@@ -97,6 +97,7 @@ export async function applyPulledSet({ set, songs }, localSongIds, userId) {
       // Carry the pdf song fields, or a pulled pdf song would degrade to text.
       type: c.type,
       pedalActive: c.pedalActive,
+      fullPage: c.fullPage,
       pdf: c.pdf,
       createdAt: toIsoTs(row.created_at),
       updatedAt: toIsoTs(row.updated_at),

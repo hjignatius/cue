@@ -155,10 +155,10 @@ export async function loadSong(id) {
 const KNOWN_SONG_FIELDS = new Set([
   'id', 'metadata', 'text', 'createdAt', 'updatedAt',
   'chordStyle', 'previewMode', 'diagramScale', 'chordPrefs', 'displayKey',
-  'copiedFrom', 'type', 'pedalActive', 'pdf',
+  'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -190,6 +190,8 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   // pdf reference (storage-ref placeholder) — set it, keep it, or leave it off.
   if (pdf !== undefined)          entry.pdf = pdf;
   else if (existing?.pdf != null) entry.pdf = existing.pdf;
+  // fullPage (scroll vs page mode) — default false (scroll). Preserve on edit.
+  entry.fullPage = (fullPage ?? existing?.fullPage) === true;
 
   await d.put('songs', entry);
   return songId;
@@ -219,6 +221,40 @@ export async function hasPdfBlob(songId) {
 }
 export async function deletePdfBlob(songId) {
   return (await getDB()).delete('pdfs', songId);
+}
+
+// ---- PDF blobs in a JSON backup ---------------------------------------------
+// The library backup is a single JSON file, so a PDF's binary bytes ride along
+// as base64. FileReader (not btoa+spread) so large PDFs don't blow the stack.
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload  = () => resolve(String(r.result).split(',')[1] || ''); // drop the data: prefix
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+function base64ToBlob(base64, mime = 'application/pdf') {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+// Collect a { songId: base64 } map of every stored PDF among `songs` — for
+// embedding in a backup. Songs whose bytes aren't on this device are skipped.
+export async function collectPdfBackups(songs) {
+  const out = {};
+  for (const s of songs) {
+    if (s?.type !== 'pdf') continue;
+    const blob = await loadPdfBlob(s.id);
+    if (blob) out[s.id] = await blobToBase64(blob);
+  }
+  return out;
+}
+// Restore one base64 PDF from a backup into the local store under songId.
+export async function restorePdfBackup(songId, base64) {
+  if (!base64) return;
+  await savePdfBlob(songId, base64ToBlob(base64));
 }
 
 // Record whether a pdf song's bytes are uploaded to cloud Storage (Stage 1b's
