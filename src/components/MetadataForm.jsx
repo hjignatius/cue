@@ -131,6 +131,7 @@ function DurationStepper({ value, onChange }) {
         onChange={e => onChange(e.target.value)}
         placeholder="3:30"
         size={5}
+        autoComplete="off" data-1p-ignore data-lpignore="true"
         className={`bg-transparent ${fieldCls} ${fieldFocus} px-1 py-2.5 text-sm ${fieldText} ${fieldMuted} text-center`}
       />
       <button type="button" onPointerDown={e => startHold(e, 1)} onPointerUp={stopHold} onPointerLeave={stopHold} onPointerCancel={stopHold} className={btnCls} title="Increase duration">+</button>
@@ -152,6 +153,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
           value={metadata.artist || ''}
           onChange={e => set('artist', e.target.value)}
           placeholder="Artist name"
+          autoComplete="off" data-1p-ignore data-lpignore="true"
           className={inputCls}
         />
       </div>
@@ -180,6 +182,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
             onChange={e => set('tempo', e.target.value)}
             placeholder="120"
             size={4}
+            autoComplete="off" data-1p-ignore data-lpignore="true"
             className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm ${fieldText} ${fieldMuted}`}
           />
           <TapTempo
@@ -224,6 +227,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
           value={metadata.youtubeUrl || ''}
           onChange={e => set('youtubeUrl', e.target.value)}
           placeholder="https://youtube.com/watch?v=…"
+          autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} data-1p-ignore data-lpignore="true"
           className={inputCls}
         />
       </div>

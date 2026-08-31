@@ -3,6 +3,23 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.3.0 — 2026-08-31
+
+- **AI assistant (optional, bring-your-own-key).** A new **AI** menu in the editor
+  and a matching button on the setlist, powered by Claude. It's opt-in: add your
+  own Anthropic API key in **Settings → AI** (stored only on this device, never in
+  exports/backups), pick a **Playing level** (Beginner–Pro), and the greyed AI
+  button lights up. Editor actions: **Find music online** (instrument-aware web
+  search for chord sources), **Clean up formatting** (tidies a pasted chart
+  without changing chords/lyrics), **Fill in song details** (title/artist/key/
+  tempo/duration + a real YouTube link), **Add missing chord shapes** (proposes
+  voicings for undefined chords, shown as diagrams, added to your custom library
+  on approval), **Transposing advice** (key/capo suggestions with one-tap Apply),
+  and **Ask about music…** (a streaming Q&A pop-up). Setlist actions: **Suggest
+  set order** (with Apply) and **Estimate set time** (a reasoned breakdown —
+  music, gaps, break, top/tail — that fills unknown song lengths). Runs on your
+  own API account; nothing runs or is charged without a key.
+
 ## v1.2.11 — 2026-08-31
 
 - **Email a song or set.** New **Share… (email .json)** option in the Library and

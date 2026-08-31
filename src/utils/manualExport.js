@@ -192,10 +192,15 @@ function manualHTML() {
     <li class="toc-h2">Navigating a Set</li>
     <li class="toc-h2">Page-Turner Pedals</li>
     <li class="toc-h2">Editing During Performance</li>
-    <li class="toc-h1">8. Shared Sets &amp; Cloud Sync</li>
-    <li class="toc-h1">9. File Formats</li>
-    <li class="toc-h1">10. Keyboard Shortcuts</li>
-    <li class="toc-h1">11. Tips</li>
+    <li class="toc-h1">8. AI Assistant</li>
+    <li class="toc-h2">Setting Up (Your API Key)</li>
+    <li class="toc-h2">In the Editor</li>
+    <li class="toc-h2">In the Setlist</li>
+    <li class="toc-h2">Cost &amp; Privacy</li>
+    <li class="toc-h1">9. Shared Sets &amp; Cloud Sync</li>
+    <li class="toc-h1">10. File Formats</li>
+    <li class="toc-h1">11. Keyboard Shortcuts</li>
+    <li class="toc-h1">12. Tips</li>
   </ul>
 </div>
 
@@ -574,7 +579,43 @@ Bb,8-10-11-10,1243</pre>
 <div class="tip"><strong>Tip:</strong> Use this to fix a wrong chord or lyric mid-rehearsal without interrupting the flow. Edits are reflected immediately when you return — save the song separately when you are ready to make the change permanent.</div>
 
 <!-- 8 -->
-<h1>8. Shared Sets &amp; Cloud Sync</h1>
+<h1>8. AI Assistant</h1>
+<p>Cue has an optional <strong>AI</strong> assistant that helps with the fiddly parts of preparing songs and sets. It's powered by Claude and is entirely opt-in: it does nothing until you add your own Anthropic API key, and it only ever acts on <em>your</em> songs — it never fetches or reproduces copyrighted charts.</p>
+
+<h2>Setting Up (Your API Key)</h2>
+<p>The AI features run on your own <strong>Anthropic API key</strong>, which you provide in <strong>Settings → AI</strong>:</p>
+<ol>
+  <li>Create a key at <strong>console.anthropic.com → API Keys</strong> (a plain API key — you don't need Workload Identity Federation). This is a pay-as-you-go account, separate from any Claude subscription.</li>
+  <li>Paste it into <strong>Settings → AI → Anthropic API key</strong> and tap <strong>Save key</strong>.</li>
+</ol>
+<p>The key is stored <strong>only on this device</strong> — it is never sent to Cue's servers, never included in your exports or backups, and never shared with anyone you send a set to. Treat it like a password; if it ever leaks, delete it in the Console and make a new one. A <strong>Remove key</strong> button clears it from this device.</p>
+<p>The same section has a <strong>Playing level</strong> — <strong>Beginner / Intermediate / Advanced / Pro</strong> — which tailors how AI answers are pitched (beginners get more explanation and easier options; pros get terse expert replies).</p>
+<div class="tip"><strong>Note:</strong> Until a key is saved, the <strong>AI</strong> button is greyed out. Tapping it then just points you to this setup. No AI runs, and nothing is charged, without a key.</div>
+
+<h2>In the Editor</h2>
+<p>With a key saved, an <strong>AI</strong> button appears in the editor toolbar. It opens a menu of actions for the current song:</p>
+<table>
+  <tr><th>Action</th><th>What it does</th></tr>
+  <tr><td><strong>Find music online</strong></td><td>Searches the web for chord/tab sources for the song, favouring your instrument (e.g. ukulele sites). Returns a list of real links to open — Cue never copies the charts; you decide what to use.</td></tr>
+  <tr><td><strong>Clean up formatting</strong></td><td>Tidies a messy pasted chart — fixes chord alignment and strips website clutter — <em>without changing any chord or lyric</em>. Review and Save as usual.</td></tr>
+  <tr><td><strong>Fill in song details</strong></td><td>Reads the chart and suggests Title, Artist, Key (from the chords), plus Tempo, Duration and a real YouTube link (web-searched). Apply each suggestion you want — nothing changes until you do.</td></tr>
+  <tr><td><strong>Add missing chord shapes</strong></td><td>Finds chords in the song that have no diagram for your instrument, proposes a voicing for each, and shows it as a <em>rendered diagram</em> to review before it's added to your custom chord library.</td></tr>
+  <tr><td><strong>Transposing advice</strong></td><td>Suggests easier keys and capo positions for your instrument, with a one-tap <strong>Apply</strong> that sets Cue's Transpose. Capo tips are advice only.</td></tr>
+  <tr><td><strong>Ask about music…</strong></td><td>A pop-up where you type any music question (playing, theory, a chord shape) and the answer streams back. It's aware of the current song and your Playing level. Ask as many as you like.</td></tr>
+</table>
+
+<h2>In the Setlist</h2>
+<p>The Setlist column's status bar (beside the Gap/estimate) has its own <strong>AI</strong> button with two actions:</p>
+<ul>
+  <li><strong>Suggest set order</strong> — proposes a running order that flows well (opener, pacing, key transitions, closer), shown in a pop-up with a short rationale and an <strong>Apply</strong> button that reorders the set.</li>
+  <li><strong>Estimate set time</strong> — reasons like a gigging musician: fills in lengths for songs without a Duration, estimates the between-song gap time as a range, suggests a break and setup/finish time, and gives a total with practical notes. <strong>Save song estimates</strong> writes the filled-in durations into the songs so the always-on estimate stays accurate.</li>
+</ul>
+
+<h2>Cost &amp; Privacy</h2>
+<p>Each AI action makes one request to Anthropic billed to <em>your</em> API account — typically a fraction of a cent; the web-search actions (Find, Fill) cost a little more. You control the spend, and you can set a monthly budget cap in the Anthropic Console. AI needs an internet connection; the rest of Cue works offline as always. The content you send (your chart, song titles) goes to Anthropic to produce the answer and nowhere else.</p>
+
+<!-- 9 -->
+<h1>9. Shared Sets &amp; Cloud Sync</h1>
 <p>You can share a set with anyone using a private link — they can view the songs and present them without needing a Cue account. If you sign in, you can also pull your own published sets back down onto your other devices.</p>
 
 <h2>Publishing a Shared Set</h2>
@@ -629,8 +670,8 @@ Pulling will discard them. Continue?</pre>
 </ul>
 <div class="tip"><strong>Note:</strong> Viewing a shared set is entirely read-only. Nothing the viewer does (key changes, bookmarks, copies) is written back to the shared set or the publisher's account.</div>
 
-<!-- 9 -->
-<h1>9. File Formats</h1>
+<!-- 10 -->
+<h1>10. File Formats</h1>
 
 <h2>ChordPro (.cho / .chopro)</h2>
 <p>The standard ChordPro format. Cue reads and writes these directives at the top of the file:</p>
@@ -660,8 +701,8 @@ Pulling will discard them. Continue?</pre>
 <pre>{ "type": "cue-chords", "version": 1, "chords": [ ... ] }</pre>
 <p>The CSV format has one shape per row: <code>Name,Frets,Fingers</code> (Fingers optional). Import either format via <strong>Import ▾</strong> in the Chords panel footer. Song and set imports (via the main header Import button) do not accept chord library files — use the Chords panel Import button instead.</p>
 
-<!-- 10 -->
-<h1>10. Keyboard Shortcuts</h1>
+<!-- 11 -->
+<h1>11. Keyboard Shortcuts</h1>
 <table>
   <tr><th>Key</th><th>Action</th></tr>
   <tr><td><code>Cmd / Ctrl + F</code></td><td>Open Find &amp; Replace in the editor (also available via the <strong>Find</strong> toolbar button)</td></tr>
@@ -673,8 +714,8 @@ Pulling will discard them. Continue?</pre>
   <tr><td><code>Escape</code></td><td>Exit Present mode / close Find bar</td></tr>
 </table>
 
-<!-- 11 -->
-<h1>11. Tips</h1>
+<!-- 12 -->
+<h1>12. Tips</h1>
 <ul>
   <li><strong>Transpose without rewriting</strong> — set the song’s written key in the metadata bar, then use <strong>View Key</strong> in the editor toolbar to display it in any other key. The chords render shifted in real time and the saved text is untouched, so you can perform in a singer-friendly key without altering the original.</li>
   <li><strong>Theme and chord color</strong> — open Settings (⚙ gear in the Library header) to switch between Light and Dark mode and to choose a chord color. These settings apply everywhere including Present mode and the shared-set viewer.</li>

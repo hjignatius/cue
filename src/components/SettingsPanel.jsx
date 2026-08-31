@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
+import { usePrefs, PRESENT_NO_FADE, AI_LEVELS } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
+import { getApiKey, setApiKey } from '../lib/ai.js';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
@@ -74,7 +75,7 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, aiLevel, updatePref } = usePrefs();
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
@@ -104,6 +105,30 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
     const t = setTimeout(() => setResendIn(n => n - 1), 1000);
     return () => clearTimeout(t);
   }, [resendIn]);
+
+  // AI key (bring-your-own). Stored on this device only, never in prefs/backups.
+  // `aiKeyDraft` is the editable field; `aiKeySaved` mirrors what's persisted so
+  // the section can show a masked "saved" state without holding the key in the UI.
+  const [aiKeyDraft, setAiKeyDraft] = useState('');
+  const [aiKeyReveal, setAiKeyReveal] = useState(false);
+  const [aiKeySaved, setAiKeySaved] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const k = getApiKey();
+    setAiKeySaved(!!k);
+    setAiKeyDraft(k);
+    setAiKeyReveal(false);
+  }, [open]);
+  function saveAiKey() {
+    setApiKey(aiKeyDraft);
+    setAiKeySaved(!!aiKeyDraft.trim());
+  }
+  function clearAiKey() {
+    setApiKey('');
+    setAiKeyDraft('');
+    setAiKeySaved(false);
+  }
+  const aiKeyDirty = aiKeyDraft.trim() !== getApiKey();
 
   // Saved export folder (Chromium only — the section is hidden elsewhere).
   const canPickFolder = supportsExportFolder();
@@ -488,6 +513,83 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   <p className={`text-xs ${muted}`}>How long a page turn takes to glide to the next screen. 0 is an instant jump; higher is a slower, smoother glide.</p>
                 </div>
               )}
+            </div>
+          </section>
+
+          {/* AI (optional) — bring-your-own Anthropic key. Stored on this device
+              only; powers the editor's AI menu (find music, clean up, fill in
+              details). Never included in exports or backups. */}
+          <section className="flex flex-col gap-4" id="settings-ai">
+            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>AI <span className="normal-case">(Optional)</span></h3>
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Anthropic API key</span>
+              <p className={`text-[11px] ${muted}`}>
+                Enables the editor's <span className={`font-medium ${label}`}>AI</span> menu — find music online, clean up a pasted chart, and fill in song details. Paste a key from <span className={`font-medium ${label}`}>console.anthropic.com → API Keys</span>. It's stored only on this device, never in your exports or backups, and each request bills your own Anthropic account. Treat it like a password.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  // A real type="password" makes Chrome/Safari save the key as a
+                  // login credential and then autofill it into other fields. We use
+                  // a plain text input masked with CSS instead — the password
+                  // manager ignores it entirely, so nothing gets saved or offered.
+                  type="text"
+                  style={{ WebkitTextSecurity: aiKeyReveal ? 'none' : 'disc' }}
+                  value={aiKeyDraft}
+                  onChange={e => setAiKeyDraft(e.target.value)}
+                  placeholder={aiKeySaved && !aiKeyDraft ? '•••• saved ••••' : 'sk-ant-…'}
+                  name="cue-anthropic-key"
+                  autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+                  data-1p-ignore data-lpignore="true"
+                  className={`flex-1 min-w-0 px-3 py-2.5 pointer-fine:py-2 text-sm rounded-lg border outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+                <button
+                  onClick={() => setAiKeyReveal(v => !v)}
+                  className={`px-3 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors ${btnBorder}`}
+                >
+                  {aiKeyReveal ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={saveAiKey}
+                  disabled={!aiKeyDirty}
+                  className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors disabled:opacity-50 ${aiKeyDirty ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500' : btnBorder}`}
+                >
+                  {aiKeySaved && !aiKeyDirty ? 'Saved' : 'Save key'}
+                </button>
+                {aiKeySaved && (
+                  <button
+                    onClick={clearAiKey}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors ${btnBorder}`}
+                  >
+                    Remove key
+                  </button>
+                )}
+              </div>
+              {aiKeySaved && !aiKeyDirty && (
+                <p className="text-[11px] text-green-600 dark:text-green-500">Key saved — the AI menu is active in the editor.</p>
+              )}
+            </div>
+            {/* Playing level — tailors AI answers (Ask about music, Transposing
+                advice) from beginner-friendly explanations to terse expert ones. */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Playing level</span>
+              <p className={`text-[11px] ${muted}`}>How the AI pitches its answers — beginners get more explanation and easier options; pros get terse expert replies.</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {AI_LEVELS.map(lv => (
+                  <button
+                    key={lv}
+                    onClick={() => updatePref('aiLevel', lv)}
+                    className={`py-2 px-2 text-xs rounded-lg border capitalize transition-colors ${
+                      aiLevel === lv
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : btnBorder
+                    }`}
+                  >
+                    {lv}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
 

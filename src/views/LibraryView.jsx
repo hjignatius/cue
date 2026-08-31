@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X } from 'lucide-react';
+import { hasApiKey, suggestSetOrder, estimateSetTime } from '../lib/ai.js';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -1180,10 +1181,22 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
   );
 }
 
-function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit, border }) {
+function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, onDeleteSet, onPresent, onEdit, border }) {
   const { theme } = usePrefs();
   const dark = theme === 'dark';
   const [overId, setOverId] = useState(null); // dnd-kit: id of the row currently dragged over
+  // Setlist AI: suggested order + time estimate. Muted until a key is saved.
+  const [aiReady, setAiReady] = useState(() => hasApiKey());
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState('');            // '' | 'order' | 'time'
+  const [orderResult, setOrderResult] = useState(null); // null | { loading, error, order, summary }
+  const [timeResult, setTimeResult] = useState(null);   // null | { loading, error, estimates:[{n,duration,id,title}] }
+  useEffect(() => {
+    const refresh = () => setAiReady(hasApiKey());
+    window.addEventListener('cue:ai-key', refresh);
+    window.addEventListener('storage', refresh);
+    return () => { window.removeEventListener('cue:ai-key', refresh); window.removeEventListener('storage', refresh); };
+  }, []);
   const sensors = useSensors(
     // Pointer Events cover mouse, trackpad, and touch (iOS). 8px activation
     // distance means a short tap won't start a drag.
@@ -1261,6 +1274,40 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
     onDeleteSet(set.id);
   }
 
+  // ── Setlist AI actions ──
+  function runSuggestOrder() {
+    setAiMenuOpen(false);
+    if (aiBusy || displaySongs.length < 2) return;
+    setAiBusy('order');
+    setOrderResult({ loading: true, error: '', order: [], summary: '' });
+    suggestSetOrder(displaySongs.map(s => ({ title: s.metadata?.title, artist: s.metadata?.artist, key: s.metadata?.key, tempo: s.metadata?.tempo })))
+      .then(r => setOrderResult({ loading: false, error: '', order: r.order, summary: r.summary }))
+      .catch(e => setOrderResult({ loading: false, error: e?.message || 'Could not suggest an order.', order: [], summary: '' }))
+      .finally(() => setAiBusy(''));
+  }
+  function applyOrder(order) {
+    const ids = order.map(p => displaySongs[p - 1]?.id).filter(Boolean);
+    if (ids.length === displaySongs.length) onUpdateSet({ ...set, songIds: ids, sortMode: 'custom' });
+    setOrderResult(null);
+  }
+  function runEstimate() {
+    setAiMenuOpen(false);
+    if (aiBusy || displaySongs.length === 0) return;
+    setAiBusy('time');
+    setTimeResult({ loading: true, error: '', data: null });
+    estimateSetTime(displaySongs.map((s, i) => ({ n: i + 1, title: s.metadata?.title, artist: s.metadata?.artist, seconds: parseDuration(s.metadata?.duration) })))
+      .then(data => setTimeResult({ loading: false, error: '', data }))
+      .catch(e => setTimeResult({ loading: false, error: e?.message || 'Could not estimate the time.', data: null }))
+      .finally(() => setAiBusy(''));
+  }
+  async function saveEstimates() {
+    for (const e of (timeResult?.data?.songs || [])) {
+      const song = displaySongs[e.n - 1];
+      if (song) await onUpdateSong?.({ ...song, metadata: { ...song.metadata, duration: e.duration } });
+    }
+    setTimeResult(null);
+  }
+
   const totalSec      = displaySongs.reduce((sum, s) => sum + parseDuration(s.metadata?.duration), 0);
   const hasDurations  = displaySongs.some(s => parseDuration(s.metadata?.duration) > 0);
   const gapCount      = Math.max(0, displaySongs.length - 1);
@@ -1306,8 +1353,38 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
           {displaySongs.length} {displaySongs.length === 1 ? 'song' : 'songs'}
           {hasDurations && estimatedSec > 0 && ` · ${formatDuration(estimatedSec)}`}
         </p>
-        {/* Export now lives on the Sets column's Select-mode Export ▾ (one place,
-            all formats). Select this set there to export it. */}
+        {/* Setlist AI — suggest order + estimate time. Muted until a key is saved
+            (tapping while muted opens Settings). Sits beside the gap/estimate. */}
+        {displaySongs.length > 0 && (
+          <span className="relative inline-flex shrink-0">
+            <button
+              onClick={() => { setAiReady(hasApiKey()); setAiMenuOpen(o => !o); }}
+              title={aiReady ? 'AI — suggest order, estimate time' : 'AI — add your Anthropic key in Settings to enable'}
+              aria-haspopup="menu" aria-expanded={aiMenuOpen}
+              className={`flex items-center gap-1 h-8 px-2.5 text-xs rounded-lg border transition-colors ${
+                aiReady
+                  ? dark ? 'border-gray-700 text-gray-200 hover:text-white' : 'border-gray-300 text-gray-700 hover:text-gray-900'
+                  : dark ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'
+              }`}
+            >
+              {aiBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI
+            </button>
+            {aiMenuOpen && (<>
+              <div className="fixed inset-0 z-30" onClick={() => setAiMenuOpen(false)} />
+              <div role="menu" className={`absolute right-0 top-full mt-1 z-40 min-w-[13rem] rounded-xl border shadow-xl overflow-hidden ${dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+                {aiReady ? (<>
+                  <button role="menuitem" onClick={runSuggestOrder} disabled={displaySongs.length < 2}
+                    className={`w-full text-left px-3 py-3 text-sm disabled:opacity-40 ${dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'}`}>Suggest set order</button>
+                  <button role="menuitem" onClick={runEstimate}
+                    className={`w-full text-left px-3 py-3 text-sm ${dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'}`}>Estimate set time</button>
+                </>) : (
+                  <button role="menuitem" onClick={() => { setAiMenuOpen(false); onOpenSettings?.(); }}
+                    className={`w-full text-left px-3 py-3 text-sm ${dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'}`}>Set up AI…</button>
+                )}
+              </div>
+            </>)}
+          </span>
+        )}
       </div>
 
       <div data-phone-scroll className="flex-1 overflow-y-auto">
@@ -1340,6 +1417,96 @@ function SetlistColumn({ set, songs, onUpdateSet, onDeleteSet, onPresent, onEdit
           </SortableContext>
         </DndContext>
       </div>
+
+      {/* Suggested order */}
+      {orderResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setOrderResult(null)}>
+          <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
+              <button onClick={() => setOrderResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+            </div>
+            {orderResult.loading && <div className={`flex items-center gap-2 text-sm py-6 justify-center ${dark ? 'text-gray-400' : 'text-gray-500'}`}><Loader2 size={16} className="animate-spin" /> Ordering the set…</div>}
+            {!orderResult.loading && orderResult.error && <p className="text-sm text-red-500">{orderResult.error}</p>}
+            {!orderResult.loading && !orderResult.error && orderResult.order.length > 0 && (<>
+              {orderResult.summary && <p className={`text-sm ${dark ? 'text-gray-200' : 'text-gray-800'}`}>{orderResult.summary}</p>}
+              <ol className="flex flex-col gap-1">
+                {orderResult.order.map((p, i) => (
+                  <li key={i} className={`flex items-center gap-2 text-sm ${dark ? 'text-gray-200' : 'text-gray-800'}`}>
+                    <span className={`w-5 text-right tabular-nums ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{i + 1}.</span>
+                    <span className="truncate">{displaySongs[p - 1]?.metadata?.title || 'Untitled'}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="flex gap-2">
+                <button onClick={() => applyOrder(orderResult.order)} className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Apply</button>
+                <button onClick={() => setOrderResult(null)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+              </div>
+            </>)}
+          </div>
+        </div>
+      )}
+
+      {/* Estimate set time — reasoned breakdown, gigging-musician style. */}
+      {timeResult && (() => {
+        const d = timeResult.data;
+        const fmtMin = (m) => m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
+        let rows = null, totalLow = 0, totalHigh = 0;
+        if (d) {
+          const estBy = new Map(d.songs.map(e => [e.n, parseDuration(e.duration)]));
+          const musicSec = displaySongs.reduce((sum, s, i) => {
+            const known = parseDuration(s.metadata?.duration);
+            return sum + (known > 0 ? known : (estBy.get(i + 1) || 0));
+          }, 0);
+          const musicMin = Math.round(musicSec / 60);
+          totalLow = musicMin + d.gapsLowMin + d.breakMin + d.topTailMin;
+          totalHigh = musicMin + d.gapsHighMin + d.breakMin + d.topTailMin;
+          rows = [
+            { label: `Music (${displaySongs.length} songs)`, val: fmtMin(musicMin) },
+            { label: `Song gaps (${gapCount})`, val: d.gapsLowMin === d.gapsHighMin ? fmtMin(d.gapsLowMin) : `${d.gapsLowMin}–${d.gapsHighMin}m` },
+            ...(d.breakMin > 0 ? [{ label: 'Break', val: fmtMin(d.breakMin) }] : []),
+            { label: 'Top & tail', val: fmtMin(d.topTailMin) },
+          ];
+        }
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setTimeResult(null)}>
+            <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
+                <button onClick={() => setTimeResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+              </div>
+              {timeResult.loading && <div className={`flex items-center gap-2 text-sm py-6 justify-center ${dark ? 'text-gray-400' : 'text-gray-500'}`}><Loader2 size={16} className="animate-spin" /> Working out the timing…</div>}
+              {!timeResult.loading && timeResult.error && <p className="text-sm text-red-500">{timeResult.error}</p>}
+              {!timeResult.loading && d && (<>
+                <p className={`text-2xl font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{totalLow === totalHigh ? fmtMin(totalLow) : `${fmtMin(totalLow)} – ${fmtMin(totalHigh)}`}</p>
+                <div className="flex flex-col gap-1">
+                  {rows.map((r, i) => (
+                    <div key={i} className={`flex items-center justify-between gap-3 text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <span>{r.label}</span>
+                      <span className="tabular-nums shrink-0">{r.val}</span>
+                    </div>
+                  ))}
+                  <div className={`flex items-center justify-between gap-3 text-sm font-semibold pt-1 mt-1 border-t ${dark ? 'border-gray-700 text-white' : 'border-gray-200 text-gray-900'}`}>
+                    <span>Total</span>
+                    <span className="tabular-nums shrink-0">{totalLow === totalHigh ? fmtMin(totalLow) : `${fmtMin(totalLow)}–${fmtMin(totalHigh)}`}</span>
+                  </div>
+                </div>
+                {d.notes && <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{d.notes}</p>}
+                {d.songs.length > 0 && (<>
+                  <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>AI-estimated {d.songs.length} song{d.songs.length === 1 ? '' : 's'} without a duration.</p>
+                  <div className="flex gap-2">
+                    <button onClick={saveEstimates} className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Save song estimates</button>
+                    <button onClick={() => setTimeResult(null)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                  </div>
+                </>)}
+                {d.songs.length === 0 && (
+                  <button onClick={() => setTimeResult(null)} className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                )}
+              </>)}
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
@@ -1670,6 +1837,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   }
 
   async function handleUpdateSet(updated) { await saveSet(updated); onRefresh(); }
+  // Persist a single song (used by the setlist's AI duration estimate to save
+  // filled-in durations), then reload so the change shows.
+  async function handleUpdateSong(updated) { await saveSong(updated); onRefresh(); }
   async function handleDeleteSet(id) {
     await deleteSet(id);
     if (activeSetId === id) setActiveSetId(null);
@@ -1973,6 +2143,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             set={activeSet}
             songs={songs}
             onUpdateSet={handleUpdateSet}
+            onUpdateSong={handleUpdateSong}
+            onOpenSettings={() => setSettingsOpen(true)}
             onDeleteSet={handleDeleteSet}
             onPresent={(presentSongs, idx = 0) => onPresent(presentSongs, idx)}
             onEdit={(song, idx, allSongs) => onEditSong?.(song, idx, allSongs)}

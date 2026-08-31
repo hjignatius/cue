@@ -89,6 +89,12 @@ All export functions read fresh data from IndexedDB at export time, so recently 
 - **Backup JSON** (`.json`, type `cue-backup`) — prompts to replace library (preserves original UUIDs and timestamps) or merge: merge resolves conflicts by UUID, keeping the copy with the newer `updatedAt`; shows a summary of added / updated / unchanged records
 - Multi-file import: select multiple files at once; each is processed in turn
 
+### AI Assistant (optional, bring-your-own-key)
+Opt-in Claude-powered helpers, gated on a user-supplied Anthropic API key saved in **Settings → AI** (`cue:anthropic_key`, device-only). Calls go directly from the browser to the Anthropic Messages API (no backend); a **Playing level** pref (`aiLevel`) tunes the tone. All AI access is behind `src/lib/ai.js`, so a future move to a shared-key server proxy is a localized change.
+- **Editor** (AI menu): Find music online (web search, instrument-aware), Clean up formatting, Fill in song details (title/artist/key/tempo/duration/YouTube), Add missing chord shapes (writes to the per-instrument custom library after review), Transposing advice (key/capo, one-tap Apply), Ask about music (streaming Q&A)
+- **Setlist**: Suggest set order (with Apply), Estimate set time (reasoned breakdown that fills unknown song durations)
+- Model: Claude Sonnet 5. The AI button is muted (not hidden) without a key; nothing runs or is billed until a key is saved.
+
 ### Onboarding Tour
 A 7-step spotlight tour runs on first launch, covering the library, import, sets, setlist, and editor features. Dismissed once and never shown again (stored in `localStorage`).
 
@@ -148,7 +154,8 @@ Icon-only anchor and toggle circles turn indigo when active; neutral actions kee
 | `localStorage` | `cue_hidden_chords:<instrument>` | Built-in shapes the user has hidden, per instrument |
 | `localStorage` | `cue:schema_version` | Current schema version (integer) |
 | `localStorage` | `cue:onboarding_done` | Flag — tour has been seen |
-| `localStorage` | `cue_prefs` | Theme and other user preferences |
+| `localStorage` | `cue_prefs` | Theme and other user preferences (incl. `aiLevel` — the AI Playing level) |
+| `localStorage` | `cue:anthropic_key` | User's own Anthropic API key for the optional AI features — device-only, never exported/backed up or synced |
 | `localStorage` | `cue:draft` | In-progress editor text, written on every keystroke |
 | `localStorage` | `cue:published_sets` | `{ [setId]: isoTimestamp }` — last publish/pull per set; drives the amber "unpublished changes" dot |
 | `localStorage` | `cue:shared_with_me` | Bookmarked `/shared/:token` links (viewer side) |

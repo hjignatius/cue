@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
+import SettingsPanel from '../components/SettingsPanel.jsx';
 import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
@@ -12,14 +13,28 @@ import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE
 import { saveSong, saveDraft } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
-import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText } from '../utils/transpose.js';
+import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, fillSongDetails, askMusic, transposeAdvice, chordShapesFor } from '../lib/ai.js';
+import ChordDiagram from '../components/ChordDiagram.jsx';
+import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
+import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
+import { loadCustomChords, saveCustomChords } from '../utils/chordStorage.js';
 import { isChordLine } from '../utils/visualImport.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
+
+// The chord-library pref id ('ukulele_gcea' | 'baritone_dgbe' | 'guitar' | 'none')
+// → a plain instrument word for the AI, so "find music online" can favour the
+// user's instrument. 'none' falls back to guitar (the most common chord source).
+function chordLibraryToInstrument(id) {
+  if (id === 'ukulele_gcea') return 'ukulele';
+  if (id === 'baritone_dgbe') return 'baritone ukulele';
+  return 'guitar';
+}
 
 // Lyric-styling palette. Each color is a single hex that must read on BOTH the
 // light Preview and the dark Present background, so these are mid-tone (~-600);
@@ -417,7 +432,7 @@ function CharRuler({ textareaRef, text, target, dark }) {
 
 
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi }) {
-  const { theme, chordDiagramSize, accidentals, symbols, instrument, updatePref } = usePrefs();
+  const { theme, chordColor, chordDiagramSize, accidentals, symbols, instrument, aiLevel, updatePref } = usePrefs();
   // 'none' turns chord diagrams off entirely: no panel, no toggle, no Chords tab.
   const chordsAvailable = instrument !== 'none';
   const dark = theme === 'dark';
@@ -490,6 +505,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Run a menu action and dismiss, without stealing focus back to the trigger
   // when the action itself moves focus (Find) or opens a dialog (Revert).
   const runFromMenu = (fn) => { setMenuOpen(false); fn(); };
+  const runFromAiMenu = (fn) => { setAiMenuOpen(false); fn(); };
   // Text-labelled rows, matching the enclosed/text-first direction of this work.
   const menuItem = `w-full flex items-center gap-2 px-3 py-3 text-sm text-left cursor-pointer outline-none ${
     dark ? 'text-gray-200 hover:bg-gray-800 focus:bg-gray-800' : 'text-gray-800 hover:bg-gray-100 focus:bg-gray-100'
@@ -497,6 +513,25 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const dangerItem = dark ? 'text-red-400' : 'text-red-600';
   const [displayKey, setDisplayKey]     = useState(song?.displayKey || '');
   const [isDirty, setIsDirty]           = useState(false);
+  // AI menu + actions. `aiReady` tracks whether a key is saved (kept fresh via
+  // the cue:ai-key event so saving in Settings lights the button up live).
+  // `aiBusy` names the in-flight action; `aiMsg` is a transient status line.
+  const [aiMenuOpen, setAiMenuOpen]     = useState(false);
+  const [aiReady, setAiReady]           = useState(() => hasApiKey());
+  const [aiBusy, setAiBusy]             = useState('');   // '' | 'clean' | 'find' | 'fill'
+  const [aiMsg, setAiMsg]               = useState('');
+  const [findResult, setFindResult]     = useState(null); // null | { loading, error, items }
+  const [fillResult, setFillResult]     = useState(null); // null | { loading, error, suggest }
+  const [adviceResult, setAdviceResult] = useState(null); // null | { loading, error, data }
+  const [chordResult, setChordResult]   = useState(null); // null | { loading, error, shapes:[{name,frets}], missing:[names] }
+  const [addedChords, setAddedChords]   = useState([]);   // shapes added this session, shown live in the panel
+  const [askOpen, setAskOpen]           = useState(false);
+  const [askQuestion, setAskQuestion]   = useState('');
+  const [askAnswer, setAskAnswer]       = useState('');
+  const [asking, setAsking]             = useState(false);
+  const [askError, setAskError]         = useState('');
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const aiAnchorRef                     = useRef(null);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [showFR, setShowFR]           = useState(false);
@@ -617,6 +652,193 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     if (!detected) return;
     setDisplayMode(detected);
     setPreviewFormat(detected);
+  }
+
+  // Keep the AI button's muted/active state in sync when the key is saved or
+  // removed in Settings (same tab → custom event; other tabs → storage event).
+  useEffect(() => {
+    const refresh = () => setAiReady(hasApiKey());
+    window.addEventListener('cue:ai-key', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('cue:ai-key', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  function flashAi(msg, ms = 6000) {
+    setAiMsg(msg);
+    clearTimeout(flashAi._t);
+    flashAi._t = setTimeout(() => setAiMsg(''), ms);
+  }
+
+  // Clean up formatting (AI) — reformat the pasted chart in place, then re-sense
+  // the format. The model is told never to change chords or lyrics.
+  async function runCleanup() {
+    if (aiBusy || text.trim() === '') return;
+    setAiBusy('clean');
+    setAiMsg('Cleaning up…');
+    try {
+      const cleaned = await cleanUpChart(text);
+      if (cleaned && cleaned !== text) {
+        setText(cleaned);
+        senseFormat(cleaned);
+        setIsDirty(true);
+        flashAi('Cleaned up — review, then Save.');
+      } else {
+        flashAi('Already tidy.');
+      }
+    } catch (e) {
+      flashAi(e?.message || 'Clean up failed.');
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  // Find music online (AI + web search) — opens a results dialog. Instrument-aware
+  // via the user's chord-library setting.
+  async function runFind() {
+    if (aiBusy) return;
+    setAiBusy('find');
+    setFindResult({ loading: true, error: '', items: [] });
+    try {
+      const items = await findMusicOnline({
+        title: metadata.title,
+        artist: metadata.artist,
+        instrument: chordLibraryToInstrument(instrument),
+      });
+      setFindResult({ loading: false, error: '', items });
+    } catch (e) {
+      setFindResult({ loading: false, error: e?.message || 'Search failed.', items: [] });
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  // Fill in song details (AI) — reads the chart, opens a dialog of suggestions
+  // the user can apply field-by-field.
+  async function runFill() {
+    if (aiBusy || text.trim() === '') return;
+    setAiBusy('fill');
+    setFillResult({ loading: true, error: '', suggest: null });
+    try {
+      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist });
+      setFillResult({ loading: false, error: '', suggest });
+    } catch (e) {
+      setFillResult({ loading: false, error: e?.message || 'Could not read details.', suggest: null });
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  function applyDetail(field, value) {
+    setMetadata(m => ({ ...m, [field]: value }));
+    setIsDirty(true);
+  }
+
+  // Shared song context for the level-aware AI actions.
+  function songContext() {
+    return {
+      title: metadata.title,
+      artist: metadata.artist,
+      key: metadata.key,
+      instrument: chordLibraryToInstrument(instrument),
+      level: aiLevel,
+      chart: text,
+    };
+  }
+
+  // Transposing advice (AI) — song/instrument/level-aware key + capo guidance.
+  async function runAdvice() {
+    if (aiBusy) return;
+    setAiBusy('advice');
+    setAdviceResult({ loading: true, error: '', data: null });
+    try {
+      const data = await transposeAdvice(songContext());
+      setAdviceResult({ loading: false, error: '', data });
+    } catch (e) {
+      setAdviceResult({ loading: false, error: e?.message || 'Advice failed.', data: null });
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  // Apply a suggested key via the existing Transpose display lens.
+  function applySuggestedKey(k) {
+    if (!KEY_NAMES.includes(k)) return;
+    setDisplayKey(k === metadata.key ? '' : k);
+    setIsDirty(true);
+    flashAi(`Transpose set to ${k}.`);
+    setAdviceResult(null);
+  }
+
+  // Ask about music (AI) — free-form Q&A, seeded with the current song + level.
+  async function submitAsk() {
+    const q = askQuestion.trim();
+    if (asking || !q) return;
+    setAsking(true);
+    setAskError('');
+    setAskAnswer('');
+    try {
+      // Stream: the answer fills in live as it arrives.
+      await askMusic(q, songContext(), (partial) => setAskAnswer(partial));
+    } catch (e) {
+      setAskError(e?.message || 'Question failed.');
+    } finally {
+      setAsking(false);
+    }
+  }
+
+  // Chord names in the song that have no diagram for the current instrument —
+  // mirrors how the chord panel resolves names (detect → transpose to the view
+  // key), then keeps only those absent from both the built-in and custom sets.
+  function missingChordNames() {
+    if (instrument === 'none') return [];
+    const builtin = new Set(getActiveChords(instrument).map(c => c.name));
+    const custom = new Set([...loadCustomChords(instrument), ...addedChords].map(c => c.name));
+    const seen = new Set();
+    const out = [];
+    for (const raw of detectChords(convertToBrackets(text))) {
+      const name = normalizeChordName(transposeChord(raw, chordSemitones, chordUseFlats));
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      if (!builtin.has(name) && !custom.has(name)) out.push(name);
+    }
+    return out;
+  }
+
+  // Add missing chord shapes (AI) — find undefined chords, fetch voicings, and
+  // open a review dialog. Nothing is saved until the user approves each.
+  async function runChordShapes() {
+    if (aiBusy) return;
+    const missing = missingChordNames();
+    if (missing.length === 0) { flashAi('Every chord already has a diagram.'); return; }
+    setAiBusy('chords');
+    setChordResult({ loading: true, error: '', shapes: [], missing });
+    try {
+      const shapes = await chordShapesFor(missing, {
+        instrument: chordLibraryToInstrument(instrument),
+        tuning: getActiveTuning(instrument),
+        level: aiLevel,
+      });
+      setChordResult({ loading: false, error: '', shapes, missing });
+    } catch (e) {
+      setChordResult({ loading: false, error: e?.message || 'Could not fetch chord shapes.', shapes: [], missing });
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  // Add one reviewed shape to the instrument's custom library (persisted) and to
+  // the live panel; drop it from the review list.
+  function addChordShape(shape) {
+    const entry = { name: shape.name, type: 'custom', frets: shape.frets };
+    const existing = loadCustomChords(instrument);
+    if (!existing.some(c => c.name === entry.name && (c.frets || []).join(',') === entry.frets.join(','))) {
+      saveCustomChords(instrument, [...existing, entry]);
+    }
+    setAddedChords(prev => prev.some(c => c.name === entry.name && c.frets.join(',') === entry.frets.join(',')) ? prev : [...prev, entry]);
+    setChordResult(r => r ? { ...r, shapes: r.shapes.filter(s => s !== shape) } : r);
   }
 
   // Bake the current Transpose into the source: rewrite the chords to the
@@ -924,6 +1146,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       readonly={false}
       chordPrefs={chordPrefs}
       onChordPrefsChange={prefs => { setChordPrefs(prefs); setIsDirty(true); }}
+      extraCustomChords={addedChords}
     />
   );
 
@@ -1013,6 +1236,268 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             Keep editing
           </button>
         </div>
+      </div>
+    </div>
+  );
+
+  // Find music online — results dialog (web-search-grounded links).
+  const findDialog = findResult && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setFindResult(null)}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Find music online</h2>
+            <p className={`text-xs ${mutedText}`}>
+              {metadata.title ? <>Sources for <span className="font-medium">{metadata.title}</span>{metadata.artist ? <> · {metadata.artist}</> : null}, favouring {chordLibraryToInstrument(instrument)}.</> : 'Add a title in the metadata bar for better results.'}
+            </p>
+          </div>
+          <button onClick={() => setFindResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+        </div>
+        {findResult.loading && (
+          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
+            <Loader2 size={16} className="animate-spin" /> Searching the web…
+          </div>
+        )}
+        {!findResult.loading && findResult.error && (
+          <p className="text-sm text-red-500">{findResult.error}</p>
+        )}
+        {!findResult.loading && !findResult.error && findResult.items.length === 0 && (
+          <p className={`text-sm ${mutedText}`}>No sources found. Try adding the title and artist, then search again.</p>
+        )}
+        {!findResult.loading && findResult.items.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {findResult.items.map((r, i) => (
+              <li key={i}>
+                <a href={r.url} target="_blank" rel="noopener noreferrer"
+                  className={`flex items-start gap-2 p-3 rounded-xl border transition-colors ${dark ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-200 hover:bg-gray-50'}`}>
+                  <ExternalLink size={15} className={`mt-0.5 shrink-0 ${mutedText}`} />
+                  <span className="flex flex-col min-w-0">
+                    <span className={`text-sm font-medium truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.name}</span>
+                    {r.note && <span className={`text-xs ${mutedText}`}>{r.note}</span>}
+                    <span className={`text-[11px] truncate ${dark ? 'text-indigo-400' : 'text-indigo-600'}`}>{r.url}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className={`text-[11px] ${mutedText}`}>Links open in a new tab. Cue doesn't copy the charts — you decide what to use.</p>
+      </div>
+    </div>
+  );
+
+  // Fill in song details — suggestion dialog, applied field by field.
+  const fillDialog = fillResult && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setFillResult(null)}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
+          <button onClick={() => setFillResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+        </div>
+        {fillResult.loading && (
+          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
+            <Loader2 size={16} className="animate-spin" /> Reading the chart…
+          </div>
+        )}
+        {!fillResult.loading && fillResult.error && (
+          <p className="text-sm text-red-500">{fillResult.error}</p>
+        )}
+        {!fillResult.loading && fillResult.suggest && (() => {
+          const s = fillResult.suggest;
+          const rows = [
+            { field: 'title', label: 'Title', value: s.title },
+            { field: 'artist', label: 'Artist', value: s.artist },
+            { field: 'key', label: 'Key', value: s.key },
+            { field: 'tempo', label: 'Tempo (BPM)', value: s.tempo },
+            { field: 'duration', label: 'Duration', value: s.duration },
+            { field: 'youtubeUrl', label: 'YouTube', value: s.youtubeUrl },
+          ].filter(r => r.value);
+          if (rows.length === 0) return <p className={`text-sm ${mutedText}`}>Couldn't work out any details for this song. The key is read from the chords; the rest depends on identifying the song.</p>;
+          return (<>
+            <p className={`text-xs ${mutedText}`}>Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.</p>
+            <ul className="flex flex-col gap-2">
+              {rows.map(r => (
+                <li key={r.field} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <span className="flex flex-col min-w-0">
+                    <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
+                    <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.value}</span>
+                  </span>
+                  <button
+                    onClick={() => applyDetail(r.field, r.value)}
+                    disabled={metadata[r.field] === r.value}
+                    className={`shrink-0 px-3 py-1.5 text-xs rounded-lg border transition-colors ${metadata[r.field] === r.value ? (dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400') : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'}`}
+                  >
+                    {metadata[r.field] === r.value ? 'Applied' : 'Apply'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2">
+              <button
+                onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}
+                className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+              >
+                Apply all
+              </button>
+              <button
+                onClick={() => setFillResult(null)}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                Close
+              </button>
+            </div>
+          </>);
+        })()}
+      </div>
+    </div>
+  );
+
+  // Transposing advice — key suggestions (one-tap Apply → Transpose) + capo tips.
+  const adviceDialog = adviceResult && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setAdviceResult(null)}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Transposing advice</h2>
+            <p className={`text-xs ${mutedText}`}>For {chordLibraryToInstrument(instrument)} · {aiLevel} level{metadata.key ? <> · currently in {metadata.key}</> : null}</p>
+          </div>
+          <button onClick={() => setAdviceResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+        </div>
+        {adviceResult.loading && (
+          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
+            <Loader2 size={16} className="animate-spin" /> Working out your options…
+          </div>
+        )}
+        {!adviceResult.loading && adviceResult.error && (
+          <p className="text-sm text-red-500">{adviceResult.error}</p>
+        )}
+        {!adviceResult.loading && adviceResult.data && (() => {
+          const d = adviceResult.data;
+          const nothing = !d.summary && d.keys.length === 0 && d.capo.length === 0;
+          if (nothing) return <p className={`text-sm ${mutedText}`}>No advice came back — try adding the chords to the chart first.</p>;
+          return (<>
+            {d.summary && <p className={`text-sm ${dark ? 'text-gray-200' : 'text-gray-800'}`}>{d.summary}</p>}
+            {d.keys.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>Keys to try</span>
+                {d.keys.map((k, i) => (
+                  <div key={i} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <span className="flex flex-col min-w-0">
+                      <span className={`text-sm font-medium ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{k.key}</span>
+                      {k.why && <span className={`text-xs ${mutedText}`}>{k.why}</span>}
+                    </span>
+                    {KEY_NAMES.includes(k.key) && (
+                      <button onClick={() => applySuggestedKey(k.key)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Apply</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {d.capo.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>Capo</span>
+                {d.capo.map((c, i) => (
+                  <div key={i} className={`p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <span className={`text-sm font-medium ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Capo {c.fret}{c.shapes ? <> · play {c.shapes} shapes</> : null}</span>
+                    {c.why && <p className={`text-xs mt-0.5 ${mutedText}`}>{c.why}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className={`text-[11px] ${mutedText}`}>Apply sets Cue's Transpose (display only) — it doesn't change your saved text. Capo tips are just advice.</p>
+          </>);
+        })()}
+      </div>
+    </div>
+  );
+
+  // Ask about music — question box + answer; ask as many as you like.
+  const askDialog = askOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setAskOpen(false)}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-3 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Ask about music</h2>
+            <p className={`text-xs ${mutedText}`}>Answers at {aiLevel} level, aware of this song. Playing, theory, chords, technique.</p>
+          </div>
+          <button onClick={() => setAskOpen(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+        </div>
+        <textarea
+          value={askQuestion}
+          onChange={e => setAskQuestion(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitAsk(); } }}
+          placeholder="e.g. What's an easy strumming pattern for this? How do I play Bm on ukulele?"
+          rows={3}
+          autoComplete="off" data-1p-ignore data-lpignore="true"
+          className={`w-full px-3 py-2.5 text-sm rounded-lg border outline-none focus:border-indigo-500 resize-y ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+        />
+        <button
+          onClick={submitAsk}
+          disabled={asking || !askQuestion.trim()}
+          className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${asking || !askQuestion.trim() ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+        >
+          {asking ? <span className="inline-flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Thinking…</span> : 'Ask'}
+        </button>
+        {askError && <p className="text-sm text-red-500">{askError}</p>}
+        {askAnswer && !askError && (
+          <div className={`text-sm whitespace-pre-wrap rounded-xl border p-3 ${dark ? 'border-gray-700 text-gray-200 bg-gray-800/50' : 'border-gray-200 text-gray-800 bg-gray-50'}`}>{askAnswer}</div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Add missing chord shapes — review each proposed voicing as a rendered
+  // diagram before it's saved to the custom library.
+  const chordDialog = chordResult && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setChordResult(null)}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Add missing chord shapes</h2>
+            <p className={`text-xs ${mutedText}`}>Undefined chords: {chordResult.missing.join(', ')}</p>
+          </div>
+          <button onClick={() => setChordResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+        </div>
+        {chordResult.loading && (
+          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
+            <Loader2 size={16} className="animate-spin" /> Working out the shapes…
+          </div>
+        )}
+        {!chordResult.loading && chordResult.error && (
+          <p className="text-sm text-red-500">{chordResult.error}</p>
+        )}
+        {!chordResult.loading && !chordResult.error && chordResult.shapes.length === 0 && (
+          <p className={`text-sm ${mutedText}`}>All set — nothing left to add.</p>
+        )}
+        {!chordResult.loading && chordResult.shapes.length > 0 && (<>
+          <p className={`text-xs ${mutedText}`}>Check each shape, then add it to your {chordLibraryToInstrument(instrument)} library. You can edit or delete any custom chord later in the chord panel.</p>
+          <ul className="flex flex-col gap-2">
+            {chordResult.shapes.map((shape, i) => (
+              <li key={i} className={`flex items-center gap-3 p-2 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className="shrink-0"><ChordDiagram chord={shape} scale={1} theme={dark ? 'dark' : 'light'} chordColor={chordColor} /></div>
+                <span className="flex-1 min-w-0">
+                  <span className={`text-sm font-medium font-mono ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{shape.name}</span>
+                  <span className={`block text-xs ${mutedText}`}>{shape.frets.map(f => f === -1 ? '×' : f).join(' · ')}</span>
+                </span>
+                <button onClick={() => addChordShape(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { chordResult.shapes.forEach(addChordShape); }}
+              className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+            >
+              Add all
+            </button>
+            <button
+              onClick={() => setChordResult(null)}
+              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            >
+              Close
+            </button>
+          </div>
+        </>)}
       </div>
     </div>
   );
@@ -1312,6 +1797,73 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           {isEmptyText ? 'Sense Chords' : formatName}
         </button>
 
+        {/* AI menu (text songs only): find music online, clean up formatting,
+            fill in song details. Muted until a key is saved in Settings; tapping
+            it while muted opens the setup so touch users aren't stranded. */}
+        {songType !== 'pdf' && (
+          <span ref={aiAnchorRef} className="relative inline-flex shrink-0">
+            <button
+              onClick={() => { setAiReady(hasApiKey()); setAiMenuOpen(o => !o); }}
+              aria-haspopup="menu" aria-expanded={aiMenuOpen}
+              title={aiReady ? 'AI — find music, clean up, fill in details' : 'AI — add your Anthropic key in Settings to enable'}
+              className={`flex items-center gap-1 ${toolCtl} ${
+                aiReady
+                  ? dark ? 'border-gray-700 text-gray-200 hover:text-white' : 'border-gray-300 text-gray-700 hover:text-gray-900'
+                  : dark ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'
+              }`}
+            >
+              {aiBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI
+            </button>
+            <OverflowMenu open={aiMenuOpen} onClose={() => setAiMenuOpen(false)} dark={dark}>
+              {aiReady ? (<>
+                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
+                  onClick={() => runFromAiMenu(runFind)}>
+                  <Globe size={15} className="opacity-70" /> Find music online
+                </button>
+                <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
+                  className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  onClick={() => runFromAiMenu(runCleanup)}>
+                  <Wand2 size={15} className="opacity-70" /> Clean up formatting
+                </button>
+                <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
+                  className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  onClick={() => runFromAiMenu(runFill)}>
+                  <ListPlus size={15} className="opacity-70" /> Fill in song details
+                </button>
+                {instrument !== 'none' && (
+                  <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
+                    className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
+                    onClick={() => runFromAiMenu(runChordShapes)}>
+                    <Guitar size={15} className="opacity-70" /> Add missing chord shapes
+                  </button>
+                )}
+                <button type="button" role="menuitem" tabIndex={-1}
+                  className={menuItem}
+                  onClick={() => runFromAiMenu(runAdvice)}>
+                  <ArrowLeftRight size={15} className="opacity-70" /> Transposing advice
+                </button>
+                <button type="button" role="menuitem" tabIndex={-1}
+                  className={menuItem}
+                  onClick={() => runFromAiMenu(() => { setAskError(''); setAskOpen(true); })}>
+                  <MessageCircleQuestion size={15} className="opacity-70" /> Ask about music…
+                </button>
+                <div className={`border-t ${border} my-1`} />
+                <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${mutedText}`}
+                  onClick={() => runFromAiMenu(() => setAiSettingsOpen(true))}>
+                  Set up AI…
+                </button>
+              </>) : (<>
+                <div className={`px-3 pt-3 pb-2 text-xs ${mutedText}`}>Add your Anthropic API key to turn on AI.</div>
+                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
+                  onClick={() => runFromAiMenu(() => setAiSettingsOpen(true))}>
+                  <Sparkles size={15} className="opacity-70" /> Set up AI…
+                </button>
+              </>)}
+            </OverflowMenu>
+          </span>
+        )}
+        {aiMsg && <span className={`text-xs ${mutedText}`}>{aiMsg}</span>}
+
         </>)}
 
         {/* Spacer pushes Preview + Chords to the right */}
@@ -1563,8 +2115,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {backConfirm}
         {navConfirm}
         {revertConfirm}
+        {findDialog}
+        {fillDialog}
+        {adviceDialog}
+        {askDialog}
+        {chordDialog}
       </div>
 
+      {/* AI setup — the same Settings panel, opened in place from the AI menu so
+          the key can be entered without leaving the editor. */}
+      <SettingsPanel open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} />
     </div>
   );
 }

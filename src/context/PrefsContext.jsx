@@ -41,7 +41,12 @@ const DEFAULT_PAGE_GLIDE_MS = 550;
 // a screen ('half'). Only meaningful while pedalPaging is on.
 const DEFAULT_PAGE_SIZE = 'full';
 
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE };
+// Playing level for AI answers — tailors Q&A and transposing advice (beginner
+// gets more explanation and easier options; pro gets terse expert answers).
+export const AI_LEVELS = ['beginner', 'intermediate', 'advanced', 'pro'];
+const DEFAULT_AI_LEVEL = 'intermediate';
+
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE, aiLevel: DEFAULT_AI_LEVEL };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 
