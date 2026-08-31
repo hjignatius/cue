@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -1611,7 +1611,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Transpose — a saved, display-only lens. Sets the song's displayKey so
             Preview/Present render transposed; never rewrites the source text or
             the real key (metadata.key) until "Transpose source". Persists on Save. */}
-        <div className="flex items-center gap-2">
+        {/* Transpose group — the key dropdown and "Transpose source" are boxed
+            together to show they're one control: pick a different key on the left
+            and the "commit it into the source" button on the right wakes up. */}
+        <div className={`flex items-center gap-2 rounded-lg border pl-2 pr-1 py-1 ${dark ? 'border-gray-700' : 'border-gray-300'}`}>
           <span className={`text-xs ${mutedText}`}>Transpose:</span>
           <select
             value={displayKey}
@@ -1631,15 +1634,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <button
             onClick={transposeSource}
             disabled={!transposeActive}
-            aria-label="Transpose source"
             title="Transpose source — rewrite the song's chords to the Transpose key and make it the song's key (recoverable via Revert until you Save)"
-            className={`flex items-center justify-center ${toolCtl} ${
+            className={`flex items-center gap-1 ${toolCtl} ${
               transposeActive
                 ? dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
                 : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
             }`}
           >
-            <ArrowDownToLine size={14} />
+            Transpose source
           </button>
         </div>
 
