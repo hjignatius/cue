@@ -891,11 +891,12 @@ function SharedSongRow({ song, index, dark, muted, onPresent, onCopy, copying })
           {meta.artist && (
             <p className={`text-sm mt-0.5 truncate ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{meta.artist}</p>
           )}
-          {/* Read-only View key. `song` is enriched, so displayKey already folds
-              in any stored viewer key; fall back to the song's original. */}
+          {/* The key this song plays in. `song` is enriched, so displayKey already
+              folds in any stored viewer key; fall back to the song's original key.
+              Shown to the viewer simply as "Key". */}
           {(song.displayKey || meta.key) && (
             <div className="mt-2">
-              <span className={`text-xs ${muted}`}>View key: {song.displayKey || meta.key}</span>
+              <span className={`text-xs ${muted}`}>Key: {song.displayKey || meta.key}</span>
             </div>
           )}
         </div>
