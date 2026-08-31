@@ -461,9 +461,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Preview On / Chords On toggles; iPad portrait is tight but the toggles let
   // the user reclaim space by turning panels off.
   const oneAtATime = compactChrome && !phoneLandscape;
-  // Format toggles (OL/B) sit inline on the landscape phone toolbar; they stay
-  // in the overflow menu in the tighter portrait layout.
-  const formatsInline = phoneLandscape;
+  // Format toggle (OL/B) sits inline on the compact toolbar at every phone width
+  // now that Find/Save/Revert are icon-only and free up the room — so it's no
+  // longer tucked in the overflow menu (which then appears only for annotations).
+  const formatsInline = compactChrome;
   // Shared by the in-toolbar (sm) and compact (lg) renderings of the selector.
   const panelOptions = [
     { id: 'text',    label: 'Text' },
