@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -1631,14 +1631,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <button
             onClick={transposeSource}
             disabled={!transposeActive}
-            title="Rewrite the song's chords to the Transpose key and make it the song's key (recoverable via Revert until you Save)"
-            className={`flex items-center gap-1 ${toolCtl} ${
+            aria-label="Transpose source"
+            title="Transpose source — rewrite the song's chords to the Transpose key and make it the song's key (recoverable via Revert until you Save)"
+            className={`flex items-center justify-center ${toolCtl} ${
               transposeActive
                 ? dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
                 : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
             }`}
           >
-            Transpose source
+            <ArrowDownToLine size={14} />
           </button>
         </div>
 
@@ -1797,14 +1798,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           {isEmptyText ? 'Sense Chords' : formatName}
         </button>
 
-        {/* AI menu (text songs only): find music online, clean up formatting,
-            fill in song details. Muted until a key is saved in Settings; tapping
-            it while muted opens the setup so touch users aren't stranded. */}
+        </>)}
+
+        {/* AI menu (text songs) — rendered in BOTH layouts (previously wide-only,
+            so it was missing on phones). Muted until a key is saved; tapping it
+            while muted opens the setup so touch users aren't stranded. */}
         {songType !== 'pdf' && (
           <span ref={aiAnchorRef} className="relative inline-flex shrink-0">
             <button
               onClick={() => { setAiReady(hasApiKey()); setAiMenuOpen(o => !o); }}
-              aria-haspopup="menu" aria-expanded={aiMenuOpen}
+              aria-haspopup="menu" aria-expanded={aiMenuOpen} aria-label="AI"
               title={aiReady ? 'AI — find music, clean up, fill in details' : 'AI — add your Anthropic key in Settings to enable'}
               className={`flex items-center gap-1 ${toolCtl} ${
                 aiReady
@@ -1812,7 +1815,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   : dark ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'
               }`}
             >
-              {aiBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI
+              {aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} AI
             </button>
             <OverflowMenu open={aiMenuOpen} onClose={() => setAiMenuOpen(false)} dark={dark}>
               {aiReady ? (<>
@@ -1862,9 +1865,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </OverflowMenu>
           </span>
         )}
-        {aiMsg && <span className={`text-xs ${mutedText}`}>{aiMsg}</span>}
-
-        </>)}
+        {aiMsg && !compactChrome && <span className={`text-xs ${mutedText}`}>{aiMsg}</span>}
 
         {/* Spacer pushes Preview + Chords to the right */}
         <div className="flex-1" />
