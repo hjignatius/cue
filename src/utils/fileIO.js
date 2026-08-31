@@ -195,6 +195,78 @@ export async function importCho() {
   return parseCho(content);
 }
 
+// ---- Share (Web Share Level 2, download fallback) ---------------------------
+
+// True when the OS share sheet can take a .json FILE (iOS Safari, Android
+// Chrome, some desktop). Where false (Firefox, most desktop), callers fall back
+// to a download. Used to show/hide the "Share…" export option.
+export function canShareFiles() {
+  try {
+    const probe = new File(['{}'], 'probe.json', { type: 'application/json' });
+    return typeof navigator !== 'undefined' && !!navigator.canShare && navigator.canShare({ files: [probe] });
+  } catch { return false; }
+}
+
+// Hand a JSON payload to the OS share sheet as a file so the user can pick Mail
+// (attachment + subject pre-filled from `title`, a note from `text`) or any other
+// target. Falls back to a normal download. Returns 'shared' | 'cancelled' | 'downloaded'.
+async function shareJsonFile(payload, filename, { title, text } = {}) {
+  const file = new File([payload], filename, { type: 'application/json' });
+  if (canShareFiles()) {
+    try {
+      await navigator.share({ files: [file], title, text });
+      return 'shared';
+    } catch (err) {
+      if (err?.name === 'AbortError') return 'cancelled'; // user dismissed the sheet
+      // any other share failure → fall through to a download
+    }
+  }
+  await download(filename, payload, 'application/json');
+  return 'downloaded';
+}
+
+// Share the selected song(s) as a .json (single-song bundle when one is picked).
+export async function shareSongsJson(selectedSongs) {
+  const fresh = await loadSongs();
+  const songMap = new Map(fresh.map(s => [s.id, s]));
+  const songs = selectedSongs.map(s => songMap.get(s.id) || s);
+  const one = songs.length === 1 ? songs[0] : null;
+  const date = new Date().toISOString().slice(0, 10);
+  const payload = one
+    ? JSON.stringify({ type: 'cue-song', version: 1, song: one }, null, 2)
+    : JSON.stringify({ type: 'cue-songs', version: 1, songs }, null, 2);
+  const filename = one ? `${sanitizeFilename(one.metadata?.title)}.json` : `cue-songs-${date}.json`;
+  const title = one ? `Cue song: ${one.metadata?.title || 'Untitled'}` : `Cue songs (${songs.length})`;
+  const text  = `${one ? `"${one.metadata?.title || 'Untitled'}"` : `${songs.length} songs`} from Cue. Open in Cue: Import → pick this .json file.`;
+  return shareJsonFile(payload, filename, { title, text });
+}
+
+// Share the selected set(s) + their songs as a .json (single-set bundle for one).
+export async function shareSetsJson(sets, allSongs) {
+  const fresh = await loadSongs();
+  const songMap = new Map(fresh.map(s => [s.id, s]));
+  const songs = [];
+  const seen  = new Set();
+  for (const set of sets) {
+    for (const id of set.songIds) {
+      if (!seen.has(id)) {
+        const song = songMap.get(id) || allSongs.find(s => s.id === id);
+        if (song) { songs.push(song); seen.add(id); }
+      }
+    }
+  }
+  const customChords = loadCustomChords();
+  const one = sets.length === 1 ? sets[0] : null;
+  const date = new Date().toISOString().slice(0, 10);
+  const payload = one
+    ? JSON.stringify({ type: 'cue-set', version: 1, set: one, songs, customChords }, null, 2)
+    : JSON.stringify({ type: 'cue-sets', version: 1, sets, songs, customChords }, null, 2);
+  const filename = one ? `${sanitizeFilename(one.name)}.json` : `cue-sets-${date}.json`;
+  const title = one ? `Cue set: ${one.name}` : `Cue sets (${sets.length})`;
+  const text  = `${one ? `"${one.name}"` : `${sets.length} sets`} from Cue. Open in Cue: Import → pick this .json file.`;
+  return shareJsonFile(payload, filename, { title, text });
+}
+
 // ---- JSON bundles -----------------------------------------------------------
 
 export async function exportSongJson(song) {

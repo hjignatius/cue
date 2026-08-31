@@ -4,7 +4,7 @@ import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadS
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
-import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong } from '../utils/fileIO.js';
+import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
@@ -553,7 +553,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
     setDeleteConfirm(null);
     onRefresh();
     setSelectedSets(new Set());
-    setSelectMode(false);
   }
 
   // Export the selected set(s) in the chosen format. One set uses the single-set
@@ -565,7 +564,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
     const single = chosen.length === 1;
     setSetsExportOpen(false);
     setSelectedSets(new Set());
-    setSelectMode(false);
     // Await + surface failures: the PDF path is async, so an unhandled rejection
     // (e.g. a malformed song) would otherwise fail silently and look like a no-op.
     try {
@@ -574,6 +572,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
       else if (kind === 'pdf-charts') single ? await exportSetToPdf(chosen[0], songs, { includeChords: true, chordColor, accidentals, instrument })
                                               : await exportSetsToPdf(chosen, songs, { includeChords: true, chordColor, accidentals, instrument });
       else if (kind === 'json')  single ? exportSetJson(chosen[0], songs) : exportSetsJson(chosen, songs);
+      else if (kind === 'share')  await shareSetsJson(chosen, songs);
       else if (kind === 'setlist' && single) exportSetText(chosen[0], songs);
     } catch (err) {
       console.error('Set export failed:', err);
@@ -635,6 +634,9 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                   <ExportMenuItem label="PDF" onSelect={() => runSetsExport('pdf')} />
                   <ExportMenuItem label="PDF + Chord Charts" onSelect={() => runSetsExport('pdf-charts')} />
                   <ExportMenuItem label=".json" onSelect={() => runSetsExport('json')} />
+                  {canShareFiles() && (
+                    <ExportMenuItem label="Share… (email .json)" onSelect={() => runSetsExport('share')} />
+                  )}
                   <ExportMenuItem
                     label="Setlist (.csv)"
                     disabled={selectedSets.size > 1}
@@ -1581,7 +1583,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     const ids = [...selected];
     await addIdsToSet(setId, ids);
     setSelected(new Set());
-    setSelectMode(false);
     setAddToSetOpen(false);
   }
 
@@ -1595,7 +1596,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     setActiveSetId(saved.id);
     onRefresh();
     setSelected(new Set());
-    setSelectMode(false);
     setAddToSetOpen(false);
     alert(`Created "${name}" with ${ids.length} ${ids.length === 1 ? 'song' : 'songs'}.`);
   }
@@ -1617,7 +1617,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     }
     setExportDropOpen(false);
     setSelected(new Set());
-    setSelectMode(false);
   }
 
   function handleExportSelectedJson() {
@@ -1630,7 +1629,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     }
     setExportDropOpen(false);
     setSelected(new Set());
-    setSelectMode(false);
+  }
+
+  // Share the selected song(s) as a .json via the OS share sheet (pick Mail to
+  // email it as an attachment with a pre-filled subject), download fallback.
+  async function handleShareSelected() {
+    const selectedSongs = sorted.filter(s => selected.has(s.id));
+    if (selectedSongs.length === 0) return;
+    setExportDropOpen(false);
+    try { await shareSongsJson(selectedSongs); } catch (err) { console.error('Share failed', err); }
+    setSelected(new Set());
   }
 
   async function handleExportSelectedPdf(includeChords = false) {
@@ -1638,7 +1646,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     if (selectedSongs.length === 0) return;
     setExportDropOpen(false);
     setSelected(new Set());
-    setSelectMode(false);
     try {
       if (selectedSongs.length === 1) {
         const s = selectedSongs[0];
@@ -1660,7 +1667,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     if (!confirm(`Delete ${count} ${count === 1 ? 'song' : 'songs'}? They will be removed from your library and any sets they appear in.`)) return;
     for (const id of selected) onDeleteSong(id);
     setSelected(new Set());
-    setSelectMode(false);
   }
 
   async function handleUpdateSet(updated) { await saveSet(updated); onRefresh(); }
@@ -1767,6 +1773,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                       <ExportMenuItem px="px-4" label="PDF" onSelect={() => handleExportSelectedPdf(false)} />
                       <ExportMenuItem px="px-4" label="PDF + Chord Charts" onSelect={() => handleExportSelectedPdf(true)} />
                       <ExportMenuItem px="px-4" label=".json" onSelect={handleExportSelectedJson} />
+                      {canShareFiles() && (
+                        <ExportMenuItem px="px-4" label="Share… (email .json)" onSelect={handleShareSelected} />
+                      )}
                       <ExportMenuItem px="px-4" label={selected.size === 1 ? 'ChordPro (.cho)' : 'ZIP (.cho files)'} onSelect={handleExportSelected} />
                     </div>
                   </>
