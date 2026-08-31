@@ -1084,12 +1084,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </RoundButton>
           ) : (
             <RoundButton
-              size={ROUND_SIZE_ACTION} pill
+              size={ROUND_SIZE_ACTION} pill={!isNarrow}
               label="Present" title="Present"
               fill={headerFill}
               onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage }], 0)}
             >
-              <Tv size={22} strokeWidth={2} /><PillLabel>Present</PillLabel>
+              <Tv size={22} strokeWidth={2} />{!isNarrow && <PillLabel>Present</PillLabel>}
             </RoundButton>
           )}
 
@@ -1214,32 +1214,33 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 ? 'bg-indigo-600 border-indigo-600 text-white'
                 : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
             }`}
-            title="Find & Replace (Cmd+F)"
+            title={showFR ? 'Close Find' : 'Find & Replace (Cmd+F)'}
           >
-            {showFR ? 'Done' : <><Search size={11} /> Find</>}
+            {showFR ? <X size={14} /> : <Search size={14} />}
           </button>
           <button
             onClick={handleSave}
             disabled={!isDirty}
+            title="Save"
             className={`flex items-center gap-1 ${toolCtl} ${
               isDirty
                 ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
                 : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
             }`}
           >
-            <Save size={11} /> Save
+            <Save size={14} />
           </button>
           <button
             onClick={() => setShowRevertConfirm(true)}
             disabled={!isDirty}
-            title="Discard changes since last save"
+            title="Revert — discard changes since last save"
             className={`flex items-center gap-1 ${toolCtl} ${
               isDirty
                 ? dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
                 : dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
             }`}
           >
-            <RotateCcw size={11} /> Revert
+            <RotateCcw size={14} />
           </button>
           {/* One Format toggle inline (landscape only) — sets editor + preview. */}
           {formatsInline && (

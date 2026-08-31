@@ -211,7 +211,9 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
             ? 'bg-indigo-600 border-indigo-600 text-white'
             : 'border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
         >
-          Full Page
+          {/* Full label on wider screens, "FP" on a phone to save room. */}
+          <span className="hidden sm:inline">Full Page</span>
+          <span className="sm:hidden">FP</span>
         </button>
       </div>
 
