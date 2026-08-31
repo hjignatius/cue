@@ -10,6 +10,22 @@ let waitingWorker = null;
 let userInitiatedReload = false;
 let reloaded = false;
 
+// The active registration + an eager update check. Browsers only re-check for a
+// new sw.js on launch or ~every 24h, so a PWA left open in the background can miss
+// a deploy for a long time. We also poke reg.update() whenever the app regains
+// focus/visibility (e.g. reopened from the background), throttled so rapid
+// focus flapping can't hammer the network. A bumped CACHE then surfaces the
+// "Update Cue" prompt promptly.
+let swRegistration = null;
+let lastUpdateCheck = 0;
+function requestUpdateCheck() {
+  if (!swRegistration) return;
+  const now = Date.now();
+  if (now - lastUpdateCheck < 30000) return; // at most once per 30s
+  lastUpdateCheck = now;
+  swRegistration.update().catch(() => {});
+}
+
 let state = { updateAvailable: false, dismissed: false };
 const listeners = new Set();
 
@@ -74,6 +90,7 @@ export function registerSw() {
     // CACHE value reliably registers as an update.
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
       .then((reg) => {
+        swRegistration = reg;
         // An update installed in a previous session, already parked in waiting.
         if (reg.waiting && navigator.serviceWorker.controller) markUpdateAvailable(reg.waiting);
 
@@ -91,6 +108,13 @@ export function registerSw() {
       })
       .catch(() => { /* SW unsupported or blocked — the app still runs online */ });
   });
+
+  // Re-check for a new build when the app comes back to the foreground, so
+  // reopening the PWA from the background reliably catches a fresh deploy.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestUpdateCheck();
+  });
+  window.addEventListener('focus', requestUpdateCheck);
 }
 
 // React binding for the store. Returns { updateAvailable, dismissed }.
