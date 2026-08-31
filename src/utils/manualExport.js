@@ -207,7 +207,7 @@ function manualHTML() {
 
 <h2>Offline Use &amp; Updates</h2>
 <p>After you have opened Cue online once, it keeps a copy of itself on the device and <strong>runs without an internet connection</strong> — your songs and sets live in the browser, so they open and edit offline too. (Publishing and viewing <em>shared</em> sets still needs a connection, since those live in the cloud.)</p>
-<p>Because Cue caches itself for offline use, a new version does not always appear the instant it is released. Cue checks for an update <strong>each time you open or reload it</strong> while online. When a newer version is ready, an <strong>Update Cue</strong> button appears — tap it to reload into the latest version. Until you tap it, Cue keeps running the copy you already have, so an update never interrupts a performance.</p>
+<p>Because Cue caches itself for offline use, a new version does not always appear the instant it is released. Cue checks for an update <strong>each time you open or reload it</strong> while online, and again <strong>whenever you bring it back to the foreground</strong> (reopened from the background). When a newer version is ready, an <strong>Update Cue</strong> button appears — tap it to reload into the latest version. Until you tap it, Cue keeps running the copy you already have, so an update never interrupts a performance.</p>
 
 <!-- 2 -->
 <h1>2. Settings</h1>
@@ -249,7 +249,7 @@ function manualHTML() {
 <p><strong>Which key the Library shows:</strong> the key beside each song title — and the key used for search, the <em>By Key</em> sort, and the key filter — is the song's <strong>View Key</strong> (the key you actually perform it in). If a song has no View Key set, its written key is used instead. So a song written in C but set to play in G shows, sorts, and is found as <strong>G</strong>. Hover the key to see the original written key when the two differ.</p>
 
 <h2>Backup &amp; Restore</h2>
-<p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file.</p>
+<p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file — including the bytes of any <strong>PDF</strong> lead sheets, so a restore brings the PDFs back too.</p>
 <p>To restore, tap <strong>Import</strong> and select a backup file. Cue asks how to handle the import:</p>
 <ul>
   <li><strong>Replace library</strong> — clears all current songs and sets, then loads the backup exactly as it was. Use this when moving to a new device or doing a clean restore.</li>
@@ -263,6 +263,7 @@ function manualHTML() {
   <li><code>.cho</code> / <code>.chopro</code> — standard ChordPro format</li>
   <li><code>.json</code> — a Cue JSON bundle (single song or full set)</li>
   <li><code>.txt</code> — plain ChordPro text saved with a .txt extension</li>
+  <li><code>.pdf</code> — a PDF lead sheet, imported as a <strong>PDF song</strong> (see <em>The Editor → PDF Songs</em>)</li>
 </ul>
 <p>When importing a JSON set bundle, Cue brings in the set and all its songs in a single step.</p>
 <p>You can select multiple files in the picker and Cue imports them all in sequence.</p>
@@ -275,16 +276,15 @@ function manualHTML() {
 </ul>
 <div class="tip"><strong>Note:</strong> Conflict detection applies to individual song files (<code>.cho</code>, <code>.txt</code>, and single-song JSON bundles). When importing a <strong>multi-set JSON</strong> (<code>cue-sets</code> type), Cue asks whether to <strong>Skip duplicates</strong> (reuse existing songs that match by title, avoiding copies) or <strong>Allow duplicates</strong> (import all songs as new entries). Backup files prompt separately with Replace or Merge options.</div>
 
-<h2>Select Mode</h2>
-<p>Tap <strong>Select</strong> in the Library panel header to enter selection mode. Checkboxes appear on every song row. The action bar appears immediately below the song count with three buttons — all grayed out until at least one song is checked.</p>
+<h2>Selecting Songs</h2>
+<p>Every song row has a <strong>checkbox</strong> at its left — always visible, with no "Select" mode to turn on. Tick any box and the action bar (just below the search row) lights up. Tapping a row's <em>body</em> (not the checkbox) still just highlights it, and its <strong>⋮</strong> menu carries the per-song actions (Edit, Present, Duplicate).</p>
 <ul>
-  <li>Tap a row or its checkbox to select / deselect that song</li>
-  <li><strong>Select all</strong> / <strong>Deselect all</strong> toggle at the top of the list</li>
-  <li><strong>Export ▾</strong> — exports selected songs. One song: download as ChordPro (<code>.cho</code>) or JSON. Multiple songs: download as a ZIP of <code>.cho</code> files or a JSON bundle.</li>
-  <li><strong>Add to Set</strong> — adds all selected songs to a set (see <em>Adding Songs to a Set</em> below). If a set is already selected in the Sets panel, the songs go straight into it; otherwise a dialog opens so you can create a new set or pick an existing one.</li>
-  <li><strong>Delete</strong> — permanently removes selected songs from the library and any sets they appear in</li>
+  <li>Tick a checkbox to select / deselect a song. The <strong>select-all checkbox</strong> on the action bar ticks or clears every listed song — so you can search or filter first (for example sort <strong>By Artist</strong> and open one artist) and then select-all to grab that whole group. "<strong>N selected · ✕</strong>" beside it shows the count and clears the selection.</li>
+  <li><strong>Export ▾</strong> (in the header, beside <strong>New Song</strong>) — one song: ChordPro (<code>.cho</code>) or JSON; multiple: a ZIP of <code>.cho</code> files or a JSON bundle. Where your device can share a file (iPad, Android tablet, and most phones), a <strong>Share… (email .json)</strong> option also appears — it opens the share sheet so you can pick Mail and email the <code>.json</code> as an attachment.</li>
+  <li><strong>Add to Set</strong> (on the right of the action bar) — adds the selected songs to a set (see <em>Adding Songs to a Set</em> below). If a set is active in the Sets panel the songs go straight into it; otherwise a dialog opens to create or pick one.</li>
+  <li><strong>Delete</strong> — permanently removes the selected songs from the library and any sets they appear in.</li>
 </ul>
-<p>Tap <strong>Done</strong> in the Library panel header to exit selection mode.</p>
+<p>The <strong>Checked</strong> option in the sort menu floats ticked songs to the top as you select — handy for reviewing a large selection.</p>
 
 <!-- 4 -->
 <h1>4. Sets &amp; Setlist</h1>
@@ -296,23 +296,22 @@ function manualHTML() {
 <h2>Adding Songs to a Set</h2>
 <p>Adding songs is driven from the <strong>Library</strong> panel:</p>
 <ol>
-  <li>Tap <strong>Select</strong> in the Library header and check the songs you want. <strong>Select all</strong> checks every song currently listed — so you can search or filter first (for example sort <strong>By Artist</strong> and open one artist, or type an artist's name in the search bar) and then Select all to grab that whole group.</li>
-  <li>Tap <strong>Add to Set</strong> (next to <strong>Export</strong>).</li>
+  <li>Check the songs you want (every row has a checkbox). The <strong>select-all checkbox</strong> checks every song currently listed — so you can search or filter first (for example sort <strong>By Artist</strong> and open one artist, or type an artist's name in the search bar) and then select-all to grab that whole group.</li>
+  <li>Tap <strong>Add to Set</strong> on the right of the action bar.</li>
   <li>If a set is already selected in the Sets panel (highlighted in indigo), the songs are added straight to it. If no set is selected, a dialog opens: type a name and tap <strong>Create</strong> to make a new set from your selection, or tap an existing set in the list to add them there.</li>
 </ol>
 <p>Songs already in the target set are skipped, and Cue confirms how many were added. A song can live in any number of sets — adding it to a set never removes it from the library or from other sets.</p>
 <p>Tap a set row to select it — its songs appear in the Setlist column. Tap it again to deselect.</p>
 <p>To <strong>duplicate</strong> a set, tap the copy icon on its row. Cue creates a new set with the same songs under a <em>"(2)"</em> name — the songs are shared, not copied, so nothing is added to your library. The duplicate is a fresh local set: it is <em>not</em> published, even if the original was, so you can edit it and publish it separately when ready.</p>
-<p>To delete a set, enter <strong>Select</strong> mode (see <em>Sets Select Mode</em> below), check it, and tap <strong>Delete</strong>. Songs stay in your library.</p>
+<p>To delete a set, check its box and tap <strong>Delete</strong> (see <em>Selecting Sets</em> below). Songs stay in your library.</p>
 
-<h2>Sets Select Mode</h2>
-<p>Tap <strong>Select</strong> in the Sets panel header to enter selection mode. Checkboxes appear on every set row. A count bar below the search field shows how many sets are listed. The action bar appears immediately below the count — Export and Delete are grayed out until at least one set is checked.</p>
+<h2>Selecting Sets</h2>
+<p>Like the Library, every set row has an always-visible <strong>checkbox</strong>. Tapping a set's <em>body</em> still <em>activates</em> it (its songs show in the Setlist, and it becomes the target for "Add to Set"); the checkbox is only for multi-select, so a set can be both active and checked. The action bar's Export and Delete light up once at least one set is checked.</p>
 <ul>
-  <li><strong>Select all</strong> / <strong>Deselect all</strong> — toggles selection of all visible sets (respects any active search filter)</li>
-  <li><strong>Export</strong> — downloads all selected sets as a single JSON bundle (<code>cue-sets-YYYY-MM-DD.json</code>), including all songs referenced by those sets. The file can be re-imported via the main <strong>Import</strong> button.</li>
-  <li><strong>Delete</strong> — permanently removes the selected sets; songs stay in your library</li>
+  <li><strong>Select-all checkbox</strong> — ticks / clears all listed sets (respects any active search filter); "<strong>N selected · ✕</strong>" shows the count and clears it.</li>
+  <li><strong>Export ▾</strong> (in the header, beside <strong>New Set</strong>) — one set or many as PDF, PDF + Chord Charts, a JSON bundle, or (single set) a Setlist <code>.csv</code>. Where your device can share a file, <strong>Share… (email .json)</strong> also appears to email the bundle as an attachment.</li>
+  <li><strong>Delete</strong> (on the right of the action bar) — permanently removes the selected sets; songs stay in your library.</li>
 </ul>
-<p>Tap <strong>Done</strong> to exit selection mode.</p>
 
 <h2>Searching &amp; Sorting Sets</h2>
 <p>The Sets column header includes a <strong>search bar</strong> and a <strong>sort menu</strong>, matching the Library panel. Type in the search bar to filter sets by name as you type. Use the sort menu to order by:</p>
@@ -320,6 +319,8 @@ function manualHTML() {
   <li><strong>A–Z</strong> — alphabetical by set name</li>
   <li><strong>Newest</strong> — most recently created or updated first</li>
   <li><strong>Oldest</strong> — oldest first</li>
+  <li><strong>Shared</strong> — only sets you've published (they carry a share link)</li>
+  <li><strong>Checked</strong> — floats the sets you've ticked to the top, live as you select</li>
 </ul>
 
 <h2>The Setlist Column</h2>
@@ -344,12 +345,13 @@ function manualHTML() {
 <table>
   <tr><th>Field</th><th>Description</th></tr>
   <tr><td><strong>Artist</strong></td><td>Artist or band name</td></tr>
-  <tr><td><strong>Key</strong></td><td>Source key — choose from 24 options covering all major and minor keys. This is the key the song is written in; use <strong>View Key</strong> (in the toolbar) to transpose the display to a different key without changing the saved text.</td></tr>
+  <tr><td><strong>Key</strong></td><td>Source key — choose from 24 options covering all major and minor keys. This is the key the song is written in; use <strong>Transpose</strong> (in the toolbar) to shift the display to a different key without changing the saved text.</td></tr>
   <tr><td><strong>Tempo (BPM)</strong></td><td>Beats per minute</td></tr>
   <tr><td><strong>Tap</strong></td><td>Tap repeatedly in rhythm to measure BPM automatically</td></tr>
   <tr><td><strong>▶</strong></td><td>Plays 8 beats of audio to preview the current tempo and time signature</td></tr>
   <tr><td><strong>4/4 / 3/4</strong></td><td>Time signature for this song — stored with the song and used by the metronome in Present mode</td></tr>
   <tr><td><strong>Duration (M:SS)</strong></td><td>Song length (e.g. <code>3:30</code>) — used by auto-scroll in Present mode</td></tr>
+  <tr><td><strong>Display</strong> (<strong>Full Page</strong> / <strong>FP</strong> on phones)</td><td>Off (default) = the song scrolls in Present. On = it shows as discrete full pages that fit the screen, turned one at a time. Applies to both text and PDF songs.</td></tr>
   <tr><td><strong>YouTube URL</strong></td><td>Paste any YouTube link (watch URL, short youtu.be link, or playlist link). A YouTube button appears in the editor and Present mode toolbars to open the video in an overlay player while you play along.</td></tr>
 </table>
 <p>The song <strong>title</strong> is edited in the large field at the top of the editor header.</p>
@@ -365,7 +367,7 @@ Here comes the sun, little darlin</pre>
 <p>Chords are embedded inline within the lyric line:</p>
 <pre>[G]Here comes the [Em]sun, [C]little [D]darlin</pre>
 
-<p>Use the <strong>Over lyrics</strong> / <strong>[Brackets]</strong> toggle buttons in the toolbar to switch between formats. Cue converts the text automatically when you switch.</p>
+<p>A single <strong>Format</strong> button in the toolbar switches the whole song between the two — it converts the text and sets the preview/Present to match (on the compact phone toolbar it reads <strong>OL</strong> / <strong>B</strong>). When you <strong>paste</strong> a song into an empty editor, Cue auto-senses which format it's in and sets the button for you; an empty editor shows "<strong>Sense Chords</strong>" until there's something to detect.</p>
 
 <h2>Styling Lyrics</h2>
 <p>You can color words and make them <strong>bold</strong> or <em>italic</em>. Styling applies to <em>lyrics only</em> — chords keep the single chord color set in Settings.</p>
@@ -389,7 +391,9 @@ Here comes the sun, little darlin</pre>
 <h2>Toolbar Controls</h2>
 <table>
   <tr><th>Control</th><th>What it does</th></tr>
-  <tr><td><strong>View Key</strong></td><td>Sets a saved <em>display key</em> for the song. The preview, Present mode, and the exported set PDF all render transposed to this key, without ever changing the source text or the song's real key. The Library also treats the View Key as the song's key — it is what the key badge shows and what search, the <em>By Key</em> sort, and the key filter use. Your choice is saved with the song, so it reopens the same way; choose the top option (the song's own key) to render untransposed.</td></tr>
+  <tr><td><strong>Transpose</strong></td><td>Sets a saved <em>display key</em> for the song. The preview, Present mode, and the exported set PDF all render transposed to this key, without ever changing the source text or the song's real key. The Library also treats it as the song's key — it is what the key badge shows and what search, the <em>By Key</em> sort, and the key filter use. Saved with the song; choose the top option (the song's own key) to render untransposed. (This was called "View Key".)</td></tr>
+  <tr><td><strong>Transpose source</strong></td><td>Bakes the current Transpose <em>into</em> the text: it rewrites the chords to the transposed key, makes that the song's Key, and clears the Transpose lens. Enabled only when a transpose is active; recoverable via <strong>Revert</strong> until you Save.</td></tr>
+  <tr><td><strong>Format</strong> (<strong>OL/B</strong>)</td><td>Switches the song between Over-lyrics and Brackets (see above), for both the text and the preview.</td></tr>
   <tr><td><strong>Preview</strong></td><td>Toggles the live preview panel that renders the song with chords above lyrics.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar.</td></tr>
   <tr><td><strong>✎ Ink</strong></td><td>Shows or hides ink annotations drawn in Present mode, overlaid on the preview (read-only here). Only appears when the song has saved annotations. A <strong>Clear ink</strong> button beside it deletes them — see <em>Annotation Overlay</em> below.</td></tr>
@@ -399,6 +403,14 @@ Here comes the sun, little darlin</pre>
   <tr><td><strong>✕</strong></td><td>Returns to the Library. If there are unsaved changes, a confirmation dialog appears first.</td></tr>
 </table>
 <div class="tip"><strong>Tip:</strong> Theme and chord color are set in the <strong>Settings</strong> panel (⚙ gear icon in the Library header) and apply globally — you do not need to change them per song.</div>
+<p><strong>On a phone,</strong> the header and toolbar buttons collapse to icons to save room — <strong>Present</strong> (TV), <strong>Find</strong> (magnifier), <strong>Save</strong> (disk) and <strong>Revert</strong> (circle-arrow) — and the <strong>Format</strong> toggle moves onto the compact toolbar as <strong>OL/B</strong>.</p>
+
+<h2>PDF Songs</h2>
+<p>Import a PDF lead sheet (see <em>Importing Songs</em>) and it becomes a <strong>PDF song</strong>. The metadata bar still applies — give it a Title, Artist, Key, Tempo and so on — and the <strong>Display</strong> toggle chooses how it shows in Present (scroll through its pages, or Full Page). You don't edit the PDF's contents, but you can:</p>
+<ul>
+  <li><strong>Add chord diagrams.</strong> Type the chords the song uses into the text box (e.g. <code>[G] [C] [D] [Em]</code>) and their diagrams appear in the chord sidebar and over the sheet in Present, toggled on/off like any song. Because a PDF can't be transposed, its diagrams always render at the key you type — Transpose is disabled for PDFs.</li>
+  <li><strong>Annotate it in Present</strong> (see below), and share it in a published set (see <em>Shared Sets</em>).</li>
+</ul>
 
 <h2>Annotation Overlay</h2>
 <p>Ink drawn over a song in <strong>Present mode</strong> can be reviewed in the editor. When a song has saved annotations, an <strong>✎ Ink</strong> button appears in the toolbar:</p>
@@ -516,7 +528,7 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>Clear</strong></td><td>Removes all ink for the current song, after a confirmation.</td></tr>
 </table>
 <p>An <strong>Apple Pencil</strong> (or other stylus) always draws, even when annotation mode is off — so you can jot a quick note with the pencil and still tap with a finger to navigate. The floating control panel stays put while you draw; drag it aside or collapse it if it sits over the part of the song you want to mark up.</p>
-<p>Ink is saved automatically per song and scales with the text as you resize or change the font size. To review a song's ink later without entering Present mode, open it in the editor and tap <strong>Ink</strong> — see <em>The Editor → Annotation Overlay</em>.</p>
+<p>Ink is saved automatically per song and scales with the content as you resize or change the font size — this works over <strong>PDF lead sheets</strong> too, where marks are anchored to the page so they line up whether the PDF is scrolling or in Full Page. To review a text song's ink later without entering Present mode, open it in the editor and tap <strong>Ink</strong> — see <em>The Editor → Annotation Overlay</em>.</p>
 <div class="tip"><strong>Note:</strong> Annotations are stored only on this device and are tied to the song. They are never included in PDF exports, JSON bundles, backups, or shared-set links — a shared set shows no ink to its viewers.</div>
 
 <h2>Count-In</h2>
@@ -541,21 +553,18 @@ Bb,8-10-11-10,1243</pre>
 <p>When presenting a set, use the <strong>◀</strong> and <strong>▶</strong> buttons on the floating control panel to move between songs. They dim at the first and last song. You can also use the keyboard arrow keys (<code>←</code> <code>↑</code> / <code>→</code> <code>↓</code>), Page Up / Page Down, or a page-turner pedal — see <em>Page-Turner Pedals</em> below.</p>
 <p><strong>Starting from any song:</strong> select a song in the Setlist column by tapping its row, then tap <strong>Present</strong>. Presentation starts from that song and continues forward through the rest of the set.</p>
 
-<h2>Page-Turner Pedals</h2>
-<p>A Bluetooth page-turner pedal pairs with an iPad as a keyboard, so it works in Present mode with no setup — each press sends a key Cue already listens for. Cue maps <strong>Next</strong> to <code>→</code>, <code>↓</code>, or <code>Page Down</code>, and <strong>Previous</strong> to <code>←</code>, <code>↑</code>, or <code>Page Up</code>. A held-down pedal turns one page, not several. What Next / Previous <em>do</em> depends on the mode:</p>
-<h3>Auto-scroll mode (default)</h3>
-<p>Next / Previous skip song-to-song, exactly like the on-screen ◀ / ▶, and <code>space</code> (or the ↓ button) runs auto-scroll. Nothing to configure.</p>
-<h3>Pedal paging mode</h3>
-<p>Turn on <strong>Settings → Present → Pedal paging mode</strong> to page through long songs with the pedal instead of skipping songs:</p>
+<h2>Page-Turner Pedals &amp; How Songs Advance</h2>
+<p>A Bluetooth page-turner pedal pairs with an iPad as a keyboard, so it works in Present mode with no setup — each press sends a key Cue already listens for. Cue maps <strong>Next</strong> to <code>→</code>, <code>↓</code>, or <code>Page Down</code>, and <strong>Previous</strong> to <code>←</code>, <code>↑</code>, or <code>Page Up</code>. The on-screen ◀ / ▶ and the arrow keys do the same, and a held pedal turns one page, not several. What Next / Previous <em>do</em> is set two ways:</p>
+<h3>Full Page — per song</h3>
+<p>Turn on <strong>Display → Full Page</strong> for a song (in the editor's metadata bar) and Present shows it as discrete full pages that fit the screen. Next turns a whole page; at the last page it rolls on to the next song. This is the natural fit for a multi-page <strong>PDF</strong> lead sheet. (A one-screen text song set to Full Page simply advances to the next song.)</p>
+<h3>Foot pedal advances by — global (Settings → Present)</h3>
+<p>For songs that <em>aren't</em> Full Page (ordinary scrolling songs, text or PDF), this one global setting decides what the pedal / ◀ ▶ / keys do:</p>
 <ul>
-  <li><strong>Next</strong> moves down the current song by about one screen, keeping a line or two of overlap so you don't lose your place; <strong>Previous</strong> moves back up the same way.</li>
-  <li>At the <strong>bottom</strong> of a song, Next continues to the next song (starting at its top); at the <strong>top</strong>, Previous goes to the previous song. It stops at the first song's top and the last song's bottom — there is no wrap-around.</li>
-  <li>When presenting a <strong>single song</strong>, paging simply stops at the top and bottom.</li>
-  <li><strong>Auto-scroll is turned off</strong> in this mode — the ↓ / ❚❚ button is disabled and <code>space</code> does nothing, since paging takes its place.</li>
-  <li><strong>Page turn size</strong> — choose <strong>Full page</strong> (a whole screen per press, the default) or <strong>Half page</strong> (half a screen per press, so more of what you just read stays in view). It applies to both Next and Previous.</li>
-  <li><strong>Page turn glide</strong> — a slider (0–2000&nbsp;ms) sets how the page turn moves. At <strong>0</strong> the screen jumps instantly; higher values glide smoothly to the next screen, keeping your eye with the text. The default is a gentle 550&nbsp;ms. Two quick presses still advance two full screens. (Crossing into a new song is always an instant cut, whatever the glide.)</li>
+  <li><strong>Songs</strong> (default) — Next / Previous jump song-to-song; you read each song by scrolling, and auto-scroll is available.</li>
+  <li><strong>Screen</strong> — Next moves down the current song by about one screen (keeping a line or two of overlap so you don't lose your place); Previous moves back up. At the bottom it rolls to the next song, at the top to the previous — no wrap-around. Auto-scroll is off in this mode.</li>
 </ul>
-<div class="tip"><strong>Tip:</strong> The setting is global and remembered, and it applies to the on-screen ◀ / ▶ and the keyboard too — not just a pedal. Leave it off for the usual auto-scroll behavior.</div>
+<p>In <strong>Screen</strong> mode two extra controls appear under the same Settings section: <strong>Page turn size</strong> (full / three-quarter / half screen) and <strong>Page turn glide</strong> (0–2000&nbsp;ms — 0 jumps instantly, higher glides smoothly; default 550&nbsp;ms). Crossing into a new song is always an instant cut.</p>
+<div class="tip"><strong>Note:</strong> A <strong>Full Page</strong> song always turns whole pages regardless of the Screen/Songs setting. The global setting applies to the on-screen ◀ / ▶ and the keyboard too, not just a pedal. Leave it on <strong>Songs</strong> for the usual scroll-and-skip behavior.</div>
 
 <h2>Editing During Performance</h2>
 <p>Tap <strong>Edit</strong> in the top bar to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
@@ -573,11 +582,10 @@ Bb,8-10-11-10,1243</pre>
 <table>
   <tr><th>Icon</th><th>Step</th><th>What it does</th></tr>
   <tr><td><strong>☁↑ Publish</strong></td><td>1. Upload</td><td>Copies the set and its songs to the cloud. Tap it again later to <strong>republish</strong> after edits. An amber dot on the row means this device has changes you have not published yet.</td></tr>
-  <tr><td><strong>🔗 Share</strong></td><td>2. Link</td><td>Appears once a set is published. Opens the Share links dialog — tap <strong>Generate new link</strong>, then copy it. You can create more than one link for the same set.</td></tr>
-  <tr><td><strong>Revoke</strong></td><td>Stop sharing</td><td>Next to any link in the Share dialog. That link stops working immediately; other links to the same set keep working.</td></tr>
-  <tr><td><strong>☁✕ Unpublish</strong></td><td>Remove</td><td>Deletes the set from the cloud and kills <em>all</em> of its links at once. Your local copy is not affected.</td></tr>
+  <tr><td><strong>🔗 Share</strong></td><td>2. Link</td><td>Appears once a set is published. Opens the Share dialog with the set's <strong>single link</strong> — Cue keeps one link per set (created the first time, reused after), so just copy it. <strong>Stop sharing</strong> in the dialog revokes the link; the set stays, and sharing again mints a fresh one.</td></tr>
+  <tr><td><strong>☁✕ Unpublish</strong></td><td>Remove</td><td>Deletes the set from the cloud, kills its link, and cleans up any shared PDF files. Your local copy is not affected.</td></tr>
 </table>
-<p>A link stays live until you revoke it or unpublish the set. Recipients see the set in a read-only viewer — they cannot edit songs or see your full library. Republishing an already-shared set updates what its existing links show; it does not invalidate them.</p>
+<p>The link stays live until you stop sharing or unpublish the set. Recipients see the set in a read-only viewer — they cannot edit songs or see your full library. Republishing an already-shared set updates what the link shows; it does not invalidate it. <strong>PDF lead sheets in a shared set now come through to recipients</strong> — they render in the viewer and travel with a "Copy to library".</p>
 
 <h2>Pulling a Set to Another Device</h2>
 <p>Publishing sends a set <em>up</em> to the cloud. Pulling brings it back <em>down</em> onto another device you own — the same set, not a copy. Use it to carry a set from your desktop to the iPad you perform from. You must be signed in on both devices with the same account.</p>
@@ -605,14 +613,19 @@ Pulling will discard them. Continue?</pre>
 <p>These look similar and are not the same. <strong>Pull</strong> is for <em>your own</em> set returning to <em>your own</em> device: it matches the set and songs by their identity and overwrites them in place, so the set stays one set across your devices. <strong>Copy to library</strong> (in the shared-set viewer) is for <em>someone else's</em> set: it always creates brand-new songs so it can never overwrite anything of yours, and prompts you when a title already exists.</p>
 
 <h2>Viewing a Shared Set</h2>
-<p>Open the shared link on any device. The viewer shows the set name and song list. From the viewer you can:</p>
+<p>Open the shared link on any device. On a fresh open a small <strong>landing screen</strong> appears first so the recipient can choose:</p>
 <ul>
-  <li><strong>Present All</strong> — launches Present mode starting from the first song, or from any song you tap <strong>Present</strong> on in the list</li>
-  <li><strong>View Key</strong> — transpose the display for any individual song (stored locally, never sent to the server)</li>
-  <li><strong>Copy to library</strong> — copy an individual song or the entire set to your local Cue library</li>
-  <li><strong>Bookmark</strong> — save the shared link to a <em>Shared with me</em> list in your local Cue install for quick access later</li>
-  <li><strong>⚙ Settings</strong> — open the Settings panel to change theme, chord color, and chord label size. Changes apply immediately to the viewer and persist across sessions.</li>
-  <li><strong>Open Cue</strong> — navigate to the main Cue app</li>
+  <li><strong>Continue to set</strong> — opens the set here in the browser to follow along.</li>
+  <li><strong>Copy code</strong> — copies the set's code so they can save it in their own Cue: paste it into <strong>Sets → "Paste a share link"</strong> and tap Open (which also bookmarks it under <em>Shared with me</em> automatically). The landing screen is skipped on repeat visits and for sets you've already bookmarked.</li>
+</ul>
+<p>In the viewer you can:</p>
+<ul>
+  <li><strong>Present All</strong> — launches Present mode from the first song, or from any song you tap <strong>Present</strong> on. PDF lead sheets render just as they do in your own library.</li>
+  <li><strong>Key</strong> — each song shows the key it plays in; you can transpose it for yourself (stored locally, never sent to the server).</li>
+  <li><strong>Copy to library</strong> — copy an individual song or the whole set (including any PDFs) into your local Cue.</li>
+  <li><strong>Bookmark</strong> — save the link to a <em>Shared with me</em> list for quick access later.</li>
+  <li><strong>⚙ Settings</strong> — theme, chord color, and chord label size, applied immediately.</li>
+  <li><strong>Open Cue</strong> — go to the main Cue app.</li>
 </ul>
 <div class="tip"><strong>Note:</strong> Viewing a shared set is entirely read-only. Nothing the viewer does (key changes, bookmarks, copies) is written back to the shared set or the publisher's account.</div>
 

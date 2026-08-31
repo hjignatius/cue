@@ -3,6 +3,68 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.2.11 — 2026-08-31
+
+- **Email a song or set.** New **Share… (email .json)** option in the Library and
+  Sets export menus. On iPad, Android tablets, Windows Chrome and Mac Safari it
+  opens the share sheet so you can pick Mail — the `.json` is attached and the
+  subject filled in. On browsers that can't share a file it stays hidden and the
+  plain `.json` download is used instead.
+
+## v1.2.10 — 2026-08-31
+
+- **Faster updates.** Cue now re-checks for a new version whenever it returns to
+  the foreground (reopened from the background / window refocused), so the
+  "Update Cue" prompt appears promptly instead of possibly waiting up to a day.
+
+## v1.2.9 — 2026-08-31
+
+- In a shared set, each song's key is now labelled simply **"Key"** (was "View
+  key") — the key you play it in.
+
+## v1.2.8 — 2026-08-31
+
+- **Pasting a share code saves it.** Opening a set from Sets → "Paste a share
+  link" now bookmarks it automatically under **Shared with me** and takes you
+  straight in — no separate bookmark step.
+
+## v1.2.5–v1.2.7 — 2026-08-30
+
+- **Shared-link landing screen.** Opening a share link now first offers **Continue
+  to set** (follow along in the browser) or the set's **code with Copy** (to save
+  it in your own Cue). Skipped once you've continued or bookmarked it.
+- **Roomier editor on phones.** Present, Find, Save and Revert collapse to icons,
+  Display shows "FP", and the format toggle sits inline on the compact toolbar.
+
+## v1.2.3–v1.2.4 — 2026-08-30
+
+- **New selection UX.** The "Select" mode is gone — every song and set row has a
+  checkbox that's always visible, with a select-all checkbox and an "N selected"
+  clear. Row taps keep their old job (highlight / open the ⋮ menu, or activate a
+  set). Export moved up beside New Song / New Set; a new **Checked** sort floats
+  ticked rows to the top.
+
+## v1.2.0–v1.2.2 — 2026-08-30
+
+- **Share PDFs across people.** A shared set's PDF lead sheets now come through to
+  whoever opens the link (and copying the set brings the PDFs into their library),
+  not just to your own other devices. Publishing re-uploads any missing bytes,
+  unpublishing cleans them up, and PDFs work in Safari Private Browsing.
+
+## v1.1.0 — 2026-08-30
+
+- **Scrollable PDFs + Full Page mode.** A per-song **Full Page** toggle: off (the
+  default) scrolls; on shows discrete full pages. PDFs can scroll like text songs.
+- **Chords for PDFs.** Type the chords used into a PDF song and its chord diagrams
+  appear (toggle on/off); the diagrams stay at the printed key.
+- **Annotate PDFs.** The ink overlay now works over PDF lead sheets in Present.
+- **Pedal mode is a global setting.** "Foot pedal advances by Screen / Songs"
+  lives in Settings; the per-song **Full Page** toggle handles page turns.
+- **Editor rework.** "View Key" is now **Transpose**; the two format buttons
+  merged into one **Format** control that also auto-senses on paste; **Transpose
+  source** bakes the transpose into the text.
+- **PDF-safe backups.** Backup/Restore now includes PDF bytes.
+
 ## v1.0.10 — 2026-08-29
 
 - **Fix: deleting a set works again.** A coding error introduced with the

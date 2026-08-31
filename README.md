@@ -140,9 +140,10 @@ Icon-only anchor and toggle circles turn indigo when active; neutral actions kee
 ### Storage layout
 | Store | Key | Contents |
 |---|---|---|
-| IndexedDB `songs` | song id | `{ id, metadata, text, chordStyle, diagramScale, chordPrefs, displayKey, createdAt, updatedAt }` |
+| IndexedDB `songs` | song id | `{ id, metadata, text, type ('text'\|'pdf'), pdf?, fullPage?, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, copiedFrom?, createdAt, updatedAt }` |
 | IndexedDB `sets` | set id | `{ id, name, songIds[], sortMode, createdAt, updatedAt }` |
-| IndexedDB `annotations` | song id | Device-local ink strokes. **Never** exported, published, or shared; survives a cloud pull overwriting its song |
+| IndexedDB `pdfs` | song id | Raw PDF bytes for `type: 'pdf'` songs (`{ songId, blob }`). Local-only; synced to Supabase Storage on publish, pulled when missing. Falls back to an in-memory cache where IndexedDB blob writes are refused (e.g. Safari Private) |
+| IndexedDB `annotations` | song id | Device-local ink strokes (text and PDF songs). **Never** exported, published, or shared; survives a cloud pull overwriting its song |
 | `localStorage` | `cue_custom_chords:<instrument>` | Custom chord fingerings, namespaced per instrument (`ukulele_gcea`, `baritone_dgbe`, `guitar`) |
 | `localStorage` | `cue_hidden_chords:<instrument>` | Built-in shapes the user has hidden, per instrument |
 | `localStorage` | `cue:schema_version` | Current schema version (integer) |
@@ -151,6 +152,7 @@ Icon-only anchor and toggle circles turn indigo when active; neutral actions kee
 | `localStorage` | `cue:draft` | In-progress editor text, written on every keystroke |
 | `localStorage` | `cue:published_sets` | `{ [setId]: isoTimestamp }` — last publish/pull per set; drives the amber "unpublished changes" dot |
 | `localStorage` | `cue:shared_with_me` | Bookmarked `/shared/:token` links (viewer side) |
+| `localStorage` | `cue:shared_continued` | Share tokens whose landing gate the viewer has passed (skips the gate on repeat visits) |
 | `localStorage` | `cue:present_font_px` | Present-mode lyric font size |
 | `localStorage` | `cue:present_controls_pos` | `{ x, y }` — floating control panel position |
 | `localStorage` | `cue:present_controls_collapsed` | `'1'` / `'0'` — panel collapsed to its pill |
@@ -160,12 +162,13 @@ Icon-only anchor and toggle circles turn indigo when active; neutral actions kee
 
 ### Schema versioning & migrations
 
-The current schema version is **2**. Migrations run automatically on app load, guarded by `cue:schema_version` in `localStorage`.
+The current schema version is **3**. Migrations run automatically on app load, guarded by `cue:schema_version` in `localStorage`.
 
 | Version | Change |
 |---|---|
 | 1 | Initial IndexedDB schema; songs and sets identified by `crypto.randomUUID()` IDs; sets reference songs by UUID in `songIds[]` |
 | 2 | Added `createdAt` / `updatedAt` ISO-8601 timestamps to every song and set. Existing records are stamped at migration time using the legacy `savedAt` field where available. Backup exports include `schemaVersion`; backup merge resolves conflicts by UUID, keeping whichever copy has the newer `updatedAt`. |
+| 3 | Added the song `type` discriminator (`'text'` \| `'pdf'`), the per-song `fullPage` flag, and a new `pdfs` object store for PDF lead-sheet bytes. Existing songs migrate to `type: 'text'`. Backups are `version: 3` and embed PDF bytes as base64 under `pdfs`; older backups (no `pdfs`) still restore. |
 
 ---
 
