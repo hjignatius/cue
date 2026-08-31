@@ -278,7 +278,9 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
     if (/\s/.test(token)) { setShareErr("That doesn't look like a share link."); return; }
     setShareErr('');
     setShareInput('');
-    navigate(`/shared/${token}`);
+    // autoSave: pasting a code here is an explicit "catalog this" action, so the
+    // shared view bookmarks it into Sets → Shared with me automatically.
+    navigate(`/shared/${token}`, { state: { autoSave: true } });
   }
 
   // Cross-device publish-status sync. Publish state is otherwise cached only in

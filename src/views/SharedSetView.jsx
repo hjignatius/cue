@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getSharedSet } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -92,6 +92,10 @@ function makeUniqueTitle(baseTitle, existingTitlesSet) {
 export default function SharedSetView() {
   const { token }       = useParams();
   const navigate        = useNavigate();
+  const location        = useLocation();
+  // Opened via the Sets panel "Paste a share link" box → an explicit catalog
+  // intent, so we auto-bookmark it and skip the follow-vs-save landing gate.
+  const autoSave        = !!location.state?.autoSave;
   const { theme } = usePrefs();
   const dark = theme === 'dark';
 
@@ -178,6 +182,12 @@ export default function SharedSetView() {
     persistSavedShares(shares);
     setSavedShares([...shares]);
   }, [status, token]);
+
+  // Auto-bookmark when opened from the "Paste a share link" box (catalog intent),
+  // so the set shows up under Sets → Shared with me without a manual bookmark tap.
+  useEffect(() => {
+    if (status === 'ok' && setData && autoSave && !isBookmarked) handleSaveBookmark();
+  }, [status, setData, autoSave, isBookmarked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function songsWithViewerKeys(songs) {
     return songs.map(s => ({ ...s, displayKey: viewerKeys[s.id] || s.displayKey || '' }));
@@ -498,7 +508,7 @@ export default function SharedSetView() {
   // Landing gate — a fresh open offers "follow along here" vs "copy the code to
   // save in your own Cue" before showing the songs. Skipped once passed on this
   // device, or when the set is already bookmarked.
-  if (!gatePassed && !isBookmarked) {
+  if (!gatePassed && !isBookmarked && !autoSave) {
     return (
       <div className={`h-dvh flex flex-col items-center justify-center p-6 ${bg}`}>
         <div className={`w-full max-w-md rounded-2xl border ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'} shadow-xl p-6 flex flex-col gap-5`}>
