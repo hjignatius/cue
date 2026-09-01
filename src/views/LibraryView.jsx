@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import OnboardingTour from '../components/OnboardingTour.jsx';
 import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
+import SymbolMenuButton from '../components/SymbolMenuButton.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups } from '../lib/cloud.js';
@@ -1515,8 +1516,9 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 // ---- Library view -----------------------------------------------------------
 
 export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
-  const { theme, updatePref, chordColor, accidentals, instrument } = usePrefs();
+  const { theme, updatePref, chordColor, accidentals, instrument, symbols } = usePrefs();
   const dark = theme === 'dark';
+  const searchInputRef = useRef(null);
 
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('cue:onboarding_done'));
   function finishTour() { localStorage.setItem('cue:onboarding_done', '1'); setShowTour(false); }
@@ -1538,6 +1540,18 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [highlightedSongId, setHighlightedSongId] = useState(() => sessionStorage.getItem('cue:lib_highlighted_id') || null);
 
   const [search, setSearch]             = useState(() => sessionStorage.getItem('cue:lib_search') || '');
+  // Insert an Ω-palette symbol into the search box at the cursor (keyboards on
+  // iPad have no ° ♭ ↓ / etc., so typing them there is otherwise impossible).
+  function insertSymbolIntoSearch(ch) {
+    const el = searchInputRef.current;
+    setArtistFilter(null);
+    if (!el) { setSearch(s => s + ch); return; }
+    const start = el.selectionStart ?? search.length;
+    const end = el.selectionEnd ?? search.length;
+    const next = search.slice(0, start) + ch + search.slice(end);
+    setSearch(next);
+    requestAnimationFrame(() => { el.focus(); const p = start + ch.length; try { el.setSelectionRange(p, p); } catch { /* ignore */ } });
+  }
   const [sortBy, setSortBy]             = useState(() => sessionStorage.getItem('cue:lib_sort') || 'title');
   const [artistFilter, setArtistFilter] = useState(() => sessionStorage.getItem('cue:lib_artist_filter') || null);
   const [keyFilter, setKeyFilter]       = useState(() => sessionStorage.getItem('cue:lib_key_filter') || null);
@@ -1959,6 +1973,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             <div className="relative flex-1">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <input
+                ref={searchInputRef}
                 value={search}
                 onChange={e => { setSearch(e.target.value); setArtistFilter(null); }}
                 placeholder="Search songs, artists…"
@@ -1974,6 +1989,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </button>
               )}
             </div>
+            {/* Ω — insert palette symbols (° ♭ ↓ / …) the keyboard can't type. */}
+            <SymbolMenuButton symbols={symbols} onInsert={insertSymbolIntoSearch} dark={dark} className="shrink-0" />
             <select
               value={keyFilter || ''}
               onChange={e => setKeyFilter(e.target.value || null)}

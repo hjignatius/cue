@@ -679,7 +679,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setAiBusy('clean');
     setAiMsg('Cleaning up…');
     try {
-      const cleaned = await cleanUpChart(text);
+      const cleaned = await cleanUpChart(text, { symbols });
       if (cleaned && cleaned !== text) {
         setText(cleaned);
         senseFormat(cleaned);

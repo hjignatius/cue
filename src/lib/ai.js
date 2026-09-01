@@ -214,29 +214,41 @@ function extractJson(s) {
 }
 
 // ── Clean up formatting ─────────────────────────────────────────────────────
-// Reformat a pasted chart; never change chords or lyrics.
-const CLEANUP_SYSTEM = `You clean up messy chord charts for a musician's app. You are given the raw text of ONE song's chart, often pasted from a website and full of clutter.
+// Reformat a pasted chart; never change chords, lyrics, or musical notation.
+const CLEANUP_SYSTEM = `You clean up messy chord charts for a musician's app. You are given the raw text of ONE song's chart, often pasted from a website.
 
-Your job is ONLY to tidy the formatting. Rules:
-- Do NOT add, remove, or change any chord or any lyric word. Keep the song's actual content exactly.
-- Keep whatever chord notation the input already uses: chords on their own line above the lyric line ("over-lyrics"), or inline in [brackets]. Do not convert between the two.
-- If the chart is over-lyrics, align each chord so it sits directly above the syllable it belongs to, using spaces (never tabs).
-- Keep section labels (Intro, Verse, Chorus, Bridge, Outro, etc.) on their own line in Title Case, no surrounding brackets or colons unless they were clearly lyrics.
-- Remove website clutter: ads, "Tabs by", ratings, view counts, difficulty, capo-selector widgets, navigation text, ASCII rules/boxes, stray line numbers, and collapse 3+ blank lines to one.
-- Preserve a single capo note if present (e.g. "Capo 2") on its own line near the top.
+Your job is ONLY to tidy FORMATTING — whitespace, alignment, and obvious website clutter. Be conservative: when in doubt, leave it alone.
+
+NEVER remove, change, or "correct" musical content or notation. Preserve every non-whitespace character unless it is clearly website furniture. In particular, KEEP these exactly — they are meaningful:
+- slash chords and rhythm slashes ( / ), bar lines ( | ), repeats ( x2, %, :|| ||: ), "N.C.", parentheses, dashes/hyphens
+- strum / picking marks ( ↓ ↑ → ← ) and chord-quality symbols ( ° + Δ ø ♭ ♯ b # sus add maj )
+- section labels, capo notes, and of course the chords and lyrics themselves — verbatim.
+
+DO:
+- Keep the input's chord notation — chords-above-lyrics OR inline [brackets]; do not convert between them.
+- In over-lyrics, align each chord directly above its syllable using spaces (never tabs).
+- Put section labels (Intro, Verse, Chorus, Bridge, Outro, …) on their own line in Title Case.
+- Remove ONLY clear website clutter: ads, "Tabs by", ratings, view counts, difficulty labels, capo-selector widgets, navigation text, decorative ASCII rule/box art, and stray line numbers; collapse 3+ blank lines to one; keep a single capo note near the top.
 
 Output ONLY the cleaned chart text. No commentary, no explanation, no Markdown code fences.`;
 
-export async function cleanUpChart(text) {
+export async function cleanUpChart(text, { symbols } = {}) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to clean up — the chart is empty.');
     err.code = 'empty';
     throw err;
   }
+  // Feed the user's own symbol palette as an explicit keep-list, so their
+  // acceptable characters are never stripped.
+  const allow = (symbols || '').replace(/\s+/g, ' ').trim();
+  const system = allow
+    ? `${CLEANUP_SYSTEM}\n\nThe user's chart may also use these characters, which are MEANINGFUL — keep every one of them exactly: ${allow}`
+    : CLEANUP_SYSTEM;
+
   const data = await callClaude({
     max_tokens: 8000,
     output_config: { effort: 'low' },
-    system: CLEANUP_SYSTEM,
+    system,
     messages: [{ role: 'user', content: text }],
   });
   const out = textOf(data);

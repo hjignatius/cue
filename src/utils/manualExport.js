@@ -597,7 +597,7 @@ Bb,8-10-11-10,1243</pre>
 <table>
   <tr><th>Action</th><th>What it does</th></tr>
   <tr><td><strong>Find music online</strong></td><td>Searches the web for chord/tab sources for the song, favouring your instrument (e.g. ukulele sites). Returns a list of real links to open — Cue never copies the charts; you decide what to use.</td></tr>
-  <tr><td><strong>Clean up formatting</strong></td><td>Tidies a messy pasted chart — fixes chord alignment and strips website clutter — <em>without changing any chord or lyric</em>. Review and Save as usual.</td></tr>
+  <tr><td><strong>Clean up formatting</strong></td><td>Tidies a messy pasted chart — fixes chord alignment and strips website clutter — <em>without changing any chord, lyric, or musical mark</em> (slash chords, strum arrows, bar lines, and your Ω symbols are all preserved). Review and Save as usual.</td></tr>
   <tr><td><strong>Fill in song details</strong></td><td>Reads the chart and suggests Title, Artist, Key (from the chords), plus Tempo, Duration and a real YouTube link (web-searched). Apply each suggestion you want — nothing changes until you do.</td></tr>
   <tr><td><strong>Add missing chord shapes</strong></td><td>Finds chords in the song that have no diagram for your instrument, proposes a voicing for each, and shows it as a <em>rendered diagram</em> to review before it's added to your custom chord library.</td></tr>
   <tr><td><strong>Transposing advice</strong></td><td>Suggests easier keys and capo positions for your instrument, with a one-tap <strong>Apply</strong> that sets Cue's Transpose. Capo tips are advice only.</td></tr>

@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.3.2 — 2026-09-01
+
+- **AI "Clean up formatting" preserves musical notation.** It no longer strips
+  slash chords / rhythm slashes (`/`), strum arrows (`↓ ↑`), bar lines, repeats,
+  and other marks — and it's fed your **Ω symbol palette** as an explicit
+  keep-list, so your acceptable characters always survive. It now only removes
+  obvious website clutter and leaves content alone.
+- **Ω symbol palette on Library search.** An **Ω** button beside the song search
+  lets you insert palette characters (`° ♭ ↓ /` …) straight into a search — no
+  more copy-pasting them from a song, which was the only way on iPad.
+
 ## v1.3.0 — 2026-08-31
 
 - **AI assistant (optional, bring-your-own-key).** A new **AI** menu in the editor
