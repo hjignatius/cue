@@ -46,6 +46,10 @@ import { parseChordPro, expandSections, attachSectionLabels, styleSegments } fro
 import { transposeChord, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
+import ChordDiagram from './ChordDiagram.jsx';
+import { resolveChordShape } from '../utils/chordLookup.js';
+import { loadCustomChords, loadHiddenChords } from '../utils/chordStorage.js';
+import { readableChordColor } from '../utils/chordColor.js';
 
 // Preview lyric font (px). Every vertical metric below is a multiple of PV using
 // the SAME multipliers as Present's SongBody (fontPx·0.2 line gap, ·0.85 chords,
@@ -72,10 +76,44 @@ function StyledRuns({ runs }) {
   );
 }
 
-function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFlats }) {
+// Diagram-view sizing: the smallest readable inline chord shape. Height is
+// instrument-independent (4 fret rows), so a fixed band keeps lyric baselines
+// aligned across the row whether a segment has a chord or not.
+const DIAG_SCALE = 0.6;
+const DIAG_BAND = 46;
+
+function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFlats, diagramMode, shapeFor, dark }) {
+  const segs = styleSegments(segments);
+
+  if (diagramMode) {
+    return (
+      <div className="flex items-end font-mono" style={{ marginBottom: PV * 0.4 }}>
+        {segs.map((seg, i) => {
+          const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
+          const frets = displayed ? shapeFor(displayed) : null;
+          return (
+            <div key={i} className="flex flex-col items-start shrink-0" style={{ whiteSpace: 'pre' }}>
+              <div className="flex items-end shrink-0" style={{ minHeight: DIAG_BAND }}>
+                {frets
+                  ? <ChordDiagram chord={{ name: displayed, frets }} scale={DIAG_SCALE} theme={dark ? 'dark' : 'light'} chordColor={chordColor} />
+                  : displayed
+                    // Undefined chord → fall back to the name (no shape in the library).
+                    ? <span className="font-bold leading-tight self-end pb-0.5" style={{ color: chordColor, fontSize: chordFontSize }}>{displayed + ' '}</span>
+                    : null}
+              </div>
+              <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: PV }}>
+                {seg.text ? <StyledRuns runs={seg.styledRuns} /> : ' '}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="flex font-mono" style={{ marginBottom: PV * 0.2 }}>
-      {styleSegments(segments).map((seg, i) => {
+      {segs.map((seg, i) => {
         const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
         return (
           <div key={i} className="flex flex-col shrink-0" style={{ whiteSpace: 'pre' }}>
@@ -115,9 +153,21 @@ function BracketsLine({ segments, semitones, chordColor, useFlats }) {
   );
 }
 
-export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true, headerRight = null }) {
-  const { theme, chordColor, chordLabelScale, accidentals } = usePrefs();
+export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true, headerRight = null, diagramMode = false, chordPrefs = {} }) {
+  const { theme, chordColor: rawChordColor, chordLabelScale, accidentals, instrument } = usePrefs();
   const dark = theme === 'dark';
+  // Flip a default black/white chord color to stay readable on this theme.
+  const chordColor = readableChordColor(rawChordColor, dark);
+
+  // Diagram-view fingering lookup — the SAME resolver the chord panel and PDF
+  // use, so custom shapes and the song's chosen voicing (chordPrefs) are honored,
+  // not just built-ins. Preload custom/hidden once per instrument.
+  const chordSources = useMemo(() => ({
+    custom: loadCustomChords(instrument),
+    hidden: new Set(loadHiddenChords(instrument)),
+  }), [instrument]);
+  const shapeFor = (name) => resolveChordShape(name, chordPrefs, instrument, chordSources.custom, chordSources.hidden)?.frets || null;
+  const diagrams = diagramMode && displayMode === 'over' && instrument !== 'none';
   const chordFontSize = PV * 0.85 * (1 + chordLabelScale / 100); // matches Present's chordPx
   const semitones = semitonesBetween(metadata?.key, displayKey);
   // Spelling of transposed accidentals: auto follows the View Key (displayKey).
@@ -229,7 +279,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                   return null;
                 } else if (line.type === 'chords') {
                   lineContent = displayMode === 'over'
-                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} useFlats={useFlats} />
+                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} useFlats={useFlats} diagramMode={diagrams} shapeFor={shapeFor} dark={dark} />
                     : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} useFlats={useFlats} />;
                 } else {
                   lineContent = (

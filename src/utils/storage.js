@@ -155,10 +155,10 @@ export async function loadSong(id) {
 const KNOWN_SONG_FIELDS = new Set([
   'id', 'metadata', 'text', 'createdAt', 'updatedAt',
   'chordStyle', 'previewMode', 'diagramScale', 'chordPrefs', 'displayKey',
-  'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage',
+  'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -192,6 +192,8 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   else if (existing?.pdf != null) entry.pdf = existing.pdf;
   // fullPage (scroll vs page mode) — default false (scroll). Preserve on edit.
   entry.fullPage = (fullPage ?? existing?.fullPage) === true;
+  // embed — over-lyrics "chords as diagrams" (Imbed). Default false. Preserve.
+  entry.embed = (embed ?? existing?.embed) === true;
 
   await d.put('songs', entry);
   return songId;

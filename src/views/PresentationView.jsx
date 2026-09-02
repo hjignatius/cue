@@ -10,6 +10,10 @@ import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import { parseChordPro, attachSectionLabels, expandSections, styleSegments } from '../utils/chordPro.js';
 import { transposeText, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
+import ChordDiagram from '../components/ChordDiagram.jsx';
+import { resolveChordShape } from '../utils/chordLookup.js';
+import { loadCustomChords, loadHiddenChords } from '../utils/chordStorage.js';
+import { readableChordColor } from '../utils/chordColor.js';
 import { Fragment } from 'react';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import PdfSongView from '../components/PdfSongView.jsx';
@@ -67,12 +71,24 @@ function StyledRuns({ runs, accentColor }) {
   );
 }
 
-function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLabelScale = 0, displayMode = 'over' }) {
+function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLabelScale = 0, displayMode = 'over', embed = false, instrument = 'none', chordPrefs = {} }) {
   const transposed = transposeText(convertToBrackets(text), semitones, useFlats);
   const lines = attachSectionLabels(expandSections(parseChordPro(transposed)));
   const lyricColor = dark ? '#f3f4f6' : '#1f2937';
   const labelColor = dark ? '#818cf8' : '#4f46e5';
   const chordPx = fontPx * 0.85 * (1 + chordLabelScale / 100);
+  // Imbed (chords as diagrams) — over-lyrics only, needs an instrument. Diagrams
+  // scale with the Present font; the band keeps lyric baselines aligned.
+  const diagrams = embed && displayMode === 'over' && instrument !== 'none';
+  const diagScale = Math.max(0.4, fontPx / 25);
+  const diagBand = 76 * diagScale;
+  // Same resolver as the chord panel / PDF — honors custom shapes and the song's
+  // chosen voicing (chordPrefs), not just built-ins.
+  const chordSources = useMemo(() => ({
+    custom: loadCustomChords(instrument),
+    hidden: new Set(loadHiddenChords(instrument)),
+  }), [instrument]);
+  const shapeFor = (name) => resolveChordShape(name, chordPrefs, instrument, chordSources.custom, chordSources.hidden)?.frets || null;
 
   return (
     <div className="font-mono" style={{ color: lyricColor }}>
@@ -112,16 +128,30 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
             <div key={i}>
               {label}
               <div className="flex flex-wrap" style={{ marginBottom: fontPx * 0.2 }}>
-                {styleSegments(line.segments).map((seg, j) => (
-                  <div key={j} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
-                    <span className="font-bold leading-tight" style={{ color: chordColor, fontSize: chordPx, height: chordPx * 1.2 }}>
-                      {seg.chord ? seg.chord + ' ' : ' '}
-                    </span>
-                    <span className="leading-snug" style={{ fontSize: fontPx }}>
-                      {seg.text ? <StyledRuns runs={seg.styledRuns} accentColor={chordColor} /> : ' '}
-                    </span>
-                  </div>
-                ))}
+                {styleSegments(line.segments).map((seg, j) => {
+                  const frets = diagrams && seg.chord ? shapeFor(seg.chord) : null;
+                  return (
+                    <div key={j} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
+                      {frets ? (
+                        <div className="flex items-end shrink-0" style={{ minHeight: diagBand }}>
+                          <ChordDiagram chord={{ name: seg.chord, frets }} scale={diagScale} theme={dark ? 'dark' : 'light'} chordColor={chordColor} />
+                        </div>
+                      ) : diagrams ? (
+                        // Imbed on but no shape → keep the name, in a matching band.
+                        <span className="font-bold self-end pb-0.5" style={{ color: chordColor, fontSize: chordPx, minHeight: diagBand, display: 'flex', alignItems: 'flex-end' }}>
+                          {seg.chord ? seg.chord + ' ' : ' '}
+                        </span>
+                      ) : (
+                        <span className="font-bold leading-tight" style={{ color: chordColor, fontSize: chordPx, height: chordPx * 1.2 }}>
+                          {seg.chord ? seg.chord + ' ' : ' '}
+                        </span>
+                      )}
+                      <span className="leading-snug" style={{ fontSize: fontPx }}>
+                        {seg.text ? <StyledRuns runs={seg.styledRuns} accentColor={chordColor} /> : ' '}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -892,7 +922,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   )}
                 </div>
               )}
-              <SongBody text={song?.text || ''} semitones={semitones} useFlats={useFlats} fontPx={fontPx} dark={dark} chordColor={prefsChordColor} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} />
+              <SongBody text={song?.text || ''} semitones={semitones} useFlats={useFlats} fontPx={fontPx} dark={dark} chordColor={readableChordColor(prefsChordColor, dark)} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} embed={song?.embed === true} instrument={instrument} chordPrefs={song?.chordPrefs || {}} />
               {/* Ink annotation canvas — omitted entirely in shared viewer */}
               {song?.id && !disableAnnotations && (
                 <AnnotationCanvas

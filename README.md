@@ -23,6 +23,8 @@ A ChordPro song sheet manager for musicians. Organize your songs into setlists, 
 - **Make Permanent:** writes the transposed chords back into the song text
 - **Character ruler:** a passive scale above the text box — ticks every 5 columns, labels every 10, and a marked target width showing where Present wraps lyric lines. Long lines scroll horizontally rather than wrapping, and the ruler scrolls with them
 - **Chord diagrams:** fingering diagrams for a selectable instrument — GCEA ukulele, DGBE baritone, or 6-string guitar (EADGBE), or off — with adjustable size; supports a per-instrument custom chord library
+- **Imbed (chords as diagrams):** a per-song toggle (boxed with Format, over-lyrics only, wide screens) that renders each chord's *diagram* above the lyric instead of its name — in the Preview, Present, and single-song PDF export. Honors custom shapes and the chosen voicing; undefined chords fall back to the name
+- **Readable chord color:** a default black chord color flips to white on a dark theme (and back), so chords and diagrams stay visible; PDFs print black &amp; white
 - **Tap Tempo:** tap a button in rhythm to set BPM; toggle 4/4 ↔ 3/4; preview with a metronome click
 - **YouTube URL:** paste any YouTube link in the metadata bar; a YouTube button appears in the toolbar to open the embedded player in an overlay
 - **Prev / Next navigation:** when a song is opened from the library list or a setlist, arrow buttons let you move between songs without going back to the library
@@ -146,7 +148,7 @@ Icon-only anchor and toggle circles turn indigo when active; neutral actions kee
 ### Storage layout
 | Store | Key | Contents |
 |---|---|---|
-| IndexedDB `songs` | song id | `{ id, metadata, text, type ('text'\|'pdf'), pdf?, fullPage?, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, copiedFrom?, createdAt, updatedAt }` |
+| IndexedDB `songs` | song id | `{ id, metadata, text, type ('text'\|'pdf'), pdf?, fullPage?, embed?, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, copiedFrom?, createdAt, updatedAt }` |
 | IndexedDB `sets` | set id | `{ id, name, songIds[], sortMode, createdAt, updatedAt }` |
 | IndexedDB `pdfs` | song id | Raw PDF bytes for `type: 'pdf'` songs (`{ songId, blob }`). Local-only; synced to Supabase Storage on publish, pulled when missing. Falls back to an in-memory cache where IndexedDB blob writes are refused (e.g. Safari Private) |
 | IndexedDB `annotations` | song id | Device-local ink strokes (text and PDF songs). **Never** exported, published, or shared; survives a cloud pull overwriting its song |

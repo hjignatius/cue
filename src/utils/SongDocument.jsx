@@ -60,7 +60,36 @@ function StyledRunsPdf({ runs, styles }) {
   });
 }
 
-function ChordLine({ segments, semitones, useFlats, styles }) {
+// Height (pt) of the diagram band in embed mode — name (~9) + fretboard (~56)
+// plus a little slack. Keeps lyric baselines aligned whether a segment has a
+// chord/diagram or not.
+const PDF_DIAG_BAND = 68;
+
+function ChordLine({ segments, semitones, useFlats, styles, embed = false, shapeFor = null }) {
+  if (embed && shapeFor) {
+    return (
+      <View style={styles.lineContainer}>
+        {styleSegments(segments).map((seg, i) => {
+          const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
+          const shape = displayed ? shapeFor(displayed) : null;
+          return (
+            <View key={i} style={styles.segment}>
+              <View style={{ height: PDF_DIAG_BAND, justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+                {shape
+                  ? <PdfChordDiagram chord={{ name: displayed, frets: shape.frets }} />
+                  : displayed
+                    ? <Text style={styles.chordText}>{displayed + ' '}</Text>
+                    : null}
+              </View>
+              <Text style={styles.lyricText}>
+                {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
   return (
     <View style={styles.lineContainer}>
       {styleSegments(segments).map((seg, i) => (
@@ -78,7 +107,7 @@ function ChordLine({ segments, semitones, useFlats, styles }) {
 }
 
 // Reusable song page — can be embedded in SongDocument or SetDocument
-function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordColor }) {
+function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordColor, embed = false, shapeFor = null }) {
   const styles = buildStyles(scale, chordColor);
   // Guard against a song with missing/null metadata — otherwise destructuring
   // throws and, inside a SetDocument, one bad song aborts the whole PDF.
@@ -111,8 +140,11 @@ function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scal
             : null;
           if (line.type === 'empty')     return <View key={i}>{label}<View style={styles.emptyLine} /></View>;
           if (line.type === 'directive') return label ? <View key={i}>{label}</View> : null;
-          if (line.type === 'chords')    return <View key={i}>{label}<ChordLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} /></View>;
-          return <View key={i}>{label}<Text style={styles.plainLyricLine}><StyledRunsPdf runs={styleSegments(line.segments)[0]?.styledRuns} styles={styles} /></Text></View>;
+          // wrap={false}: never split a chord line across a page break — the tall
+          // Imbed diagram band would otherwise land half on each page and overprint
+          // the lyrics. react-pdf moves the whole line to the next page instead.
+          if (line.type === 'chords')    return <View key={i} wrap={false}>{label}<ChordLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} embed={embed} shapeFor={shapeFor} /></View>;
+          return <View key={i} wrap={false}>{label}<Text style={styles.plainLyricLine}><StyledRunsPdf runs={styleSegments(line.segments)[0]?.styledRuns} styles={styles} /></Text></View>;
         })}
       </View>
     </Page>
@@ -140,10 +172,10 @@ function ChordReferencePage({ chords, tuning = ['G', 'C', 'E', 'A'], instrumentN
 }
 
 // Single-song PDF document
-export function SongDocument({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordDiagrams, chordColor, tuning, instrumentName }) {
+export function SongDocument({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordDiagrams, chordColor, tuning, instrumentName, embed = false, shapeFor = null }) {
   return (
     <Document>
-      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} useFlats={useFlats} scale={scale} chordColor={chordColor} />
+      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} useFlats={useFlats} scale={scale} chordColor={chordColor} embed={embed} shapeFor={shapeFor} />
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>
   );

@@ -374,6 +374,9 @@ Here comes the sun, little darlin</pre>
 
 <p>A single <strong>Format</strong> button in the toolbar switches the whole song between the two — it converts the text and sets the preview/Present to match (on the compact phone toolbar it reads <strong>OL</strong> / <strong>B</strong>). When you <strong>paste</strong> a song into an empty editor, Cue auto-senses which format it's in and sets the button for you; an empty editor shows "<strong>Sense Chords</strong>" until there's something to detect.</p>
 
+<h3>Imbed — chords as diagrams</h3>
+<p>Boxed next to <strong>Format</strong> is an <strong>Imbed</strong> toggle (available in <strong>Over Lyrics</strong> only). Turn it on and, instead of chord <em>names</em> above the lyrics, Cue shows each chord's <em>diagram</em> — a small fingering grid — right where the chord falls, in the style of a printed uke sheet. It's a <strong>per-song</strong> setting saved with the song, and it carries into <strong>Present</strong> (where the diagrams scale up with the font) and into a <strong>single-song PDF export</strong>. It uses your instrument's library, honouring any custom shapes and the voicing you've picked for each chord in the chord panel; a chord with no shape falls back to its name. Imbed is a <strong>wide-screen</strong> feature (Mac, PC, iPad, tablets) — it's hidden on phones, where the diagrams wouldn't fit.</p>
+
 <h2>Styling Lyrics</h2>
 <p>You can color words and make them <strong>bold</strong> or <em>italic</em>. Styling applies to <em>lyrics only</em> — chords keep the single chord color set in Settings.</p>
 <p>There are two styling toolbars, and both work the same way — <strong>select some text first, then tap a control:</strong></p>
@@ -453,6 +456,7 @@ Here comes the sun, little darlin</pre>
   <li><strong>Setlist</strong> — a plain-text numbered list of song titles, suitable for printing or sharing.</li>
 </ul>
 <div class="tip"><strong>Tip:</strong> The exported set PDF honors each song's View Key — every song prints in its saved display key, matching Present mode. Songs with no View Key set print in their written key. The stored chords are never changed either way.</div>
+<p><strong>Imbed in the PDF:</strong> a single song exported to PDF with <strong>Imbed</strong> on (see <em>The Editor → Imbed</em>) prints its chord <em>diagrams</em> above the lyrics instead of names. PDFs are always <strong>black &amp; white</strong>. (Set PDFs don't inline the diagrams yet — they use the Chord Reference page.)</p>
 
 <!-- 6 -->
 <h1>6. Chord Diagram Sidebar</h1>

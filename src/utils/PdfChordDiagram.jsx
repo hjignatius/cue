@@ -21,17 +21,20 @@ const BODY_BOTTOM = NUT_Y + BODY_H;
 function sx(i) { return G.padH + i * G.strGap; }
 
 const COL = {
-  name:   '#4f46e5',
-  dot:    '#4f46e5',
-  open:   '#4f46e5',
+  name:   '#000000',
+  dot:    '#000000',
+  open:   '#000000',
   nut:    '#1f2937',
   fret:   '#d1d5db',
   str:    '#9ca3af',
   pos:    '#6b7280',
 };
 
-export function PdfChordDiagram({ chord }) {
+export function PdfChordDiagram({ chord, color }) {
   const { name, frets } = chord;
+  // PDF diagrams print black on white paper (chord name + dots + open markers).
+  // The optional `color` override exists but callers leave it unset.
+  const accent = color || COL.name;
 
   // String count from the voicing (4 uke/baritone, 6 guitar). SVG_W uses the same
   // formula as before, so a 4-string diagram is identical in width to today.
@@ -51,7 +54,7 @@ export function PdfChordDiagram({ chord }) {
   return (
     <View style={{ alignItems: 'center' }}>
       {/* Chord name */}
-      <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: COL.name, marginBottom: 1 }}>
+      <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: accent, marginBottom: 1 }}>
         {name}
       </Text>
 
@@ -101,7 +104,7 @@ export function PdfChordDiagram({ chord }) {
                 <Circle key={i}
                   cx={cx} cy={NUT_Y - G.openR - 1}
                   r={G.openR}
-                  fill="none" stroke={COL.open} strokeWidth={G.strokeW * 1.3}
+                  fill="none" stroke={accent} strokeWidth={G.strokeW * 1.3}
                 />
               );
             }
@@ -117,7 +120,7 @@ export function PdfChordDiagram({ chord }) {
             return (
               <Circle key={i}
                 cx={cx} cy={NUT_Y + (row - 0.5) * rowGap}
-                r={G.dotR} fill={COL.dot}
+                r={G.dotR} fill={accent}
               />
             );
           })}

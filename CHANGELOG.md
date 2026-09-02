@@ -3,6 +3,23 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.4.0 — 2026-09-02
+
+- **Chords as diagrams ("Imbed").** A per-song **Imbed** toggle — boxed with the
+  Format button, Over-Lyrics only — replaces the chord *names* above the lyrics
+  with their chord *diagrams* (Doctor-Uke style). It shows in the editor
+  **Preview**, in **Present** (diagrams scale with the font), and in **single-song
+  PDF export**. Wide screens only (Mac/PC/iPad/tablet). Undefined chords fall back
+  to the name; custom shapes and each chord's selected voicing are honored
+  everywhere.
+- **Readable chord color.** A default black chord color now renders **white on a
+  dark theme** (and white → black on light) so chords and diagrams never disappear
+  into the background — across the editor, both chord panels, and Present. PDFs
+  print **black & white**.
+- **Fix:** embedded diagrams now use your **custom** shapes and chosen voicings,
+  not just the built-ins; and PDF page breaks no longer split a diagram line
+  across two pages.
+
 ## v1.3.2 — 2026-09-01
 
 - **AI "Clean up formatting" preserves musical notation.** It no longer strips

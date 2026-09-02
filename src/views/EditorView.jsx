@@ -463,6 +463,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [chordPrefs, setChordPrefs]         = useState(song?.chordPrefs ?? {});
   const [showPreview, setShowPreview]       = useState(true);
   const [showChordPanel, setShowChordPanel] = useState(true);
+  // Per-song "Imbed" — over-lyrics shows chord shapes (diagrams) instead of
+  // names. Over-lyrics only; non-phone only. Persisted with the song.
+  const [embed, setEmbed]                   = useState(song?.embed === true);
   // Effective chord-panel visibility: the user toggle AND chords being available.
   const chordsOn = showChordPanel && chordsAvailable;
   const [narrowTab, setNarrowTab]           = useState('editor');
@@ -590,11 +593,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }, [songId]);
 
   async function handleSave() {
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage });
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed });
     setSongId(id);
     setIsDirty(false);
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
-    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage });
+    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed });
   }
 
   // Publish { isDirty, save } so App's "Update Cue" button can detect unsaved work
@@ -1564,7 +1567,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION}
               label="Return to Performance" title="Return to Performance"
               fill={headerFill}
-              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage })}
+              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed })}
             >
               <Undo2 size={22} strokeWidth={2} />
             </RoundButton>
@@ -1573,7 +1576,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION} pill={!isNarrow}
               label="Present" title="Present"
               fill={headerFill}
-              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage }], 0)}
+              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed }], 0)}
             >
               <Tv size={22} strokeWidth={2} />{!isNarrow && <PillLabel>Present</PillLabel>}
             </RoundButton>
@@ -1805,15 +1808,32 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </div>
         )}
 
-        {/* Format — one control for both editor text and preview/Present. Empty
-            editor shows "Sense Chords"; a paste auto-senses and names the format. */}
-        <button
-          onClick={toggleFormat}
-          className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
-          title="Chord format for the text and preview — click to convert between Over Lyrics and Brackets. Pasting a song auto-senses this."
-        >
-          {isEmptyText ? 'Sense Chords' : formatName}
-        </button>
+        {/* Format + Imbed group — boxed together (like Transpose). Left: the OL/B
+            format toggle. Right: Imbed (per-song "chords as diagrams"), enabled
+            only in Over Lyrics — the diagram view is over-lyrics only. */}
+        <div className={`flex items-center gap-2 rounded-lg border pl-1 pr-1 ${dark ? 'border-gray-700' : 'border-gray-300'}`}>
+          <button
+            onClick={toggleFormat}
+            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
+            title="Chord format for the text and preview — click to convert between Over Lyrics and Brackets. Pasting a song auto-senses this."
+          >
+            {isEmptyText ? 'Sense Chords' : formatName}
+          </button>
+          <button
+            onClick={() => { setEmbed(v => !v); setIsDirty(true); }}
+            disabled={previewFormat !== 'over'}
+            title="Imbed — show chord shapes above the lyrics instead of chord names (Over Lyrics only). Saved with the song."
+            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
+              previewFormat !== 'over'
+                ? dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
+                : embed
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Imbed
+          </button>
+        </div>
 
         </>)}
 
@@ -2019,6 +2039,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
+                  diagramMode={embed && !compactChrome}
+                  chordPrefs={chordPrefs}
                   showMeta={false}
                   headerRight={previewStyleBar}
                   overlay={showAnnotations && hasAnnotation && songId ? (
@@ -2080,6 +2102,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
+                  diagramMode={embed && !compactChrome}
+                  chordPrefs={chordPrefs}
                   showMeta={false}
                   headerRight={previewStyleBar}
                   overlay={showAnnotations && hasAnnotation && songId ? (

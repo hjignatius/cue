@@ -34,7 +34,11 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
     chordDiagrams = lookupChordDiagrams(names, song.chordPrefs || {}, instrument);
   }
 
-  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, useFlats, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
+  // Imbed — over-lyrics "chords as diagrams" inline in the PDF, per the song flag.
+  const embed = song.embed === true && instrument !== 'none';
+  const shapeFor = embed ? (name) => resolveChordShape(name, song.chordPrefs || {}, instrument) : null;
+  // PDFs are black & white — chord text and diagrams both print black on paper.
+  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, useFlats, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name, embed, shapeFor })).toBlob();
   await saveFilePicker(blob, `${sanitize(metadata?.title)}.pdf`);
 }
 
@@ -86,7 +90,7 @@ export async function exportSetToPdf(set, allSongs, { includeChords = false, cho
   const songs = songsForPdf([set], allSongs, accidentals);
   const lib = getActiveLibrary(instrument);
   const chordDiagrams = (includeChords && instrument !== 'none') ? chordDiagramsFor(songs, instrument) : null;
-  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
+  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name })).toBlob();
   await saveFilePicker(blob, `${sanitize(set.name)}.pdf`);
 }
 
@@ -96,7 +100,7 @@ export async function exportSetsToPdf(sets, allSongs, { includeChords = false, c
   const songs = songsForPdf(sets, allSongs, accidentals);
   const lib = getActiveLibrary(instrument);
   const chordDiagrams = (includeChords && instrument !== 'none') ? chordDiagramsFor(songs, instrument) : null;
-  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor, tuning: lib.tuning, instrumentName: lib.name })).toBlob();
+  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name })).toBlob();
   const date = new Date().toISOString().slice(0, 10);
   await saveFilePicker(blob, `cue-sets-${date}.pdf`);
 }

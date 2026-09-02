@@ -6,6 +6,8 @@
 // scale: multiplier on base dimensions (default 1.0)
 // theme: 'dark' | 'light'
 
+import { readableChordColor } from '../utils/chordColor.js';
+
 export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordColor }) {
   const { name, frets } = chord;
 
@@ -58,7 +60,9 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
 
   // Theme colours
   const dark = theme === 'dark';
-  const accent = chordColor || (dark ? '#a5b4fc' : '#4f46e5');
+  // Keep the name + dots readable on this theme: a default black/white chord
+  // color would otherwise vanish into the background. Custom colors pass through.
+  const accent = readableChordColor(chordColor || (dark ? '#a5b4fc' : '#4f46e5'), dark);
   const col = {
     label:  accent,
     nut:    dark ? '#e2e8f0' : '#374151',
