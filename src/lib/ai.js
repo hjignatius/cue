@@ -297,7 +297,7 @@ Only include URLs you actually found via search. Order best first. If you find n
 // only kept if it's a real link the model found, never a hallucinated video id).
 const YT_RE = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|music\.youtube\.com\/watch\?v=)/i;
 
-export async function fillSongDetails(text, hint = {}) {
+export async function fillSongDetails(text, hint = {}, model) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to read — the chart is empty.');
     err.code = 'empty';
@@ -319,6 +319,7 @@ Rules:
 Everything except key is a best guess about the recording; when unsure, prefer "".`;
 
   const data = await callClaude({
+    ...(model ? { model } : {}),
     max_tokens: 1200,
     output_config: { effort: 'low' },
     system,
@@ -344,7 +345,7 @@ Everything except key is a best guess about the recording; when unsure, prefer "
 // Given chord NAMES with no diagram, return playable voicings for the instrument
 // as { name, frets: [ints] } (frets: 0 open, -1 muted, >0 fret). Length matches
 // the tuning. Invalid/unplayable entries are dropped.
-export async function chordShapesFor(names, { instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level } = {}) {
+export async function chordShapesFor(names, { instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level, model } = {}) {
   const list = [...new Set((names || []).map((n) => (n || '').trim()).filter(Boolean))];
   if (list.length === 0) return [];
   const n = tuning.length;
@@ -357,6 +358,7 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
 - Include every requested chord you can voice; omit any you genuinely cannot.`;
 
   const data = await callClaude({
+    ...(model ? { model } : {}),
     max_tokens: 1500,
     output_config: { effort: 'low' },
     system,
@@ -499,7 +501,7 @@ For a strumming (or picking) pattern, give it as TEXT: D = downstroke, U = upstr
 // ── Transposing advice ──────────────────────────────────────────────────────
 // Song- and instrument-aware key/capo guidance. Returns
 // { summary, keys: [{key, why}], capo: [{fret, shapes, why}] }.
-export async function transposeAdvice(ctx = {}) {
+export async function transposeAdvice(ctx = {}, model) {
   const { title, artist, key, instrument, level, chart } = ctx;
   const inst = instrument || 'guitar';
 
@@ -521,6 +523,7 @@ Rules:
   ].filter(Boolean).join('\n\n') || 'Advise on a song (no chart provided).';
 
   const data = await callClaude({
+    ...(model ? { model } : {}),
     max_tokens: 1200,
     output_config: { effort: 'medium' },
     system,

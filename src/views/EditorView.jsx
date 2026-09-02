@@ -721,12 +721,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Fill in song details (AI) — reads the chart, opens a dialog of suggestions
   // the user can apply field-by-field.
-  async function runFill() {
+  async function runFill(model) {
     if (aiBusy || text.trim() === '') return;
     setAiBusy('fill');
     setFillResult({ loading: true, error: '', suggest: null });
     try {
-      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist });
+      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model);
       setFillResult({ loading: false, error: '', suggest });
     } catch (e) {
       setFillResult({ loading: false, error: e?.message || 'Could not read details.', suggest: null });
@@ -755,12 +755,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }
 
   // Transposing advice (AI) — song/instrument/level-aware key + capo guidance.
-  async function runAdvice() {
+  async function runAdvice(model) {
     if (aiBusy) return;
     setAiBusy('advice');
     setAdviceResult({ loading: true, error: '', data: null });
     try {
-      const data = await transposeAdvice(songContext());
+      const data = await transposeAdvice(songContext(), model);
       setAdviceResult({ loading: false, error: '', data });
     } catch (e) {
       setAdviceResult({ loading: false, error: e?.message || 'Advice failed.', data: null });
@@ -826,9 +826,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Add missing chord shapes (AI) — find undefined chords, fetch voicings, and
   // open a review dialog. Nothing is saved until the user approves each.
-  async function runChordShapes() {
+  async function runChordShapes(missingOverride, model) {
     if (aiBusy) return;
-    const missing = missingChordNames();
+    // On a "Try again" retry, reuse the same chord set that's already shown.
+    const missing = missingOverride || missingChordNames();
     if (missing.length === 0) { flashAi('Every chord already has a diagram.'); return; }
     setAiBusy('chords');
     setChordResult({ loading: true, error: '', shapes: [], missing });
@@ -837,6 +838,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         instrument: chordLibraryToInstrument(instrument),
         tuning: getActiveTuning(instrument),
         level: aiLevel,
+        model,
       });
       setChordResult({ loading: false, error: '', shapes, missing });
     } catch (e) {
@@ -1363,6 +1365,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 Close
               </button>
             </div>
+            <button onClick={() => runFill(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"
+              className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
+              <Sparkles size={13} /> Try again — smarter model
+            </button>
           </>);
         })()}
       </div>
@@ -1422,6 +1428,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </div>
             )}
             <p className={`text-[11px] ${mutedText}`}>Apply sets Cue's Transpose (display only) — it doesn't change your saved text. Capo tips are just advice.</p>
+            <button onClick={() => runAdvice(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"
+              className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
+              <Sparkles size={13} /> Try again — smarter model
+            </button>
           </>);
         })()}
       </div>
@@ -1525,6 +1535,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               Close
             </button>
           </div>
+          <button onClick={() => runChordShapes(chordResult.missing, SMARTER_MODEL)} title="Re-fetch these shapes on the more capable model (Opus) — slower, costs a bit more"
+            className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
+            <Sparkles size={13} /> Try again — smarter model
+          </button>
         </>)}
       </div>
     </div>

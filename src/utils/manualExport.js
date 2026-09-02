@@ -608,6 +608,7 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>Strumming pattern</strong></td><td>One tap suggests a strumming (or picking) pattern for the song, as text — <code>D</code> down, <code>U</code> up, <code>x</code> mute, <code>-</code> rest — matched to the song's time signature, tempo and your instrument and level. Opens in the Ask pop-up.</td></tr>
   <tr><td><strong>Ask about music…</strong></td><td>A pop-up where you type any music question (playing, theory, a chord shape, a strumming pattern) and the answer streams back. It's aware of the current song and your Playing level. Ask as many as you like. When an answer looks off, <strong>Try again — smarter model</strong> re-runs it on the more capable (slower, pricier) model.</td></tr>
 </table>
+<p><strong>Try again — smarter model:</strong> AI answers run on a fast, economical model by default. When a result looks wrong, a <strong>Try again — smarter model</strong> button re-runs it on a more capable model (slower and a bit pricier) — available on <em>Ask</em>, <em>Strumming pattern</em>, <em>Transposing advice</em>, <em>Fill in song details</em>, and <em>Add missing chord shapes</em>.</p>
 
 <h2>In the Setlist</h2>
 <p>The Setlist column's status bar (beside the Gap/estimate) has its own <strong>AI</strong> button with two actions:</p>

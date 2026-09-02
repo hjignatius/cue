@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.4.2 — 2026-09-02
+
+- **"Try again — smarter model" on more AI actions.** The on-demand Opus retry now
+  also appears on **Transposing advice**, **Fill in song details**, and **Add
+  missing chord shapes** — the judgment/accuracy-heavy actions where a stronger
+  model most helps. Clean-up and Find keep the fast default only.
+
 ## v1.4.1 — 2026-09-02
 
 - **AI: Strumming pattern.** A one-tap action in the AI menu suggests a strumming
