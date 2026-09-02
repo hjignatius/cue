@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -15,7 +15,7 @@ import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, fillSongDetails, askMusic, transposeAdvice, chordShapesFor } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, SMARTER_MODEL } from '../lib/ai.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
@@ -533,6 +533,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [askAnswer, setAskAnswer]       = useState('');
   const [asking, setAsking]             = useState(false);
   const [askError, setAskError]         = useState('');
+  const [lastAsk, setLastAsk]           = useState(''); // last question, for "Try again — smarter"
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const aiAnchorRef                     = useRef(null);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
@@ -745,6 +746,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       title: metadata.title,
       artist: metadata.artist,
       key: metadata.key,
+      tempo: metadata.tempo,
+      timeSig: metadata.timeSig,
       instrument: chordLibraryToInstrument(instrument),
       level: aiLevel,
       chart: text,
@@ -776,20 +779,31 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }
 
   // Ask about music (AI) — free-form Q&A, seeded with the current song + level.
-  async function submitAsk() {
-    const q = askQuestion.trim();
+  // qOverride lets a preset action (e.g. Strumming pattern) run without typing;
+  // model lets "Try again — smarter" re-run the same question on a stronger model.
+  async function submitAsk(qOverride, model) {
+    const q = (qOverride ?? askQuestion).trim();
     if (asking || !q) return;
+    setLastAsk(q);
     setAsking(true);
     setAskError('');
     setAskAnswer('');
     try {
       // Stream: the answer fills in live as it arrives.
-      await askMusic(q, songContext(), (partial) => setAskAnswer(partial));
+      await askMusic(q, songContext(), (partial) => setAskAnswer(partial), model);
     } catch (e) {
       setAskError(e?.message || 'Question failed.');
     } finally {
       setAsking(false);
     }
+  }
+
+  // Strumming pattern (AI) — one-tap, uses tempo/time-signature/instrument/level.
+  function runStrumming() {
+    setAskError('');
+    setAskQuestion('Suggest a strumming pattern for this song.');
+    setAskOpen(true);
+    submitAsk('Suggest a strumming pattern for this song.');
   }
 
   // Chord names in the song that have no diagram for the current instrument —
@@ -1435,7 +1449,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           className={`w-full px-3 py-2.5 text-sm rounded-lg border outline-none focus:border-indigo-500 resize-y ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
         />
         <button
-          onClick={submitAsk}
+          onClick={() => submitAsk()}
           disabled={asking || !askQuestion.trim()}
           className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${asking || !askQuestion.trim() ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
         >
@@ -1444,6 +1458,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {askError && <p className="text-sm text-red-500">{askError}</p>}
         {askAnswer && !askError && (
           <div className={`text-sm whitespace-pre-wrap rounded-xl border p-3 ${dark ? 'border-gray-700 text-gray-200 bg-gray-800/50' : 'border-gray-200 text-gray-800 bg-gray-50'}`}>{askAnswer}</div>
+        )}
+        {/* Try again with the stronger model when an answer looks off. Slower and
+            pricier, so it's on demand only. */}
+        {askAnswer && !asking && lastAsk && (
+          <button
+            onClick={() => submitAsk(lastAsk, SMARTER_MODEL)}
+            title="Re-run this question on the more capable model (Opus) — slower and costs a bit more"
+            className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
+          >
+            <Sparkles size={13} /> Try again — smarter model
+          </button>
         )}
       </div>
     </div>
@@ -1881,6 +1906,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   className={menuItem}
                   onClick={() => runFromAiMenu(runAdvice)}>
                   <ArrowLeftRight size={15} className="opacity-70" /> Transposing advice
+                </button>
+                <button type="button" role="menuitem" tabIndex={-1}
+                  className={menuItem}
+                  onClick={() => runFromAiMenu(runStrumming)}>
+                  <Music size={15} className="opacity-70" /> Strumming pattern
                 </button>
                 <button type="button" role="menuitem" tabIndex={-1}
                   className={menuItem}

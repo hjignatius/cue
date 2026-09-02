@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.4.1 — 2026-09-02
+
+- **AI: Strumming pattern.** A one-tap action in the AI menu suggests a strumming
+  (or picking) pattern for the song as text (D/U/x/-), matched to the time
+  signature, tempo, instrument and your playing level.
+- **AI: "Try again — smarter model."** When an Ask/Strumming answer looks off, a
+  button re-runs it on the more capable model (Opus) — on demand only, so the
+  everyday default stays the fast, cheaper model.
+
 ## v1.4.0 — 2026-09-02
 
 - **Chords as diagrams ("Imbed").** A per-song **Imbed** toggle — boxed with the

@@ -22,6 +22,9 @@ const KEY_STORAGE = 'cue:anthropic_key';
 // the right balance for Cue's find/clean-up/fill/advice/Q&A tasks. (Web search,
 // streaming, and effort are all supported on this model.)
 const MODEL = 'claude-sonnet-5';
+// The stronger model used on demand by "Try again — smarter model": slower and
+// pricier, but more capable when Sonnet's answer looks off.
+export const SMARTER_MODEL = 'claude-opus-5';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const API_VERSION = '2023-06-01';
 
@@ -456,29 +459,35 @@ function levelLine(level) { return LEVEL_GUIDE[level] || LEVEL_GUIDE.intermediat
 // ── Ask about music (Q&A) ───────────────────────────────────────────────────
 // Free-form music question, optionally about the current song. Returns answer
 // text. No web search — general musical knowledge, tailored to the player level.
-export async function askMusic(question, ctx = {}, onText) {
+export async function askMusic(question, ctx = {}, onText, model) {
   if (!question || !question.trim()) {
     const err = new Error('Type a question first.');
     err.code = 'empty';
     throw err;
   }
-  const { title, artist, key, instrument, level, chart } = ctx;
+  const { title, artist, key, tempo, timeSig, instrument, level, chart } = ctx;
   const songBits = [
     title && `Title: ${title}`,
     artist && `Artist: ${artist}`,
     key && `Key: ${key}`,
+    tempo && `Tempo: ${tempo} BPM`,
+    timeSig && `Time signature: ${timeSig}`,
     instrument && `Instrument: ${instrument}`,
   ].filter(Boolean).join(' · ');
 
   const system = `You are a knowledgeable, friendly music assistant inside a musician's chord/lyric app. Answer questions about playing, theory, chords, technique, songs and performance. ${levelLine(level)}
 Stay on music; if asked something off-topic, gently steer back. Be concise — a few short paragraphs or a tight list, no preamble. Plain text (you may use "-" bullets); no Markdown headers or code fences.
 
-For chord shapes / fingerings, answer in TEXT as fret numbers per string, one shape per line — for ukulele use string order g-C-E-A (e.g. "Dm9: 5 5 5 5"), for guitar six numbers low-to-high E-A-D-G-B-e with x for muted. Offer one or two common, easy shapes. NEVER draw ASCII chord diagrams, fretboard grids, or tab art — they render badly here and are slow; describe shapes in words/numbers only.${songBits ? `\n\nThe user is currently working on a song — use this only if the question relates to it:\n${songBits}${chart ? `\n\nChart:\n${chart.slice(0, 4000)}` : ''}` : ''}`;
+For chord shapes / fingerings, answer in TEXT as fret numbers per string, one shape per line — for ukulele use string order g-C-E-A (e.g. "Dm9: 5 5 5 5"), for guitar six numbers low-to-high E-A-D-G-B-e with x for muted. Offer one or two common, easy shapes. NEVER draw ASCII chord diagrams, fretboard grids, or tab art — they render badly here and are slow; describe shapes in words/numbers only.
+
+For a strumming (or picking) pattern, give it as TEXT: D = downstroke, U = upstroke, x = muted/chuck, - = rest, aligned under the beat counts and matched to the time signature. Example (4/4): "D - D U - U D U" over "1 & 2 & 3 & 4 &". Add one short line on the feel/tempo, and a simpler pattern if the player is a beginner. No tab art.${songBits ? `\n\nThe user is currently working on a song — use this only if the question relates to it:\n${songBits}${chart ? `\n\nChart:\n${chart.slice(0, 4000)}` : ''}` : ''}`;
 
   // Thinking off + low effort so the first words appear fast (a chord-shape
   // question otherwise triggers a long silent "thinking" phase). Stream so the
-  // answer builds live in the popup.
+  // answer builds live in the popup. `model` overrides the default (used by
+  // "Try again — smarter model").
   return streamClaude({
+    ...(model ? { model } : {}),
     max_tokens: 1000,
     thinking: { type: 'disabled' },
     output_config: { effort: 'low' },

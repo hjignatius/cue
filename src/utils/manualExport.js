@@ -605,7 +605,8 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>Fill in song details</strong></td><td>Reads the chart and suggests Title, Artist, Key (from the chords), plus Tempo, Duration and a real YouTube link (web-searched). Apply each suggestion you want — nothing changes until you do.</td></tr>
   <tr><td><strong>Add missing chord shapes</strong></td><td>Finds chords in the song that have no diagram for your instrument, proposes a voicing for each, and shows it as a <em>rendered diagram</em> to review before it's added to your custom chord library.</td></tr>
   <tr><td><strong>Transposing advice</strong></td><td>Suggests easier keys and capo positions for your instrument, with a one-tap <strong>Apply</strong> that sets Cue's Transpose. Capo tips are advice only.</td></tr>
-  <tr><td><strong>Ask about music…</strong></td><td>A pop-up where you type any music question (playing, theory, a chord shape) and the answer streams back. It's aware of the current song and your Playing level. Ask as many as you like.</td></tr>
+  <tr><td><strong>Strumming pattern</strong></td><td>One tap suggests a strumming (or picking) pattern for the song, as text — <code>D</code> down, <code>U</code> up, <code>x</code> mute, <code>-</code> rest — matched to the song's time signature, tempo and your instrument and level. Opens in the Ask pop-up.</td></tr>
+  <tr><td><strong>Ask about music…</strong></td><td>A pop-up where you type any music question (playing, theory, a chord shape, a strumming pattern) and the answer streams back. It's aware of the current song and your Playing level. Ask as many as you like. When an answer looks off, <strong>Try again — smarter model</strong> re-runs it on the more capable (slower, pricier) model.</td></tr>
 </table>
 
 <h2>In the Setlist</h2>
