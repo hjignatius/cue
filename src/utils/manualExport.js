@@ -554,6 +554,7 @@ Bb,8-10-11-10,1243</pre>
   <li><strong>With Duration set</strong> — Cue scrolls at exactly the pace needed to reach the bottom as the song ends.</li>
   <li><strong>Without Duration</strong> — a slow fixed speed is used instead. Set a Duration on the song for pacing that matches the music.</li>
 </ul>
+<p><strong>Adjust the pace live.</strong> The <strong>F</strong> and <strong>S</strong> buttons speed up / slow the scroll by about 20% per press; a brief <strong>"Scroll 120%"</strong> readout shows the current pace. The bottom row shows the resulting play time — on your own song, once you've changed the pace it becomes a <strong>"Save M:SS"</strong> button that bakes that timing into the song's Duration; otherwise it just shows the time (shared songs included).</p>
 <p><strong>Pause leaves you where you are.</strong> Tapping <strong>❚❚</strong> stops the scroll in place, and tapping <strong>↓</strong> again picks up from that same spot — it never jumps back to the top. To restart from somewhere else, scroll the lyrics there yourself and start again. Moving to another song does reset to the top.</p>
 
 <div class="tip"><strong>Screen wake lock:</strong> Cue requests a screen wake lock when entering Present mode so the display does not dim or sleep during a performance.</div>

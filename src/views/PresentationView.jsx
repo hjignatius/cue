@@ -194,7 +194,7 @@ const DEFAULT_DURATION_SEC = 210; // 3:30
 // step (geometric), so the change reads the same on short and long songs and the
 // per-press amount is predictable rather than a guess. 1 is the neutral default;
 // the Save-speed control bakes the current multiplier into the song's duration.
-const SPEED_STEP = 1.10;   // one F/S press = ×/÷ 1.10  (≈ ±10%)
+const SPEED_STEP = 1.20;   // one F/S press = ×/÷ 1.20  (≈ ±20%) — a noticeable swing
 const MIN_SPEED  = 0.25;
 const MAX_SPEED  = 4;
 
@@ -770,11 +770,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const baseDurationSec = parseDuration(meta.duration) || DEFAULT_DURATION_SEC;
   const speedAdjusted = Math.abs(speedMult - 1) > 0.001;
   const canSaveSpeed = !!onSaveDuration && speedAdjusted;
-  const saveSpeedLabel = !onSaveDuration
-    ? ''
-    : speedAdjusted
-      ? `Save duration ${formatDuration(baseDurationSec / speedMult)}`
-      : `Duration ${formatDuration(baseDurationSec)}`;
+  // Bottom row shows the (speed-adjusted) play time. When it can be saved to your
+  // own song it's a "Save M:SS" button; otherwise — nothing to save, or a shared
+  // song you can't edit — it's just the time. "Save" is short enough to keep the
+  // value on the button (the old "Duration …" label pushed it off).
+  const effectiveDuration = formatDuration(baseDurationSec / speedMult);
+  const saveSpeedLabel = canSaveSpeed ? `Save ${effectiveDuration}` : effectiveDuration;
 
   // Fixed lyrics-column width for the wide layout. Recomputes only on font-size
   // change (A-/A+), never on chord-panel resize — so contentWrapRef.offsetWidth
@@ -1146,7 +1147,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         onSlower={slowerScroll}
         canFaster={speedMult < MAX_SPEED}
         canSlower={speedMult > MIN_SPEED}
-        showSaveSpeed={!!onSaveDuration}
+        showSaveSpeed={!!onSaveDuration || hasDuration}
         canSaveSpeed={canSaveSpeed}
         onSaveSpeed={saveSpeed}
         saveSpeedLabel={saveSpeedLabel}
@@ -1155,6 +1156,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         onToggleScroll={toggleScroll}
         scrolling={scrolling}
         scrollDisabled={!autoScrollAvailable}
+        speedPct={speedMult}
+        fontPx={fontPx}
+        tempo={Number(meta.tempo) || 0}
+        timeSig={meta.timeSig}
       />
 
     </div>

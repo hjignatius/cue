@@ -87,52 +87,97 @@ export function ControlGrid({
   onCountIn, canCountIn,
   onToggleScroll, scrolling, scrollDisabled,
   showSaveSpeed, canSaveSpeed, onSaveSpeed, saveSpeedLabel,
+  speedPct = 1, fontPx = 0, tempo = 0, timeSig = '4/4',
 }) {
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY;
   const saveDisabledBg    = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
   const saveDisabledColor = dark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.40)';
 
-  // The count-in is a one-shot two-bar cue, not a running metronome, so it gets
-  // a brief press-flash instead of a persistent active state.
-  const [flash, setFlash] = useState(false);
-  const flashTimer = useRef(null);
-  useEffect(() => () => clearTimeout(flashTimer.current), []);
+  // Reliable tap feedback: a momentary lit "flash" fired from the click handler,
+  // since CSS :active is unreliable on iOS PWAs. `flashKey` names which button
+  // is lit (one at a time). A−/A+ and F/S also show a transient value readout so
+  // the change is felt even when the on-screen difference is subtle.
+  const [flashKey, setFlashKey] = useState(null);
+  const [readout, setReadout]   = useState(null); // null | 'speed' | 'font'
+  const flashT = useRef(null);
+  const readoutT = useRef(null);
+  const beatTimers = useRef([]);
+  useEffect(() => () => {
+    clearTimeout(flashT.current); clearTimeout(readoutT.current);
+    beatTimers.current.forEach(clearTimeout);
+  }, []);
 
+  function pulse(key, fn) {
+    fn?.();
+    setFlashKey(key);
+    clearTimeout(flashT.current);
+    flashT.current = setTimeout(() => setFlashKey(null), FLASH_MS);
+  }
+  function pulseWithReadout(key, kind, fn) {
+    pulse(key, fn);
+    setReadout(kind);
+    clearTimeout(readoutT.current);
+    readoutT.current = setTimeout(() => setReadout(null), 1400);
+  }
+
+  // Count-in: a one-shot two-bar cue. Pulse the button once per beat across the
+  // count so the flash reads as a deliberate count, not a flicker.
   function handleCountIn() {
     onCountIn?.();
-    setFlash(true);
-    clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setFlash(false), FLASH_MS);
+    const beatsPerBar = timeSig === '3/4' ? 3 : 4;
+    const beats = beatsPerBar * 2;
+    const intervalMs = tempo > 0 ? 60000 / tempo : 500;
+    beatTimers.current.forEach(clearTimeout);
+    beatTimers.current = [];
+    for (let i = 0; i < beats; i++) {
+      beatTimers.current.push(setTimeout(() => setFlashKey('count'), i * intervalMs));
+      beatTimers.current.push(setTimeout(() => setFlashKey(k => (k === 'count' ? null : k)), i * intervalMs + Math.min(intervalMs * 0.5, 160)));
+    }
   }
 
   return (
-    <div className="flex flex-col" style={{ gap: PRESENT_CONTROL_GAP }}>
+    <div className="relative flex flex-col" style={{ gap: PRESENT_CONTROL_GAP }}>
+    {/* Transient value readout for A−/A+ (text px) and F/S (scroll %). Floats
+        above the panel so it never reflows the grid. */}
+    {readout && (
+      <div
+        className="absolute left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold shadow-lg"
+        style={{
+          top: -36,
+          background: dark ? 'rgba(24,24,27,0.92)' : 'rgba(255,255,255,0.96)',
+          color: dark ? '#ffffff' : '#111111',
+          border: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)'}`,
+        }}
+      >
+        {readout === 'speed' ? `Scroll ${Math.round((speedPct || 1) * 100)}%` : `Text ${Math.round(fontPx || 0)}px`}
+      </div>
+    )}
     <div className="grid grid-cols-2" style={{ gap: PRESENT_CONTROL_GAP }}>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Smaller text" fill={fill} disabled={!canSmaller} onActivate={onSmaller}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Smaller text" fill={fill} disabled={!canSmaller} active={flashKey === 'as'} onActivate={() => pulseWithReadout('as', 'font', onSmaller)}>
         <Glyph>A−</Glyph>
       </RoundButton>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Larger text" fill={fill} disabled={!canLarger} onActivate={onLarger}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Larger text" fill={fill} disabled={!canLarger} active={flashKey === 'al'} onActivate={() => pulseWithReadout('al', 'font', onLarger)}>
         <Glyph>A+</Glyph>
       </RoundButton>
 
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Previous song" fill={fill} disabled={!canPrev} onActivate={onPrev}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Previous song" fill={fill} disabled={!canPrev} active={flashKey === 'prev'} onActivate={() => pulse('prev', onPrev)}>
         <TriangleLeft />
       </RoundButton>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Next song" fill={fill} disabled={!canNext} onActivate={onNext}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Next song" fill={fill} disabled={!canNext} active={flashKey === 'next'} onActivate={() => pulse('next', onNext)}>
         <TriangleRight />
       </RoundButton>
 
       {/* Auto-scroll speed. F = faster, S = slower — spelled out rather than ±
           so the meaning is unmistakable mid-performance (F sits left, matching
           the faster-on-the-left position it had as D−). */}
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll faster" fill={fill} disabled={!canFaster} onActivate={onFaster}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll faster" fill={fill} disabled={!canFaster} active={flashKey === 'f'} onActivate={() => pulseWithReadout('f', 'speed', onFaster)}>
         <Glyph>F</Glyph>
       </RoundButton>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll slower" fill={fill} disabled={!canSlower} onActivate={onSlower}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll slower" fill={fill} disabled={!canSlower} active={flashKey === 's'} onActivate={() => pulseWithReadout('s', 'speed', onSlower)}>
         <Glyph>S</Glyph>
       </RoundButton>
 
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Count-in" fill={fill} disabled={!canCountIn} active={flash} onActivate={handleCountIn}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Count-in" fill={fill} disabled={!canCountIn} active={flashKey === 'count'} onActivate={handleCountIn}>
         <MetronomeIcon />
       </RoundButton>
       <RoundButton

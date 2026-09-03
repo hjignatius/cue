@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.4.3 — 2026-09-03
+
+- **Present panel — clearer, snappier controls.**
+  - **F / S** (scroll faster/slower) now swing **±20%** per press (was ±10%), and a
+    brief **"Scroll 120%"** readout floats above the panel so the change is visible.
+  - **Reliable tap feedback:** A−/A+, Prev/Next and F/S now flash on tap (driven
+    from the click, so it registers on iPad where CSS `:active` didn't). A−/A+
+    also show a **"Text 30px"** readout.
+  - **Count-in** now pulses once per beat across the two-bar count (using the
+    song's tempo/time signature), so it reads as a deliberate count, not a flicker.
+  - **Bottom row** replaces the clipped "Duration …" with **"Save M:SS"** (own song,
+    speed changed) or just the time — and shared songs show the time too.
+
 ## v1.4.2 — 2026-09-02
 
 - **"Try again — smarter model" on more AI actions.** The on-demand Opus retry now
