@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.4 — 2026-09-03
+
+- **Sort a shared set A–Z too.** The shared-set window now has the same
+  **Original order / A–Z** toggle as your own setlists — handy for finding a
+  song in a big shared collection. It's view-only: it changes how the list and
+  Present are ordered here, never the publisher's set.
+
 ## v1.5.3 — 2026-09-03
 
 - **Switch a set between its own order and A–Z — without losing your order.**

@@ -153,6 +153,7 @@ export default function SharedSetView() {
   const [localSets, setLocalSets]   = useState([]);
   const [updateDialog, setUpdateDialog] = useState(null); // null | { choices } — the Update list
   const [playMine, setPlayMine] = useState(false);        // present your edited copies instead of the shared version
+  const [sortMode, setSortMode] = useState('custom');     // view-only: publisher order ('custom') vs alphabetical ('alpha')
   const refreshLocal = useCallback(async () => {
     try { setLocalSongs(await loadSongs()); setLocalSets(await loadSets()); } catch { /* offline / no db */ }
   }, []);
@@ -672,6 +673,11 @@ export default function SharedSetView() {
 
   const { set, songs } = setData;
   const enriched = songsWithViewerKeys(songs);
+  // A–Z is a view only — it never changes the set, just how it's listed and
+  // presented here. 'custom' keeps the publisher's order.
+  const displayed = sortMode === 'alpha'
+    ? [...enriched].sort((a, b) => (a.metadata?.title || '').localeCompare(b.metadata?.title || ''))
+    : enriched;
 
   if (presenting) {
     return (
@@ -803,7 +809,7 @@ export default function SharedSetView() {
             label="Present the whole set"
             title="Play the set full-screen, one song at a time — big chords and lyrics for performing. No account needed."
             fill={headerFill} active={enriched.length > 0} disabled={enriched.length === 0}
-            onActivate={() => present(enriched, 0)}
+            onActivate={() => present(displayed, 0)}
           >
             <Tv size={20} /><PillLabel>Present</PillLabel>
           </RoundButton>
@@ -840,13 +846,23 @@ export default function SharedSetView() {
         </div>
       )}
 
+      {/* Sort view — publisher's order or A–Z. View only; never changes the set. */}
+      {enriched.length > 1 && (
+        <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0">
+          <div className="inline-flex items-center gap-0.5 bg-gray-200 dark:bg-gray-800 rounded p-0.5 text-xs">
+            <button onClick={() => setSortMode('custom')} className={`h-8 px-3 rounded transition-colors ${sortMode === 'custom' ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>Original order</button>
+            <button onClick={() => setSortMode('alpha')}  className={`h-8 px-3 rounded transition-colors ${sortMode === 'alpha'  ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>A–Z</button>
+          </div>
+        </div>
+      )}
+
       {/* Song list */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto w-full px-4 py-4 space-y-2">
-          {enriched.length === 0 ? (
+          {displayed.length === 0 ? (
             <p className={`text-sm text-center py-12 ${muted}`}>No songs in this set.</p>
           ) : (
-            enriched.map((song, idx) => (
+            displayed.map((song, idx) => (
               <SharedSongRow
                 key={song.id}
                 song={song}
@@ -855,7 +871,7 @@ export default function SharedSetView() {
                 muted={muted}
                 edited={mineDiffers.has(song.id)}
                 playMine={playMine}
-                onPresent={() => present(enriched, idx)}
+                onPresent={() => present(displayed, idx)}
                 onCopy={() => handleCopySong(song)}
                 copying={copying}
               />
