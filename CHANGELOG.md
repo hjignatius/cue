@@ -3,6 +3,12 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.5 — 2026-09-03
+
+- **The "from a share" dot turns amber once you've edited your copy.** A song you
+  copied from a shared set shows a green link dot; edit it and the dot goes amber,
+  so you can tell at a glance which of your shared copies you've personalised.
+
 ## v1.5.4 — 2026-09-03
 
 - **Sort a shared set A–Z too.** The shared-set window now has the same

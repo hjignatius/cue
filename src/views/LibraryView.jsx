@@ -5,6 +5,7 @@ import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadS
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
+import { isEditedCopy } from '../utils/contentHash.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
@@ -172,16 +173,21 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
         {artist && <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{artist}</p>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {/* Link dot: this song was copied in from a set someone shared. The
-            marker is the copiedFrom provenance the copy already records. */}
-        {song.copiedFrom && (
-          <span
-            title={song.copiedFrom.setName ? `Copied from shared set "${song.copiedFrom.setName}"` : 'Copied from a shared set'}
-            className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 dark:bg-emerald-500 shrink-0"
-          >
-            <Link2 size={9} className="text-white" strokeWidth={2.5} />
-          </span>
-        )}
+        {/* Link dot: this song was copied in from a set someone shared. Green
+            while it still matches what was shared; amber once you've edited your
+            copy (its content no longer matches the baseline saved at copy time). */}
+        {song.copiedFrom && (() => {
+          const edited = isEditedCopy(song);
+          const src = song.copiedFrom.setName ? `shared set "${song.copiedFrom.setName}"` : 'a shared set';
+          return (
+            <span
+              title={edited ? `Copied from ${src} — you've edited your copy` : `Copied from ${src}`}
+              className={`flex items-center justify-center w-4 h-4 rounded-full shrink-0 ${edited ? 'bg-amber-500 dark:bg-amber-500' : 'bg-emerald-500 dark:bg-emerald-500'}`}
+            >
+              <Link2 size={9} className="text-white" strokeWidth={2.5} />
+            </span>
+          );
+        })()}
         {/* Pencil dot: this song has local ink annotations from Present mode */}
         {hasAnnotation && (
           <span
