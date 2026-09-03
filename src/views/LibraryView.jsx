@@ -1243,13 +1243,12 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
     ? [...setSongs].sort((a, b) => (a.metadata?.title || '').localeCompare(b.metadata?.title || ''))
     : setSongs;
 
+  // A–Z is a non-destructive VIEW: it never rewrites songIds, so the set's own
+  // order (e.g. a hand-built "collection" like every Beatles song) is preserved
+  // and switching back to Custom restores it exactly. displaySongs derives the
+  // alphabetical order for both this list and Present, so the toggle is lossless.
   function applySort(mode) {
-    if (mode === 'alpha') {
-      const reordered = [...setSongs].sort((a, b) => (a.metadata?.title || '').localeCompare(b.metadata?.title || ''));
-      onUpdateSet({ ...set, songIds: reordered.map(s => s.id), sortMode: 'alpha' });
-    } else {
-      onUpdateSet({ ...set, sortMode: 'custom' });
-    }
+    onUpdateSet({ ...set, sortMode: mode });
   }
 
   function handleRemove(songId) {

@@ -825,14 +825,18 @@ export default function SharedSetView() {
         <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0 flex items-center gap-2">
           <RoundButton
             size={ROUND_SIZE_COMPACT} pill
-            label={playMine ? 'Playing your copy — tap to play the shared version instead' : 'Follow along with your copy — tap to play your edited versions'}
-            title="Play your own edited & annotated versions of these songs instead of the publisher's."
+            label={playMine
+              ? 'Including songs you edited — tap to follow the shared set instead'
+              : 'Following the shared set — tap to include your edited versions'}
+            title={playMine
+              ? 'Playing your own edited & annotated versions where you have them, and the shared version everywhere else.'
+              : 'Playing the publisher’s version of every song. Tap to swap in your own edited versions where you have them.'}
             fill={playMine ? '#d97706' : headerFill}
             onActivate={() => setPlayMine(v => !v)}
           >
-            <UserCheck size={16} /><PillLabel>{playMine ? 'Playing your copy' : 'Follow along with your copy'}</PillLabel>
+            <UserCheck size={16} /><PillLabel>{playMine ? 'Including Songs You Edited' : 'Following Shared Set'}</PillLabel>
           </RoundButton>
-          <span className={`text-xs ${muted}`}>{playMine ? '— your edits & marks' : `— you've saved ${copiedCount}`}</span>
+          <span className={`text-xs ${muted}`}>{playMine ? '— amber songs play your copy' : `— you've edited ${mineDiffers.size || copiedCount}`}</span>
         </div>
       )}
 
@@ -850,7 +854,8 @@ export default function SharedSetView() {
                 dark={dark}
                 muted={muted}
                 edited={mineDiffers.has(song.id)}
-                onPresent={() => present(enriched, idx, mineDiffers.has(song.id))}
+                playMine={playMine}
+                onPresent={() => present(enriched, idx)}
                 onCopy={() => handleCopySong(song)}
                 copying={copying}
               />
@@ -1203,7 +1208,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, onPresent, onCopy, copying }) {
+function SharedSongRow({ song, index, dark, muted, edited, playMine, onPresent, onCopy, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1240,9 +1245,13 @@ function SharedSongRow({ song, index, dark, muted, edited, onPresent, onCopy, co
           </RoundButton>
           <RoundButton
             size={ROUND_SIZE_COMPACT}
-            label={edited ? 'Present this song — playing your edited copy' : 'Present this song'}
+            label={edited
+              ? (playMine ? 'Present this song — playing your edited copy' : 'Present this song — you have an edited copy; the toggle above plays the shared version')
+              : 'Present this song'}
             title={edited
-              ? 'You have your own edited version of this song — play it full-screen for performing.'
+              ? (playMine
+                  ? 'You have your own edited version — this plays it full-screen for performing.'
+                  : 'You have your own edited version of this song. Switch the toggle to “Including Songs You Edited” to play it; right now the shared version plays.')
               : 'Play just this song full-screen — big chords and lyrics for performing.'}
             fill={edited ? '#d97706' : fill} active={!edited}
             onActivate={onPresent}

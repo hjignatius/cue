@@ -3,6 +3,20 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.3 — 2026-09-03
+
+- **Switch a set between its own order and A–Z — without losing your order.**
+  Sorting a set alphabetically is now a non-destructive *view*: your hand-built
+  order (handy for a big "collection" like every Beatles song) is kept, and
+  tapping **Custom** restores it exactly. Previously A–Z overwrote the order for
+  good.
+- **Shared sets: you choose the version to play.** The follow-along control now
+  reads **Following Shared Set** (default — plays the publisher's version of every
+  song) or **Including Songs You Edited** (plays your own versions where you have
+  them). A song's amber Present circle marks *"you have your own version of this
+  one"*; the toggle decides which actually plays, so tapping a song no longer
+  forces your copy.
+
 ## v1.5.2 — 2026-09-03
 
 - **Follow along with your own copies — now it works, and it's obvious.** Editing a
