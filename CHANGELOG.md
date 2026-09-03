@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.0 — 2026-09-03
+
+- **Update copies from a shared set.** Once you've copied a shared set, the
+  **Copy** button becomes a status: **Up to date** when your copies match the
+  share, or **Update** when the publisher has changed it since. **Update** opens a
+  per-song list where you choose **Update / Skip** for changed songs and
+  **Add / Skip** for new ones, then refreshes your copies **in place** and
+  reconciles the set's song order — without ever touching songs you made
+  yourself. A content **baseline** captured at copy time distinguishes the
+  publisher's edits from your own, so a song you've edited is flagged and never
+  overwritten without warning (choose Skip to keep yours).
+
 ## v1.4.3 — 2026-09-03
 
 - **Present panel — clearer, snappier controls.**

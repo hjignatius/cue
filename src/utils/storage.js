@@ -310,7 +310,7 @@ export async function loadSets() {
 // "Newest" sort. Edit callers commonly spread `{ ...set }`, which carries the
 // stale updatedAt; that value is ignored unless preserveTimestamps is set.
 // Backup/restore passes preserveTimestamps: true to keep original edit times.
-export async function saveSet({ id, name, songIds, sortMode = 'custom', createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, preserveTimestamps = false }) {
+export async function saveSet({ id, name, songIds, sortMode = 'custom', createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, preserveTimestamps = false, copiedFrom }) {
   const d   = await getDB();
   const sid = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -323,6 +323,10 @@ export async function saveSet({ id, name, songIds, sortMode = 'custom', createdA
     createdAt: existing?.createdAt ?? givenCreatedAt ?? now,
     updatedAt: preserveTimestamps && givenUpdatedAt ? givenUpdatedAt : now,
   };
+  // Provenance for a set copied from a shared link (its token) — lets the shared
+  // viewer find the local copy and offer Update. Preserved across edits.
+  const cf = copiedFrom ?? existing?.copiedFrom;
+  if (cf) entry.copiedFrom = cf;
   await d.put('sets', entry);
   return entry;
 }

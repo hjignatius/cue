@@ -670,7 +670,7 @@ Pulling will discard them. Continue?</pre>
 <ul>
   <li><strong>Present All</strong> — launches Present mode from the first song, or from any song you tap <strong>Present</strong> on. PDF lead sheets render just as they do in your own library.</li>
   <li><strong>Key</strong> — each song shows the key it plays in; you can transpose it for yourself (stored locally, never sent to the server).</li>
-  <li><strong>Copy to library</strong> — copy an individual song or the whole set (including any PDFs) into your local Cue.</li>
+  <li><strong>Copy to library</strong> — copy an individual song or the whole set (including any PDFs) into your local Cue. Once you've copied the set, this button reflects its status: <strong>Up to date</strong> when your copies match the share, or <strong>Update</strong> when the publisher has changed it — Update opens a per-song list (Update / Skip changed songs, Add / Skip new ones), refreshes your copies in place, and re-syncs the set order, without touching songs you made yourself. A song you've edited locally is flagged and never overwritten unless you choose Update.</li>
   <li><strong>Bookmark</strong> — save the link to a <em>Shared with me</em> list for quick access later.</li>
   <li><strong>⚙ Settings</strong> — theme, chord color, and chord label size, applied immediately.</li>
   <li><strong>Open Cue</strong> — go to the main Cue app.</li>
