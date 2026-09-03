@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { publishSet } from '../lib/cloud.js';
+import { publishSet, describeCloudError } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 
 // Modal that confirms, runs, and reports the publish operation for a single set.
@@ -20,7 +20,7 @@ export default function PublishSetDialog({ set, songs, userId, onPublish = publi
       onSuccess(new Date().toISOString());
     } catch (err) {
       setPhase('error');
-      setErrMsg(err.message || 'Publish failed. Please try again.');
+      setErrMsg(describeCloudError(err));
     }
   }
 

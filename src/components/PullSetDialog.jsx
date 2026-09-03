@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listCloudSets, pullSet, toIsoTs } from '../lib/cloud.js';
+import { listCloudSets, pullSet, toIsoTs, describeCloudError } from '../lib/cloud.js';
 import { saveSong, saveSet, newestLocalAt, hasPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
@@ -158,7 +158,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
     try {
       setCloudSets(await listCloudSets(userId));
     } catch (err) {
-      setErrMsg(err.message || 'Failed to load cloud sets.');
+      setErrMsg(describeCloudError(err));
       setPhase('error');
     }
   }
@@ -176,7 +176,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
       setFetched(data);
       setPhase('confirm');
     } catch (err) {
-      setErrMsg(err.message || 'Failed to fetch the set.');
+      setErrMsg(describeCloudError(err));
       setPhase('error');
     }
   }
@@ -193,7 +193,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
       onPulled?.(fetched.set.id, cloudNewest);
       setPhase('success');
     } catch (err) {
-      setErrMsg(err.message || 'Pull failed. Please try again.');
+      setErrMsg(describeCloudError(err));
       setPhase('error');
     }
   }

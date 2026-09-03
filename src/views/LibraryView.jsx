@@ -20,7 +20,7 @@ import SettingsPanel from '../components/SettingsPanel.jsx';
 import SymbolMenuButton from '../components/SymbolMenuButton.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
-import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups } from '../lib/cloud.js';
+import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups, describeCloudError } from '../lib/cloud.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import { useIsPhonePortrait, usePortraitPanels } from '../hooks/useIsPhonePortrait.js';
 import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
@@ -408,7 +408,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
       localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(updated));
       setUnpublishDialog(d => ({ ...d, phase: 'success' }));
     } catch (err) {
-      setUnpublishDialog(d => ({ ...d, phase: 'error', error: err.message || 'Unpublish failed. Please try again.' }));
+      setUnpublishDialog(d => ({ ...d, phase: 'error', error: describeCloudError(err) }));
     }
   }
 
@@ -433,7 +433,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
       setDeleteBlockedDialog(null);
       onRefresh();
     } catch (err) {
-      setDeleteBlockedDialog(d => ({ ...d, phase: 'confirm', error: err.message || 'Unpublish failed. Check your connection and try again.' }));
+      setDeleteBlockedDialog(d => ({ ...d, phase: 'confirm', error: describeCloudError(err) }));
     }
   }
 

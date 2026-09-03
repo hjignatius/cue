@@ -2,6 +2,30 @@ import { supabase } from './supabase.js';
 import { uploadPdfBlob, pdfObjectExists, removePdfObjects } from './pdfSync.js';
 import { setPdfUploaded } from '../utils/storage.js';
 
+// Reject a cloud call that stalls, so the UI never hangs waiting on a bad or
+// captive-portal connection. A dead network already rejects fast; this is the
+// safety net for a connection that neither succeeds nor fails on its own.
+const CLOUD_TIMEOUT_MS = 20000;
+export function withTimeout(promise, ms = CLOUD_TIMEOUT_MS) {
+  let t;
+  const timeout = new Promise((_, reject) => {
+    t = setTimeout(() => { const e = new Error('timeout'); e.code = 'timeout'; reject(e); }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
+
+// A plain-language message for a failed cloud call — no jargon, and it names the
+// connection when the device is offline or the request stalled.
+export function describeCloudError(err) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return 'You appear to be offline. Reconnect to the internet and try again.';
+  }
+  if (err?.code === 'timeout' || /timeout|network|failed to fetch|load failed/i.test(err?.message || '')) {
+    return "Couldn't reach the cloud. Check your internet connection and try again.";
+  }
+  return err?.message || 'Something went wrong. Please try again.';
+}
+
 // Normalize a cloud timestamp to JS ISO ("…Z", ms precision). Supabase returns
 // Postgres timestamptz as "…+00:00" with microseconds; local records use JS ISO.
 // Comparing the two as strings is WRONG — for the same instant "…Z" sorts AFTER
@@ -137,13 +161,13 @@ export async function getShareTokens(setId) {
 // so the next Share finds no active token and mints a fresh single one.)
 export async function getOrCreateShareToken(setId) {
   if (!supabase) throw new Error('Supabase not configured');
-  const { data: existing, error: selErr } = await supabase
+  const { data: existing, error: selErr } = await withTimeout(supabase
     .from('set_shares')
     .select('token')
     .eq('set_id', setId)
     .eq('revoked', false)
     .order('created_at', { ascending: true })
-    .limit(1);
+    .limit(1));
   if (selErr) throw selErr;
   if (existing && existing.length) return existing[0].token;
 
@@ -217,11 +241,11 @@ export async function unpublishSet(setId, userId) {
 // device that has no local copy yet.
 export async function listCloudSets(userId) {
   if (!supabase) throw new Error('Supabase not configured');
-  const { data, error } = await supabase
+  const { data, error } = await withTimeout(supabase
     .from('sets')
     .select('id, name, updated_at')
     .eq('owner_id', userId)
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false }));
   if (error) throw error;
   return data ?? [];
 }
@@ -307,7 +331,7 @@ export async function pullSet(setId, userId) {
 // Returns { set, songs } or null when the token is invalid/revoked.
 export async function getSharedSet(shareToken) {
   if (!supabase) throw new Error('Supabase not configured');
-  const { data, error } = await supabase.rpc('get_shared_set', { share_token: shareToken });
+  const { data, error } = await withTimeout(supabase.rpc('get_shared_set', { share_token: shareToken }));
   if (error) throw error;
   return data ?? null;
 }

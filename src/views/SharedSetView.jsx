@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getSharedSet } from '../lib/cloud.js';
+import { getSharedSet, describeCloudError } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob } from '../utils/storage.js';
@@ -120,6 +120,7 @@ export default function SharedSetView() {
   const dark = theme === 'dark';
 
   const [status, setStatus]         = useState('loading'); // loading | ok | not_found | error
+  const [loadError, setLoadError]   = useState(null);      // the error behind status==='error'
   const [setData, setSetData]       = useState(null);      // { set, songs }
   const [presenting, setPresenting] = useState(null);      // { songs, startIndex }
   const [retryCount, setRetryCount] = useState(0);
@@ -193,6 +194,7 @@ export default function SharedSetView() {
         if (msg.includes('not found') || msg.includes('invalid') || msg.includes('revoked')) {
           setStatus('not_found');
         } else {
+          setLoadError(err);
           setStatus('error');
         }
       }
@@ -506,7 +508,14 @@ export default function SharedSetView() {
             copiedFrom: { ...(item.local.copiedFrom || {}), songId: s.id, baseline: contentHash(s) },
             pdf: pdfRefForCopy(s.pdf),
           });
-          if (s.type === 'pdf') { const blob = await loadPdfBlob(s.id); if (blob) await savePdfBlob(item.local.id, blob); }
+          if (s.type === 'pdf') {
+            // Make sure we write the CURRENT sheet: re-fetch the publisher's bytes
+            // (in case they changed the PDF) before copying. Fail-soft — if offline,
+            // fall back to whatever was cached when the share opened.
+            if (s.ownerId) { try { await downloadPdfBlob(s.id, s.ownerId); } catch { /* keep cached */ } }
+            const blob = await loadPdfBlob(s.id);
+            if (blob) await savePdfBlob(item.local.id, blob);
+          }
           if (Array.isArray(s.customChords) && s.customChords.length) mergeCustomChords(s.customChords);
           shareToLocalId.set(s.id, item.local.id);
           updated++;
@@ -618,9 +627,9 @@ export default function SharedSetView() {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-3 px-6 max-w-sm">
             <p className={`text-lg font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
-              This shared set is temporarily unavailable
+              {typeof navigator !== 'undefined' && navigator.onLine === false ? "You're offline" : "Couldn't load this shared set"}
             </p>
-            <p className={`text-sm ${muted}`}>Try again later.</p>
+            <p className={`text-sm ${muted}`}>{describeCloudError(loadError)}</p>
             <button
               onClick={() => setRetryCount(c => c + 1)}
               className="h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"

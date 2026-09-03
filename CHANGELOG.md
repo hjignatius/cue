@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.1 — 2026-09-03
+
+- **Kinder behaviour when the network is down.** Cloud actions no longer hang on a
+  stalled connection (the shared-set open and the pull/share reads now time out),
+  and when something can't reach the cloud you get a plain message — "You appear
+  to be offline. Reconnect to the internet and try again." — instead of a spinner
+  or a vague error. The rest of Cue (library, editor, Present, your saved songs
+  and sets) keeps working offline as before.
+- **Update from a share always writes the current sheet.** When you Update a PDF
+  song, Cue re-fetches the latest PDF before saving it (falling back to the cached
+  copy if you're offline), so an updated lead sheet is never stale.
+
 ## v1.5.0 — 2026-09-03
 
 - **Update copies from a shared set.** Once you've copied a shared set, the
