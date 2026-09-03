@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.2 — 2026-09-03
+
+- **Follow along with your own copies — now it works, and it's obvious.** Editing a
+  song you'd copied from a share used to quietly sever its tie to the original, so
+  Present would fall back to the publisher's version even when you asked for yours.
+  That link is now kept through every edit. The old checkbox is now an **amber
+  "Follow along with your copy"** button, and in the song list any song you've
+  edited shows an **amber Present** circle — tap it to play *your* edited, annotated
+  version full-screen (even without flipping the whole-set toggle). Songs you
+  haven't changed stay on the shared version.
+
 ## v1.5.1 — 2026-09-03
 
 - **Kinder behaviour when the network is down.** Cloud actions no longer hang on a

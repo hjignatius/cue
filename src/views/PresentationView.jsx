@@ -288,7 +288,7 @@ function lyricColumnWidth(fontPx) {
   return Math.round(textW + LYRIC_COL_PADDING);
 }
 
-export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false }) {
+export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false, sourceLabel = null }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
@@ -809,6 +809,15 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // lyrics) selects text and paints a highlight box over it.
   return (
     <div className={`fixed inset-0 z-50 flex flex-col select-none ${bg}`}>
+      {/* Source badge — which version is playing (shared vs. your edited copy).
+          Fixed + pointer-events-none so it never affects the lyric layout. */}
+      {sourceLabel && (
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[55] pointer-events-none">
+          <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium shadow ${dark ? 'bg-gray-800/85 text-gray-300 border border-gray-700' : 'bg-white/90 text-gray-600 border border-gray-200'}`}>
+            {sourceLabel}
+          </span>
+        </div>
+      )}
       {/* Visual count-in flash. Full-screen now the top bar is gone — it used to
           be an overlay inside that bar. z-[60] puts it above everything including
           PresentControls, which is safe because it is strictly transient: opacity

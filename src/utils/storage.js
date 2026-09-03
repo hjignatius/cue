@@ -181,7 +181,11 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   if (diagramScale !== undefined) entry.diagramScale = diagramScale;
   if (chordPrefs   !== undefined) entry.chordPrefs   = chordPrefs;
   if (displayKey   !== undefined) entry.displayKey   = displayKey;
-  if (copiedFrom   !== undefined) entry.copiedFrom   = copiedFrom;
+  // copiedFrom provenance — set it, or keep the existing link. Editing a
+  // copied song must NOT sever its tie to the shared original (that link is
+  // what lets "Follow along with your copy" and Update-from-share find it).
+  if (copiedFrom !== undefined)          entry.copiedFrom = copiedFrom;
+  else if (existing?.copiedFrom != null) entry.copiedFrom = existing.copiedFrom;
   // type / pedalActive are always present on a saved song: take the caller's
   // value, else keep the existing one, else default (a new song seeds
   // pedalActive from the prior global pref; type defaults to 'text').
