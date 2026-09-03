@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.6 — 2026-09-03
+
+- **Plainer sharing words + a clearer "unsent changes" signal.** The set menu's
+  cryptic **Overwrite** is now **Get latest from cloud** (it pulls the cloud copy
+  down onto this device), and **Unpublish** is now **Stop Sharing Set**. The tiny
+  colour-dots and their legend are gone: a shared set now says its status in
+  words on its row — `· Shared`, amber `· changes not sent` (with an amber set
+  name) when you have edits you haven't republished, or red `· newer version in
+  cloud` when another device is ahead.
+
 ## v1.5.5 — 2026-09-03
 
 - **The "from a share" dot turns amber once you've edited your copy.** A song you

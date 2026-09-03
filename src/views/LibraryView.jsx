@@ -707,13 +707,8 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
         )}
 
         <div className="flex-1" />
-        {/* Center: sync-dot legend, stacked two-up. Hidden while selecting. */}
-        {selectedSets.size === 0 && user && (
-          <div className="flex flex-col leading-tight shrink-0 text-[11px] text-gray-400 dark:text-gray-500">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />republish</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />cloud newer</span>
-          </div>
-        )}
+        {/* Sync status now reads in plain words on each set's subline, so the
+            old colour-dot legend is gone. */}
         <div className="flex-1" />
 
         {/* Right: Delete. */}
@@ -821,21 +816,18 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                           className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5"
                         />
                       ) : (
-                        <p className={`font-medium truncate ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
+                        <p className={`font-medium truncate ${isStale ? 'text-amber-600 dark:text-amber-500' : isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
                       )}
+                      {/* Status in plain words on the subline — replaces the old
+                          colour-dots + legend. Shared/in-sync is indigo; unshared
+                          local edits amber; a newer cloud version red. */}
                       <p className="text-xs text-gray-400 dark:text-gray-600">
                         {count} {count === 1 ? 'song' : 'songs'}
-                        {isPublished && <span className="text-indigo-500 dark:text-indigo-400"> · Published</span>}
+                        {isPublished && <span className="text-indigo-500 dark:text-indigo-400"> · Shared</span>}
+                        {isStale     && <span className="text-amber-600 dark:text-amber-500"> · changes not sent</span>}
+                        {cloudAhead  && <span className="text-red-500 dark:text-red-400"> · newer version in cloud</span>}
                       </p>
                     </div>
-                    {/* Sync indicators — always visible (mutually exclusive). The
-                        legend in the header row explains the colors. */}
-                    {user && editingSetId !== set.id && isStale && (
-                      <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" title="Local changes not yet published — republish to sync" />
-                    )}
-                    {user && editingSetId !== set.id && cloudAhead && (
-                      <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="A newer version is in the cloud — overwrite to update" />
-                    )}
                     {/* Right-pointing arrow, to the LEFT of the actions menu. */}
                     {editingSetId !== set.id && (
                       <ChevronRight size={14} className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-300 dark:text-gray-700 group-hover:text-gray-500'}`} />
@@ -850,10 +842,10 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                           items={[
                             { id: 'rename', label: 'Rename', icon: SquarePen, onSelect: () => startRename(set) },
                             user && (isPublished
-                              ? { id: 'unpub', label: 'Unpublish', icon: CloudOff, danger: true, onSelect: () => handleUnpublishClick(set) }
+                              ? { id: 'unpub', label: 'Stop Sharing Set', icon: CloudOff, danger: true, onSelect: () => handleUnpublishClick(set) }
                               : { id: 'pub',   label: 'Publish',   icon: UploadCloud, onSelect: () => handlePublishClick(set) }),
                             user && { id: 'share',   label: 'Share',     icon: Share,         disabled: !isPublished, onSelect: () => setShareDialogSet(set) },
-                            user && { id: 'over',    label: 'Overwrite', icon: DownloadCloud, danger: true, disabled: !isPublished || presenting, onSelect: () => setPullDialog({ setId: set.id }) },
+                            user && { id: 'over',    label: 'Get latest from cloud', icon: DownloadCloud, danger: true, disabled: !isPublished || presenting, onSelect: () => setPullDialog({ setId: set.id }) },
                             user && { id: 'repub',   label: 'Republish', icon: UploadCloud,   disabled: !isPublished, onSelect: () => handlePublishClick(set) },
                             { id: 'dup', label: 'Duplicate', icon: Copy, onSelect: () => handleDuplicateSet(set) },
                           ]}
@@ -1012,18 +1004,18 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => !running && setDeleteBlockedDialog(null)}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
-                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Unpublish before deleting</h2>
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Stop sharing before deleting</h2>
                 <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
                   {many
-                    ? 'These sets are shared. Unpublish them first, then you can delete them.'
-                    : 'This set needs to be unpublished first before you can delete it.'}
+                    ? 'These sets are shared. Stop sharing them first, then you can delete them.'
+                    : 'This set is shared. Stop sharing it first, then you can delete it.'}
                 </p>
                 {names.length > 0 && (
                   <p className={`text-sm font-medium mt-1 ${dark ? 'text-gray-200' : 'text-gray-800'}`}>
                     {names.map(n => `"${n}"`).join(', ')}
                   </p>
                 )}
-                <p className={`text-xs mt-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Unpublishing deactivates the share link. Your songs stay in your library.</p>
+                <p className={`text-xs mt-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>This deactivates the share link. Your songs stay in your library.</p>
               </div>
               {deleteBlockedDialog.error && <p className="text-xs text-red-500">{deleteBlockedDialog.error}</p>}
               <div className="flex flex-col gap-2">
@@ -1032,7 +1024,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                   disabled={running}
                   className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl transition-colors"
                 >
-                  {running ? 'Unpublishing…' : (many ? 'Unpublish sets' : 'Unpublish')}
+                  {running ? 'Stopping…' : (many ? 'Stop sharing sets' : 'Stop sharing')}
                 </button>
                 <button
                   onClick={() => setDeleteBlockedDialog(null)}
