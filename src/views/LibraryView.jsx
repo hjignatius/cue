@@ -1512,7 +1512,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 // ---- Library view -----------------------------------------------------------
 
 export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
-  const { theme, updatePref, chordColor, accidentals, instrument, symbols, aiLevel, genres, favoriteArtists } = usePrefs();
+  const { theme, updatePref, chordColor, accidentals, instrument, symbols, aiLevel, genres, favoriteArtists, personalizeFromLibrary } = usePrefs();
   const dark = theme === 'dark';
   const searchInputRef = useRef(null);
 
@@ -1535,9 +1535,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     if (!hasApiKey()) { setSettingsOpen(true); return; }
     setSuggestOpen(true); setSuggestBusy(true); setSuggestErr(''); setSuggestResults(null);
     try {
-      const haveTitles = songs
-        .map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — '))
-        .filter(Boolean);
+      // Only send the library when "Personalize from my library" is on.
+      const haveTitles = personalizeFromLibrary
+        ? songs.map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
+        : [];
       const res = await suggestSongsToLearn({ instrument, level: aiLevel, genres, artists: favoriteArtists, haveTitles, model });
       setSuggestResults(res);
     } catch (e) {

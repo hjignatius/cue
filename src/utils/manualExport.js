@@ -615,7 +615,7 @@ Bb,8-10-11-10,1243</pre>
 
 <h2>Suggest Songs to Learn</h2>
 <p>In the <strong>Library</strong> header, the <strong>AI</strong> menu's <strong>Suggest songs to learn</strong> recommends real songs to learn next, matched to your instrument, your <strong>Playing level</strong>, and your <strong>Music taste</strong> — and to the songs already in your library (it won't suggest ones you already have). Each pick shows why it fits you, a difficulty note for your level, and a <strong>Find chords</strong> link to a real source. It's discovery only — Cue never copies a chart; you go get the ones you like.</p>
-<p>Set your <strong>Music taste</strong> in <strong>Settings → AI</strong>: tap the genre chips you like and, optionally, list a few favourite artists. It's all optional — with nothing set, Cue simply leans on the songs already in your library.</p>
+<p>Set your <strong>Music taste</strong> in <strong>Settings → AI</strong>: tap the genre chips you like and, optionally, list a few favourite artists. It's all optional — with nothing set, Cue simply leans on the songs already in your library. A <strong>Personalize from my library</strong> switch (on by default) controls that: when on, Suggest uses your song list to tailor picks and skip ones you already own; turn it off to get suggestions from your genres/artists alone.</p>
 <p>The same <strong>AI</strong> menu also has <strong>Find duplicates</strong> — it scans your library for the same song saved more than once (including alternate spellings and "(Live)"/"(Acoustic)" variants) and lists each group so you can <strong>Delete</strong> the extras in place.</p>
 
 <h2>In the Setlist</h2>

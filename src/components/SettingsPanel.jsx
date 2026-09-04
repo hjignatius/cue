@@ -75,7 +75,7 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, aiLevel, genres, favoriteArtists, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, aiLevel, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
   const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   const noFade = presentIdleSec === PRESENT_NO_FADE;
@@ -621,6 +621,24 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                 placeholder="Favorite artists, e.g. James Taylor, Billy Strings"
                 className={`mt-1 w-full py-2 px-3 text-sm rounded-lg border bg-transparent ${btnBorder} ${label}`}
               />
+            </div>
+
+            {/* Personalize from library — when on, "Suggest songs to learn" sends
+                your song list to tailor picks and skip ones you own. Off = pick
+                from genres/artists only (branch out), and nothing is sent. */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Personalize from my library</span>
+              <button
+                onClick={() => updatePref('personalizeFromLibrary', !personalizeFromLibrary)}
+                className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
+                  personalizeFromLibrary
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : `${btnBorder} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                }`}
+              >
+                {personalizeFromLibrary ? 'On' : 'Off'}
+              </button>
+              <p className={`text-[11px] ${muted}`}>When on, <em>Suggest songs to learn</em> uses the songs in your library to tailor picks and avoid ones you already have (your song titles are sent to the AI on your key). Turn off to get suggestions from your genres/artists only.</p>
             </div>
           </section>
 
