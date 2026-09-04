@@ -2004,14 +2004,21 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   </>
                 )}
               </div>
-              {/* Library-wide AI actions live in this menu (room to grow). */}
+              {/* Library-wide AI actions live in this menu (room to grow). Same
+                  square, bordered AI button style as the editor toolbar. */}
               <div className="relative">
-                <HeaderPill
-                  dark={dark} icon={Sparkles} label="AI" hideLabelWhenNarrow
-                  title={aiReady ? 'AI helpers for your whole library' : 'Set up AI in Settings'}
-                  active={aiReady}
-                  onActivate={() => setAiMenuOpen(v => !v)}
-                />
+                <button
+                  onClick={() => setAiMenuOpen(v => !v)}
+                  aria-haspopup="menu" aria-expanded={aiMenuOpen} aria-label="AI"
+                  title={aiReady ? 'AI helpers for your whole library' : 'AI — add your Anthropic key in Settings to enable'}
+                  className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
+                    aiReady
+                      ? dark ? 'border-gray-700 text-gray-200 hover:text-white' : 'border-gray-300 text-gray-700 hover:text-gray-900'
+                      : dark ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'
+                  }`}
+                >
+                  <Sparkles size={14} /> AI
+                </button>
                 {aiMenuOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setAiMenuOpen(false)} />
