@@ -370,6 +370,49 @@ Only include URLs you actually found via search. Order best first. If you find n
     .map((r) => ({ name: String(r.name || r.url), url: r.url, note: String(r.note || '') }));
 }
 
+// ── Find duplicate songs ────────────────────────────────────────────────────
+// Scan the library for entries that are the SAME song saved more than once —
+// including alternate spellings/titles, "(Live)"/"(Acoustic)" variants, and
+// featured-artist or typo differences — without flagging genuinely different
+// songs that merely share a title word. Pure reasoning, no web search.
+// `songs` is [{ id, metadata }]. Result: array of { reason, songs:[songObj…] }.
+export async function findDuplicateSongs({ songs = [], model } = {}) {
+  const list = songs.slice(0, 400).map((s, i) => ({
+    n: i + 1,
+    title: s.metadata?.title || 'Untitled',
+    artist: s.metadata?.artist || '',
+    key: s.metadata?.key || '',
+  }));
+  if (list.length < 2) return [];
+
+  const system = `You find duplicate songs in a musician's library. You are given a numbered list of songs. Identify GROUPS of entries that are the SAME song saved more than once.
+
+Count as the same song: identical titles; alternate spellings, punctuation, or capitalisation; "(Live)", "(Acoustic)", "(Remastered)" and similar variants of the same recording; featured-artist differences; and obvious typos.
+Do NOT group songs that are merely by the same artist, or that just share a word in the title — they must genuinely be the same composition.
+
+Respond with ONLY a JSON array (no prose, no code fence) of groups, each group having 2 or more entries:
+[{"reason":"short why they match, e.g. 'same song, live vs studio'","songs":[<numbers>]}]
+If there are no duplicates, return [].`;
+
+  const data = await callClaude({
+    ...(model ? { model } : {}),
+    max_tokens: 2000,
+    output_config: { effort: 'low' },
+    system,
+    messages: [{ role: 'user', content: JSON.stringify(list) }],
+  });
+  const json = extractJson(textOf(data));
+  const groups = Array.isArray(json) ? json : [];
+  return groups
+    .map((g) => ({
+      reason: String(g?.reason || '').trim(),
+      songs: (Array.isArray(g?.songs) ? g.songs : [])
+        .map((n) => songs[Number(n) - 1])
+        .filter(Boolean),
+    }))
+    .filter((g) => g.songs.length >= 2);
+}
+
 // ── Suggest songs to learn ──────────────────────────────────────────────────
 // Personal recommendations: real songs to learn next, matched to the player's
 // instrument, skill level, and taste (explicit genres/artists AND the songs

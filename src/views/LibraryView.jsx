@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X } from 'lucide-react';
-import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, SMARTER_MODEL } from '../lib/ai.js';
+import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, SMARTER_MODEL } from '../lib/ai.js';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -18,7 +18,6 @@ import { useAuth } from '../context/AuthContext.jsx';
 import OnboardingTour from '../components/OnboardingTour.jsx';
 import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
-import SymbolMenuButton from '../components/SymbolMenuButton.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups, describeCloudError } from '../lib/cloud.js';
@@ -1527,6 +1526,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     return () => { window.removeEventListener('cue:ai-key', refresh); window.removeEventListener('storage', refresh); };
   }, []);
   // "Suggest songs to learn" discovery dialog.
+  const [aiMenuOpen, setAiMenuOpen]         = useState(false);
   const [suggestOpen, setSuggestOpen]       = useState(false);
   const [suggestBusy, setSuggestBusy]       = useState(false);
   const [suggestResults, setSuggestResults] = useState(null); // null | array of picks
@@ -1545,6 +1545,30 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     } finally {
       setSuggestBusy(false);
     }
+  }
+  // "Find duplicates" dialog.
+  const [dupOpen, setDupOpen]     = useState(false);
+  const [dupBusy, setDupBusy]     = useState(false);
+  const [dupGroups, setDupGroups] = useState(null); // null | array of { reason, songs }
+  const [dupErr, setDupErr]       = useState('');
+  async function runFindDuplicates(model) {
+    if (!hasApiKey()) { setSettingsOpen(true); return; }
+    setDupOpen(true); setDupBusy(true); setDupErr(''); setDupGroups(null);
+    try {
+      setDupGroups(await findDuplicateSongs({ songs, model }));
+    } catch (e) {
+      setDupErr(e?.message || 'Couldn’t scan for duplicates. Try again.');
+    } finally {
+      setDupBusy(false);
+    }
+  }
+  // Delete a song from within the duplicates dialog, then drop it from the view
+  // (and any group that falls below two members).
+  function deleteFromDup(id) {
+    handleDelete(id);
+    setDupGroups(gs => (gs || [])
+      .map(g => ({ ...g, songs: g.songs.filter(s => s.id !== id) }))
+      .filter(g => g.songs.length >= 2));
   }
 
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('cue:onboarding_done'));
@@ -1567,18 +1591,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [highlightedSongId, setHighlightedSongId] = useState(() => sessionStorage.getItem('cue:lib_highlighted_id') || null);
 
   const [search, setSearch]             = useState(() => sessionStorage.getItem('cue:lib_search') || '');
-  // Insert an Ω-palette symbol into the search box at the cursor (keyboards on
-  // iPad have no ° ♭ ↓ / etc., so typing them there is otherwise impossible).
-  function insertSymbolIntoSearch(ch) {
-    const el = searchInputRef.current;
-    setArtistFilter(null);
-    if (!el) { setSearch(s => s + ch); return; }
-    const start = el.selectionStart ?? search.length;
-    const end = el.selectionEnd ?? search.length;
-    const next = search.slice(0, start) + ch + search.slice(end);
-    setSearch(next);
-    requestAnimationFrame(() => { el.focus(); const p = start + ch.length; try { el.setSelectionRange(p, p); } catch { /* ignore */ } });
-  }
   const [sortBy, setSortBy]             = useState(() => sessionStorage.getItem('cue:lib_sort') || 'title');
   const [artistFilter, setArtistFilter] = useState(() => sessionStorage.getItem('cue:lib_artist_filter') || null);
   const [keyFilter, setKeyFilter]       = useState(() => sessionStorage.getItem('cue:lib_key_filter') || null);
@@ -1992,12 +2004,42 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   </>
                 )}
               </div>
-              <HeaderPill
-                dark={dark} icon={Sparkles} label="Suggest" hideLabelWhenNarrow
-                title={aiReady ? 'Suggest songs to learn — matched to your instrument, level and taste' : 'Set up AI in Settings to get song suggestions'}
-                active={aiReady}
-                onActivate={() => runSuggest()}
-              />
+              {/* Library-wide AI actions live in this menu (room to grow). */}
+              <div className="relative">
+                <HeaderPill
+                  dark={dark} icon={Sparkles} label="AI" hideLabelWhenNarrow
+                  title={aiReady ? 'AI helpers for your whole library' : 'Set up AI in Settings'}
+                  active={aiReady}
+                  onActivate={() => setAiMenuOpen(v => !v)}
+                />
+                {aiMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setAiMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden py-1">
+                      <button
+                        onClick={() => { setAiMenuOpen(false); runSuggest(); }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Sparkles size={15} className="opacity-70 shrink-0" /> Suggest songs to learn
+                      </button>
+                      <button
+                        onClick={() => { setAiMenuOpen(false); runFindDuplicates(); }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Copy size={15} className="opacity-70 shrink-0" /> Find duplicates
+                      </button>
+                      {!aiReady && (
+                        <button
+                          onClick={() => { setAiMenuOpen(false); setSettingsOpen(true); }}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <Settings size={15} className="opacity-70 shrink-0" /> Set up AI…
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
               <HeaderPill dark={dark} icon={Plus} label="New Song" active hideLabelWhenNarrow onActivate={onNewSong} dataOnboard="new-song-btn" />
             </div>
           </div>
@@ -2022,8 +2064,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </button>
               )}
             </div>
-            {/* Ω — insert palette symbols (° ♭ ↓ / …) the keyboard can't type. */}
-            <SymbolMenuButton symbols={symbols} onInsert={insertSymbolIntoSearch} dark={dark} className="shrink-0" />
             <select
               value={keyFilter || ''}
               onChange={e => setKeyFilter(e.target.value || null)}
@@ -2285,6 +2325,64 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">Suggestions — difficulty is an estimate. Links open real chord sources.</p>
                 <button onClick={() => runSuggest(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more" className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                   <Sparkles size={13} /> Try again — smarter
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Find duplicates — groups of the same song saved more than once, with a
+          per-song Delete so the library can be tidied in place. */}
+      {dupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !dupBusy && setDupOpen(false)}>
+          <div className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+            <div className={`flex items-center justify-between px-5 py-3 border-b ${border}`}>
+              <div className="flex items-center gap-2">
+                <Copy size={16} className="text-indigo-500" />
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Duplicate songs</h2>
+              </div>
+              <button onClick={() => setDupOpen(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-500 hover:bg-gray-100'}`} aria-label="Close"><X size={18} /></button>
+            </div>
+            <div className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
+              {dupBusy ? (
+                <div className="flex items-center gap-2 justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
+                  <Loader2 size={16} className="animate-spin" /> Scanning your library…
+                </div>
+              ) : dupErr ? (
+                <div className="py-6 text-center">
+                  <p className="text-sm text-red-500 mb-3">{dupErr}</p>
+                  <button onClick={() => runFindDuplicates()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2">Try again</button>
+                </div>
+              ) : (dupGroups && dupGroups.length === 0) ? (
+                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No duplicates found — your library looks tidy.</p>
+              ) : (dupGroups || []).map((g, i) => (
+                <div key={i} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  {g.reason && <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">{g.reason}</p>}
+                  <div className="flex flex-col gap-1.5">
+                    {g.songs.map(s => (
+                      <div key={s.id} className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{s.metadata?.title || 'Untitled'}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{[s.metadata?.artist, s.metadata?.key].filter(Boolean).join(' · ') && ` — ${[s.metadata?.artist, s.metadata?.key].filter(Boolean).join(' · ')}`}</span>
+                        </div>
+                        <button
+                          onClick={() => deleteFromDup(s.id)}
+                          className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!dupBusy && dupGroups && dupGroups.length > 0 && (
+              <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">Deleting also removes the song from any sets it's in.</p>
+                <button onClick={() => runFindDuplicates(SMARTER_MODEL)} title="Re-scan on the more capable model (Opus) — slower, costs a bit more" className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                  <Sparkles size={13} /> Scan again — smarter
                 </button>
               </div>
             )}
