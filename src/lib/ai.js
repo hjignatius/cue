@@ -259,6 +259,87 @@ export async function cleanUpChart(text, { symbols } = {}) {
   return (m ? m[1] : out).trim();
 }
 
+// ── Detect structure ────────────────────────────────────────────────────────
+// Infer a song's sections (Verse / Chorus / Bridge / …) and insert header lines,
+// WITHOUT touching a single chord or word or changing the chord format. Labels
+// are consistent (verses numbered, a recurring chorus named identically) so a
+// later Condense recognises the repeats. Existing labels are respected.
+const STRUCTURE_SYSTEM = `You label the sections of ONE song's chord chart for a musician's app. The chart is in the user's format — either chords ABOVE lyrics, OR inline [brackets]. You only ADD section headers; you change nothing else.
+
+ABSOLUTE RULES:
+- NEVER change, add, remove, re-spell, or move any chord or any lyric. Every existing character of the music survives verbatim.
+- KEEP the existing chord format exactly. If it is chords-above-lyrics, do NOT convert to brackets, and vice-versa.
+- The ONLY lines you add are section headers, written as "# Label" on their own line, in Title Case, with one blank line before each.
+
+HOW TO LABEL:
+- Identify the sections from repetition and lyric/chord patterns: Intro, Verse, Pre-Chorus, Chorus, Bridge, Instrumental/Solo, Outro/Tag.
+- Number verses in order: "# Verse 1", "# Verse 2", … A section that recurs with the same words (the chorus) gets the SAME label every time — "# Chorus" — so repeats are recognisable.
+- RESPECT labels already present: keep the user's own headers and their wording; only add headers to blocks that don't have one. Do not duplicate a header, and adding headers to an already-labelled song must be a no-op.
+- Be conservative: if the structure isn't clear, or the song is too short to have sections, return it UNCHANGED rather than guessing.
+
+Output ONLY the chart text with headers added. No commentary, no explanation, no Markdown code fences.`;
+
+export async function detectStructure(text, { model } = {}) {
+  if (!text || !text.trim()) {
+    const err = new Error('Nothing to label — the chart is empty.');
+    err.code = 'empty';
+    throw err;
+  }
+  const data = await callClaude({
+    ...(model ? { model } : {}),
+    max_tokens: 8000,
+    output_config: { effort: 'low' },
+    system: STRUCTURE_SYSTEM,
+    messages: [{ role: 'user', content: text }],
+  });
+  const out = textOf(data);
+  const m = out.match(/^```[a-zA-Z]*\n([\s\S]*?)\n```$/);
+  return (m ? m[1] : out).trim();
+}
+
+// ── Condense (fit to page) ──────────────────────────────────────────────────
+// Shrink a song to a compact lead-sheet so it fits one or two pages, WITHOUT
+// altering a single chord or word. Input is already inline-bracket ChordPro
+// (the caller converts over-lyrics → brackets deterministically first). The
+// output uses Cue's own conventions: a section defined once under a `# Label`
+// header and later referenced by the bare header; consecutive identical lines
+// collapsed with an (xN) marker. Cue renders a condensed song verbatim, so these
+// references stay short on the page — and expand again when condensed is off.
+const CONDENSE_SYSTEM = `You compress a single song's chord chart into the most compact lead-sheet that still contains all of its music, for a musician's app. The input is ONE song in ChordPro inline-bracket format, e.g. [G]Amazing [D]grace.
+
+ABSOLUTE RULES — breaking any of these ruins the song:
+- NEVER change, add, remove, "correct", or re-spell any chord or any lyric. Every chord name and every word must survive verbatim.
+- Keep the inline-bracket format. Do NOT convert to chords-over-lyrics.
+- Only compress EXACT repeats. If two sections or lines differ by even one word, one chord, or an added tag/ending, they are NOT the same — leave both in full.
+- Preserve the original top-to-bottom order of the music.
+
+HOW TO COMPRESS (apply where it is safe):
+1. Repeated sections. When a block of lines (its chords AND its lyrics) appears again later exactly, keep the FIRST occurrence under a section header line written as "# Chorus" (or "# Verse 1", "# Bridge", … in Title Case). Replace each later exact repeat with ONLY that same bare header line — "# Chorus" — and no body beneath it. That references the earlier definition. The label must be spelled identically each time, and a section must be defined before it is referenced.
+2. Consecutive identical lines. When the same line repeats back-to-back, keep one copy and append a repeat marker: "(x2)", "(x3)", … at the end of the line.
+3. Keep real section labels as "# Label" lines. Collapse 3+ blank lines to one.
+
+If the song has no exact repeats, return it essentially unchanged (it is already as short as it safely gets).
+
+Output ONLY the condensed chart text. No commentary, no explanation, no Markdown code fences.`;
+
+export async function condenseChart(text, { model } = {}) {
+  if (!text || !text.trim()) {
+    const err = new Error('Nothing to condense — the chart is empty.');
+    err.code = 'empty';
+    throw err;
+  }
+  const data = await callClaude({
+    ...(model ? { model } : {}),
+    max_tokens: 8000,
+    output_config: { effort: 'low' },
+    system: CONDENSE_SYSTEM,
+    messages: [{ role: 'user', content: text }],
+  });
+  const out = textOf(data);
+  const m = out.match(/^```[a-zA-Z]*\n([\s\S]*?)\n```$/);
+  return (m ? m[1] : out).trim();
+}
+
 // ── Find music online ───────────────────────────────────────────────────────
 // Web-search-grounded: returns real sites, favouring the user's instrument.
 // Result: array of { name, url, note }.

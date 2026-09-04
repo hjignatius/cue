@@ -71,9 +71,11 @@ function StyledRuns({ runs, accentColor }) {
   );
 }
 
-function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLabelScale = 0, displayMode = 'over', embed = false, instrument = 'none', chordPrefs = {} }) {
+function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLabelScale = 0, displayMode = 'over', embed = false, instrument = 'none', chordPrefs = {}, condensed = false }) {
   const transposed = transposeText(convertToBrackets(text), semitones, useFlats);
-  const lines = attachSectionLabels(expandSections(parseChordPro(transposed)));
+  const parsed = parseChordPro(transposed);
+  // Condensed songs render verbatim — skip section-reference expansion.
+  const lines = attachSectionLabels(condensed ? parsed : expandSections(parsed));
   const lyricColor = dark ? '#f3f4f6' : '#1f2937';
   const labelColor = dark ? '#818cf8' : '#4f46e5';
   const chordPx = fontPx * 0.85 * (1 + chordLabelScale / 100);
@@ -932,7 +934,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   )}
                 </div>
               )}
-              <SongBody text={song?.text || ''} semitones={semitones} useFlats={useFlats} fontPx={fontPx} dark={dark} chordColor={readableChordColor(prefsChordColor, dark)} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} embed={song?.embed === true} instrument={instrument} chordPrefs={song?.chordPrefs || {}} />
+              <SongBody text={song?.text || ''} semitones={semitones} useFlats={useFlats} fontPx={fontPx} dark={dark} chordColor={readableChordColor(prefsChordColor, dark)} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} embed={song?.embed === true} instrument={instrument} chordPrefs={song?.chordPrefs || {}} condensed={song?.condensed === true} />
               {/* Ink annotation canvas — omitted entirely in shared viewer */}
               {song?.id && !disableAnnotations && (
                 <AnnotationCanvas

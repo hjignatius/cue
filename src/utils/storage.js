@@ -155,10 +155,10 @@ export async function loadSong(id) {
 const KNOWN_SONG_FIELDS = new Set([
   'id', 'metadata', 'text', 'createdAt', 'updatedAt',
   'chordStyle', 'previewMode', 'diagramScale', 'chordPrefs', 'displayKey',
-  'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed',
+  'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed', 'condensed',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -198,6 +198,9 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   entry.fullPage = (fullPage ?? existing?.fullPage) === true;
   // embed — over-lyrics "chords as diagrams" (Imbed). Default false. Preserve.
   entry.embed = (embed ?? existing?.embed) === true;
+  // condensed: display the song verbatim (skip section-reference expansion) so a
+  // compact, page-fitting source actually prints compact. Set by the Condense tool.
+  entry.condensed = (condensed ?? existing?.condensed) === true;
 
   await d.put('songs', entry);
   return songId;

@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.7 — 2026-09-04
+
+- **New AI tools for song structure.**
+  - **Condense (fit to page)** shrinks a long song toward one or two pages —
+    converts to compact inline brackets, keeps a repeated chorus once and
+    references it later, and collapses back-to-back identical lines with an
+    `(x2)` marker, without changing a chord or word. The song then displays in
+    this compact form; **Expand** (appears once condensed) writes it back in full.
+  - **Detect structure** labels the sections (Verse 1, Chorus, Bridge, …) by
+    inserting header lines — never touching a chord or lyric, never changing your
+    chord format, and keeping any labels you already added.
+  - Both sit in the AI menu, after Clean up formatting.
+
 ## v1.5.6 — 2026-09-03
 
 - **Plainer sharing words + a clearer "unsent changes" signal.** The set menu's

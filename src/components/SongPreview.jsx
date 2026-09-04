@@ -153,7 +153,7 @@ function BracketsLine({ segments, semitones, chordColor, useFlats }) {
   );
 }
 
-export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true, headerRight = null, diagramMode = false, chordPrefs = {} }) {
+export default function SongPreview({ text, metadata, displayMode = 'over', displayKey, overlay, showMeta = true, headerRight = null, diagramMode = false, chordPrefs = {}, condensed = false }) {
   const { theme, chordColor: rawChordColor, chordLabelScale, accidentals, instrument } = usePrefs();
   const dark = theme === 'dark';
   // Flip a default black/white chord color to stay readable on this theme.
@@ -179,8 +179,10 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
 
   const lines = useMemo(() => {
     const parsed = parseChordPro(parseText);
-    return attachSectionLabels(expandSections(parsed));
-  }, [parseText]);
+    // Condensed songs render verbatim — skip section-reference expansion so a
+    // compact source (chorus once, later referenced) stays compact on the page.
+    return attachSectionLabels(condensed ? parsed : expandSections(parsed));
+  }, [parseText, condensed]);
 
   const isEmpty = !text?.trim();
 

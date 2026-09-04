@@ -24,7 +24,9 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
   const { metadata, text } = song;
   const semitones  = semitonesBetween(metadata?.key, displayKey);
   const useFlats   = useFlatsForKey(accidentals, displayKey);
-  const parsedLines = expandSections(parseChordPro(convertToBrackets(sanitizeForPdf(text || ''))));
+  const parsedP    = parseChordPro(convertToBrackets(sanitizeForPdf(text || '')));
+  // Condensed songs print verbatim — skip section-reference expansion.
+  const parsedLines = song.condensed === true ? parsedP : expandSections(parsedP);
   const lib = getActiveLibrary(instrument);
 
   let chordDiagrams = null;
@@ -56,7 +58,7 @@ function songsForPdf(sets, allSongs, accidentals) {
       if (!song) continue;
       out.push({
         metadata:    metaForPdf(song.metadata),
-        parsedLines: expandSections(parseChordPro(convertToBrackets(sanitizeForPdf(song.text || '')))),
+        parsedLines: (() => { const p = parseChordPro(convertToBrackets(sanitizeForPdf(song.text || ''))); return song.condensed === true ? p : expandSections(p); })(),
         text:        song.text || '',
         semitones:   semitonesBetween(song.metadata?.key, song.displayKey),
         useFlats:    useFlatsForKey(accidentals, song.displayKey),

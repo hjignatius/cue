@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -15,7 +15,7 @@ import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, SMARTER_MODEL } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, condenseChart, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, SMARTER_MODEL } from '../lib/ai.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
@@ -466,6 +466,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Per-song "Imbed" — over-lyrics shows chord shapes (diagrams) instead of
   // names. Over-lyrics only; non-phone only. Persisted with the song.
   const [embed, setEmbed]                   = useState(song?.embed === true);
+  // condensed: show the song verbatim (no section-reference expansion) so a
+  // Condense-tool result actually fits the page. Toggled off = "expand" again.
+  const [condensed, setCondensed]           = useState(song?.condensed === true);
   // Effective chord-panel visibility: the user toggle AND chords being available.
   const chordsOn = showChordPanel && chordsAvailable;
   const [narrowTab, setNarrowTab]           = useState('editor');
@@ -568,6 +571,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     chordPrefs: { ...chordPrefs },
     displayKey,
     fullPage,
+    condensed,
   });
 
   // Re-check annotation existence whenever the song changes OR when returning from
@@ -594,11 +598,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }, [songId]);
 
   async function handleSave() {
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed });
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
     setSongId(id);
     setIsDirty(false);
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
-    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed });
+    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
   }
 
   // Publish { isDirty, save } so App's "Update Cue" button can detect unsaved work
@@ -621,6 +625,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setChordPrefs(b.chordPrefs);
     setDisplayKey(b.displayKey);
     if (b.fullPage !== undefined) setFullPage(b.fullPage);
+    if (b.condensed !== undefined) setCondensed(b.condensed);
     setIsDirty(false);
     // Rewrite the draft to the baseline (in-memory + draft only, no song-record or
     // cloud write) so a reload cannot resurrect the discarded edits.
@@ -697,6 +702,67 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     } finally {
       setAiBusy('');
     }
+  }
+
+  // Detect structure (AI) — label the sections (Verse/Chorus/Bridge…) in place,
+  // preserving the chord format and every chord/lyric. Only inserts "# Label"
+  // lines; existing labels are kept. No format conversion (unlike Condense).
+  async function runDetectStructure() {
+    if (aiBusy || text.trim() === '') return;
+    setAiBusy('structure');
+    setAiMsg('Detecting structure…');
+    try {
+      const labeled = await detectStructure(text);
+      if (labeled && labeled !== text) {
+        setText(labeled);
+        setIsDirty(true);
+        flashAi('Structure detected — review, then Save.');
+      } else {
+        flashAi('No new sections found — left as is.');
+      }
+    } catch (e) {
+      flashAi(e?.message || 'Detect structure failed.');
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  // Condense (AI) — fit a song onto one or two pages. First normalise to inline
+  // brackets deterministically (halves the line count, no alignment risk), then
+  // let the model collapse exact-repeat sections and lines. The result is shown
+  // verbatim (condensed flag), so a referenced chorus stays a one-line cue.
+  async function runCondense() {
+    if (aiBusy || text.trim() === '') return;
+    setAiBusy('condense');
+    setAiMsg('Condensing…');
+    try {
+      const bracketed = convertToBrackets(text);
+      const compact   = await condenseChart(bracketed);
+      // Safeguard: re-normalise the model's output through the deterministic
+      // bracket converter, so even if it drifted to over-lyrics the stored
+      // source is always clean bracketed chords (which the renderers colour).
+      const safe      = convertToBrackets(compact || bracketed);
+      const changed   = safe && safe !== text;
+      setText(safe);
+      setDisplayMode('brackets');
+      setPreviewFormat('brackets');
+      setCondensed(true);
+      setIsDirty(true);
+      flashAi(changed ? 'Condensed — review, then Save.' : 'Converted to brackets — already compact.');
+    } catch (e) {
+      flashAi(e?.message || 'Condense failed.');
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  // Expand — the inverse toggle. Clearing the condensed flag lets the renderers
+  // re-expand section references, showing the song in full again. No AI needed.
+  function runExpand() {
+    if (!condensed) { flashAi('This song is already shown in full.'); return; }
+    setCondensed(false);
+    setIsDirty(true);
+    flashAi('Expanded — showing the full song. Save to keep.');
   }
 
   // Find music online (AI + web search) — opens a results dialog. Instrument-aware
@@ -1606,7 +1672,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION}
               label="Return to Performance" title="Return to Performance"
               fill={headerFill}
-              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed })}
+              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed })}
             >
               <Undo2 size={22} strokeWidth={2} />
             </RoundButton>
@@ -1615,7 +1681,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION} pill={!isNarrow}
               label="Present" title="Present"
               fill={headerFill}
-              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed }], 0)}
+              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed }], 0)}
             >
               <Tv size={22} strokeWidth={2} />{!isNarrow && <PillLabel>Present</PillLabel>}
             </RoundButton>
@@ -1904,6 +1970,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   onClick={() => runFromAiMenu(runCleanup)}>
                   <Wand2 size={15} className="opacity-70" /> Clean up formatting
                 </button>
+                <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText || songType === 'pdf'}
+                  className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  onClick={() => runFromAiMenu(runDetectStructure)}>
+                  <ListTree size={15} className="opacity-70" /> Detect structure
+                </button>
+                <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText || songType === 'pdf'}
+                  className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  onClick={() => runFromAiMenu(runCondense)}>
+                  <Minimize2 size={15} className="opacity-70" /> Condense (fit to page)
+                </button>
+                {condensed && (
+                  <button type="button" role="menuitem" tabIndex={-1}
+                    className={menuItem}
+                    onClick={() => runFromAiMenu(runExpand)}>
+                    <Maximize2 size={15} className="opacity-70" /> Expand (show in full)
+                  </button>
+                )}
                 <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
                   className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
                   onClick={() => runFromAiMenu(runFill)}>
@@ -2085,6 +2168,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   displayKey={effectiveDisplayKey}
                   diagramMode={embed && !compactChrome}
                   chordPrefs={chordPrefs}
+                  condensed={condensed}
                   showMeta={false}
                   headerRight={previewStyleBar}
                   overlay={showAnnotations && hasAnnotation && songId ? (
@@ -2148,6 +2232,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   displayKey={effectiveDisplayKey}
                   diagramMode={embed && !compactChrome}
                   chordPrefs={chordPrefs}
+                  condensed={condensed}
                   showMeta={false}
                   headerRight={previewStyleBar}
                   overlay={showAnnotations && hasAnnotation && songId ? (
