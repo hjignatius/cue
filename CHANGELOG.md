@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.8 — 2026-09-04
+
+- **Suggest songs to learn.** A new **Suggest** button in the Library header
+  recommends real songs to learn next — matched to your instrument, your Playing
+  level, and your music taste, and skipping songs already in your library. Each
+  pick shows why it fits, a difficulty note, and a link to a real chord source.
+- **Music taste in Settings.** A new **Music taste** section (Settings → AI) —
+  tap genre chips (Rock, Country, Bluegrass, …) and optionally list favourite
+  artists. All optional; with nothing set, suggestions lean on your library.
+
 ## v1.5.7 — 2026-09-04
 
 - **New AI tools for song structure.**

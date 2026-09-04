@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X } from 'lucide-react';
-import { hasApiKey, suggestSetOrder, estimateSetTime } from '../lib/ai.js';
+import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, SMARTER_MODEL } from '../lib/ai.js';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -1513,9 +1513,39 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 // ---- Library view -----------------------------------------------------------
 
 export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
-  const { theme, updatePref, chordColor, accidentals, instrument, symbols } = usePrefs();
+  const { theme, updatePref, chordColor, accidentals, instrument, symbols, aiLevel, genres, favoriteArtists } = usePrefs();
   const dark = theme === 'dark';
   const searchInputRef = useRef(null);
+
+  // AI key presence — the Suggest button shows muted until a key is saved, kept
+  // live via the same events Settings fires when the key is saved/removed.
+  const [aiReady, setAiReady] = useState(hasApiKey());
+  useEffect(() => {
+    const refresh = () => setAiReady(hasApiKey());
+    window.addEventListener('cue:ai-key', refresh);
+    window.addEventListener('storage', refresh);
+    return () => { window.removeEventListener('cue:ai-key', refresh); window.removeEventListener('storage', refresh); };
+  }, []);
+  // "Suggest songs to learn" discovery dialog.
+  const [suggestOpen, setSuggestOpen]       = useState(false);
+  const [suggestBusy, setSuggestBusy]       = useState(false);
+  const [suggestResults, setSuggestResults] = useState(null); // null | array of picks
+  const [suggestErr, setSuggestErr]         = useState('');
+  async function runSuggest(model) {
+    if (!hasApiKey()) { setSettingsOpen(true); return; }
+    setSuggestOpen(true); setSuggestBusy(true); setSuggestErr(''); setSuggestResults(null);
+    try {
+      const haveTitles = songs
+        .map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — '))
+        .filter(Boolean);
+      const res = await suggestSongsToLearn({ instrument, level: aiLevel, genres, artists: favoriteArtists, haveTitles, model });
+      setSuggestResults(res);
+    } catch (e) {
+      setSuggestErr(e?.message || 'Couldn’t get suggestions. Try again.');
+    } finally {
+      setSuggestBusy(false);
+    }
+  }
 
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('cue:onboarding_done'));
   function finishTour() { localStorage.setItem('cue:onboarding_done', '1'); setShowTour(false); }
@@ -1962,6 +1992,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   </>
                 )}
               </div>
+              <HeaderPill
+                dark={dark} icon={Sparkles} label="Suggest" hideLabelWhenNarrow
+                title={aiReady ? 'Suggest songs to learn — matched to your instrument, level and taste' : 'Set up AI in Settings to get song suggestions'}
+                active={aiReady}
+                onActivate={() => runSuggest()}
+              />
               <HeaderPill dark={dark} icon={Plus} label="New Song" active hideLabelWhenNarrow onActivate={onNewSong} dataOnboard="new-song-btn" />
             </div>
           </div>
@@ -2200,6 +2236,61 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {showTour && <OnboardingTour onDone={finishTour} />}
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* Suggest songs to learn — grounded recommendations from instrument +
+          level + taste + library. Discovery only: each pick links out to a real
+          chord source; the user imports what they like. */}
+      {suggestOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !suggestBusy && setSuggestOpen(false)}>
+          <div className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+            <div className={`flex items-center justify-between px-5 py-3 border-b ${border}`}>
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-indigo-500" />
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Songs to learn</h2>
+              </div>
+              <button onClick={() => setSuggestOpen(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-500 hover:bg-gray-100'}`} aria-label="Close"><X size={18} /></button>
+            </div>
+            <div className="overflow-y-auto px-5 py-4 flex flex-col gap-3">
+              {suggestBusy ? (
+                <div className="flex items-center gap-2 justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
+                  <Loader2 size={16} className="animate-spin" /> Finding songs for you…
+                </div>
+              ) : suggestErr ? (
+                <div className="py-6 text-center">
+                  <p className="text-sm text-red-500 mb-3">{suggestErr}</p>
+                  <button onClick={() => runSuggest()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2">Try again</button>
+                </div>
+              ) : (suggestResults && suggestResults.length === 0) ? (
+                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No suggestions this time. Add a genre or a favorite artist in Settings and try again.</p>
+              ) : (suggestResults || []).map((s, i) => (
+                <div key={i} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className={`font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{s.title || 'Untitled'}</p>
+                      {s.artist && <p className="text-sm text-gray-500 dark:text-gray-400">{s.artist}</p>}
+                    </div>
+                    {s.difficulty && <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">{s.difficulty}</span>}
+                  </div>
+                  {s.why && <p className="text-sm mt-1.5 text-gray-600 dark:text-gray-300">{s.why}</p>}
+                  {s.url && (
+                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                      <ExternalLink size={12} /> Find chords
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+            {!suggestBusy && suggestResults && suggestResults.length > 0 && (
+              <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">Suggestions — difficulty is an estimate. Links open real chord sources.</p>
+                <button onClick={() => runSuggest(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more" className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                  <Sparkles size={13} /> Try again — smarter
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Add-to-Set target picker — shown when the toolbar button is used with no
           set selected. Create a new set from the selection, or add to an existing. */}

@@ -370,6 +370,57 @@ Only include URLs you actually found via search. Order best first. If you find n
     .map((r) => ({ name: String(r.name || r.url), url: r.url, note: String(r.note || '') }));
 }
 
+// ── Suggest songs to learn ──────────────────────────────────────────────────
+// Personal recommendations: real songs to learn next, matched to the player's
+// instrument, skill level, and taste (explicit genres/artists AND the songs
+// already in their library). Web-search grounded so the songs and their chord
+// sources are real, and deduped against what they already have.
+// Result: array of { title, artist, why, difficulty, url }.
+export async function suggestSongsToLearn({ instrument, level, genres = [], artists = '', haveTitles = [], model } = {}) {
+  const inst = instrument
+    ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
+    : 'Guitar';
+  const genreLine = genres.length ? genres.join(', ') : '(not specified — infer their taste from the library below)';
+  const artistLine = (artists || '').trim() || '(none given)';
+  // Cap the library sample so the prompt stays lean; it's for taste + dedup.
+  const have = haveTitles.slice(0, 60);
+  const haveBlock = have.length
+    ? `Songs already in their library — use these to gauge taste, and do NOT recommend any of them:\n${have.map(t => `- ${t}`).join('\n')}`
+    : 'Their library is empty, so lean on the stated genres/artists.';
+
+  const system = `You recommend songs for a musician to learn next. They play ${inst} at a ${level || 'intermediate'} level. Suggest real, well-known songs that suit their instrument, skill level, and taste.
+
+Genres they like: ${genreLine}
+Favorite artists: ${artistLine}
+
+${haveBlock}
+
+Do at most TWO or THREE web searches to ground your picks in real songs and to find one chord/tab source per song (prefer ${inst.toLowerCase()} sources). Pick songs that genuinely fit their level — not too trivial, not out of reach — and spread across their taste. Then respond with ONLY a JSON array (no prose, no code fence) of up to 8 objects:
+[{"title":"…","artist":"…","why":"one short phrase on why it fits them","difficulty":"a 2-4 word note relative to their level, e.g. 'easy — 4 chords' or 'a stretch'","url":"https://… a real chord/tab page you found"}]
+Only include songs you are confident are real, and URLs you actually found via search. Never repeat a song from their library. If you can't find good matches, return [].`;
+
+  const data = await callClaude({
+    ...(model ? { model } : {}),
+    max_tokens: 2500,
+    output_config: { effort: 'low' },
+    system,
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
+    messages: [{ role: 'user', content: `Suggest ${inst} songs for me to learn.` }],
+  });
+  const json = extractJson(textOf(data));
+  const arr = Array.isArray(json) ? json : [];
+  return arr
+    .filter((r) => r && (r.title || r.artist))
+    .slice(0, 8)
+    .map((r) => ({
+      title: String(r.title || '').trim(),
+      artist: String(r.artist || '').trim(),
+      why: String(r.why || '').trim(),
+      difficulty: String(r.difficulty || '').trim(),
+      url: typeof r.url === 'string' && /^https?:\/\//.test(r.url) ? r.url : '',
+    }));
+}
+
 // ── Fill in song details ────────────────────────────────────────────────────
 // Read the chart and suggest metadata. Returns
 // { title, artist, key, tempo, duration, youtubeUrl } — any field may be '' when

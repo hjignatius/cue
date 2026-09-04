@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { usePrefs, PRESENT_NO_FADE, AI_LEVELS } from '../context/PrefsContext.jsx';
+import { usePrefs, PRESENT_NO_FADE, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
@@ -75,7 +75,8 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, aiLevel, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, aiLevel, genres, favoriteArtists, updatePref } = usePrefs();
+  const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   const noFade = presentIdleSec === PRESENT_NO_FADE;
   const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
@@ -590,6 +591,36 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Music taste — steers "Suggest songs to learn". Optional: the
+                recommender also infers taste from the songs already in the library. */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Music taste</span>
+              <p className={`text-[11px] ${muted}`}>Genres and artists you like — used to suggest songs to learn. Optional; Cue also learns from your library.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {MUSIC_GENRES.map(g => {
+                  const on = (genres || []).includes(g);
+                  return (
+                    <button
+                      key={g}
+                      onClick={() => toggleGenre(g)}
+                      className={`py-1.5 px-3 text-xs rounded-full border transition-colors ${
+                        on ? 'bg-indigo-600 border-indigo-600 text-white' : btnBorder
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="text"
+                value={favoriteArtists || ''}
+                onChange={e => updatePref('favoriteArtists', e.target.value)}
+                placeholder="Favorite artists, e.g. James Taylor, Billy Strings"
+                className={`mt-1 w-full py-2 px-3 text-sm rounded-lg border bg-transparent ${btnBorder} ${label}`}
+              />
             </div>
           </section>
 
