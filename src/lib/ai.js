@@ -235,7 +235,7 @@ DO:
 
 Output ONLY the cleaned chart text. No commentary, no explanation, no Markdown code fences.`;
 
-export async function cleanUpChart(text, { symbols } = {}) {
+export async function cleanUpChart(text, { symbols, model } = {}) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to clean up — the chart is empty.');
     err.code = 'empty';
@@ -249,6 +249,7 @@ export async function cleanUpChart(text, { symbols } = {}) {
     : CLEANUP_SYSTEM;
 
   const data = await callClaude({
+    ...(model ? { model } : {}),
     max_tokens: 8000,
     output_config: { effort: 'low' },
     system,
@@ -314,9 +315,14 @@ ABSOLUTE RULES — breaking any of these ruins the song:
 - Preserve the original top-to-bottom order of the music.
 
 HOW TO COMPRESS (apply where it is safe):
-1. Repeated sections. When a block of lines (its chords AND its lyrics) appears again later exactly, keep the FIRST occurrence under a section header line written as "# Chorus" (or "# Verse 1", "# Bridge", … in Title Case). Replace each later exact repeat with ONLY that same bare header line — "# Chorus" — and no body beneath it. That references the earlier definition. The label must be spelled identically each time, and a section must be defined before it is referenced.
+1. Repeated sections (this is the most important rule — do it carefully). When a block of lines (its chords AND its lyrics) recurs later, keep the FIRST occurrence in full under a section header line written as "# Chorus" (or "# Verse 1", "# Bridge", … in Title Case). At EVERY later spot where that block recurred, you MUST leave the bare header line — "# Chorus" — by itself (no body). This one-line cue is what tells the performer to sing the chorus there.
+   - NEVER delete a repeated section without leaving its "# Chorus" cue in its place. Removing a chorus and leaving nothing is WRONG — the singer would not know to sing it.
+   - So the number of "# Chorus" markers in your output must equal the number of times the chorus appeared in the input (one full one + a bare cue for each repeat).
+   - Spell the label identically every time, and define a section before referencing it.
 2. Consecutive identical lines. When the same line repeats back-to-back, keep one copy and append a repeat marker: "(x2)", "(x3)", … at the end of the line.
 3. Keep real section labels as "# Label" lines. Collapse 3+ blank lines to one.
+
+Before you finish, re-check: does every place the chorus originally appeared still have a "# Chorus" line? If any is missing, add it back.
 
 If the song has no exact repeats, return it essentially unchanged (it is already as short as it safely gets).
 

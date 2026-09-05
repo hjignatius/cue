@@ -526,6 +526,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [aiReady, setAiReady]           = useState(() => hasApiKey());
   const [aiBusy, setAiBusy]             = useState('');   // '' | 'clean' | 'find' | 'fill'
   const [aiMsg, setAiMsg]               = useState('');
+  // Which in-place tool just ran (null = nothing to escalate), so the status line
+  // can offer a "Try again — smarter" that re-runs it on the stronger model.
+  const [aiRetry, setAiRetry]           = useState(null); // null | 'clean' | 'structure' | 'condense'
+  function retrySmarter() {
+    const k = aiRetry; setAiRetry(null);
+    if (k === 'clean') runCleanup(SMARTER_MODEL);
+    else if (k === 'structure') runDetectStructure(SMARTER_MODEL);
+    else if (k === 'condense') runCondense(SMARTER_MODEL);
+  }
   const [findResult, setFindResult]     = useState(null); // null | { loading, error, items }
   const [fillResult, setFillResult]     = useState(null); // null | { loading, error, suggest }
   const [adviceResult, setAdviceResult] = useState(null); // null | { loading, error, data }
@@ -683,12 +692,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Clean up formatting (AI) — reformat the pasted chart in place, then re-sense
   // the format. The model is told never to change chords or lyrics.
-  async function runCleanup() {
+  async function runCleanup(model) {
     if (aiBusy || text.trim() === '') return;
-    setAiBusy('clean');
-    setAiMsg('Cleaning up…');
+    setAiBusy('clean'); setAiRetry(null);
+    setAiMsg(model ? 'Cleaning up (smarter)…' : 'Cleaning up…');
     try {
-      const cleaned = await cleanUpChart(text, { symbols });
+      const cleaned = await cleanUpChart(text, { symbols, model });
       if (cleaned && cleaned !== text) {
         setText(cleaned);
         senseFormat(cleaned);
@@ -697,6 +706,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       } else {
         flashAi('Already tidy.');
       }
+      if (model !== SMARTER_MODEL) setAiRetry('clean');
     } catch (e) {
       flashAi(e?.message || 'Clean up failed.');
     } finally {
@@ -707,12 +717,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Detect structure (AI) — label the sections (Verse/Chorus/Bridge…) in place,
   // preserving the chord format and every chord/lyric. Only inserts "# Label"
   // lines; existing labels are kept. No format conversion (unlike Condense).
-  async function runDetectStructure() {
+  async function runDetectStructure(model) {
     if (aiBusy || text.trim() === '') return;
-    setAiBusy('structure');
-    setAiMsg('Detecting structure…');
+    setAiBusy('structure'); setAiRetry(null);
+    setAiMsg(model ? 'Detecting structure (smarter)…' : 'Detecting structure…');
     try {
-      const labeled = await detectStructure(text);
+      const labeled = await detectStructure(text, { model });
       if (labeled && labeled !== text) {
         setText(labeled);
         setIsDirty(true);
@@ -720,6 +730,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       } else {
         flashAi('No new sections found — left as is.');
       }
+      if (model !== SMARTER_MODEL) setAiRetry('structure');
     } catch (e) {
       flashAi(e?.message || 'Detect structure failed.');
     } finally {
@@ -731,13 +742,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // brackets deterministically (halves the line count, no alignment risk), then
   // let the model collapse exact-repeat sections and lines. The result is shown
   // verbatim (condensed flag), so a referenced chorus stays a one-line cue.
-  async function runCondense() {
+  async function runCondense(model) {
     if (aiBusy || text.trim() === '') return;
-    setAiBusy('condense');
-    setAiMsg('Condensing…');
+    setAiBusy('condense'); setAiRetry(null);
+    setAiMsg(model ? 'Condensing (smarter)…' : 'Condensing…');
     try {
       const bracketed = convertToBrackets(text);
-      const compact   = await condenseChart(bracketed);
+      const compact   = await condenseChart(bracketed, { model });
       // Safeguard: re-normalise the model's output through the deterministic
       // bracket converter, so even if it drifted to over-lyrics the stored
       // source is always clean bracketed chords (which the renderers colour).
@@ -749,6 +760,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       setCondensed(true);
       setIsDirty(true);
       flashAi(changed ? 'Condensed — review, then Save.' : 'Converted to brackets — already compact.');
+      if (model !== SMARTER_MODEL) setAiRetry('condense');
     } catch (e) {
       flashAi(e?.message || 'Condense failed.');
     } finally {
@@ -2030,6 +2042,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </span>
         )}
         {aiMsg && !compactChrome && <span className={`text-xs ${mutedText}`}>{aiMsg}</span>}
+        {aiRetry && !aiBusy && !compactChrome && (
+          <button
+            onClick={retrySmarter}
+            title="Re-run that on the more capable model (Opus) — slower, costs a bit more"
+            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            <Sparkles size={13} /> Try again — smarter
+          </button>
+        )}
 
         {/* Spacer pushes Preview + Chords to the right */}
         <div className="flex-1" />

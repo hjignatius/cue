@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.10 — 2026-09-05
+
+- **Condense keeps every chorus cue.** When Condense collapses a repeated
+  chorus, it now reliably leaves a one-line **Chorus** marker at each spot it
+  recurs — so the performer still sees where to sing it, instead of the repeats
+  vanishing. (Strengthened the instructions so a run can't silently drop them.)
+- **"Try again — smarter" now works on the in-place tools too.** After **Clean
+  up formatting**, **Detect structure**, or **Condense**, an escalate link
+  appears next to the status message that re-runs it on the more capable model.
+  Handy when a fast-model pass isn't quite right — the in-place tools previously
+  had no way to escalate.
+
 ## v1.5.9 — 2026-09-04
 
 - **Fixed: Present's duration readout could be minutes off, and differ between
