@@ -105,6 +105,10 @@ function extractChords(chordLine) {
   for (const m of chordLine.matchAll(/\S+/g)) {
     const clean = m[0].replace(/\*/g, '');
     if (!clean) continue; // bare * — skip
+    // A whole no-chord / performance marker (N.C., NC, (nc), pause, tacet, x4…)
+    // is kept verbatim — never split into letters. Otherwise "N.C." would lose
+    // its "N." and survive as a bogus [C] chord.
+    if (ANNOTATION_TOKEN.test(clean)) { chords.push({ chord: clean, pos: m.index }); continue; }
     const parts = splitCompound(clean);
     if (parts.length === 1) {
       chords.push({ chord: parts[0], pos: m.index });

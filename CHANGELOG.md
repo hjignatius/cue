@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.12 — 2026-09-05
+
+- **Fixed: "N.C." (No Chord) turning into a C chord.** When a no-chord marker
+  (`N.C.`, `NC`, `(nc)`, and the like) shared a chord line with real chords,
+  converting chords-above-lyrics to brackets split it and kept only the "C",
+  leaving a bogus C chord. These markers are now preserved intact.
+
 ## v1.5.11 — 2026-09-05
 
 - **Condense is now reliable and instant — and always keeps the chorus cue.**
