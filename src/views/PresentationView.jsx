@@ -203,7 +203,6 @@ const MAX_SPEED  = 4;
 // Pedal-paging glide duration is a user setting (pageGlideMs, 0–2000). 0 pages
 // instantly; any positive value glides over that many ms with an ease-out curve.
 const DEFAULT_SPEED = 1;
-const SPEED_KEY = 'cue:present_scroll_mult';
 // Keep the multiplier off binary-float cruft so ×1.05 then ÷1.05 lands back on 1.
 const roundMult = (m) => Math.round(m * 1000) / 1000;
 // Whether the left-gutter tool tray (Edit / YouTube / ink / chords) is expanded.
@@ -331,13 +330,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // are equal when the delay is 0.
   const [scrolling, setScrolling] = useState(false);
   const [scrollArmed, setScrollArmed] = useState(false);
-  const [speedMult, setSpeedMult] = useState(() => {
-    try {
-      const n = parseFloat(localStorage.getItem(SPEED_KEY));
-      if (Number.isFinite(n) && n >= MIN_SPEED && n <= MAX_SPEED) return roundMult(n);
-    } catch { /* ignore */ }
-    return DEFAULT_SPEED;
-  });
+  // Auto-scroll speed is a LIVE, per-song tweak — never a sticky global. It
+  // always starts neutral so the bottom readout equals the song's own duration;
+  // a lasting pace change is committed per song via "Save M:SS". (Persisting it
+  // per-device made the readout drift by the stale multiplier — and differ
+  // between devices — since it's applied as duration ÷ speedMult.)
+  const [speedMult, setSpeedMult] = useState(DEFAULT_SPEED);
   // Chords are docked (non-blocking) on tablet/desktop, so default them on there.
   // At phone widths the panel is a full-screen modal drawer, so it must NOT
   // auto-open — starting it on would bury the song behind a modal the moment
@@ -591,10 +589,9 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     try { localStorage.setItem(FONT_KEY, String(fontPx)); } catch { /* ignore */ }
   }, [fontPx]);
 
-  // Same persistence for the scroll-speed multiplier.
-  useEffect(() => {
-    try { localStorage.setItem(SPEED_KEY, String(speedMult)); } catch { /* ignore */ }
-  }, [speedMult]);
+  // Reset the speed tweak to neutral on every song change, so each song's
+  // readout shows its own duration until you actively adjust (and Save) it.
+  useEffect(() => { setSpeedMult(DEFAULT_SPEED); }, [index]);
 
   // Notify parent whenever the displayed song changes
   useEffect(() => {

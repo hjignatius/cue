@@ -3,6 +3,20 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.9 — 2026-09-04
+
+- **Fixed: Present's duration readout could be minutes off, and differ between
+  devices.** The auto-scroll speed tweak (F/S) was saved per-device and applied
+  to the duration shown at the bottom of Present, so a device where you'd nudged
+  the speed showed a drifted time (the same song read differently on your Mac vs
+  iPad). Speed now always starts neutral per song, so the readout matches the
+  song's own duration; commit a lasting pace per song with **Save M:SS** as before.
+- **Library AI menu.** The Library header's **AI** button now opens a menu with
+  **Suggest songs to learn** and **Find duplicates** (finds the same song saved
+  twice — spelling/variant aware — with a per-song Delete). Music taste and a
+  **Personalize from my library** switch live in Settings → AI. Removed the
+  symbol picker from the song-search box (it belongs in the editor).
+
 ## v1.5.8 — 2026-09-04
 
 - **Suggest songs to learn.** A new **Suggest** button in the Library header
