@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.13 — 2026-09-05
+
+- **Fixed: adjacent chords fusing in Over-Lyrics.** Two chords with no lyric
+  between them — `[C][G]` — used to run together as `CG` on the chord line when
+  a song was shown in Over-Lyrics. They now keep a space (`C G`), on both
+  lyric and chord-only lines, while normally-spaced chords are unchanged.
+
 ## v1.5.12 — 2026-09-05
 
 - **Fixed: "N.C." (No Chord) turning into a C chord.** When a no-chord marker

@@ -28,22 +28,35 @@ export function convertToOver(text) {
       const hasLyric = line.segments.some(s => s.text && s.text.trim() !== '');
       if (!hasLyric) {
         // Chord-only line (e.g. [>]  [G]  [G6] …): reconstruct by joining each
-        // chord name with the spacing that originally separated the brackets.
-        // This preserves spacing so the round-trip doesn't merge chord names.
-        const chordOnlyLine = line.segments
-          .map(s => (s.chord != null ? s.chord : '') + (s.text ?? ''))
-          .join('')
-          .trimEnd();
-        if (chordOnlyLine.trim()) out.push(chordOnlyLine);
+        // chord name with the spacing that originally separated the brackets,
+        // but never let two adjacent chords ([C][G]) fuse into "CG" — insert a
+        // separating space when a chord abuts the previous one.
+        let s = '';
+        let abut = false; // previous chord had no lyric text after it
+        for (const seg of line.segments) {
+          if (seg.chord != null) {
+            if (abut && s.length && !s.endsWith(' ')) s += ' ';
+            s += seg.chord;
+          }
+          if (seg.text) s += seg.text;
+          abut = seg.chord != null && !seg.text;
+        }
+        s = s.trimEnd();
+        if (s.trim()) out.push(s);
       } else {
         let chordLine = '';
         let lyricLine = '';
+        let abut = false; // previous chord sat at the same column (no lyric between)
         for (const seg of line.segments) {
           if (seg.chord !== null) {
             while (chordLine.length < lyricLine.length) chordLine += ' ';
+            // Two chords stacked at the same lyric column would run together
+            // ([C][G] → "CG"); keep a space between them so both read.
+            if (abut && chordLine.length > 0 && !chordLine.endsWith(' ')) chordLine += ' ';
             chordLine += seg.chord;
           }
           if (seg.text) lyricLine += seg.text;
+          abut = seg.chord !== null && !seg.text;
         }
         if (chordLine.trim()) out.push(chordLine.trimEnd());
         out.push(lyricLine.trimEnd());
