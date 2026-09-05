@@ -15,7 +15,8 @@ import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, condenseChart, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, SMARTER_MODEL } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, SMARTER_MODEL } from '../lib/ai.js';
+import { condenseStructure, expandStructure } from '../utils/condense.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
@@ -533,7 +534,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const k = aiRetry; setAiRetry(null);
     if (k === 'clean') runCleanup(SMARTER_MODEL);
     else if (k === 'structure') runDetectStructure(SMARTER_MODEL);
-    else if (k === 'condense') runCondense(SMARTER_MODEL);
   }
   const [findResult, setFindResult]     = useState(null); // null | { loading, error, items }
   const [fillResult, setFillResult]     = useState(null); // null | { loading, error, suggest }
@@ -738,40 +738,28 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     }
   }
 
-  // Condense (AI) — fit a song onto one or two pages. First normalise to inline
-  // brackets deterministically (halves the line count, no alignment risk), then
-  // let the model collapse exact-repeat sections and lines. The result is shown
-  // verbatim (condensed flag), so a referenced chorus stays a one-line cue.
-  async function runCondense(model) {
-    if (aiBusy || text.trim() === '') return;
-    setAiBusy('condense'); setAiRetry(null);
-    setAiMsg(model ? 'Condensing (smarter)…' : 'Condensing…');
-    try {
-      const bracketed = convertToBrackets(text);
-      const compact   = await condenseChart(bracketed, { model });
-      // Safeguard: re-normalise the model's output through the deterministic
-      // bracket converter, so even if it drifted to over-lyrics the stored
-      // source is always clean bracketed chords (which the renderers colour).
-      const safe      = convertToBrackets(compact || bracketed);
-      const changed   = safe && safe !== text;
-      setText(safe);
-      setDisplayMode('brackets');
-      setPreviewFormat('brackets');
-      setCondensed(true);
-      setIsDirty(true);
-      flashAi(changed ? 'Condensed — review, then Save.' : 'Converted to brackets — already compact.');
-      if (model !== SMARTER_MODEL) setAiRetry('condense');
-    } catch (e) {
-      flashAi(e?.message || 'Condense failed.');
-    } finally {
-      setAiBusy('');
-    }
+  // Condense — fit a song onto one or two pages. DETERMINISTIC (no AI): normalise
+  // to inline brackets, then collapse each exact-repeat block (chorus) to a
+  // one-line "(Chorus)" cue after its first full occurrence, and back-to-back
+  // identical lines to "(xN)". Reliable and instant — never drops a chorus cue.
+  function runCondense() {
+    if (text.trim() === '') return;
+    const bracketed = convertToBrackets(text);
+    const compact   = condenseStructure(bracketed);
+    const changed   = compact !== text;
+    setText(compact);
+    setDisplayMode('brackets');
+    setPreviewFormat('brackets');
+    setCondensed(true);
+    setIsDirty(true);
+    flashAi(changed ? 'Condensed — review, then Save.' : 'Converted to brackets — already compact.');
   }
 
-  // Expand — the inverse toggle. Clearing the condensed flag lets the renderers
-  // re-expand section references, showing the song in full again. No AI needed.
+  // Expand — the inverse: write every "(Chorus)" cue back out in full from its
+  // definition, and clear the condensed flag. Also deterministic.
   function runExpand() {
-    if (!condensed) { flashAi('This song is already shown in full.'); return; }
+    const expanded = expandStructure(text);
+    if (expanded !== text) setText(expanded);
     setCondensed(false);
     setIsDirty(true);
     flashAi('Expanded — showing the full song. Save to keep.');

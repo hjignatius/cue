@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.11 — 2026-09-05
+
+- **Condense is now reliable and instant — and always keeps the chorus cue.**
+  The repeat-collapsing is done in code instead of by the AI, so it no longer
+  varies run to run. It keeps a repeated chorus once and marks each later repeat
+  with a one-line **(Chorus)** cue (so you always know to sing it), collapses
+  back-to-back identical lines with **(x2)**, and only touches *exact* repeats —
+  never changing a chord or word. **Expand** writes every cue back out in full.
+  (Collapses sections that are separated by blank lines.)
+
 ## v1.5.10 — 2026-09-05
 
 - **Condense keeps every chorus cue.** When Condense collapses a repeated
