@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.15 — 2026-09-05
+
+- **Ask about music is ready for the next question.** The question box now
+  clears once you ask (and whenever you reopen Ask from the menu), so a preset
+  like **Strumming pattern** no longer leaves its long request sitting in the
+  box with no room to type something else.
+
 ## v1.5.14 — 2026-09-05
 
 - **Section labels (Verse, Chorus, Bridge…) now match the lyric text size** in

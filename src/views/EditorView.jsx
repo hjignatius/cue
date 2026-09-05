@@ -851,6 +851,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const q = (qOverride ?? askQuestion).trim();
     if (asking || !q) return;
     setLastAsk(q);
+    setAskQuestion('');   // empty the box once asked, so it's ready for the next question
     setAsking(true);
     setAskError('');
     setAskAnswer('');
@@ -2011,7 +2012,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 </button>
                 <button type="button" role="menuitem" tabIndex={-1}
                   className={menuItem}
-                  onClick={() => runFromAiMenu(() => { setAskError(''); setAskOpen(true); })}>
+                  onClick={() => runFromAiMenu(() => { setAskError(''); setAskQuestion(''); setAskAnswer(''); setLastAsk(''); setAskOpen(true); })}>
                   <MessageCircleQuestion size={15} className="opacity-70" /> Ask about music…
                 </button>
                 <div className={`border-t ${border} my-1`} />
