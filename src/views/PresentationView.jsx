@@ -99,7 +99,7 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
           <div
             key={`lbl-${i}`}
             className="font-sans font-bold uppercase tracking-widest"
-            style={{ color: labelColor, fontSize: fontPx * 0.6, marginTop: i === 0 ? 0 : fontPx, marginBottom: fontPx * 0.25 }}
+            style={{ color: labelColor, fontSize: fontPx, marginTop: i === 0 ? 0 : fontPx, marginBottom: fontPx * 0.25 }}
           >
             {line.label}
           </div>

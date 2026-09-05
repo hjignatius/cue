@@ -3,6 +3,12 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.14 — 2026-09-05
+
+- **Section labels (Verse, Chorus, Bridge…) now match the lyric text size** in
+  Preview, Present, and PDF, instead of rendering smaller. They stay bold and
+  uppercase, just full size.
+
 ## v1.5.13 — 2026-09-05
 
 - **Fixed: adjacent chords fusing in Over-Lyrics.** Two chords with no lyric

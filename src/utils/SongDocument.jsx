@@ -16,7 +16,7 @@ registerPdfFonts();
 const A4_WIDTH_PT = 595.28;
 const LYRIC_FONT = 14;
 const CHORD_FONT = 12;         // ~0.85 × lyric, matching Present's over-lyrics chords
-const LABEL_FONT = 8;          // ~0.6 × lyric, matching Present's section labels
+const LABEL_FONT = 14;         // same size as the lyric text, matching Present
 const COURIER_ADVANCE = 0.602; // DejaVu Sans Mono advance as a fraction of the em
 const LYRIC_TARGET_CHARS = 65; // matches Present's LYRIC_TARGET_CHARS
 // Side margins that leave exactly the target character width. floor() keeps the

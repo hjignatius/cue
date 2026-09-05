@@ -268,7 +268,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                   <p
                     key={`lbl-${i}`}
                     className="font-sans font-bold text-indigo-500 uppercase tracking-widest"
-                    style={{ fontSize: PV * 0.6, marginTop: i === 0 ? 0 : PV, marginBottom: PV * 0.25 }}
+                    style={{ fontSize: PV, marginTop: i === 0 ? 0 : PV, marginBottom: PV * 0.25 }}
                   >
                     {line.label}
                   </p>
