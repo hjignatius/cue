@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.16 — 2026-09-08
+
+- **Fixed: Delete did nothing in the installed iOS app.** Deleting songs — one
+  from the duplicates list, or a whole checked batch — asked for confirmation
+  through the browser's own pop-up, which the installed iOS app silently
+  refuses to show. The delete then never ran and nothing on screen explained
+  why. Deleting now asks in a normal Cue window, so it works everywhere.
+  **Clear ink** in the editor's overflow menu had the same problem and is
+  fixed the same way.
+- Cancelling a delete from **Find duplicates** now leaves the song in the list,
+  instead of removing the row while keeping the song.
+
 ## v1.5.15 — 2026-09-05
 
 - **Ask about music is ready for the next question.** The question box now

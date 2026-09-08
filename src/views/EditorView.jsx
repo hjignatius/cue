@@ -562,6 +562,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [hasAnnotation, setHasAnnotation]     = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(false);
   const [clearAnnotConfirm, setClearAnnotConfirm] = useState(false);
+  // Same confirmation raised from the overflow menu, where the toolbar's inline
+  // Yes/No isn't on screen. A modal, not native confirm() — that is suppressed
+  // in the installed iOS PWA, so "Clear ink" silently did nothing there.
+  const [clearInkModal, setClearInkModal] = useState(false);
 
   const hydrated      = useRef(false);
   const textareaRef   = useRef(null);
@@ -2119,11 +2123,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 <>
                   {!formatsInline && <div className={`my-1 border-t ${border}`} role="separator" />}
                   <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
-                    onClick={() => runFromMenu(() => {
-                      // The inline Yes/No confirm lives in the full toolbar, which
-                      // is hidden here, so confirm natively as the app does elsewhere.
-                      if (confirm('Delete all ink annotations for this song?')) handleClearAnnotations();
-                    })}>
+                    onClick={() => runFromMenu(() => setClearInkModal(true))}>
                     <X size={14} className="opacity-60" /> Clear ink
                   </button>
                 </>
@@ -2295,6 +2295,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {askDialog}
         {chordDialog}
       </div>
+
+      {clearInkModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setClearInkModal(false)}>
+          <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col gap-1">
+              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Clear ink?</h2>
+              <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>This deletes all ink annotations for this song.</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => { setClearInkModal(false); handleClearAnnotations(); }} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
+                Clear ink
+              </button>
+              <button onClick={() => setClearInkModal(false)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI setup — the same Settings panel, opened in place from the AI menu so
           the key can be entered without leaving the editor. */}

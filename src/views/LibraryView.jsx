@@ -530,13 +530,6 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
     setCreating(false);
   }
 
-  async function handleDelete(id) {
-    if (confirm('Delete this set? Songs stay in your library.')) {
-      await deleteSet(id);
-      onRefresh();
-    }
-  }
-
   async function handleDeleteSelected() {
     const ids = [...selectedSets];
     if (!ids.length) return;
@@ -1266,11 +1259,6 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
     onUpdateSet({ ...set, songIds: reordered.map(s => s.id), sortMode: 'custom' });
   }
 
-  function handleDeleteSet() {
-    if (!confirm(`Delete "${set.name}"? This will not delete any songs from your library.`)) return;
-    onDeleteSet(set.id);
-  }
-
   // ── Setlist AI actions ──
   function runSuggestOrder() {
     setAiMenuOpen(false);
@@ -1566,10 +1554,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   // Delete a song from within the duplicates dialog, then drop it from the view
   // (and any group that falls below two members).
   function deleteFromDup(id) {
-    handleDelete(id);
-    setDupGroups(gs => (gs || [])
-      .map(g => ({ ...g, songs: g.songs.filter(s => s.id !== id) }))
-      .filter(g => g.songs.length >= 2));
+    setSongDeleteConfirm({ ids: [id], source: 'dup' });
   }
 
   const [showTour, setShowTour] = useState(() => !localStorage.getItem('cue:onboarding_done'));
@@ -1597,6 +1582,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [keyFilter, setKeyFilter]       = useState(() => sessionStorage.getItem('cue:lib_key_filter') || null);
 
   const [selected, setSelected]       = useState(new Set());
+  // In-app song-delete confirmation — replaces native confirm(), which is
+  // suppressed in the installed iOS PWA (so the delete never ran). `source`
+  // says what to tidy up afterwards: 'bulk' clears the selection, 'dup' prunes
+  // the duplicates dialog.
+  const [songDeleteConfirm, setSongDeleteConfirm] = useState(null); // null | { ids, source }
   const [exportDropOpen, setExportDropOpen] = useState(false);
   const [addToSetOpen, setAddToSetOpen] = useState(false); // create/select-target dialog
   const [newSetName, setNewSetName]     = useState('');
@@ -1697,11 +1687,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         .sort((a, b) => a.localeCompare(b))
         .map(name => ({ name, count: songs.filter(s => s.metadata?.artist === name).length }))
     : null;
-
-  function handleDelete(id) {
-    if (!confirm('Delete this song? It will also be removed from any sets it appears in.')) return;
-    onDeleteSong(id);
-  }
 
   async function handleDuplicate(song) {
     const newId = await saveSong({
@@ -1883,11 +1868,21 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   }
 
   function handleDeleteSelected() {
-    const count = selected.size;
-    if (!count) return;
-    if (!confirm(`Delete ${count} ${count === 1 ? 'song' : 'songs'}? They will be removed from your library and any sets they appear in.`)) return;
-    for (const id of selected) onDeleteSong(id);
-    setSelected(new Set());
+    if (!selected.size) return;
+    setSongDeleteConfirm({ ids: [...selected], source: 'bulk' });
+  }
+
+  // Apply a confirmed song delete, then tidy up whatever raised it.
+  function performSongDelete() {
+    const { ids = [], source } = songDeleteConfirm || {};
+    for (const id of ids) onDeleteSong(id);
+    if (source === 'bulk') setSelected(new Set());
+    if (source === 'dup') {
+      setDupGroups(gs => (gs || [])
+        .map(g => ({ ...g, songs: g.songs.filter(s => !ids.includes(s.id)) }))
+        .filter(g => g.songs.length >= 2));
+    }
+    setSongDeleteConfirm(null);
   }
 
   async function handleUpdateSet(updated) { await saveSet(updated); onRefresh(); }
@@ -2483,6 +2478,30 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           </div>
         </div>
       )}
+
+      {/* In-app song-delete confirmation — replaces native confirm(), which is
+          suppressed in the installed iOS PWA (so the delete never ran). */}
+      {songDeleteConfirm && (() => {
+        const n = songDeleteConfirm.ids.length;
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setSongDeleteConfirm(null)}>
+            <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col gap-1">
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Delete {n === 1 ? 'this song' : `${n} songs`}?</h2>
+                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {n === 1 ? 'It will also be removed from any sets it appears in.' : 'They will be removed from your library and any sets they appear in.'}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button onClick={performSongDelete} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
+                  {n === 1 ? 'Delete song' : `Delete ${n} songs`}
+                </button>
+                <button onClick={() => setSongDeleteConfirm(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
