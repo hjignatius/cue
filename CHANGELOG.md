@@ -3,6 +3,27 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.17 — 2026-09-11
+
+- **PDF lead sheets now travel in song and set exports.** Exporting (or
+  sharing) a song or a set as **JSON** used to write out the PDF song's title
+  and nothing else — the sheet itself stayed behind, so the file landed on the
+  other device as a blank song. The PDF now rides along inside the file, the
+  way it already did in a full **Backup**. Those exports are correspondingly
+  larger. Bundles from earlier versions still import as before.
+- **Fixed: importing a song or set bundle dropped its settings.** A PDF song
+  came back as an empty text song, and **Full Page**, **Imbed**, condensed
+  layout and the foot-pedal setting were lost. They now survive the round trip.
+- **Start a PDF song from New Song.** A blank new song offers **Load PDF** under
+  the placeholder text: pick a file and it becomes a PDF song, with the sheet
+  shown in the preview panel and the title filled in from the filename. No need
+  to go out to **Import** and come back. The button disappears once you start
+  typing.
+- **Replace PDF.** A PDF song's **⋯** menu can now swap in a different file —
+  a rescan, or a cleaner copy — keeping the song's title, chords, set
+  membership and ink. Both this and **Load PDF** take effect on **Save**, so
+  **Revert** undoes a file picked by mistake.
+
 ## v1.5.16 — 2026-09-08
 
 - **Fixed: Delete did nothing in the installed iOS app.** Deleting songs — one

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -10,9 +10,10 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
-import { saveSong, saveDraft } from '../utils/storage.js';
+import { saveSong, saveDraft, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
+import PdfPageStack from '../components/PdfPageStack.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, SMARTER_MODEL } from '../lib/ai.js';
@@ -445,7 +446,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Per-song foot-pedal behavior (top-level song field, not metadata). A new
   // song seeds from the prior global preference; type rides through unchanged so
   // editing a pdf song keeps it a pdf.
-  const songType = song?.type || 'text';
+  //
+  // Mutable because a still-EMPTY text song can become a pdf song here: the
+  // blank editor offers "Load PDF", which flips the type. Loading over a text
+  // song that has content is never offered — that would strand the chart.
+  const [songType, setSongType] = useState(song?.type || 'text');
+  // A PDF the user just picked, held in memory until Save: the pdfs store is
+  // keyed by song id, and a brand-new song has no id to key it under yet.
+  const [pendingPdf, setPendingPdf] = useState(null);
+  const [pdfErr, setPdfErr]         = useState('');
   // Per-song Full Page mode (top-level song field, not metadata). Off by default:
   // continuous scroll. On: discrete full pages. Applies to text and pdf alike.
   const [fullPage, setFullPage] = useState(song?.fullPage === true);
@@ -578,6 +587,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const baselineRef   = useRef(null);
   const snapshotState = () => ({
     text,
+    songType,
     metadata: { ...metadata },
     displayMode,
     previewFormat,
@@ -610,8 +620,53 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songId]);
 
+  // Pick a PDF lead sheet from inside the editor — the blank-song "Load PDF"
+  // affordance and the "Replace PDF" menu item both land here. The bytes are
+  // only held in state; Save is what writes them (see handleSave below), so
+  // backing out of an unsaved pick leaves nothing behind.
+  function pickPdf() {
+    setPdfErr('');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,.pdf';
+    // Attach before .click() — a detached input can be garbage-collected before
+    // its change event fires on iOS Safari, silently dropping the pick.
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.oncancel = () => input.remove();
+    input.onchange = () => {
+      input.remove();
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        setPdfErr('That is not a PDF.');
+        return;
+      }
+      setPendingPdf(file);
+      setSongType('pdf');
+      setIsDirty(true);
+      // Name the song after the file, as Import does — but never overwrite a
+      // title the user already typed.
+      setMetadata(m => (m.title?.trim() ? m : { ...m, title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }));
+    };
+    input.click();
+  }
+
   async function handleSave() {
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
+    // A freshly picked PDF carries its own reference record; otherwise saveSong
+    // keeps whatever the song already had.
+    const pdfMeta = pendingPdf ? { filename: pendingPdf.name, importedAt: new Date().toISOString() } : undefined;
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pdf: pdfMeta, fullPage, embed, condensed });
+    if (pendingPdf) {
+      await savePdfBlob(id, pendingPdf);
+      // New bytes invalidate any cloud copy, so clear the uploaded flag or the
+      // next publish skips the upload as unchanged and serves the old sheet.
+      await setPdfUploaded(id, false);
+      // Drop the in-memory copy: the preview now reads it from storage, and
+      // keeping it would re-write the blob (and re-clear the flag) on every
+      // later save of this song.
+      setPendingPdf(null);
+    }
     setSongId(id);
     setIsDirty(false);
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
@@ -639,6 +694,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setDisplayKey(b.displayKey);
     if (b.fullPage !== undefined) setFullPage(b.fullPage);
     if (b.condensed !== undefined) setCondensed(b.condensed);
+    // Discard a PDF picked since the baseline — the bytes were never written.
+    if (b.songType !== undefined) setSongType(b.songType);
+    setPendingPdf(null);
+    setPdfErr('');
     setIsDirty(false);
     // Rewrite the draft to the baseline (in-memory + draft only, no song-record or
     // cloud write) so a reload cannot resurrect the discarded edits.
@@ -1131,7 +1190,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     </div>
   );
 
+  // A blank text song can still become a PDF lead sheet, so the empty editor
+  // offers it. It disappears the moment there is text (converting a chart you
+  // have already written would strand it), and never shows on a pdf song.
+  const canLoadPdf = songType === 'text' && text.trim() === '';
+
   const textarea = (
+    <div className="relative flex-1 flex flex-col min-h-0">
     <textarea
       ref={textareaRef}
       value={text}
@@ -1149,7 +1214,31 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       placeholder="Paste chords-over-lyrics or ChordPro text here…"
       className={`flex-1 resize-none font-mono text-sm p-4 outline-none leading-relaxed whitespace-pre overflow-auto ${dark ? 'bg-gray-950 text-gray-100 placeholder-gray-800' : 'bg-white text-gray-900 placeholder-gray-400'}`}
     />
+    {canLoadPdf && (
+      /* Overlay, not flow: the textarea stays full-size and focusable, so
+         tapping anywhere around the hint still puts the caret in the text. */
+      <div className="absolute inset-x-0 top-14 flex flex-col items-center gap-2 pointer-events-none">
+        {/* mutedText is declared further down; inline the same colors here. */}
+        <span className={`text-xs ${dark ? 'text-gray-600' : 'text-gray-400'}`}>— or —</span>
+        <button
+          type="button"
+          onClick={pickPdf}
+          className={`pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs transition-colors ${
+            dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-600 bg-gray-950'
+                 : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400 bg-white'}`}
+        >
+          <FileText size={14} className="opacity-70" /> Load PDF
+        </button>
+        {pdfErr && <span className="text-xs text-red-500">{pdfErr}</span>}
+      </div>
+    )}
+    </div>
   );
+
+  // A pdf song previews the sheet itself — continuous, fit to width. The text
+  // pane stays available either way: a pdf song's text feeds the chord panel.
+  // `pendingPdf` renders a file Save has not written to the pdfs store yet.
+  const pdfPreview = <PdfPageStack songId={songId} blob={pendingPdf} dark={dark} />;
 
   // Transpose is locked OFF for a PDF: its chords are entered to match the fixed
   // printed sheet, so the diagrams render at that key (View Key must not move them).
@@ -2110,6 +2199,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               )}
 
 
+              {/* Swap the sheet on a pdf song — a rescan or a cleaner copy —
+                  without deleting the song and re-importing it. */}
+              {songType === 'pdf' && (
+                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
+                  onClick={() => runFromMenu(pickPdf)}>
+                  <FileText size={14} className="opacity-60" /> Replace PDF
+                </button>
+              )}
+
               {hasAnnotation && (
                 <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
                   onClick={() => runFromMenu(() => setShowAnnotations(v => !v))}>
@@ -2171,6 +2269,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
             {narrowTab === 'preview' && (
               <div ref={previewRef} className="flex-1 min-h-0 overflow-y-auto p-4">
+                {songType === 'pdf' ? pdfPreview : (
                 <SongPreview
                   text={text}
                   metadata={metadata}
@@ -2195,7 +2294,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       onHasStrokes={has => setHasAnnotation(has)}
                     />
                   ) : null}
-                />
+                />)}
               </div>
             )}
 
@@ -2235,6 +2334,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             {/* Preview panel */}
             {showPreview && (
               <div ref={previewRef} className="shrink-0 min-h-0 p-4 overflow-y-auto" style={{ width: previewWidth }}>
+                {songType === 'pdf' ? pdfPreview : (
                 <SongPreview
                   text={text}
                   metadata={metadata}
@@ -2262,7 +2362,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       onHasStrokes={has => setHasAnnotation(has)}
                     />
                   ) : null}
-                />
+                />)}
               </div>
             )}
 

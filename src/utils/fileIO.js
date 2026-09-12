@@ -176,7 +176,8 @@ export async function exportSetsJson(sets, allSongs) {
   }
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
-  const payload = JSON.stringify({ type: 'cue-sets', version: 1, sets, songs, customChords }, null, 2);
+  const pdfs = await collectPdfBackups(songs);
+  const payload = JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, pdfs }, null, 2);
   download(`cue-sets-${date}.json`, payload, 'application/json');
 }
 
@@ -186,7 +187,8 @@ export async function exportSongsJson(selectedSongs) {
   const songMap = new Map(fresh.map(s => [s.id, s]));
   const songs = selectedSongs.map(s => songMap.get(s.id) || s);
   const date = new Date().toISOString().slice(0, 10);
-  const payload = JSON.stringify({ type: 'cue-songs', version: 1, songs }, null, 2);
+  const pdfs = await collectPdfBackups(songs);
+  const payload = JSON.stringify({ type: 'cue-songs', version: 2, songs, pdfs }, null, 2);
   download(`cue-export-${date}.json`, payload, 'application/json');
 }
 
@@ -232,9 +234,10 @@ export async function shareSongsJson(selectedSongs) {
   const songs = selectedSongs.map(s => songMap.get(s.id) || s);
   const one = songs.length === 1 ? songs[0] : null;
   const date = new Date().toISOString().slice(0, 10);
+  const pdfs = await collectPdfBackups(songs);
   const payload = one
-    ? JSON.stringify({ type: 'cue-song', version: 1, song: one }, null, 2)
-    : JSON.stringify({ type: 'cue-songs', version: 1, songs }, null, 2);
+    ? JSON.stringify({ type: 'cue-song', version: 2, song: one, pdfs }, null, 2)
+    : JSON.stringify({ type: 'cue-songs', version: 2, songs, pdfs }, null, 2);
   const filename = one ? `${sanitizeFilename(one.metadata?.title)}.json` : `cue-songs-${date}.json`;
   const title = one ? `Cue song: ${one.metadata?.title || 'Untitled'}` : `Cue songs (${songs.length})`;
   const text  = `${one ? `"${one.metadata?.title || 'Untitled'}"` : `${songs.length} songs`} from Cue. Open in Cue: Import → pick this .json file.`;
@@ -256,11 +259,12 @@ export async function shareSetsJson(sets, allSongs) {
     }
   }
   const customChords = loadCustomChords();
+  const pdfs = await collectPdfBackups(songs);
   const one = sets.length === 1 ? sets[0] : null;
   const date = new Date().toISOString().slice(0, 10);
   const payload = one
-    ? JSON.stringify({ type: 'cue-set', version: 1, set: one, songs, customChords }, null, 2)
-    : JSON.stringify({ type: 'cue-sets', version: 1, sets, songs, customChords }, null, 2);
+    ? JSON.stringify({ type: 'cue-set', version: 2, set: one, songs, customChords, pdfs }, null, 2)
+    : JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, pdfs }, null, 2);
   const filename = one ? `${sanitizeFilename(one.name)}.json` : `cue-sets-${date}.json`;
   const title = one ? `Cue set: ${one.name}` : `Cue sets (${sets.length})`;
   const text  = `${one ? `"${one.name}"` : `${sets.length} sets`} from Cue. Open in Cue: Import → pick this .json file.`;
@@ -270,7 +274,8 @@ export async function shareSetsJson(sets, allSongs) {
 // ---- JSON bundles -----------------------------------------------------------
 
 export async function exportSongJson(song) {
-  const payload = JSON.stringify({ type: 'cue-song', version: 1, song }, null, 2);
+  const pdfs = await collectPdfBackups([song]);
+  const payload = JSON.stringify({ type: 'cue-song', version: 2, song, pdfs }, null, 2);
   download(`${sanitizeFilename(song.metadata.title)}.json`, payload, 'application/json');
 }
 
@@ -280,7 +285,8 @@ export async function exportSetJson(set, allSongs) {
   const songMap = new Map(fresh.map(s => [s.id, s]));
   const songs = set.songIds.map(id => songMap.get(id) || allSongs.find(s => s.id === id)).filter(Boolean);
   const customChords = loadCustomChords();
-  const payload = JSON.stringify({ type: 'cue-set', version: 1, set, songs, customChords }, null, 2);
+  const pdfs = await collectPdfBackups(songs);
+  const payload = JSON.stringify({ type: 'cue-set', version: 2, set, songs, customChords, pdfs }, null, 2);
   download(`${sanitizeFilename(set.name)}.json`, payload, 'application/json');
 }
 

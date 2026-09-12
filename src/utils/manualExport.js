@@ -414,7 +414,13 @@ Here comes the sun, little darlin</pre>
 <p><strong>On a phone,</strong> the header and toolbar buttons collapse to icons to save room — <strong>Present</strong> (TV), <strong>Find</strong> (magnifier), <strong>Save</strong> (disk) and <strong>Revert</strong> (circle-arrow) — and the <strong>Format</strong> toggle moves onto the compact toolbar as <strong>OL/B</strong>.</p>
 
 <h2>PDF Songs</h2>
-<p>Import a PDF lead sheet (see <em>Importing Songs</em>) and it becomes a <strong>PDF song</strong>. The metadata bar still applies — give it a Title, Artist, Key, Tempo and so on — and the <strong>Display</strong> toggle chooses how it shows in Present (scroll through its pages, or Full Page). You don't edit the PDF's contents, but you can:</p>
+<p>There are two ways to get a PDF lead sheet into Cue. Use <strong>Import</strong> (see <em>Importing Songs</em>) when you have several files to bring in at once, or start a <strong>New Song</strong> and load the PDF right in the editor:</p>
+<ul>
+  <li><strong>Load PDF</strong> — a blank new song shows a <strong>Load PDF</strong> button under the placeholder text. Pick a file and the song becomes a PDF song: the sheet appears in the preview panel, and the Title fills in from the filename unless you have already typed one. The button disappears as soon as you type anything, since a chart you have written can't be turned into a PDF.</li>
+  <li><strong>Replace PDF</strong> — on a song that is already a PDF, the <strong>⋯</strong> overflow menu offers <strong>Replace PDF</strong> to swap in a different file (a rescan, or a cleaner copy) while keeping the song's title, chords, set membership and ink.</li>
+</ul>
+<p>Both are staged until you <strong>Save</strong> — <strong>Revert</strong> discards a PDF you picked by mistake, and nothing is written until you save. If the song is in a published set, saving a replacement re-uploads the new sheet the next time you publish.</p>
+<p>Either way, the metadata bar still applies — give it a Title, Artist, Key, Tempo and so on — and the <strong>Display</strong> toggle chooses how it shows in Present (scroll through its pages, or Full Page). You don't edit the PDF's contents, but you can:</p>
 <ul>
   <li><strong>Add chord diagrams.</strong> Type the chords the song uses into the text box (e.g. <code>[G] [C] [D] [Em]</code>) and their diagrams appear in the chord sidebar and over the sheet in Present, toggled on/off like any song. Because a PDF can't be transposed, its diagrams always render at the key you type — Transpose is disabled for PDFs.</li>
   <li><strong>Annotate it in Present</strong> (see below), and share it in a published set (see <em>Shared Sets</em>).</li>
@@ -445,7 +451,7 @@ Here comes the sun, little darlin</pre>
   <li><strong>Discard</strong> — drops changes and returns to the library</li>
   <li><strong>Keep editing</strong> — closes the dialog and stays in the editor</li>
 </ul>
-<p>To export a single song, enter <strong>Select mode</strong> in the Library panel, check the song, and use <strong>Export ▾</strong> to download it as ChordPro (<code>.cho</code>) or JSON. PDF export is available for full sets via the Setlist column.</p>
+<p>To export a single song, enter <strong>Select mode</strong> in the Library panel, check the song, and use <strong>Export ▾</strong> to download it as ChordPro (<code>.cho</code>) or JSON. PDF export is available for full sets via the Setlist column. <em>JSON is the format that keeps everything</em> — lyric styling, per-song display settings, and the file behind a PDF lead sheet; ChordPro keeps only chords and lyrics, so a PDF song exports as an empty chart.</p>
 
 <h2>PDF Export &amp; Chord Charts</h2>
 <p>PDF export is available from <strong>Export ▾</strong> in the <strong>Setlist column</strong>. Select a set, then choose from the Export menu:</p>
@@ -700,10 +706,11 @@ Pulling will discard them. Continue?</pre>
 
 <h2>JSON Bundle (.json)</h2>
 <p>Cue's portable format. A <strong>song bundle</strong> contains one song with all its metadata:</p>
-<pre>{ "type": "cue-song", "version": 1, "song": { ... } }</pre>
+<pre>{ "type": "cue-song", "version": 2, "song": { ... }, "pdfs": { ... } }</pre>
 <p>A <strong>set bundle</strong> contains the set order plus all its songs:</p>
-<pre>{ "type": "cue-set", "version": 1, "set": { ... }, "songs": [ ... ] }</pre>
+<pre>{ "type": "cue-set", "version": 2, "set": { ... }, "songs": [ ... ], "pdfs": { ... } }</pre>
 <p>Import a set bundle to restore the entire set and all songs in one step — useful for moving to a new device or sharing a gig setlist.</p>
+<p><strong>PDF lead sheets travel with the bundle.</strong> Any PDF song in the export carries its actual file inside the <code>pdfs</code> section, so importing it elsewhere brings the sheet itself, not just the song's title. This makes those files noticeably larger — a PDF adds roughly a third again its own size — which is worth knowing if you are emailing a big set. (Bundles written by Cue 1.5.16 and earlier were <code>version 1</code> and carried no PDFs; they still import fine, the PDF songs simply arrive empty.)</p>
 
 <h2>Backup File (.json)</h2>
 <p>A full library export created by the <strong>Backup</strong> button:</p>

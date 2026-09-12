@@ -92,6 +92,33 @@ export default function App() {
 
       let lastImportedSong = null;
 
+      // The song fields a BUNDLE (.json song/set file) carries. Deliberately not
+      // a blind spread: id, createdAt/updatedAt and copiedFrom are re-derived
+      // here, because someone else's file must not backdate a song in your
+      // library or forge a link to a shared original. Everything that describes
+      // the song itself does travel — including `type`/`pdf`, whose absence used
+      // to turn an imported PDF song into an empty text song.
+      const bundleSongFields = (s) => ({
+        metadata: s.metadata, text: s.text,
+        chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale,
+        chordPrefs: s.chordPrefs, displayKey: s.displayKey,
+        type: s.type, pdf: s.pdf, pedalActive: s.pedalActive,
+        fullPage: s.fullPage, embed: s.embed, condensed: s.condensed,
+      });
+
+      // Restore a bundle's embedded PDF bytes (version 2+ song/set .json files
+      // carry them as base64 under `pdfs`, keyed by the id INSIDE the file).
+      // `idMap` maps that id to the id the song was actually saved as here, and
+      // only holds songs this import created or deliberately overwrote — a song
+      // skipped as a duplicate must keep the bytes it already has.
+      const restoreBundlePdfs = async (pdfs, idMap) => {
+        if (!pdfs) return;
+        for (const [oldId, b64] of Object.entries(pdfs)) {
+          const target = idMap[oldId];
+          if (target) await restorePdfBackup(target, b64);
+        }
+      };
+
       for (const file of files) {
         // PDF lead sheet → a 'pdf' song with the raw bytes stored locally (Stage
         // 1a: local-only, nothing uploads it). Branch BEFORE reading as text.
@@ -126,16 +153,18 @@ export default function App() {
               if (choice === 'cancel') continue;
               if (choice === 'overwrite') importId = existing.id;
             }
-            const id = await saveSong({ id: importId, metadata: data.song.metadata, text: data.song.text });
+            const id = await saveSong({ ...bundleSongFields(data.song), id: importId });
+            await restoreBundlePdfs(data.pdfs, { [data.song.id]: id });
             lastImportedSong = { ...data.song, id };
 
           } else if (data.type === 'cue-set' && data.set && data.songs) {
             // Set imports remap IDs — skip per-song conflict prompts
             const idMap = {};
             for (const s of data.songs) {
-              const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
+              const newId = await saveSong({ ...bundleSongFields(s), id: null });
               idMap[s.id] = newId;
             }
+            await restoreBundlePdfs(data.pdfs, idMap);
             await saveSet({
               id: null,
               name: data.set.name,
@@ -155,11 +184,13 @@ export default function App() {
             if (mode === 'cancel') continue;
             const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
             let added = 0, skipped = 0;
+            const idMap = {};
             for (const s of data.songs) {
               if (mode === 'skip' && existingByTitle.has(normalizeTitle(s.metadata?.title))) { skipped++; continue; }
-              await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
+              idMap[s.id] = await saveSong({ ...bundleSongFields(s), id: null });
               added++;
             }
+            await restoreBundlePdfs(data.pdfs, idMap);
             if (Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
@@ -171,15 +202,18 @@ export default function App() {
             // Build a lookup of existing songs by normalized title for duplicate detection
             const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
             const idMap = {};
+            const pdfMap = {}; // only songs this import created — a skipped duplicate keeps its own PDF
             for (const s of data.songs) {
               const existing = existingByTitle.get(normalizeTitle(s.metadata?.title));
               if (mode === 'skip' && existing) {
                 idMap[s.id] = existing.id;
               } else {
-                const newId = await saveSong({ id: null, metadata: s.metadata, text: s.text, chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale, chordPrefs: s.chordPrefs, displayKey: s.displayKey });
+                const newId = await saveSong({ ...bundleSongFields(s), id: null });
                 idMap[s.id] = newId;
+                pdfMap[s.id] = newId;
               }
             }
+            await restoreBundlePdfs(data.pdfs, pdfMap);
             for (const set of data.sets) {
               await saveSet({
                 id: null,

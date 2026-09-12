@@ -11,7 +11,11 @@ import { useAuth } from '../context/AuthContext.jsx';
 // screenful-paging, and auto-scroll all work exactly as for a text song.
 // Fail-soft (missing/corrupt shows a placeholder with a retry-download), like
 // PdfSongView. onReady reports the page count.
-export default function PdfPageStack({ songId, onReady, dark }) {
+//
+// `blob` is an optional override for the bytes: the editor passes a PDF the user
+// just picked but has not saved yet, which has no songId key in the pdfs store
+// to load from. When absent (every other caller) the bytes come from storage.
+export default function PdfPageStack({ songId, blob: blobOverride, onReady, dark }) {
   const { user } = useAuth();
   const wrapRef = useRef(null);
   const docRef  = useRef(null);
@@ -42,7 +46,7 @@ export default function PdfPageStack({ songId, onReady, dark }) {
     setNumPages(0);
     (async () => {
       try {
-        const blob = await loadPdfBlob(songId);
+        const blob = blobOverride || await loadPdfBlob(songId);
         if (cancelled) return;
         if (!blob) { setStatus('missing'); return; }
         const pdfjs = await loadPdfjs();
@@ -60,7 +64,7 @@ export default function PdfPageStack({ songId, onReady, dark }) {
       }
     })();
     return () => { cancelled = true; try { docRef.current?.destroy(); } catch { /* ignore */ } };
-  }, [songId, reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [songId, blobOverride, reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-render on width change (rotation / resize).
   useEffect(() => {
