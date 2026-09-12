@@ -10,7 +10,7 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
-import { saveSong, saveDraft, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
+import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
@@ -659,18 +659,21 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pdf: pdfMeta, fullPage, embed, condensed });
     if (pendingPdf) {
       await savePdfBlob(id, pendingPdf);
-      // New bytes invalidate any cloud copy, so clear the uploaded flag or the
-      // next publish skips the upload as unchanged and serves the old sheet.
-      await setPdfUploaded(id, false);
+      // Nothing to do about the cloud flag: the pdf record written just above is
+      // a fresh { filename, importedAt } with no `uploaded` key, and publish
+      // re-uploads anything not marked uploaded===true. Do NOT set it to false —
+      // that value means "upload attempted and FAILED" and lights the amber
+      // cloud-off alarm on the Library row, which a never-published song hasn't
+      // earned.
       // Drop the in-memory copy: the preview now reads it from storage, and
-      // keeping it would re-write the blob (and re-clear the flag) on every
-      // later save of this song.
+      // keeping it would re-write the blob on every later save of this song.
       setPendingPdf(null);
     }
     setSongId(id);
     setIsDirty(false);
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
     onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
+    return id; // callers that need the id of a just-created song (see Present)
   }
 
   // Publish { isDirty, save } so App's "Update Cue" button can detect unsaved work
@@ -1766,7 +1769,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION}
               label="Return to Performance" title="Return to Performance"
               fill={headerFill}
-              onActivate={() => onReturn({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed })}
+              onActivate={async () => {
+                const id = pendingPdf ? await handleSave() : songId; // as Present, below
+                onReturn({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
+              }}
             >
               <Undo2 size={22} strokeWidth={2} />
             </RoundButton>
@@ -1775,7 +1781,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               size={ROUND_SIZE_ACTION} pill={!isNarrow}
               label="Present" title="Present"
               fill={headerFill}
-              onActivate={() => onPresent?.([{ id: songId, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed }], 0)}
+              onActivate={async () => {
+                // Present loads a PDF's bytes from the pdfs store by song id. A
+                // sheet picked here but not yet saved isn't there (and a new song
+                // has no id to key it under), so Present would show the missing
+                // placeholder. Save first, and present the id that comes back.
+                const id = pendingPdf ? await handleSave() : songId;
+                onPresent?.([{ id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed }], 0);
+              }}
             >
               <Tv size={22} strokeWidth={2} />{!isNarrow && <PillLabel>Present</PillLabel>}
             </RoundButton>

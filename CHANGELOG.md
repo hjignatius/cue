@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.18 — 2026-09-11
+
+- **Fixed: Present showed nothing for a PDF you had just loaded.** Loading a
+  PDF in the editor and tapping **Present** before saving gave a blank sheet —
+  Present reads the file from the song's saved copy, and there wasn't one yet.
+  Present now saves the song first, so the sheet is there.
+- **Fixed: a false "didn't upload" warning.** Saving a PDF loaded in the editor
+  put an amber cloud icon on the Library row, claiming the file had failed to
+  reach the cloud — on a song that had never been shared at all. The warning is
+  gone; a replaced PDF still re-uploads the next time you publish the set.
+  (A song already showing the icon clears it once you publish the set it's in,
+  or if you load the PDF again with **⋯ → Replace PDF**.)
+
 ## v1.5.17 — 2026-09-11
 
 - **PDF lead sheets now travel in song and set exports.** Exporting (or
