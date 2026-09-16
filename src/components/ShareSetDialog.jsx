@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Check, X } from 'lucide-react';
+import { Copy, Check, X, QrCode as QrCodeIcon } from 'lucide-react';
 import { getOrCreateShareToken, revokeShareToken } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
+import QrCode from './QrCode.jsx';
 
 // ONE LINK PER SET. Opening Share shows the set's single link, creating it if the
 // set has none and REUSING it if it already does — it can never mint a second.
@@ -17,6 +18,7 @@ export default function ShareSetDialog({ set, onClose }) {
   const [token, setToken]   = useState(null);
   const [errMsg, setErrMsg] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const [busy, setBusy]     = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const stopTimer = useRef(null);
@@ -66,6 +68,7 @@ export default function ShareSetDialog({ set, onClose }) {
     try {
       await revokeShareToken(token);
       setToken(null);
+      setShowQr(false); // the code on screen would now point at a dead link
       setPhase('notshared');
     } catch (err) {
       setErrMsg(err.message || 'Failed to stop sharing.');
@@ -125,6 +128,30 @@ export default function ShareSetDialog({ set, onClose }) {
                 >
                   {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
                 </button>
+              </div>
+
+              {/* QR code — for handing the link to someone in the room: they point
+                  a phone at the screen instead of typing it. Collapsed by default
+                  so the dialog keeps its size until asked. */}
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  onClick={() => setShowQr(v => !v)}
+                  aria-expanded={showQr}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    dark ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <QrCodeIcon size={13} /> {showQr ? 'Hide QR code' : 'Show QR code'}
+                </button>
+                {showQr && (
+                  <>
+                    {/* White plate in both themes — the code needs its light field. */}
+                    <div className="rounded-xl bg-white p-3 shadow-sm">
+                      <QrCode value={url} size={176} title={`QR code for the "${set.name}" share link`} />
+                    </div>
+                    <p className={`${sub} text-center`}>Point a phone camera at this to open the set.</p>
+                  </>
+                )}
               </div>
 
               {/* Stop sharing — reversible. Two taps so it isn't hit by accident. */}

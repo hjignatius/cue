@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.19 — 2026-09-16
+
+- **QR code for a share link.** The Share dialog has a new **Show QR code**
+  button under the link. Anyone in the room can point a phone camera at it to
+  open the set, instead of you reading a link out loud. The code is generated
+  on your device — nothing is sent anywhere to make it — and it works offline.
+  It stays black-on-white even in dark mode, because that is what phone
+  cameras can reliably read.
+
 ## v1.5.18 — 2026-09-11
 
 - **Fixed: Present showed nothing for a PDF you had just loaded.** Loading a
