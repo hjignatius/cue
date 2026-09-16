@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Check, X, QrCode as QrCodeIcon } from 'lucide-react';
+import { Copy, Check, X, QrCode as QrCodeIcon, FileDown, Loader2 } from 'lucide-react';
 import { getOrCreateShareToken, revokeShareToken } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import QrCode from './QrCode.jsx';
+import { exportQrPdf } from '../utils/qrPdf.js';
 
 // ONE LINK PER SET. Opening Share shows the set's single link, creating it if the
 // set has none and REUSING it if it already does — it can never mint a second.
@@ -19,6 +20,7 @@ export default function ShareSetDialog({ set, onClose }) {
   const [errMsg, setErrMsg] = useState('');
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [savingQr, setSavingQr] = useState(false);
   const [busy, setBusy]     = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const stopTimer = useRef(null);
@@ -49,6 +51,22 @@ export default function ShareSetDialog({ set, onClose }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  // Save the code as a one-page printable sheet — for propping on a stand or
+  // pinning up, where a screen isn't practical.
+  async function saveQrPdf() {
+    if (!url || savingQr) return;
+    setSavingQr(true);
+    setErrMsg('');
+    try {
+      await exportQrPdf(set.name, url);
+    } catch (err) {
+      console.error('[ShareSetDialog] QR PDF export failed', err);
+      setErrMsg('Could not save the QR code as a PDF.');
+    } finally {
+      setSavingQr(false);
+    }
   }
 
   function armStop() {
@@ -150,6 +168,17 @@ export default function ShareSetDialog({ set, onClose }) {
                       <QrCode value={url} size={176} title={`QR code for the "${set.name}" share link`} />
                     </div>
                     <p className={`${sub} text-center`}>Point a phone camera at this to open the set.</p>
+                    <button
+                      onClick={saveQrPdf}
+                      disabled={savingQr}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                        dark ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {savingQr
+                        ? <><Loader2 size={13} className="animate-spin" /> Saving…</>
+                        : <><FileDown size={13} /> Save as PDF</>}
+                    </button>
                   </>
                 )}
               </div>

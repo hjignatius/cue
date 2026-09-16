@@ -11,6 +11,10 @@ All notable user-facing changes to Cue. The running version is shown under the
   on your device — nothing is sent anywhere to make it — and it works offline.
   It stays black-on-white even in dark mode, because that is what phone
   cameras can reliably read.
+- **Save the QR code as a PDF.** Under the code is a **Save as PDF** button: a
+  one-page sheet with the set name, a large code, and the link written out
+  underneath. Print it and prop it on a stand or pin it up, instead of holding
+  a screen out for people to scan.
 
 ## v1.5.18 — 2026-09-11
 
