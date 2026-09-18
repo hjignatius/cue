@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.20 — 2026-09-18
+
+- **Fixed: the white highlight on the panel switcher didn't line up with its
+  label.** On the iPhone editor (**Text / Preview / Chords**) and the
+  Library / Sets / Setlist pill, the sliding white highlight sat up to 16px off
+  the word it was meant to be behind, and could hang past the end of the track.
+  The segments were each sizing to their own label — "Library" is wider than
+  "Sets" — while the highlight always moved in exact thirds. All segments are
+  now equal width, so the highlight lands on its label every time. The pill is
+  a little wider as a result, since every segment now matches the longest word.
+
 ## v1.5.19 — 2026-09-16
 
 - **QR code for a share link.** The Share dialog has a new **Show QR code**

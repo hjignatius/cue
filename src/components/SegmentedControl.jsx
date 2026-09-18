@@ -7,6 +7,14 @@ import { useRef } from 'react';
 
 // Track padding (px). The thumb is inset by this on all four sides, so a
 // segment's width is exactly (track padding-box - 2 * pad) / count.
+//
+// That equal-thirds geometry is why the track is a GRID of 1fr columns and not
+// flex. With `inline-flex` + `flex-1`, a shrink-to-fit track has no free space
+// to distribute, so each segment settles at its own label width — "Library" 82px
+// next to "Sets" 66px — while the thumb still spans an exact third. The thumb
+// then sat up to ~16px off its label. 1fr columns in an inline grid all take the
+// widest label's width, which is both what a segmented control should look like
+// and what the thumb math already assumed.
 const PAD = { sm: 3, lg: 4 };
 // Total track height (px). lg equals MIN_TOUCH_TARGET so it needs no extra hit padding.
 export const SEGMENTED_HEIGHT = { sm: 32, lg: 44 };
@@ -67,8 +75,8 @@ export default function SegmentedControl({
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
-      className={`relative rounded-full border select-none ${track} ${fullWidth ? 'flex w-full' : 'inline-flex'}`}
-      style={{ height, padding: pad }}
+      className={`relative rounded-full border select-none ${track} ${fullWidth ? 'grid w-full' : 'inline-grid'}`}
+      style={{ height, padding: pad, gridAutoFlow: 'column', gridAutoColumns: '1fr' }}
     >
       {/* One thumb for the whole track — translated, not re-rendered per segment.
           Stays fully opaque so the active label reads over scrolling content. */}
@@ -97,7 +105,7 @@ export default function SegmentedControl({
             aria-selected={active}
             tabIndex={active ? 0 : -1}
             onClick={() => select(i)}
-            className={`relative z-10 flex-1 flex items-center justify-center rounded-full border-0 bg-transparent whitespace-nowrap cursor-pointer transition-colors ${
+            className={`relative z-10 flex items-center justify-center rounded-full border-0 bg-transparent whitespace-nowrap cursor-pointer transition-colors ${
               active
                 ? 'text-indigo-600 dark:text-indigo-400 font-medium'
                 : 'text-gray-500 dark:text-gray-400'
