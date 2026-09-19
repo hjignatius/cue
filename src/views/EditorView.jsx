@@ -1539,7 +1539,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
-                Close
+                {/* "Done" only once everything is applied — closing before that
+                    applies nothing, and calling that Done would misreport it. */}
+                {allApplied ? 'Done' : 'Close'}
               </button>
             </div>
             <button onClick={() => runFill(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"

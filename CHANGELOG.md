@@ -8,9 +8,10 @@ All notable user-facing changes to Cue. The running version is shown under the
 - **"Fill in song details" now shows when there's nothing left to apply.**
   After **Apply all**, that button stayed bright blue as though it still had
   work to do. It now reads **All applied** and greys out — the same way each
-  individual **Apply** button already became **Applied** — and **Close** turns
-  blue instead, since closing is the only thing left. Edit one of the fields
-  afterwards and **Apply all** comes back.
+  individual **Apply** button already became **Applied** — and the button beside
+  it turns blue and reads **Done**, since closing is the only thing left. (It
+  stays **Close** until then: leaving early doesn't apply anything.) Edit one of
+  the fields afterwards and **Apply all** comes back.
 
 ## v1.5.21 — 2026-09-19
 
