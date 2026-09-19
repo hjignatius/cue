@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.22 — 2026-09-19
+
+- **"Fill in song details" now shows when there's nothing left to apply.**
+  After **Apply all**, that button stayed bright blue as though it still had
+  work to do. It now reads **All applied** and greys out — the same way each
+  individual **Apply** button already became **Applied** — and **Close** turns
+  blue instead, since closing is the only thing left. Edit one of the fields
+  afterwards and **Apply all** comes back.
+
 ## v1.5.21 — 2026-09-19
 
 - **AI errors now say what actually went wrong.** When an AI tool couldn't reach

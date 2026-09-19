@@ -1495,6 +1495,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             { field: 'youtubeUrl', label: 'YouTube', value: s.youtubeUrl },
           ].filter(r => r.value);
           if (rows.length === 0) return <p className={`text-sm ${mutedText}`}>Couldn't work out any details for this song. The key is read from the chords; the rest depends on identifying the song.</p>;
+          // Same predicate the per-row buttons already use, across every row: once
+          // it's true there is nothing left to apply, so "Apply all" spends itself
+          // (mirroring a row's "Applied") and Close becomes the primary action.
+          // Derived from `metadata`, so editing a field afterwards re-arms it.
+          const allApplied = rows.every(r => metadata[r.field] === r.value);
           return (<>
             <p className={`text-xs ${mutedText}`}>Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.</p>
             <ul className="flex flex-col gap-2">
@@ -1517,13 +1522,22 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <div className="flex gap-2">
               <button
                 onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}
-                className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+                disabled={allApplied}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+                  allApplied
+                    ? `border ${dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                }`}
               >
-                Apply all
+                {allApplied ? 'All applied' : 'Apply all'}
               </button>
               <button
                 onClick={() => setFillResult(null)}
-                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+                  allApplied
+                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                    : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
               >
                 Close
               </button>
