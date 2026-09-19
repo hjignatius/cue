@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, SMARTER_MODEL } from '../lib/ai.js';
+import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -1433,7 +1434,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
               <button onClick={() => setOrderResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
             </div>
-            {orderResult.loading && <div className={`flex items-center gap-2 text-sm py-6 justify-center ${dark ? 'text-gray-400' : 'text-gray-500'}`}><Loader2 size={16} className="animate-spin" /> Ordering the set…</div>}
+            {orderResult.loading && <AiWaiting label="Ordering the set…" dark={dark} />}
             {!orderResult.loading && orderResult.error && <p className="text-sm text-red-500">{orderResult.error}</p>}
             {!orderResult.loading && !orderResult.error && orderResult.order.length > 0 && (<>
               {orderResult.summary && <p className={`text-sm ${dark ? 'text-gray-200' : 'text-gray-800'}`}>{orderResult.summary}</p>}
@@ -1482,7 +1483,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
                 <button onClick={() => setTimeResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
               </div>
-              {timeResult.loading && <div className={`flex items-center gap-2 text-sm py-6 justify-center ${dark ? 'text-gray-400' : 'text-gray-500'}`}><Loader2 size={16} className="animate-spin" /> Working out the timing…</div>}
+              {timeResult.loading && <AiWaiting label="Working out the timing…" dark={dark} />}
               {!timeResult.loading && timeResult.error && <p className="text-sm text-red-500">{timeResult.error}</p>}
               {!timeResult.loading && d && (<>
                 <p className={`text-2xl font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{totalLow === totalHigh ? fmtMin(totalLow) : `${fmtMin(totalLow)} – ${fmtMin(totalHigh)}`}</p>
@@ -1501,6 +1502,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                 {d.notes && <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{d.notes}</p>}
                 {d.songs.length > 0 && (<>
                   <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>AI-estimated {d.songs.length} song{d.songs.length === 1 ? '' : 's'} without a duration.</p>
+                  <AiCaution dark={dark}>AI can get things wrong — these lengths are estimates, so treat the total as a guide.</AiCaution>
                   <div className="flex gap-2">
                     <button onClick={saveEstimates} className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Save song estimates</button>
                     <button onClick={() => setTimeResult(null)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
@@ -2317,9 +2319,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </div>
             <div className="overflow-y-auto px-5 py-4 flex flex-col gap-3">
               {suggestBusy ? (
-                <div className="flex items-center gap-2 justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
-                  <Loader2 size={16} className="animate-spin" /> Finding songs for you…
-                </div>
+                <AiWaiting label="Finding songs for you…" dark={dark} />
               ) : suggestErr ? (
                 <div className="py-6 text-center">
                   <p className="text-sm text-red-500 mb-3">{suggestErr}</p>
@@ -2327,7 +2327,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </div>
               ) : (suggestResults && suggestResults.length === 0) ? (
                 <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No suggestions this time. Add a genre or a favorite artist in Settings and try again.</p>
-              ) : (suggestResults || []).map((s, i) => (
+              ) : (<>
+              <AiCaution dark={dark}>AI can get things wrong — check a song is what you expect before learning it, and that the link goes where it says.</AiCaution>
+              {(suggestResults || []).map((s, i) => (
                 <div key={i} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -2343,7 +2345,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     </a>
                   )}
                 </div>
-              ))}
+              ))}</>)}
             </div>
             {!suggestBusy && suggestResults && suggestResults.length > 0 && (
               <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
@@ -2371,9 +2373,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </div>
             <div className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
               {dupBusy ? (
-                <div className="flex items-center gap-2 justify-center py-10 text-sm text-gray-500 dark:text-gray-400">
-                  <Loader2 size={16} className="animate-spin" /> Scanning your library…
-                </div>
+                <AiWaiting label="Scanning your library…" dark={dark} />
               ) : dupErr ? (
                 <div className="py-6 text-center">
                   <p className="text-sm text-red-500 mb-3">{dupErr}</p>
@@ -2381,7 +2381,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </div>
               ) : (dupGroups && dupGroups.length === 0) ? (
                 <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No duplicates found — your library looks tidy.</p>
-              ) : (dupGroups || []).map((g, i) => (
+              ) : (<>
+              {/* The only AI result in Cue with a DESTRUCTIVE action attached:
+                  a wrongly grouped pair that isn't the same song loses one of
+                  them. Worth naming, even though each Delete confirms. */}
+              <AiCaution dark={dark}>AI can get things wrong — check two entries really are the same song before deleting one.</AiCaution>
+              {(dupGroups || []).map((g, i) => (
                 <div key={i} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                   {g.reason && <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">{g.reason}</p>}
                   <div className="flex flex-col gap-1.5">
@@ -2401,7 +2406,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     ))}
                   </div>
                 </div>
-              ))}
+              ))}</>)}
             </div>
             {!dupBusy && dupGroups && dupGroups.length > 0 && (
               <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>

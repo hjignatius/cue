@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.27 — 2026-09-19
+
+- **Cue now says plainly that AI can be wrong.** While an AI action is thinking,
+  the waiting message carries a short caution, and the results that state
+  something checkable carry it too — the songs found online, suggested chord
+  shapes, songs to learn, the set-time estimate, and the duplicate groups (where
+  a wrong match would have you delete a song you meant to keep). Worded the same
+  everywhere, kept small, and left off the results that are plainly opinions —
+  suggested set order, strumming, transposing advice.
+
 ## v1.5.26 — 2026-09-19
 
 - **Fixed: editing a song didn't move its set under Newest.** Sorting the Sets

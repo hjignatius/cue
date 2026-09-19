@@ -602,6 +602,7 @@ Bb,8-10-11-10,1243</pre>
 <p>The key is stored <strong>only on this device</strong> — it is never sent to Cue's servers, never included in your exports or backups, and never shared with anyone you send a set to. Treat it like a password; if it ever leaks, delete it in the Console and make a new one. A <strong>Remove key</strong> button clears it from this device.</p>
 <p>The same section has a <strong>Playing level</strong> — <strong>Beginner / Intermediate / Advanced / Pro</strong> — which tailors how AI answers are pitched (beginners get more explanation and easier options; pros get terse expert replies).</p>
 <div class="tip"><strong>Note:</strong> Until a key is saved, the <strong>AI</strong> button is greyed out. Tapping it then just points you to this setup. No AI runs, and nothing is charged, without a key.</div>
+<div class="tip"><strong>AI can get things wrong.</strong> Every answer is the model's best effort, not a checked fact — a tempo can be off, a link can point at the wrong recording, a chord shape can be awkward or plain wrong. Cue says so while it's thinking and again beside any result that states something checkable. Nothing an AI action suggests is applied until you apply it, and the in-place tools (Clean up, Detect structure) can be undone with <strong>Revert</strong> before you save — so treat the answers as a well-read friend's suggestion, not gospel.</div>
 
 <h2>In the Editor</h2>
 <p>With a key saved, an <strong>AI</strong> button appears in the editor toolbar. It opens a menu of actions for the current song:</p>

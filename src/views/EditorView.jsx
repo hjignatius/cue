@@ -14,6 +14,7 @@ import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
+import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, SMARTER_MODEL } from '../lib/ai.js';
@@ -1455,9 +1456,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <button onClick={() => setFindResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {findResult.loading && (
-          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
-            <Loader2 size={16} className="animate-spin" /> Searching the web…
-          </div>
+          <AiWaiting label="Searching the web…" dark={dark} />
         )}
         {!findResult.loading && findResult.error && (
           <p className="text-sm text-red-500">{findResult.error}</p>
@@ -1483,6 +1482,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </ul>
         )}
         <p className={`text-[11px] ${mutedText}`}>Links open in a new tab. Cue doesn't copy the charts — you decide what to use.</p>
+        <AiCaution dark={dark}>AI can get things wrong — a link may not be the song you meant, or may no longer work.</AiCaution>
       </div>
     </div>
   );
@@ -1559,9 +1559,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <button onClick={() => setFillResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {fillResult.loading && (
-          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
-            <Loader2 size={16} className="animate-spin" /> Reading the chart…
-          </div>
+          <AiWaiting label="Reading the chart…" dark={dark} />
         )}
         {!fillResult.loading && fillResult.error && (
           <p className="text-sm text-red-500">{fillResult.error}</p>
@@ -1643,9 +1641,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <button onClick={() => setAdviceResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {adviceResult.loading && (
-          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
-            <Loader2 size={16} className="animate-spin" /> Working out your options…
-          </div>
+          <AiWaiting label="Working out your options…" dark={dark} />
         )}
         {!adviceResult.loading && adviceResult.error && (
           <p className="text-sm text-red-500">{adviceResult.error}</p>
@@ -1753,9 +1749,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <button onClick={() => setChordResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {chordResult.loading && (
-          <div className={`flex items-center gap-2 text-sm py-6 justify-center ${mutedText}`}>
-            <Loader2 size={16} className="animate-spin" /> Working out the shapes…
-          </div>
+          <AiWaiting label="Working out the shapes…" dark={dark} />
         )}
         {!chordResult.loading && chordResult.error && (
           <p className="text-sm text-red-500">{chordResult.error}</p>
@@ -1765,6 +1759,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         )}
         {!chordResult.loading && chordResult.shapes.length > 0 && (<>
           <p className={`text-xs ${mutedText}`}>Check each shape, then add it to your {chordLibraryToInstrument(instrument)} library. You can edit or delete any custom chord later in the chord panel.</p>
+          <AiCaution dark={dark}>AI can get things wrong — try a shape on the instrument before you rely on it.</AiCaution>
           <ul className="flex flex-col gap-2">
             {chordResult.shapes.map((shape, i) => (
               <li key={i} className={`flex items-center gap-3 p-2 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
