@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.21 — 2026-09-19
+
+- **AI errors now say what actually went wrong.** When an AI tool couldn't reach
+  Anthropic, Cue always showed the same sentence — "check your connection" —
+  whether you were offline, the request was blocked, or the connection dropped.
+  The real reason was thrown away and never recorded. Being offline is now named
+  as such, the message carries the underlying reason, and the full error is
+  written to the browser console so a recurring problem can actually be traced.
+- **Fixed: AI errors were invisible on a phone.** The status line was hidden on
+  narrow screens, so a failed AI action simply stopped with nothing on screen.
+  It now shows in both layouts.
+
 ## v1.5.20 — 2026-09-18
 
 - **Fixed: the white highlight on the panel switcher didn't line up with its

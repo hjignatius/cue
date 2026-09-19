@@ -57,6 +57,29 @@ function httpError(status, data) {
   return err;
 }
 
+// A failed `fetch` — the request never produced a response. Both call paths used
+// to swallow the cause entirely (`catch {` with no binding) and report one fixed
+// sentence, so a blocked request, a DNS failure, a dropped connection and a CORS
+// rejection were indistinguishable after the fact and nothing was ever logged.
+// Now the underlying error is logged and carried on `cause`, and being offline is
+// named as such — matching describeCloudError's treatment of the cloud calls.
+function networkError(e) {
+  // The one line that makes this diagnosable from the console.
+  console.error('[ai] request to Anthropic failed before any response', e);
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  const detail = e?.message || e?.name || '';
+  // Kept short: this renders as one line in the editor toolbar. The full error
+  // object is on the console line above for anyone diagnosing it.
+  const err = new Error(
+    offline
+      ? "You're offline — reconnect and try again."
+      : `Couldn't reach Anthropic — the request didn't complete${detail ? ` (${detail})` : ''}.`
+  );
+  err.code = offline ? 'offline' : 'network';
+  err.cause = e;
+  return err;
+}
+
 const REQUEST_HEADERS = (apiKey) => ({
   'content-type': 'application/json',
   'x-api-key': apiKey,
@@ -92,9 +115,7 @@ async function streamClaude(body, onText) {
         });
       } catch (e) {
         if (e?.name === 'AbortError') { const err = new Error('The answer timed out — try again.'); err.code = 'timeout'; throw err; }
-        const err = new Error('Could not reach Anthropic — check your connection.');
-        err.code = 'network';
-        throw err;
+        throw networkError(e);
       }
 
       if (!res.ok || !res.body) {
@@ -166,10 +187,8 @@ async function callClaude(body) {
         headers: REQUEST_HEADERS(apiKey),
         body: JSON.stringify({ model: MODEL, ...body }),
       });
-    } catch {
-      const err = new Error('Could not reach Anthropic — check your connection.');
-      err.code = 'network';
-      throw err;
+    } catch (e) {
+      throw networkError(e);
     }
 
     if (res.ok) {

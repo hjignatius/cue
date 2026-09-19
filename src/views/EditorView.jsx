@@ -2136,7 +2136,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </OverflowMenu>
           </span>
         )}
-        {aiMsg && !compactChrome && <span className={`text-xs ${mutedText}`}>{aiMsg}</span>}
+        {/* Shown in BOTH layouts: hiding this on compact chrome meant an AI
+            failure on a phone reported nothing at all — the action just stopped.
+            min-w-0 + truncate so a long message can't stretch the toolbar row. */}
+        {aiMsg && <span className={`text-xs min-w-0 truncate ${mutedText}`} title={aiMsg}>{aiMsg}</span>}
         {aiRetry && !aiBusy && !compactChrome && (
           <button
             onClick={retrySmarter}
