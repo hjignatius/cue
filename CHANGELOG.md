@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.24 — 2026-09-19
+
+- **Choose which suggested details to apply.** Every row in **Fill in song
+  details** now has a tick box, all ticked to start. Untick the ones you don't
+  want — a YouTube link you'd rather pick yourself, say — and the button applies
+  only what's left, naming the count (**Apply 4 selected**). Each row still has
+  its own **Apply**, which stays the quickest way to take just one.
+- The button beside it turns blue and reads **Done** as soon as nothing further
+  will be applied — whether that's because everything is applied, or because
+  what remains is unticked on purpose.
+
 ## v1.5.23 — 2026-09-19
 
 - **AI tools now retry a dropped connection instead of giving up.** An AI

@@ -535,6 +535,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [aiMenuOpen, setAiMenuOpen]     = useState(false);
   const [aiReady, setAiReady]           = useState(() => hasApiKey());
   const [aiBusy, setAiBusy]             = useState('');   // '' | 'clean' | 'find' | 'fill'
+  // Fill-in-details: which suggested fields to SKIP on "Apply all". Stores only
+  // the exclusions, so everything is ticked by default with nothing to seed —
+  // a field is included unless it appears here. Cleared for each new run.
+  const [fillSkip, setFillSkip]         = useState({});
   const [aiMsg, setAiMsg]               = useState('');
   // Which in-place tool just ran (null = nothing to escalate), so the status line
   // can offer a "Try again — smarter" that re-runs it on the stronger model.
@@ -856,6 +860,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   async function runFill(model) {
     if (aiBusy || text.trim() === '') return;
     setAiBusy('fill');
+    setFillSkip({});   // a fresh set of suggestions starts fully ticked
     setFillResult({ loading: true, error: '', suggest: null });
     try {
       const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model);
@@ -1500,15 +1505,39 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           // (mirroring a row's "Applied") and Close becomes the primary action.
           // Derived from `metadata`, so editing a field afterwards re-arms it.
           const allApplied = rows.every(r => metadata[r.field] === r.value);
+          // Rows still worth applying, and the ticked subset of them. A row that
+          // is already applied is out of both — re-applying it is a no-op, so it
+          // shouldn't hold the button open or be counted in the label.
+          const pending  = rows.filter(r => metadata[r.field] !== r.value);
+          const ticked   = pending.filter(r => !fillSkip[r.field]);
+          // Nothing further WILL be applied — either everything is applied, or
+          // what's left is deliberately unticked. Either way the only remaining
+          // action is to close, so Close takes the emphasis. Keying this off
+          // allApplied alone left "applied a subset, skipped the rest" with no
+          // primary button at all.
+          const nothingToApply = ticked.length === 0;
+          const anyApplied     = rows.some(r => metadata[r.field] === r.value);
           return (<>
             <p className={`text-xs ${mutedText}`}>Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.</p>
             <ul className="flex flex-col gap-2">
               {rows.map(r => (
-                <li key={r.field} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <span className="flex flex-col min-w-0">
-                    <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
-                    <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.value}</span>
-                  </span>
+                <li key={r.field} className={`flex items-center justify-between gap-2 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  {/* Whole label is the hit target, so the text toggles the tick
+                      on touch. An already-applied row has nothing to choose, so
+                      its box is disabled rather than misleadingly tickable. */}
+                  <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="size-4 shrink-0 accent-indigo-600 cursor-pointer disabled:cursor-default"
+                      checked={metadata[r.field] === r.value || !fillSkip[r.field]}
+                      disabled={metadata[r.field] === r.value}
+                      onChange={e => setFillSkip(m => ({ ...m, [r.field]: !e.target.checked }))}
+                    />
+                    <span className="flex flex-col min-w-0">
+                      <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
+                      <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.value}</span>
+                    </span>
+                  </label>
                   <button
                     onClick={() => applyDetail(r.field, r.value)}
                     disabled={metadata[r.field] === r.value}
@@ -1521,27 +1550,32 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </ul>
             <div className="flex gap-2">
               <button
-                onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}
-                disabled={allApplied}
+                onClick={() => ticked.forEach(r => applyDetail(r.field, r.value))}
+                disabled={ticked.length === 0}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
-                  allApplied
+                  ticked.length === 0
                     ? `border ${dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`
                     : 'bg-indigo-600 hover:bg-indigo-500 text-white'
                 }`}
               >
-                {allApplied ? 'All applied' : 'Apply all'}
+                {/* Says what it will actually do: "Apply all" only when that is
+                    the truth, a count once something is unticked. */}
+                {allApplied           ? 'All applied'
+                  : ticked.length === 0            ? 'Nothing selected'
+                  : ticked.length === pending.length ? 'Apply all'
+                  : `Apply ${ticked.length} selected`}
               </button>
               <button
                 onClick={() => setFillResult(null)}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
-                  allApplied
+                  nothingToApply
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                     : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
-                {/* "Done" only once everything is applied — closing before that
-                    applies nothing, and calling that Done would misreport it. */}
-                {allApplied ? 'Done' : 'Close'}
+                {/* "Done" needs something to have been done: untick everything
+                    without applying anything and this still reads "Close". */}
+                {nothingToApply && anyApplied ? 'Done' : 'Close'}
               </button>
             </div>
             <button onClick={() => runFill(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"
