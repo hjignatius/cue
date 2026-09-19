@@ -44,6 +44,24 @@ export function setApiKey(key) {
 export function hasApiKey() { return getApiKey().length > 0; }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+
+// Should a rejected `fetch` be retried? Both call paths already retried 429/529
+// but gave up on a connection-level failure, even though that is the MORE
+// transient of the two — a reused keep-alive connection the server has since
+// closed surfaces as `TypeError: Failed to fetch` on the next request, which is
+// why it showed up on a second identical request. A rejected fetch means no
+// response arrived, so nothing was generated and (on the streaming path) nothing
+// has streamed yet: re-sending is safe, and retrying connection errors is what
+// the official Anthropic SDKs do by default.
+//
+// Not retried when the device is plainly offline — three attempts can't reach
+// the network and only delay the accurate message by a few seconds.
+function retryableNetworkFailure(attempt, maxAttempts, e) {
+  if (isOffline() || attempt >= maxAttempts) return false;
+  console.warn(`[ai] request to Anthropic failed before any response (attempt ${attempt}/${maxAttempts}) — retrying`, e);
+  return true;
+}
 
 // Map a failed HTTP response to a friendly, code-tagged Error.
 function httpError(status, data) {
@@ -66,7 +84,7 @@ function httpError(status, data) {
 function networkError(e) {
   // The one line that makes this diagnosable from the console.
   console.error('[ai] request to Anthropic failed before any response', e);
-  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  const offline = isOffline();
   const detail = e?.message || e?.name || '';
   // Kept short: this renders as one line in the editor toolbar. The full error
   // object is on the console line above for anyone diagnosing it.
@@ -115,6 +133,7 @@ async function streamClaude(body, onText) {
         });
       } catch (e) {
         if (e?.name === 'AbortError') { const err = new Error('The answer timed out — try again.'); err.code = 'timeout'; throw err; }
+        if (retryableNetworkFailure(attempt, MAX_ATTEMPTS, e)) { await sleep(800 * attempt); continue; }
         throw networkError(e);
       }
 
@@ -188,6 +207,7 @@ async function callClaude(body) {
         body: JSON.stringify({ model: MODEL, ...body }),
       });
     } catch (e) {
+      if (retryableNetworkFailure(attempt, MAX_ATTEMPTS, e)) { await sleep(800 * attempt); continue; }
       throw networkError(e);
     }
 

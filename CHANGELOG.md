@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.23 — 2026-09-19
+
+- **AI tools now retry a dropped connection instead of giving up.** An AI
+  request that failed to reach Anthropic at all — the "the request didn't
+  complete (Failed to fetch)" message — was reported straight to you on the
+  first try, even though Cue already retried Anthropic's own "busy" responses
+  twice. A dropped connection is the more transient of the two, and is the
+  likely reason this turned up on a second identical request: the reused
+  connection had quietly been closed at the other end. Cue now retries these the
+  same way, so most of them recover without you seeing anything. If you're
+  offline it still says so straight away rather than retrying pointlessly.
+
 ## v1.5.22 — 2026-09-19
 
 - **"Fill in song details" now shows when there's nothing left to apply.**
