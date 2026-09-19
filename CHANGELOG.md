@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.25 — 2026-09-19
+
+- **"Fill in song details" now asks first.** Choosing it opens a window showing
+  what the song already has — Title, Artist, Key, Tempo, Duration and YouTube,
+  with blanks marked *empty* — each with a tick box, all ticked to start.
+  Untick anything you'd rather keep as it is and Cue looks up **only** what's
+  ticked, then shows what it found for you to apply as before. Asking for just
+  the Key no longer does a web search at all, since the key is read from the
+  chords.
+- Replaces the tick boxes added to the *results* in 1.5.24 — choosing up front
+  means Cue never goes looking for something you didn't want in the first place.
+
 ## v1.5.24 — 2026-09-19
 
 - **Choose which suggested details to apply.** Every row in **Fill in song

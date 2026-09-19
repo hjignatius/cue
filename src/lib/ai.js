@@ -517,33 +517,66 @@ Only include songs you are confident are real, and URLs you actually found via s
 // only kept if it's a real link the model found, never a hallucinated video id).
 const YT_RE = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|music\.youtube\.com\/watch\?v=)/i;
 
-export async function fillSongDetails(text, hint = {}, model) {
+// The fields this tool can fill, in the order they're offered. Exported so the
+// editor's pick-what-to-check dialog and the prompt below are built from ONE
+// list — a field added here shows up in both, and the labels can't drift apart.
+export const FILL_FIELDS = [
+  { field: 'title',      label: 'Title' },
+  { field: 'artist',     label: 'Artist' },
+  { field: 'key',        label: 'Key' },
+  { field: 'tempo',      label: 'Tempo (BPM)' },
+  { field: 'duration',   label: 'Duration' },
+  { field: 'youtubeUrl', label: 'YouTube' },
+];
+const ALL_FILL = FILL_FIELDS.map(f => f.field);
+
+const FILL_RULES = {
+  title:      '- title: the song\'s real title. Use the chart plus what you know; "" if genuinely unsure.',
+  artist:     '- artist: the performer of the best-known/original recording; "" if genuinely unsure.',
+  key:        '- key: infer the most likely key from the CHORDS in the chart (e.g. "G", "Em", "Bb"). Minor keys end in "m". "" if ambiguous.',
+  tempo:      '- tempo: approximate BPM of the well-known recording, as a plain integer string (e.g. "72"). "" if you don\'t know.',
+  duration:   '- duration: length of that recording as M:SS (e.g. "4:05"). "" if you don\'t know.',
+  youtubeUrl: '- youtubeUrl: a REAL YouTube watch URL for the official/most-popular version that you actually found via search (https://www.youtube.com/watch?v=… or https://youtu.be/…). NEVER guess or invent a video id — if you did not find a real link, use "".',
+};
+// Only `key` is derived from the chart itself; everything else is a fact about a
+// recording that has to be looked up. Asking for key alone therefore needs no
+// web search at all — skip the tool rather than pay for a search nobody wanted.
+const NEEDS_SEARCH = new Set(['title', 'artist', 'tempo', 'duration', 'youtubeUrl']);
+
+export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to read — the chart is empty.');
     err.code = 'empty';
     throw err;
   }
+  // Only what was asked for. An unknown name can't widen the request.
+  const want = ALL_FILL.filter(f => fields.includes(f));
+  if (want.length === 0) {
+    const err = new Error('Nothing selected to look up.');
+    err.code = 'empty';
+    throw err;
+  }
+  // The user's existing title/artist always go in as CONTEXT even when they
+  // weren't ticked — they're how the song gets identified at all.
   const known = [hint.title && `title "${hint.title}"`, hint.artist && `artist "${hint.artist}"`]
     .filter(Boolean).join(', ');
+  const search = want.some(f => NEEDS_SEARCH.has(f));
+  const template = `{${want.map(f => `"${f}": ""`).join(', ')}}`;
 
   const system = `You read a chord chart and fill in metadata for a musician's app.${known ? ` The user already set: ${known}.` : ''}
 
-Identify the song, then use web search to confirm details about the best-known/original recording. Respond with ONLY a JSON object (no prose, no code fence):
-{"title": "", "artist": "", "key": "", "tempo": "", "duration": "", "youtubeUrl": ""}
+${search ? 'Identify the song, then use web search to confirm details about the best-known/original recording. ' : ''}The user asked you to work out ONLY these fields: ${want.join(', ')}. Respond with ONLY a JSON object (no prose, no code fence) containing exactly those keys:
+${template}
 Rules:
-- title / artist: the song's real title and performer. Use the chart plus what you know; "" if genuinely unsure.
-- key: infer the most likely key from the CHORDS in the chart (e.g. "G", "Em", "Bb"). Minor keys end in "m". "" if ambiguous.
-- tempo: approximate BPM of the well-known recording, as a plain integer string (e.g. "72"). "" if you don't know.
-- duration: length of that recording as M:SS (e.g. "4:05"). "" if you don't know.
-- youtubeUrl: a REAL YouTube watch URL for the official/most-popular version that you actually found via search (https://www.youtube.com/watch?v=… or https://youtu.be/…). NEVER guess or invent a video id — if you did not find a real link, use "".
-Everything except key is a best guess about the recording; when unsure, prefer "".`;
+${want.map(f => FILL_RULES[f]).join('\n')}
+When unsure, prefer "". Do not include any key that is not listed above.`;
 
   const data = await callClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
     output_config: { effort: 'low' },
     system,
-    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }],
+    ...(search ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }] } : {}),
     messages: [{ role: 'user', content: text.slice(0, 8000) }],
   });
   const j = extractJson(textOf(data)) || {};
@@ -551,14 +584,12 @@ Everything except key is a best guess about the recording; when unsure, prefer "
   const tempo = str(j.tempo).match(/\d{2,3}/)?.[0] || '';       // integer BPM only
   const duration = /^\d{1,2}:\d{2}$/.test(str(j.duration)) ? str(j.duration) : '';
   const youtubeUrl = YT_RE.test(str(j.youtubeUrl)) ? str(j.youtubeUrl) : '';   // real YT link only
-  return {
-    title: str(j.title),
-    artist: str(j.artist),
-    key: str(j.key),
-    tempo,
-    duration,
-    youtubeUrl,
-  };
+  // Everything the caller didn't ask for stays '' even if the model volunteered
+  // it, so an unticked field can never reach the suggestions list.
+  const all = { title: str(j.title), artist: str(j.artist), key: str(j.key), tempo, duration, youtubeUrl };
+  const out = {};
+  for (const f of ALL_FILL) out[f] = want.includes(f) ? all[f] : '';
+  return out;
 }
 
 // ── Chord shapes (fill the library's gaps) ──────────────────────────────────

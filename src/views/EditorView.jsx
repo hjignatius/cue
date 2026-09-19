@@ -16,7 +16,7 @@ import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, SMARTER_MODEL } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, SMARTER_MODEL } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
@@ -535,10 +535,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [aiMenuOpen, setAiMenuOpen]     = useState(false);
   const [aiReady, setAiReady]           = useState(() => hasApiKey());
   const [aiBusy, setAiBusy]             = useState('');   // '' | 'clean' | 'find' | 'fill'
-  // Fill-in-details: which suggested fields to SKIP on "Apply all". Stores only
-  // the exclusions, so everything is ticked by default with nothing to seed —
-  // a field is included unless it appears here. Cleared for each new run.
+  // Fill-in-details runs in two steps. Step 1 (fillAsk) shows what the song has
+  // now and asks which fields to work out; fillSkip holds only the UNTICKED ones,
+  // so everything starts ticked with nothing to seed. fillFields is what step 1
+  // settled on, kept so "try again — smarter" re-runs the same selection.
+  const [fillAsk, setFillAsk]           = useState(false);
   const [fillSkip, setFillSkip]         = useState({});
+  const [fillFields, setFillFields]     = useState([]);
   const [aiMsg, setAiMsg]               = useState('');
   // Which in-place tool just ran (null = nothing to escalate), so the status line
   // can offer a "Try again — smarter" that re-runs it on the stronger model.
@@ -857,13 +860,24 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Fill in song details (AI) — reads the chart, opens a dialog of suggestions
   // the user can apply field-by-field.
-  async function runFill(model) {
+  // Step 1: what does this song have now, and what should Cue work out?
+  function openFillAsk() {
     if (aiBusy || text.trim() === '') return;
+    setFillSkip({});   // every field starts ticked
+    setFillAsk(true);
+  }
+
+  // Step 2: look up the chosen fields. `fields` omitted = re-run what step 1
+  // chose (the smarter-model retry), never silently widen back to everything.
+  async function runFill(model, fields) {
+    if (aiBusy || text.trim() === '') return;
+    const use = fields || fillFields;
+    if (use.length === 0) return;
+    setFillFields(use);
     setAiBusy('fill');
-    setFillSkip({});   // a fresh set of suggestions starts fully ticked
     setFillResult({ loading: true, error: '', suggest: null });
     try {
-      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model);
+      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use);
       setFillResult({ loading: false, error: '', suggest });
     } catch (e) {
       setFillResult({ loading: false, error: e?.message || 'Could not read details.', suggest: null });
@@ -1473,7 +1487,70 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     </div>
   );
 
-  // Fill in song details — suggestion dialog, applied field by field.
+  // Fill in song details, step 1 — what the song has now, and what to look up.
+  // Deliberately BEFORE the request: unticking here means Cue never asks about
+  // that field at all, rather than asking and then discarding the answer.
+  const fillAskDialog = fillAsk && (() => {
+    const chosen = FILL_FIELDS.filter(f => !fillSkip[f.field]);
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setFillAsk(false)}>
+        <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
+            <button onClick={() => setFillAsk(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          </div>
+          <p className={`text-xs ${mutedText}`}>Here's what this song has now. Tick what Cue should work out — it only looks up what you tick, and nothing changes until you apply what comes back.</p>
+          <ul className="flex flex-col gap-2">
+            {FILL_FIELDS.map(f => {
+              const current = (metadata[f.field] || '').trim();
+              return (
+                <li key={f.field} className={`flex items-center p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="size-4 shrink-0 accent-indigo-600 cursor-pointer"
+                      checked={!fillSkip[f.field]}
+                      onChange={e => setFillSkip(m => ({ ...m, [f.field]: !e.target.checked }))}
+                    />
+                    <span className="flex flex-col min-w-0">
+                      <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{f.label}</span>
+                      {/* The value it already holds — the "here's what you have
+                          now" half. Blank fields say so rather than showing
+                          nothing, so an empty row still reads as a row. */}
+                      <span className={`text-sm truncate ${current ? (dark ? 'text-gray-100' : 'text-gray-900') : mutedText}`}>
+                        {current || 'empty'}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setFillAsk(false); runFill(undefined, chosen.map(f => f.field)); }}
+              disabled={chosen.length === 0}
+              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+                chosen.length === 0
+                  ? `border ${dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+              }`}
+            >
+              {chosen.length === 0 ? 'Nothing ticked' : `Check ${chosen.length} detail${chosen.length === 1 ? '' : 's'}`}
+            </button>
+            <button
+              onClick={() => setFillAsk(false)}
+              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  })();
+
+  // Fill in song details, step 2 — what it found, applied field by field.
   const fillDialog = fillResult && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setFillResult(null)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
@@ -1491,53 +1568,26 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         )}
         {!fillResult.loading && fillResult.suggest && (() => {
           const s = fillResult.suggest;
-          const rows = [
-            { field: 'title', label: 'Title', value: s.title },
-            { field: 'artist', label: 'Artist', value: s.artist },
-            { field: 'key', label: 'Key', value: s.key },
-            { field: 'tempo', label: 'Tempo (BPM)', value: s.tempo },
-            { field: 'duration', label: 'Duration', value: s.duration },
-            { field: 'youtubeUrl', label: 'YouTube', value: s.youtubeUrl },
-          ].filter(r => r.value);
+          const rows = FILL_FIELDS
+            .map(f => ({ field: f.field, label: f.label, value: s[f.field] }))
+            .filter(r => r.value);
           if (rows.length === 0) return <p className={`text-sm ${mutedText}`}>Couldn't work out any details for this song. The key is read from the chords; the rest depends on identifying the song.</p>;
           // Same predicate the per-row buttons already use, across every row: once
           // it's true there is nothing left to apply, so "Apply all" spends itself
           // (mirroring a row's "Applied") and Close becomes the primary action.
           // Derived from `metadata`, so editing a field afterwards re-arms it.
+          // No tick boxes here — the choosing happened in step 1, and every row
+          // shown is one the user asked for. This is purely "take it or leave it".
           const allApplied = rows.every(r => metadata[r.field] === r.value);
-          // Rows still worth applying, and the ticked subset of them. A row that
-          // is already applied is out of both — re-applying it is a no-op, so it
-          // shouldn't hold the button open or be counted in the label.
-          const pending  = rows.filter(r => metadata[r.field] !== r.value);
-          const ticked   = pending.filter(r => !fillSkip[r.field]);
-          // Nothing further WILL be applied — either everything is applied, or
-          // what's left is deliberately unticked. Either way the only remaining
-          // action is to close, so Close takes the emphasis. Keying this off
-          // allApplied alone left "applied a subset, skipped the rest" with no
-          // primary button at all.
-          const nothingToApply = ticked.length === 0;
-          const anyApplied     = rows.some(r => metadata[r.field] === r.value);
           return (<>
             <p className={`text-xs ${mutedText}`}>Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.</p>
             <ul className="flex flex-col gap-2">
               {rows.map(r => (
-                <li key={r.field} className={`flex items-center justify-between gap-2 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-                  {/* Whole label is the hit target, so the text toggles the tick
-                      on touch. An already-applied row has nothing to choose, so
-                      its box is disabled rather than misleadingly tickable. */}
-                  <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="size-4 shrink-0 accent-indigo-600 cursor-pointer disabled:cursor-default"
-                      checked={metadata[r.field] === r.value || !fillSkip[r.field]}
-                      disabled={metadata[r.field] === r.value}
-                      onChange={e => setFillSkip(m => ({ ...m, [r.field]: !e.target.checked }))}
-                    />
-                    <span className="flex flex-col min-w-0">
-                      <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
-                      <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.value}</span>
-                    </span>
-                  </label>
+                <li key={r.field} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <span className="flex flex-col min-w-0">
+                    <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
+                    <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.value}</span>
+                  </span>
                   <button
                     onClick={() => applyDetail(r.field, r.value)}
                     disabled={metadata[r.field] === r.value}
@@ -1550,32 +1600,25 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </ul>
             <div className="flex gap-2">
               <button
-                onClick={() => ticked.forEach(r => applyDetail(r.field, r.value))}
-                disabled={ticked.length === 0}
+                onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}
+                disabled={allApplied}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
-                  ticked.length === 0
+                  allApplied
                     ? `border ${dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`
                     : 'bg-indigo-600 hover:bg-indigo-500 text-white'
                 }`}
               >
-                {/* Says what it will actually do: "Apply all" only when that is
-                    the truth, a count once something is unticked. */}
-                {allApplied           ? 'All applied'
-                  : ticked.length === 0            ? 'Nothing selected'
-                  : ticked.length === pending.length ? 'Apply all'
-                  : `Apply ${ticked.length} selected`}
+                {allApplied ? 'All applied' : 'Apply all'}
               </button>
               <button
                 onClick={() => setFillResult(null)}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
-                  nothingToApply
+                  allApplied
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                     : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
-                {/* "Done" needs something to have been done: untick everything
-                    without applying anything and this still reads "Close". */}
-                {nothingToApply && anyApplied ? 'Done' : 'Close'}
+                {allApplied ? 'Done' : 'Close'}
               </button>
             </div>
             <button onClick={() => runFill(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"
@@ -2146,7 +2189,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 )}
                 <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
                   className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
-                  onClick={() => runFromAiMenu(runFill)}>
+                  onClick={() => runFromAiMenu(openFillAsk)}>
                   <ListPlus size={15} className="opacity-70" /> Fill in song details
                 </button>
                 {instrument !== 'none' && (
@@ -2456,6 +2499,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {navConfirm}
         {revertConfirm}
         {findDialog}
+        {fillAskDialog}
         {fillDialog}
         {adviceDialog}
         {askDialog}
