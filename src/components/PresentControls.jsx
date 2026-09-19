@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { beatsPerBar } from '../utils/timeSig.js';
 import { ArrowDown, ChevronDown, ChevronUp, Pause } from 'lucide-react';
 import { useDraggablePanel } from '../hooks/useDraggablePanel.js';
 import RoundButton, {
@@ -124,8 +125,7 @@ export function ControlGrid({
   // count so the flash reads as a deliberate count, not a flicker.
   function handleCountIn() {
     onCountIn?.();
-    const beatsPerBar = timeSig === '3/4' ? 3 : 4;
-    const beats = beatsPerBar * 2;
+    const beats = beatsPerBar(timeSig) * 2;
     const intervalMs = tempo > 0 ? 60000 / tempo : 500;
     beatTimers.current.forEach(clearTimeout);
     beatTimers.current = [];

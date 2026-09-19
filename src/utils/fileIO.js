@@ -3,6 +3,7 @@ import { saveFilePicker } from './filePicker.js';
 import { loadSongs, loadSets, collectPdfBackups, SCHEMA_VERSION } from './storage.js';
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
 import { stripStyling } from './chordPro.js';
+import { normalizeTimeSig } from './timeSig.js';
 import { detectChords } from './chordDetect.js';
 // ANNOTATION SAFETY: all export functions below read exclusively from loadSongs()
 // and loadSets() (the 'songs'/'sets' IndexedDB stores). Ink annotations live in
@@ -107,7 +108,7 @@ export function parseCho(content) {
       else if (key === 'key')                      metadata.key    = value;
       else if (key === 'tempo'  || key === 'bpm')  metadata.tempo  = value;
       else if (key === 'duration')                 metadata.duration = value;
-      else if (key === 'timesig' || key === 'time') metadata.timeSig  = value;
+      else if (key === 'timesig' || key === 'time') metadata.timeSig  = normalizeTimeSig(value);
       else bodyLines.push(line); // unknown directives stay in body
     } else {
       bodyLines.push(line);

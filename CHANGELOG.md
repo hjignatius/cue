@@ -3,6 +3,21 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.28 — 2026-09-19
+
+- **Time signatures beyond 4/4 and 3/4.** The Tempo row's 4/4 ↔ 3/4 toggle is
+  now a picker: **4/4, 3/4, 2/4, 2/2, 6/8, 9/8, 12/8, 5/4, 7/8**. A signature
+  that came in from an imported file is shown as-is and left alone, instead of
+  being flipped to 4/4 the first time you touched the control.
+- **The count-in counts the pulse you feel.** Compound signatures group in
+  threes, so **6/8 counts 2 to the bar, 9/8 counts 3, 12/8 counts 4** — twelve
+  clicks would be no use to play to. In those signatures the Tempo you enter is
+  that pulse, not the eighth note. 4/4 and 3/4 are unchanged.
+- **"Fill in song details" now researches the time signature too**, alongside
+  key, tempo and duration. If it isn't reasonably sure it leaves the field
+  blank rather than falling back to 4/4 — a confident wrong metre is worse than
+  none, since it's what the count-in plays.
+
 ## v1.5.27 — 2026-09-19
 
 - **Cue now says plainly that AI can be wrong.** While an AI action is thinking,

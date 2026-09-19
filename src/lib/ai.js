@@ -17,6 +17,8 @@
 // JSON/Backup exports, and a secret must never travel in those. It lives under
 // its own localStorage key that nothing exports.
 
+import { timeSigOrEmpty } from '../utils/timeSig.js';
+
 const KEY_STORAGE = 'cue:anthropic_key';
 // Sonnet 5: fast, capable, far fewer "overloaded" errors than Opus, and cheaper —
 // the right balance for Cue's find/clean-up/fill/advice/Q&A tasks. (Web search,
@@ -524,6 +526,7 @@ export const FILL_FIELDS = [
   { field: 'title',      label: 'Title' },
   { field: 'artist',     label: 'Artist' },
   { field: 'key',        label: 'Key' },
+  { field: 'timeSig',    label: 'Time signature' },
   { field: 'tempo',      label: 'Tempo (BPM)' },
   { field: 'duration',   label: 'Duration' },
   { field: 'youtubeUrl', label: 'YouTube' },
@@ -534,6 +537,7 @@ const FILL_RULES = {
   title:      '- title: the song\'s real title. Use the chart plus what you know; "" if genuinely unsure.',
   artist:     '- artist: the performer of the best-known/original recording; "" if genuinely unsure.',
   key:        '- key: infer the most likely key from the CHORDS in the chart (e.g. "G", "Em", "Bb"). Minor keys end in "m". "" if ambiguous.',
+  timeSig:    '- timeSig: the metre of that recording as "beats/value" (e.g. "4/4", "3/4", "6/8", "12/8"). Most popular songs are 4/4; waltzes are 3/4; many folk, blues and worship songs are 6/8 or 12/8. Say "" rather than defaulting to "4/4" when you are not reasonably sure.',
   tempo:      '- tempo: approximate BPM of the well-known recording, as a plain integer string (e.g. "72"). "" if you don\'t know.',
   duration:   '- duration: length of that recording as M:SS (e.g. "4:05"). "" if you don\'t know.',
   youtubeUrl: '- youtubeUrl: a REAL YouTube watch URL for the official/most-popular version that you actually found via search (https://www.youtube.com/watch?v=… or https://youtu.be/…). NEVER guess or invent a video id — if you did not find a real link, use "".',
@@ -541,7 +545,7 @@ const FILL_RULES = {
 // Only `key` is derived from the chart itself; everything else is a fact about a
 // recording that has to be looked up. Asking for key alone therefore needs no
 // web search at all — skip the tool rather than pay for a search nobody wanted.
-const NEEDS_SEARCH = new Set(['title', 'artist', 'tempo', 'duration', 'youtubeUrl']);
+const NEEDS_SEARCH = new Set(['title', 'artist', 'timeSig', 'tempo', 'duration', 'youtubeUrl']);
 
 export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL) {
   if (!text || !text.trim()) {
@@ -586,7 +590,9 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
   const youtubeUrl = YT_RE.test(str(j.youtubeUrl)) ? str(j.youtubeUrl) : '';   // real YT link only
   // Everything the caller didn't ask for stays '' even if the model volunteered
   // it, so an unticked field can never reach the suggestions list.
-  const all = { title: str(j.title), artist: str(j.artist), key: str(j.key), tempo, duration, youtubeUrl };
+  // timeSigOrEmpty, not normalizeTimeSig: an unparseable answer must come back
+  // '' and drop out of the suggestions, never as a default-looking "4/4".
+  const all = { title: str(j.title), artist: str(j.artist), key: str(j.key), timeSig: timeSigOrEmpty(str(j.timeSig)), tempo, duration, youtubeUrl };
   const out = {};
   for (const f of ALL_FILL) out[f] = want.includes(f) ? all[f] : '';
   return out;

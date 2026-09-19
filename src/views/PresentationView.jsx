@@ -18,6 +18,7 @@ import { Fragment } from 'react';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import PdfSongView from '../components/PdfSongView.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
+import { beatsPerBar } from '../utils/timeSig.js';
 import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -43,7 +44,7 @@ function formatDuration(secs) {
 
 function playMetronome(bpm, timeSig = '4/4') {
   if (!bpm) return;
-  const beatsPerMeasure = timeSig === '3/4' ? 3 : 4;
+  const beatsPerMeasure = beatsPerBar(timeSig);
   const totalBeats = beatsPerMeasure * 2;
   const interval = 60 / bpm;
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -612,7 +613,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   function triggerVisualMetronome(bpm, sig) {
     flashTimers.current.forEach(clearTimeout);
     flashTimers.current = [];
-    const beatsPerMeasure = sig === '3/4' ? 3 : 4;
+    const beatsPerMeasure = beatsPerBar(sig);
     const totalBeats = beatsPerMeasure * 2;
     const intervalMs = 60000 / bpm;
     for (let i = 0; i < totalBeats; i++) {

@@ -19,6 +19,7 @@ import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeCh
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, SMARTER_MODEL } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
+import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
@@ -28,7 +29,7 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
-const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: '4/4' };
+const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: DEFAULT_TIME_SIG };
 
 // The chord-library pref id ('ukulele_gcea' | 'baritone_dgbe' | 'guitar' | 'none')
 // → a plain instrument word for the AI, so "find music online" can favour the

@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react';
 import { KEY_NAMES } from '../utils/transpose.js';
+import { TIME_SIGNATURES, beatsPerBar } from '../utils/timeSig.js';
 
 const RESET_AFTER_MS = 3000;
 const MIN_TAPS = 2;
 
 function playMetronome(bpmVal, timeSig = '4/4') {
   if (!bpmVal) return;
-  const beatsPerMeasure = timeSig === '3/4' ? 3 : 4;
+  const beatsPerMeasure = beatsPerBar(timeSig);
   const totalBeats = beatsPerMeasure * 2;
   const interval = 60 / bpmVal;
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -70,14 +71,20 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
       >
         ▶
       </button>
-      <button
-        type="button"
-        onClick={() => onTimeSig(timeSig === '4/4' ? '3/4' : '4/4')}
-        className={`px-2 py-2.5 font-mono font-bold ${fieldCls} ${fieldHover} text-gray-500 dark:text-gray-400 hover:text-indigo-400 text-sm`}
-        title="Toggle time signature"
+      {/* Was a 4/4 ↔ 3/4 toggle. A signature that came in from an import but
+          isn't on the list is prepended, so opening this form can never quietly
+          rewrite someone's 7/4 into 4/4. */}
+      <select
+        value={timeSig}
+        onChange={e => onTimeSig(e.target.value)}
+        className={`px-2 py-2.5 font-mono font-bold ${fieldCls} ${fieldHover} ${fieldFocus} text-gray-500 dark:text-gray-400 hover:text-indigo-400 text-sm bg-white dark:bg-gray-900 cursor-pointer`}
+        title="Time signature"
+        aria-label="Time signature"
       >
-        {timeSig}
-      </button>
+        {(TIME_SIGNATURES.includes(timeSig) ? TIME_SIGNATURES : [timeSig, ...TIME_SIGNATURES]).map(t => (
+          <option key={t} value={t}>{t}</option>
+        ))}
+      </select>
     </div>
   );
 }
