@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, SMARTER_MODEL } from '../lib/ai.js';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
@@ -477,6 +477,28 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
   // Ordering inside it falls back to newest-first, the list's normal default.
   const sharedOnly = listSort === 'shared';
 
+  // Newest/Oldest rank a set by the newest thing IN it — the set record or any
+  // song it holds — not by when the set row itself was last written. Editing a
+  // song's details bumps that SONG's updatedAt and never the set's, so sorting
+  // on set.updatedAt alone left a set whose songs you had just edited sitting in
+  // its old position. newestLocalAt() already defined freshness this way for the
+  // publish "changes not sent" dot and the pull staleness guard; the sort was
+  // the one place that disagreed.
+  //
+  // Precomputed rather than called inside the comparator: the comparator runs
+  // O(n log n) times and resolving a set's songs on each call would multiply
+  // that by the library size.
+  const songById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
+  const freshness = useMemo(() => {
+    const m = new Map();
+    for (const set of sets) {
+      const setSongs = (set.songIds || []).map(id => songById.get(id)).filter(Boolean);
+      m.set(set.id, newestLocalAt(set, setSongs));
+    }
+    return m;
+  }, [sets, songById]);
+  const freshOf = (set) => freshness.get(set.id) || '';
+
   const sorted = [...sets].sort((a, b) => {
     // 'checked' floats selected sets to the top LIVE, A–Z within each group.
     if (listSort === 'checked') {
@@ -485,8 +507,8 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
       return a.name.localeCompare(b.name);
     }
     if (listSort === 'alpha')  return a.name.localeCompare(b.name);
-    if (listSort === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
-    return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+    if (listSort === 'oldest') return freshOf(a).localeCompare(freshOf(b));
+    return freshOf(b).localeCompare(freshOf(a));
   });
 
   const bySearch = setSearch.trim()
@@ -784,7 +806,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
               {(() => {
                 const lastPub = publishedSets[set.id] ?? null;
                 const isPublished = !!lastPub;
-                const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+                const setSongs = set.songIds.map(id => songById.get(id)).filter(Boolean);
                 const localAt = newestLocalAt(set, setSongs);
                 // Local edits not yet pushed → republish (amber). Cloud rollup
                 // ahead of local → another device published a newer version and

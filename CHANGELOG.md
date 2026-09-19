@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.26 — 2026-09-19
+
+- **Fixed: editing a song didn't move its set under Newest.** Sorting the Sets
+  list by **Newest** (or **Oldest**) ranked each set only by when the set itself
+  was last changed — renamed, or songs added or removed. Editing a song's
+  details and saving changed the *song*, so the set it belongs to stayed put,
+  however recently you'd worked on it. Both sorts now rank a set by the most
+  recent change to the set **or any song in it**, which is how Cue already
+  decides a published set has "changes not sent".
+
 ## v1.5.25 — 2026-09-19
 
 - **"Fill in song details" now asks first.** Choosing it opens a window showing
