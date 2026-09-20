@@ -657,7 +657,7 @@ Bb,8-10-11-10,1243</pre>
 <p>Sharing takes two steps: <strong>publish</strong> the set to the cloud, then <strong>generate a link</strong> to it. Publishing on its own does not create a link — nothing is shared until you generate one. You must be signed in (via Settings → Account) for both.</p>
 <table>
   <tr><th>Icon</th><th>Step</th><th>What it does</th></tr>
-  <tr><td><strong>☁↑ Publish</strong></td><td>1. Upload</td><td>Copies the set and its songs to the cloud. Use <strong>Republish</strong> later to send edits. When this device has edits you have not sent yet, the set's name turns amber and its row reads "· changes not sent".</td></tr>
+  <tr><td><strong>☁↑ Publish</strong></td><td>1. Upload</td><td>Copies the set and its songs to the cloud. Use <strong>Republish</strong> later to send edits. When this device has edits you have not sent yet, the set's row reads <strong>· SEND CHANGES</strong> and <strong>Republish</strong> turns bold in its <strong>⋮</strong> menu. When another device has published something newer, it reads <strong>· GET NEWER</strong> in red and <strong>Get latest from cloud</strong> turns bold instead — so the menu points at the one thing worth doing.</td></tr>
   <tr><td><strong>🔗 Share</strong></td><td>2. Link</td><td>Appears once a set is published. Opens the Share dialog with the set's <strong>single link</strong> — Cue keeps one link per set (created the first time, reused after), so just copy it. <strong>Stop sharing</strong> in the dialog revokes the link; the set stays, and sharing again mints a fresh one.</td></tr>
   <tr><td><strong>☁✕ Stop Sharing Set</strong></td><td>Remove</td><td>Deletes the set from the cloud, kills its link, and cleans up any shared PDF files. Your local copy is not affected.</td></tr>
 </table>
@@ -685,7 +685,7 @@ Bb,8-10-11-10,1243</pre>
 <pre>This device has newer changes to: Blue Moon, Five Foot Two.
 Pulling will discard them. Continue?</pre>
 <p>The check is per song, not a single date on the set — so a set that looks recent in the cloud cannot hide one song that is older there than here. It is a warning, not a block: if you know the cloud copy is the one you want, tap <strong>Pull anyway</strong>. To keep the local edits instead, cancel and <strong>Publish</strong> first, then pull.</p>
-<div class="tip"><strong>Tip:</strong> An amber set name (and "· changes not sent" on its row) means this device has changes you have not published yet. Publish before pulling on another device, or those changes will be the ones at risk.</div>
+<div class="tip"><strong>Tip:</strong> <strong>· SEND CHANGES</strong> on a set's row means this device has edits you have not published yet. Send them before pulling on another device, or those are the changes at risk. The two states are worded as what to <em>do</em>, not what has happened, and they carry different colours on purpose — sending is your own work waiting; <strong>GET NEWER</strong> is somebody else's work that could overwrite yours.</div>
 
 <h2>Pull vs. Copy to Library</h2>
 <p>These look similar and are not the same. <strong>Pull</strong> is for <em>your own</em> set returning to <em>your own</em> device: it matches the set and songs by their identity and overwrites them in place, so the set stays one set across your devices. <strong>Copy to library</strong> (in the shared-set viewer) is for <em>someone else's</em> set: it always creates brand-new songs so it can never overwrite anything of yours, and prompts you when a title already exists.</p>

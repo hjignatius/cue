@@ -831,16 +831,28 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                           className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5"
                         />
                       ) : (
-                        <p className={`font-medium truncate ${isStale ? 'text-amber-600 dark:text-amber-500' : isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
+                        /* The NAME no longer carries sync state. Indigo here means
+                           "this set is active" and nothing else — colouring it for
+                           staleness too made an active set and a stale one look
+                           identical, and an active+stale set ambiguous. The subline
+                           below says what to do instead. */
+                        <p className={`font-medium truncate ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{set.name}</p>
                       )}
-                      {/* Status in plain words on the subline — replaces the old
-                          colour-dots + legend. Shared/in-sync is indigo; unshared
-                          local edits amber; a newer cloud version red. */}
+                      {/* Status on the subline, worded as the ACTION to take rather
+                          than the condition that exists. Both states are bold caps:
+                          amber read at roughly 3:1 on white — fine at a desk, gone
+                          under stage lighting — where the body colour is ~15:1, and
+                          weight+caps carry the signal even where colour can't.
+                          Written in sentence case with the capitals applied in CSS:
+                          literal ALL-CAPS makes some screen readers spell it out.
+                          They keep DIFFERENT colours because the states aren't
+                          equally urgent — sending is your own work waiting, getting
+                          is someone else's work that may overwrite yours. */}
                       <p className="text-xs text-gray-400 dark:text-gray-600">
                         {count} {count === 1 ? 'song' : 'songs'}
                         {isPublished && <span className="text-indigo-500 dark:text-indigo-400"> · Shared</span>}
-                        {isStale     && <span className="text-amber-600 dark:text-amber-500"> · changes not sent</span>}
-                        {cloudAhead  && <span className="text-red-500 dark:text-red-400"> · newer version in cloud</span>}
+                        {isStale     && <span className="font-bold uppercase tracking-wide text-gray-900 dark:text-white"> · Send changes</span>}
+                        {cloudAhead  && <span className="font-bold uppercase tracking-wide text-red-600 dark:text-red-400"> · Get newer</span>}
                       </p>
                     </div>
                     {/* Right-pointing arrow, to the LEFT of the actions menu. */}
@@ -860,8 +872,8 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                               ? { id: 'unpub', label: 'Stop Sharing Set', icon: CloudOff, danger: true, onSelect: () => handleUnpublishClick(set) }
                               : { id: 'pub',   label: 'Publish',   icon: UploadCloud, onSelect: () => handlePublishClick(set) }),
                             user && { id: 'share',   label: 'Share',     icon: Share,         disabled: !isPublished, onSelect: () => setShareDialogSet(set) },
-                            user && { id: 'over',    label: 'Get latest from cloud', icon: DownloadCloud, danger: true, disabled: !isPublished || presenting, onSelect: () => setPullDialog({ setId: set.id }) },
-                            user && { id: 'repub',   label: 'Republish', icon: UploadCloud,   disabled: !isPublished, onSelect: () => handlePublishClick(set) },
+                            user && { id: 'over',    label: 'Get latest from cloud', icon: DownloadCloud, danger: true, strong: cloudAhead, disabled: !isPublished || presenting, onSelect: () => setPullDialog({ setId: set.id }) },
+                            user && { id: 'repub',   label: 'Republish', icon: UploadCloud,   strong: isStale,    disabled: !isPublished, onSelect: () => handlePublishClick(set) },
                             { id: 'dup', label: 'Duplicate', icon: Copy, onSelect: () => handleDuplicateSet(set) },
                           ]}
                         />

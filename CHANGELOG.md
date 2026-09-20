@@ -3,6 +3,22 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.36 — 2026-09-20
+
+- **A shared set now tells you what to do, not what happened.** "· changes not
+  sent" becomes **· SEND CHANGES**, and "· newer version in cloud" becomes
+  **· GET NEWER** — both in bold capitals so they read at a glance.
+- **Amber is gone.** It washed out badly on a bright screen; the send-changes
+  label now uses the same strong colour as the set name, and **GET NEWER** stays
+  red. They keep different colours deliberately: sending is your own work
+  waiting, while getting is somebody else's work that could overwrite yours.
+- **The set name no longer changes colour**, so indigo once again means only
+  "this is the set you're working on" — an active set and an unsent one used to
+  look the same.
+- **The ⋮ menu points at the right item.** **Republish** turns bold when you
+  have changes to send, and **Get latest from cloud** turns bold when the cloud
+  is ahead, so the menu reads as a recommendation rather than six equal options.
+
 ## v1.5.35 — 2026-09-20
 
 - **Choose which model the AI runs on.** Settings → AI has a new **Model**

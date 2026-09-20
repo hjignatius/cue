@@ -10,7 +10,10 @@ import { MoreVertical } from 'lucide-react';
 // upward when there isn't room below. It closes on selection, outside press,
 // Escape, or any scroll (a fixed menu would otherwise detach from its row).
 //
-// items: array of { id, label, onSelect, disabled?, danger?, icon? }. `icon` is a
+// items: array of { id, label, onSelect, disabled?, danger?, strong?, icon? }.
+// `strong` bolds the label — used to point at the ONE item worth acting on right
+// now (e.g. Republish when a set has unsent changes), so the menu reads as a
+// recommendation rather than six equal options. `icon` is a
 // lucide component; it inherits the row's text color via currentColor, so a red
 // (danger) item's icon is red too. Falsy entries are skipped, so callers can
 // inline conditionals (cond && { ... }).
@@ -135,7 +138,7 @@ export default function RowMenu({ items, dark, label = 'More actions', iconSize 
                 role="menuitem"
                 disabled={it.disabled}
                 onClick={() => choose(it)}
-                className={`w-full flex items-center gap-2 px-3 py-3 pointer-fine:py-2.5 text-sm text-left ${text} ${bg}`}
+                className={`w-full flex items-center gap-2 px-3 py-3 pointer-fine:py-2.5 text-sm text-left ${it.strong && !it.disabled ? 'font-bold' : ''} ${text} ${bg}`}
               >
                 {it.icon && <it.icon size={16} strokeWidth={2} className="shrink-0" />}
                 {it.label}
