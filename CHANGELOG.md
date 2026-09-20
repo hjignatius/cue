@@ -3,6 +3,24 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.33 — 2026-09-20
+
+- **AI is back for PDF songs — the parts of it that apply.** The AI menu was
+  hidden entirely on a PDF lead sheet. The tools that *research* a song work
+  perfectly well on one, because they go by its title and any chords you typed
+  rather than by reading the sheet: **Fill in song details**, **Find music
+  online**, **Add missing chord shapes**, **Strumming pattern** and **Ask about
+  music** are all available now. The tools that *rewrite chart text* stay greyed
+  out, since a PDF has none — **Clean up formatting**, **Detect structure** and
+  **Condense** — and so does **Transposing advice**, whose suggestions are
+  applied by transposing, which a PDF deliberately ignores.
+- **Fill in song details can now work from just a title.** It used to refuse
+  outright when there was no chart text, which is the normal state of a PDF
+  song. It now identifies the song from its title instead, and researches the
+  key as a fact about the recording rather than trying to read it off chords
+  that aren't there. **Add missing chord shapes** still waits until you type
+  some chords — there's nothing to look up before that.
+
 ## v1.5.32 — 2026-09-20
 
 Settings had grown to six sections and eighteen controls, all permanently open.

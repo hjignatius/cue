@@ -424,6 +424,7 @@ Here comes the sun, little darlin</pre>
 <ul>
   <li><strong>Add chord diagrams.</strong> Type the chords the song uses into the text box (e.g. <code>[G] [C] [D] [Em]</code>) and their diagrams appear in the chord sidebar and over the sheet in Present, toggled on/off like any song. Because a PDF can't be transposed, its diagrams always render at the key you type — Transpose is disabled for PDFs.</li>
   <li><strong>Annotate it in Present</strong> (see below), and share it in a published set (see <em>Shared Sets</em>).</li>
+  <li><strong>Use the AI menu.</strong> The tools that <em>research</em> a song work on a PDF, because they go by its title and any chords you typed rather than by reading the sheet: <strong>Fill in song details</strong> (which identifies the song from its title alone when you haven't typed anything), <strong>Find music online</strong>, <strong>Add missing chord shapes</strong>, <strong>Strumming pattern</strong> and <strong>Ask about music</strong>. The tools that <em>rewrite chart text</em> are greyed out, since a PDF has none to rewrite — <strong>Clean up formatting</strong>, <strong>Detect structure</strong> and <strong>Condense</strong> — and so is <strong>Transposing advice</strong>, because its suggestions are applied by transposing, which a PDF deliberately ignores.</li>
 </ul>
 
 <h2>Annotation Overlay</h2>

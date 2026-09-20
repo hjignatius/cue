@@ -537,6 +537,8 @@ const FILL_RULES = {
   title:      '- title: the song\'s real title. Use the chart plus what you know; "" if genuinely unsure.',
   artist:     '- artist: the performer of the best-known/original recording; "" if genuinely unsure.',
   key:        '- key: infer the most likely key from the CHORDS in the chart (e.g. "G", "Em", "Bb"). Minor keys end in "m". "" if ambiguous.',
+  // Used instead of `key` when there is no chart text to read the chords from.
+  keyNoChart: '- key: the key of the best-known/original recording (e.g. "G", "Em", "Bb"). Minor keys end in "m". There is no chart to read, so this is a fact about the recording — "" if you are not reasonably sure.',
   timeSig:    '- timeSig: the metre of that recording as "beats/value" (e.g. "4/4", "3/4", "6/8", "12/8"). Most popular songs are 4/4; waltzes are 3/4; many folk, blues and worship songs are 6/8 or 12/8. Say "" rather than defaulting to "4/4" when you are not reasonably sure.',
   tempo:      '- tempo: approximate BPM of the well-known recording, as a plain integer string (e.g. "72"). "" if you don\'t know.',
   duration:   '- duration: length of that recording as M:SS (e.g. "4:05"). "" if you don\'t know.',
@@ -548,8 +550,16 @@ const FILL_RULES = {
 const NEEDS_SEARCH = new Set(['title', 'artist', 'timeSig', 'tempo', 'duration', 'youtubeUrl']);
 
 export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL) {
-  if (!text || !text.trim()) {
-    const err = new Error('Nothing to read — the chart is empty.');
+  const chart = (text || '').trim();
+  // The user's existing title/artist always go in as CONTEXT even when they
+  // weren't ticked — they're how the song gets identified at all.
+  const known = [hint.title && `title "${hint.title}"`, hint.artist && `artist "${hint.artist}"`]
+    .filter(Boolean).join(', ');
+  // A PDF lead sheet keeps its chart in the image, so there may be no text to
+  // read — but a title is still enough to identify the song and research the
+  // rest. Only refuse when there's neither.
+  if (!chart && !known) {
+    const err = new Error('Nothing to go on — add a title, or some chords, first.');
     err.code = 'empty';
     throw err;
   }
@@ -560,19 +570,21 @@ export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL)
     err.code = 'empty';
     throw err;
   }
-  // The user's existing title/artist always go in as CONTEXT even when they
-  // weren't ticked — they're how the song gets identified at all.
-  const known = [hint.title && `title "${hint.title}"`, hint.artist && `artist "${hint.artist}"`]
-    .filter(Boolean).join(', ');
-  const search = want.some(f => NEEDS_SEARCH.has(f));
+  // With no chart, `key` stops being readable off the chords and becomes another
+  // fact about the recording — so it needs the web search the others do.
+  const search = want.some(f => NEEDS_SEARCH.has(f)) || (!chart && want.includes('key'));
   const template = `{${want.map(f => `"${f}": ""`).join(', ')}}`;
+  const rule = (f) => (f === 'key' && !chart) ? FILL_RULES.keyNoChart : FILL_RULES[f];
 
-  const system = `You read a chord chart and fill in metadata for a musician's app.${known ? ` The user already set: ${known}.` : ''}
+  const system = `${chart
+    ? "You read a chord chart and fill in metadata for a musician's app."
+    : "You fill in metadata for a musician's app. This song is a PDF lead sheet, so there is NO chart text to read — identify it from the title and artist below."
+  }${known ? ` The user already set: ${known}.` : ''}
 
 ${search ? 'Identify the song, then use web search to confirm details about the best-known/original recording. ' : ''}The user asked you to work out ONLY these fields: ${want.join(', ')}. Respond with ONLY a JSON object (no prose, no code fence) containing exactly those keys:
 ${template}
 Rules:
-${want.map(f => FILL_RULES[f]).join('\n')}
+${want.map(rule).join('\n')}
 When unsure, prefer "". Do not include any key that is not listed above.`;
 
   const data = await callClaude({
@@ -581,7 +593,9 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
     output_config: { effort: 'low' },
     system,
     ...(search ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }] } : {}),
-    messages: [{ role: 'user', content: text.slice(0, 8000) }],
+    // With no chart there's nothing to paste, so name the song instead — the
+    // Messages API still needs a user turn.
+    messages: [{ role: 'user', content: chart ? chart.slice(0, 8000) : `The song is: ${known}.` }],
   });
   const j = extractJson(textOf(data)) || {};
   const str = (v) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');

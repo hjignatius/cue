@@ -864,11 +864,19 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     }
   }
 
+  // Enough to identify this song? A pdf song's chart lives in the image, so
+  // `text` is usually empty — but its TITLE still names a song the research
+  // tools can look up. A function declaration (hoisted) so the runners below can
+  // call it regardless of where it sits in the component.
+  function canIdentifySong() {
+    return text.trim() !== '' || !!metadata.title?.trim();
+  }
+
   // Fill in song details (AI) — reads the chart, opens a dialog of suggestions
   // the user can apply field-by-field.
   // Step 1: what does this song have now, and what should Cue work out?
   function openFillAsk() {
-    if (aiBusy || text.trim() === '') return;
+    if (aiBusy || !canIdentifySong()) return;
     setFillSkip({});   // every field starts ticked
     setFillAsk(true);
   }
@@ -876,7 +884,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Step 2: look up the chosen fields. `fields` omitted = re-run what step 1
   // chose (the smarter-model retry), never silently widen back to everything.
   async function runFill(model, fields) {
-    if (aiBusy || text.trim() === '') return;
+    if (aiBusy || !canIdentifySong()) return;
     const use = fields || fillFields;
     if (use.length === 0) return;
     setFillFields(use);
@@ -2161,11 +2169,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
         </>)}
 
-        {/* AI menu (text songs) — rendered in BOTH layouts (previously wide-only,
-            so it was missing on phones). Muted until a key is saved; tapping it
-            while muted opens the setup so touch users aren't stranded. */}
-        {songType !== 'pdf' && (
-          <span ref={aiAnchorRef} className="relative inline-flex shrink-0">
+        {/* AI menu — rendered in BOTH layouts (previously wide-only, so it was
+            missing on phones). Muted until a key is saved; tapping it while muted
+            opens the setup so touch users aren't stranded.
+            Shown for PDF songs too: the tools that RESEARCH a song (find it
+            online, fill in details, chord shapes for chords you typed, strumming,
+            Ask) work from its title and any chords you add, and don't care that
+            the chart is an image. The ones that REWRITE chart text — clean up,
+            detect structure, condense — are disabled per item below. */}
+        <span ref={aiAnchorRef} className="relative inline-flex shrink-0">
             <button
               onClick={() => { setAiReady(hasApiKey()); setAiMenuOpen(o => !o); }}
               aria-haspopup="menu" aria-expanded={aiMenuOpen} aria-label="AI"
@@ -2184,7 +2196,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   onClick={() => runFromAiMenu(runFind)}>
                   <Globe size={15} className="opacity-70" /> Find music online
                 </button>
-                <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
+                <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText || songType === 'pdf'}
                   className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
                   onClick={() => runFromAiMenu(runCleanup)}>
                   <Wand2 size={15} className="opacity-70" /> Clean up formatting
@@ -2206,7 +2218,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     <Maximize2 size={15} className="opacity-70" /> Expand (show in full)
                   </button>
                 )}
-                <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
+                {/* Not isEmptyText: a pdf song with a title and no typed chords
+                    is exactly when this is most useful. */}
+                <button type="button" role="menuitem" tabIndex={-1} disabled={!canIdentifySong()}
                   className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
                   onClick={() => runFromAiMenu(openFillAsk)}>
                   <ListPlus size={15} className="opacity-70" /> Fill in song details
@@ -2218,8 +2232,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     <Guitar size={15} className="opacity-70" /> Add missing chord shapes
                   </button>
                 )}
-                <button type="button" role="menuitem" tabIndex={-1}
-                  className={menuItem}
+                {/* Its "Apply" sets a display key, and Transpose is deliberately
+                    inert on a pdf (chords must match the printed sheet), so the
+                    advice would be unusable rather than merely unhelpful. */}
+                <button type="button" role="menuitem" tabIndex={-1} disabled={songType === 'pdf'}
+                  className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
                   onClick={() => runFromAiMenu(runAdvice)}>
                   <ArrowLeftRight size={15} className="opacity-70" /> Transposing advice
                 </button>
@@ -2246,8 +2263,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 </button>
               </>)}
             </OverflowMenu>
-          </span>
-        )}
+        </span>
         {/* Shown in BOTH layouts: hiding this on compact chrome meant an AI
             failure on a phone reported nothing at all — the action just stopped.
             min-w-0 + truncate so a long message can't stretch the toolbar row. */}
