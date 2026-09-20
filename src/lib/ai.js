@@ -626,7 +626,8 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
 [{"name": "<chord name exactly as given>", "frets": [${tuning.map(() => 'n').join(', ')}]}]
 - "frets" has exactly ${n} integers, one per string in the tuning order above: 0 = open string, a positive number = that fret, -1 = muted/not played.
 - Prefer the easiest standard shape in a low position. Real, playable fingerings only — never invent an impossible shape.
-- Include every requested chord you can voice; omit any you genuinely cannot.`;
+- With ${n} strings you often have FEWER strings than an extended or altered chord has notes (11ths, 13ths, 7#5#9 and the like). That is normal and is NOT a reason to refuse: voice them as players actually do, dropping the least essential tones — the 5th first, then the root or 9th — while keeping what defines the chord (the 3rd, the 7th, and any named alteration).
+- Omit a chord only if you truly cannot produce a playable approximation. Returning nothing for a chord a player could finger is a failure.`;
 
   const data = await callClaude({
     ...(model ? { model } : {}),

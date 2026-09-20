@@ -3,6 +3,22 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.34 — 2026-09-20
+
+- **Fixed: "Add missing chord shapes" claimed your chords were already covered
+  when it had simply failed.** Ask it for a stretch of extended chords —
+  `Cm11`, `Fm11`, `F#m7b5`, `A7#5#9` — and if the AI returned nothing, Cue said
+  *"All set — nothing left to add"*, which reads as "those chords are fine" when
+  it means the opposite. It now names the chords it couldn't voice, and the
+  **Try again — smarter model** button appears in that state too. Previously
+  that button only showed when shapes *had* been found, so the one case where
+  escalating actually helps was the one case with no way forward.
+- **And it should refuse far less often.** The instruction told it to omit any
+  chord it couldn't voice — and on a 4-string ukulele an 11th chord has more
+  notes than strings, so it took that option. It's now told what players
+  actually do: drop the 5th, then the root or 9th, and keep the 3rd, 7th and any
+  named alteration.
+
 ## v1.5.33 — 2026-09-20
 
 - **AI is back for PDF songs — the parts of it that apply.** The AI menu was

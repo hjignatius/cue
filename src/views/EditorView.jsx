@@ -1786,8 +1786,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {!chordResult.loading && chordResult.error && (
           <p className="text-sm text-red-500">{chordResult.error}</p>
         )}
+        {/* The model returned no voicings. It previously said "All set — nothing
+            left to add", which claims the chords are COVERED when they aren't —
+            and sent at least one person hunting for a bug in chord detection. */}
         {!chordResult.loading && !chordResult.error && chordResult.shapes.length === 0 && (
-          <p className={`text-sm ${mutedText}`}>All set — nothing left to add.</p>
+          <p className={`text-sm ${mutedText}`}>
+            Couldn't work out {chordResult.missing.length === 1 ? 'a shape' : 'shapes'} for{' '}
+            <span className={dark ? 'text-gray-200' : 'text-gray-800'}>{chordResult.missing.join(', ')}</span>{' '}
+            on {chordLibraryToInstrument(instrument)}. Extended and altered chords have more notes
+            than strings, so they're worth a second try on the stronger model.
+          </p>
         )}
         {!chordResult.loading && chordResult.shapes.length > 0 && (<>
           <p className={`text-xs ${mutedText}`}>Check each shape, then add it to your {chordLibraryToInstrument(instrument)} library. You can edit or delete any custom chord later in the chord panel.</p>
@@ -1818,11 +1826,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               Close
             </button>
           </div>
+        </>)}
+
+        {/* Outside the shapes-found branch: when nothing came back is exactly
+            when escalating matters, and it used to be the one state with no way
+            forward. */}
+        {!chordResult.loading && !chordResult.error && chordResult.missing.length > 0 && (
           <button onClick={() => runChordShapes(chordResult.missing, SMARTER_MODEL)} title="Re-fetch these shapes on the more capable model (Opus) — slower, costs a bit more"
             className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
             <Sparkles size={13} /> Try again — smarter model
           </button>
-        </>)}
+        )}
       </div>
     </div>
   );
