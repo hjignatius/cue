@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.30 — 2026-09-20
+
+- **Present's own settings now live in Present.** Controls fade delay, scroll
+  start delay, count-in sound/visual and pedal paging (with page turn size and
+  glide) have moved out of the Settings panel and into a **gear** in Present's
+  tool tray — tap the wrench in the left gutter, then the gear. You can now set
+  them while watching what they actually do, instead of guessing a glide in
+  milliseconds from a settings screen. They are still global settings that apply
+  to every song; nothing you had set has changed.
+- **Settings is a third shorter** as a result — two whole sections gone, with a
+  one-line note pointing to where they went.
+
 ## v1.5.29 — 2026-09-20
 
 - **Fixed: "Fill in song details" looked like it had changed things it hadn't.**

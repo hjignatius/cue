@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { usePrefs, PRESENT_NO_FADE, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
+import { usePrefs, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
@@ -75,12 +75,8 @@ const OTP_MAX_LEN = 10;
 const OTP_AUTOSUBMIT_MS = 400;
 
 export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, aiLevel, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
   const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
-  const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
-  const noFade = presentIdleSec === PRESENT_NO_FADE;
-  const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
-  const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
 
@@ -370,152 +366,14 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
             </div>
           </section>
 
-          {/* Metronome */}
-          <section className="flex flex-col gap-4">
-            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Metronome</h3>
-            <div className="flex flex-col gap-2">
-              <span className={`text-sm ${label}`}>BPM tap mode</span>
-              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                {[['sound', '♪ Sound'], ['silent', '⚡ Visual']].map(([val, text], i) => (
-                  <button
-                    key={val}
-                    onClick={() => updatePref('metronomeMode', val)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i === 1 ? `border-l ${border}` : ''} ${
-                      metronomeMode === val
-                        ? 'bg-indigo-600 text-white'
-                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Present */}
-          <section className="flex flex-col gap-4">
-            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Present</h3>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className={`text-sm ${label}`}>Controls fade delay</span>
-                <span className={`text-sm tabular-nums ${muted}`}>{noFade ? 'Never' : idleSec === 0 ? 'Immediate' : `${idleSec}s`}</span>
-              </div>
-              {/* 0–5s: how long the floating controls and the side buttons wait
-                  after your last tap before fading and collapsing out of the way.
-                  Greyed while practice mode (no fade) is on, since it's inactive. */}
-              <div className={`flex rounded-lg border ${border} overflow-hidden ${noFade ? 'opacity-40' : ''}`}>
-                {[0, 1, 2, 3, 4, 5].map((n, i) => (
-                  <button
-                    key={n}
-                    onClick={() => updatePref('presentIdleSec', n)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
-                      !noFade && idleSec === n
-                        ? 'bg-indigo-600 text-white'
-                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-              {/* Practice mode: keep the floating controls and side gutter up all
-                  the time (no fade, no auto-collapse). Toggling it off restores the
-                  default 3s fade. */}
-              <button
-                onClick={() => updatePref('presentIdleSec', noFade ? 3 : PRESENT_NO_FADE)}
-                className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
-                  noFade
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                }`}
-              >
-                Keep controls up (practice mode)
-              </button>
-              <p className={`text-xs ${muted}`}>Seconds before the Present controls fade and collapse. 0 hides them right away. Practice mode keeps them up the whole time.</p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className={`text-sm ${label}`}>Scroll start delay</span>
-                <span className={`text-sm tabular-nums ${muted}`}>{scrollDelaySec === 0 ? 'None' : `${scrollDelaySec}s`}</span>
-              </div>
-              {/* 0–10s lead-in after the scroll button is pressed before
-                  auto-scroll actually begins. */}
-              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n, i) => (
-                  <button
-                    key={n}
-                    onClick={() => updatePref('scrollStartDelaySec', n)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
-                      scrollDelaySec === n
-                        ? 'bg-indigo-600 text-white'
-                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <p className={`text-xs ${muted}`}>Seconds to wait after pressing the scroll button before scrolling starts.</p>
-            </div>
-
-            {/* Pedal paging (GLOBAL, not per song): switch Next/Previous from
-                song-to-song skipping to paging through the current song a
-                screenful at a time (for a page-turner pedal). Disables auto-scroll
-                while on. A per-song Full Page song always turns whole pages. */}
-            <div className="flex flex-col gap-2">
-              <span className={`text-sm ${label}`}>Pedal paging mode</span>
-              <button
-                onClick={() => updatePref('pedalPaging', !pedalPaging)}
-                className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
-                  pedalPaging
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                }`}
-              >
-                {pedalPaging ? 'On' : 'Off'}
-              </button>
-              <p className={`text-xs ${muted}`}>Next/Previous page through the current song by one screen instead of skipping songs; at a song's end they move to the next/previous song. Auto-scroll is turned off in this mode.</p>
-
-              {/* Sub-settings: only shown while pedal paging is on. */}
-              {pedalPaging && (
-                <div className={`flex flex-col gap-2 mt-1 pl-3 border-l-2 ${border}`}>
-                  <span className={`text-sm ${label}`}>Page turn size</span>
-                  <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                    {[['full', 'Full'], ['threequarters', '3/4'], ['half', '1/2']].map(([val, text], i) => (
-                      <button
-                        key={val}
-                        onClick={() => updatePref('pageSize', val)}
-                        className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
-                          (pageSize ?? 'full') === val
-                            ? 'bg-indigo-600 text-white'
-                            : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                        }`}
-                      >
-                        {text}
-                      </button>
-                    ))}
-                  </div>
-                  <p className={`text-xs ${muted}`}>How far each Next / Previous press moves — a full screen, three quarters, or half a screen.</p>
-
-                  <div className="flex items-center justify-between mt-1">
-                    <span className={`text-sm ${label}`}>Page turn glide</span>
-                    <span className={`text-sm tabular-nums ${muted}`}>{glideMs === 0 ? 'Instant' : `${glideMs} ms`}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0" max="2000" step="50"
-                    value={glideMs}
-                    onChange={e => updatePref('pageGlideMs', Number(e.target.value))}
-                    aria-label="Page turn glide duration in milliseconds"
-                    className="w-full accent-indigo-600 cursor-pointer"
-                  />
-                  <p className={`text-xs ${muted}`}>How long a page turn takes to glide to the next screen. 0 is an instant jump; higher is a slower, smoother glide.</p>
-                </div>
-              )}
-            </div>
-          </section>
+          {/* Present-mode settings moved INTO Present (wrench -> gear). They
+              can only be judged while presenting — a glide in milliseconds or a
+              fade delay is guesswork from a settings screen — and they were a
+              third of this panel's length. One line so nobody hunts for them. */}
+          <p className={`text-xs ${muted}`}>
+            Controls fade, scroll start delay, count-in style and pedal paging now live in{' '}
+            <span className={label}>Present</span> — tap the wrench, then the gear.
+          </p>
 
           {/* AI (optional) — bring-your-own Anthropic key. Stored on this device
               only; powers the editor's AI menu (find music, clean up, fill in
