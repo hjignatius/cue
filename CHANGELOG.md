@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.31 — 2026-09-20
+
+- **Fixed: Present wouldn't open in 1.5.30.** Moving the Present settings in
+  1.5.30 left one line reading a value before it existed, which made Present
+  fail the moment you opened it. Bumping the version so you can tell the two
+  builds apart. Sorry — that one was on me.
+
 ## v1.5.30 — 2026-09-20
 
 - **Present's own settings now live in Present.** Controls fade delay, scroll

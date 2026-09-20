@@ -640,6 +640,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear flash timers on unmount
   useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
 
+  // The Present-scoped settings sheet (fade, scroll lead-in, count-in, paging).
+  // Declared HERE, immediately above the ref that mirrors it — the ref assignment
+  // runs during render, so a declaration further down the component is a temporal
+  // dead zone error that takes the whole view out.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Read inside the key handler, which deliberately keeps its narrow dep list —
   // a ref avoids re-binding the window listener every time the sheet toggles.
   const settingsOpenRef = useRef(false);
@@ -796,9 +801,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Idle fade for the gutter action buttons — mirrors PresentControls: fade after
   // a spell of no input, wake on any pointerdown. Same delay/opacity so the two
   // control surfaces ghost together and come back together.
-  // The Present-scoped settings sheet (fade, scroll lead-in, count-in, paging).
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
   const [gutterIdle, setGutterIdle] = useState(false);
   const gutterIdleTimer = useRef(null);
   useEffect(() => {
