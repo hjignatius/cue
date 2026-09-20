@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Pencil, Wrench, Settings as SettingsIcon } from 'lucide-react';
+import { X, Pencil, Wrench } from 'lucide-react';
 import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN } from '../components/PresentControls.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
@@ -18,7 +18,6 @@ import { Fragment } from 'react';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import PdfSongView from '../components/PdfSongView.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
-import PresentSettings from '../components/PresentSettings.jsx';
 import { beatsPerBar } from '../utils/timeSig.js';
 import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
@@ -640,16 +639,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Clear flash timers on unmount
   useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
 
-  // The Present-scoped settings sheet (fade, scroll lead-in, count-in, paging).
-  // Declared HERE, immediately above the ref that mirrors it — the ref assignment
-  // runs during render, so a declaration further down the component is a temporal
-  // dead zone error that takes the whole view out.
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  // Read inside the key handler, which deliberately keeps its narrow dep list —
-  // a ref avoids re-binding the window listener every time the sheet toggles.
-  const settingsOpenRef = useRef(false);
-  settingsOpenRef.current = settingsOpen;
-
   // Keyboard shortcuts — also the wiring for Bluetooth page-turner pedals, which
   // present to the OS as HID keyboards: each pedal press sends one of these keys.
   // Listener lives with Present mode and is torn down on close (effect cleanup).
@@ -659,10 +648,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       // edit-in-place control), let the keystroke through untouched.
       const el = e.target;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-
-      // Settings sheet open: no page turns, no scroll toggle, and crucially no
-      // Escape-to-exit — Escape belongs to the sheet, which handles it itself.
-      if (settingsOpenRef.current) return;
 
       // Page navigation (arrows / page keys / pedal presses). Skip auto-repeat so
       // a held-down pedal flips one page, not many; preventDefault so the
@@ -1070,18 +1055,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         </RoundButton>
 
         {toolsOpen && (<>
-        {/* Present's own settings. In the tray rather than the control pill: it's
-            a set-and-forget tool, not something reached for mid-song. */}
-        <RoundButton
-          size={PRESENT_ACTION_BUTTON_SIZE}
-          label="Present settings"
-          fill={actionFill}
-          active={settingsOpen}
-          onActivate={() => setSettingsOpen(true)}
-        >
-          <SettingsIcon size={20} strokeWidth={2} />
-        </RoundButton>
-
         {showEdit && (
           <RoundButton
             size={PRESENT_ACTION_BUTTON_SIZE}
@@ -1197,8 +1170,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         tempo={Number(meta.tempo) || 0}
         timeSig={meta.timeSig}
       />
-
-      {settingsOpen && <PresentSettings onClose={() => setSettingsOpen(false)} />}
 
     </div>
   );

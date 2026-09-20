@@ -519,7 +519,7 @@ Bb,8-10-11-10,1243</pre>
   <tr><th>Button</th><th>Action</th></tr>
   <tr><td><strong>A− / A+</strong></td><td>Shrink or enlarge the lyric text. Your size is remembered when you leave and re-enter Present mode. Dimmed at the smallest and largest sizes.</td></tr>
   <tr><td><strong>◀ / ▶</strong></td><td>Previous / next song. Dimmed at the first and last song of the set, and when presenting a single song.</td></tr>
-  <tr><td><strong>Metronome (count-in)</strong></td><td>Plays a <strong>two-bar</strong> count-in, then stops — 8 beats in 4/4, 6 in 3/4, and so on. It counts the pulse you actually feel, so the compound signatures count in groups of three: <strong>6/8 counts 2 to the bar, 9/8 counts 3, 12/8 counts 4</strong> (twelve clicks would be no use to play to). It is a count-in, not a running metronome. Dimmed when the song has no tempo set. Sound or Visual is chosen in <strong>Present → wrench → gear → Count-in</strong>.</td></tr>
+  <tr><td><strong>Metronome (count-in)</strong></td><td>Plays a <strong>two-bar</strong> count-in, then stops — 8 beats in 4/4, 6 in 3/4, and so on. It counts the pulse you actually feel, so the compound signatures count in groups of three: <strong>6/8 counts 2 to the bar, 9/8 counts 3, 12/8 counts 4</strong> (twelve clicks would be no use to play to). It is a count-in, not a running metronome. Dimmed when the song has no tempo set. Sound or Visual is chosen in <strong>Settings → Metronome</strong>.</td></tr>
   <tr><td><strong>↓ / ❚❚</strong></td><td>Starts auto-scroll; turns into a pause button and lights up while running.</td></tr>
 </table>
 
@@ -547,7 +547,7 @@ Bb,8-10-11-10,1243</pre>
 <div class="tip"><strong>Note:</strong> Annotations are stored only on this device and are tied to the song. They are never included in PDF exports, JSON bundles, backups, or shared-set links — a shared set shows no ink to its viewers.</div>
 
 <h2>Count-In</h2>
-<p>Tap the <strong>metronome</strong> button on the floating panel to hear or see a two-bar count-in. It plays a fixed number of beats and stops on its own — it does not keep running. The mode is set in <strong>Present settings</strong> (the wrench in the left gutter, then the gear) under <strong>Count-in</strong>:</p>
+<p>Tap the <strong>metronome</strong> button on the floating panel to hear or see a two-bar count-in. It plays a fixed number of beats and stops on its own — it does not keep running. The mode is set in <strong>Settings → Metronome → BPM tap mode</strong>:</p>
 <ul>
   <li><strong>Sound</strong> — plays audio clicks. The downbeat of each measure is a higher pitch; other beats are lower.</li>
   <li><strong>Visual</strong> — no sound. The top bar flashes white (dark theme) or black (light theme) once per beat. Downbeats flash at full intensity; other beats flash softer.</li>
@@ -573,24 +573,13 @@ Bb,8-10-11-10,1243</pre>
 <p>A Bluetooth page-turner pedal pairs with an iPad as a keyboard, so it works in Present mode with no setup — each press sends a key Cue already listens for. Cue maps <strong>Next</strong> to <code>→</code>, <code>↓</code>, or <code>Page Down</code>, and <strong>Previous</strong> to <code>←</code>, <code>↑</code>, or <code>Page Up</code>. The on-screen ◀ / ▶ and the arrow keys do the same, and a held pedal turns one page, not several. What Next / Previous <em>do</em> is set two ways:</p>
 <h3>Full Page — per song</h3>
 <p>Turn on <strong>Display → Full Page</strong> for a song (in the editor's metadata bar) and Present shows it as discrete full pages that fit the screen. Next turns a whole page; at the last page it rolls on to the next song. This is the natural fit for a multi-page <strong>PDF</strong> lead sheet. (A one-screen text song set to Full Page simply advances to the next song.)</p>
-<h2>Present Settings</h2>
-<p>The settings that only matter while you are presenting live <em>in</em> Present, not in the main Settings panel — you cannot sensibly judge a page-turn glide or a fade delay from a settings screen. Tap the <strong>wrench</strong> in the left-hand gutter to open the tool tray, then the <strong>gear</strong>:</p>
-<table>
-  <tr><th>Setting</th><th>What it does</th></tr>
-  <tr><td><strong>Controls fade delay</strong></td><td>0–5 seconds before the floating controls and side buttons dim and collapse. 0 hides them straight away. <strong>Keep controls up (practice mode)</strong> stops them fading at all.</td></tr>
-  <tr><td><strong>Scroll start delay</strong></td><td>0–10 seconds of lead-in after you press the scroll button before auto-scroll actually begins — time to get your hands to the instrument.</td></tr>
-  <tr><td><strong>Count-in</strong></td><td><strong>♪ Sound</strong> clicks out loud; <strong>⚡ Visual</strong> flashes the button instead, for a quiet stage.</td></tr>
-  <tr><td><strong>Pedal paging mode</strong></td><td>See below.</td></tr>
-</table>
-<p>These are <strong>global</strong> — they apply to every song, exactly as they did when they lived in Settings. Changing one here changes it everywhere.</p>
-
-<h3>Foot pedal advances by — global (Present settings)</h3>
+<h3>Foot pedal advances by — global (Settings → Present)</h3>
 <p>For songs that <em>aren't</em> Full Page (ordinary scrolling songs, text or PDF), this one global setting decides what the pedal / ◀ ▶ / keys do:</p>
 <ul>
   <li><strong>Songs</strong> (default) — Next / Previous jump song-to-song; you read each song by scrolling, and auto-scroll is available.</li>
   <li><strong>Screen</strong> — Next moves down the current song by about one screen (keeping a line or two of overlap so you don't lose your place); Previous moves back up. At the bottom it rolls to the next song, at the top to the previous — no wrap-around. Auto-scroll is off in this mode.</li>
 </ul>
-<p>In <strong>Screen</strong> mode two extra controls appear in the same panel: <strong>Page turn size</strong> (full / three-quarter / half screen) and <strong>Page turn glide</strong> (0–2000&nbsp;ms — 0 jumps instantly, higher glides smoothly; default 550&nbsp;ms). Crossing into a new song is always an instant cut.</p>
+<p>In <strong>Screen</strong> mode two extra controls appear under the same Settings section: <strong>Page turn size</strong> (full / three-quarter / half screen) and <strong>Page turn glide</strong> (0–2000&nbsp;ms — 0 jumps instantly, higher glides smoothly; default 550&nbsp;ms). Crossing into a new song is always an instant cut.</p>
 <div class="tip"><strong>Note:</strong> A <strong>Full Page</strong> song always turns whole pages regardless of the Screen/Songs setting. The global setting applies to the on-screen ◀ / ▶ and the keyboard too, not just a pedal. Leave it on <strong>Songs</strong> for the usual scroll-and-skip behavior.</div>
 
 <h2>Editing During Performance</h2>
