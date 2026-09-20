@@ -544,6 +544,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [fillAsk, setFillAsk]           = useState(false);
   const [fillSkip, setFillSkip]         = useState({});
   const [fillFields, setFillFields]     = useState([]);
+  // What the song held when these suggestions arrived. Without it, a suggestion
+  // that merely AGREES with the song is indistinguishable from one the user
+  // applied — both just satisfy `metadata[field] === value`.
+  const [fillBaseline, setFillBaseline] = useState({});
   const [aiMsg, setAiMsg]               = useState('');
   // Which in-place tool just ran (null = nothing to escalate), so the status line
   // can offer a "Try again — smarter" that re-runs it on the stronger model.
@@ -880,6 +884,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setFillResult({ loading: true, error: '', suggest: null });
     try {
       const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use);
+      // Safe to read `metadata` from this closure: the dialog is modal for the
+      // whole request, so the song can't have been edited while we waited.
+      setFillBaseline({ ...metadata });
       setFillResult({ loading: false, error: '', suggest });
     } catch (e) {
       setFillResult({ loading: false, error: e?.message || 'Could not read details.', suggest: null });
@@ -1578,6 +1585,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           // No tick boxes here — the choosing happened in step 1, and every row
           // shown is one the user asked for. This is purely "take it or leave it".
           const allApplied = rows.every(r => metadata[r.field] === r.value);
+          // Did THIS dialog actually change anything? A row that merely agrees
+          // with the song doesn't count, or a run that changed nothing would
+          // still announce "All applied" / "Done".
+          const appliedNow = rows.some(r => metadata[r.field] === r.value && fillBaseline[r.field] !== r.value);
           return (<>
             <p className={`text-xs ${mutedText}`}>Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.</p>
             <ul className="flex flex-col gap-2">
@@ -1587,13 +1598,25 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
                     <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.value}</span>
                   </span>
-                  <button
-                    onClick={() => applyDetail(r.field, r.value)}
-                    disabled={metadata[r.field] === r.value}
-                    className={`shrink-0 px-3 py-1.5 text-xs rounded-lg border transition-colors ${metadata[r.field] === r.value ? (dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400') : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'}`}
-                  >
-                    {metadata[r.field] === r.value ? 'Applied' : 'Apply'}
-                  </button>
+                  {/* Three states, not two. "Matches" means the song ALREADY
+                      held this value — the tool agreeing with you, not acting on
+                      your behalf. Labelling that "Applied" made a re-run look
+                      like it had quietly changed things. */}
+                  {(() => {
+                    const settled = metadata[r.field] === r.value;
+                    const agreed  = settled && fillBaseline[r.field] === r.value;
+                    return (
+                      <button
+                        onClick={() => applyDetail(r.field, r.value)}
+                        disabled={settled}
+                        title={agreed ? 'Your song already has this — nothing to change'
+                                      : settled ? 'You applied this' : 'Put this into the song'}
+                        className={`shrink-0 px-3 py-1.5 text-xs rounded-lg border transition-colors ${settled ? (dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400') : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'}`}
+                      >
+                        {agreed ? 'Matches' : settled ? 'Applied' : 'Apply'}
+                      </button>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>
@@ -1607,7 +1630,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     : 'bg-indigo-600 hover:bg-indigo-500 text-white'
                 }`}
               >
-                {allApplied ? 'All applied' : 'Apply all'}
+                {allApplied ? (appliedNow ? 'All applied' : 'Nothing to change') : 'Apply all'}
               </button>
               <button
                 onClick={() => setFillResult(null)}
@@ -1617,7 +1640,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
-                {allApplied ? 'Done' : 'Close'}
+                {allApplied && appliedNow ? 'Done' : 'Close'}
               </button>
             </div>
             <button onClick={() => runFill(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"

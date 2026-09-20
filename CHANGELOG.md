@@ -3,6 +3,20 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.29 — 2026-09-20
+
+- **Fixed: "Fill in song details" looked like it had changed things it hadn't.**
+  A suggestion that simply agreed with what your song already had was shown as
+  greyed-out **Applied** — the same as one you'd actually applied. On a
+  **Try again — smarter model** run this was especially misleading, because a
+  better answer is more likely to land on the values you already have, so
+  several rows would grey out at once and the whole dialog read as though it had
+  quietly edited the song. It hadn't: nothing is ever written without tapping
+  **Apply** or **Apply all**. Those rows now read **Matches**, meaning the song
+  already has that value — which is the tool confirming your work, not changing
+  it. The buttons below no longer claim **All applied** or **Done** for a run
+  that changed nothing.
+
 ## v1.5.28 — 2026-09-19
 
 - **Time signatures beyond 4/4 and 3/4.** The Tempo row's 4/4 ↔ 3/4 toggle is
