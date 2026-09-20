@@ -4,7 +4,7 @@ import { usePrefs, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
-import { getApiKey, setApiKey } from '../lib/ai.js';
+import { getApiKey, setApiKey, AI_TIERS, tierById } from '../lib/ai.js';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
@@ -111,7 +111,7 @@ function Section({ title, badge, summary, open, onToggle, dark, children }) {
 }
 
 export default function SettingsPanel({ open, onClose, hideAccount = false, initialSection = null }) {
-  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, aiTier, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
   const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
@@ -281,9 +281,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
   const accidentalLabel = accidentals === 'flats' ? 'Flats' : accidentals === 'sharps' ? 'Sharps' : 'Auto';
   const appearanceSummary = `${dark ? 'Dark' : 'Light'} · ${accidentalLabel}`;
   const chordsSummary = instrumentLabel;
-  const aiSummary = aiKeySaved
-    ? `Key saved · ${(aiLevel || 'intermediate').replace(/^./, c => c.toUpperCase())}`
-    : 'Not set up';
+  const aiSummary = aiKeySaved ? `Key saved · ${tierById(aiTier).label}` : 'Not set up';
   const accountSummary = user?.email || 'Signed out';
   // Both halves of Data & Account on one line, skipping whichever doesn't apply.
   const dataSummary = [
@@ -490,6 +488,35 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 <p className="text-[11px] text-green-600 dark:text-green-500">Key saved — the AI menu is active in the editor.</p>
               )}
             </div>
+            {/* Which model the AI tools run on. Deliberately named by INTENT, not
+                by model id: a retired model is remapped in one row of AI_TIERS,
+                where a stored raw id would break every AI action. */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Model</span>
+              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                {AI_TIERS.map((t, i) => (
+                  <button
+                    key={t.id}
+                    onClick={() => updatePref('aiTier', t.id)}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
+                      aiTier === t.id
+                        ? 'bg-indigo-600 text-white'
+                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className={`text-xs ${muted}`}>{tierById(aiTier).blurb}</p>
+              <p className={`text-xs ${muted}`}>
+                Every AI action bills your own Anthropic account, so this is your call. <span className={`font-medium ${label}`}>Try again — smarter</span> re-runs a single
+                answer one step above this setting; on the top setting there is nothing
+                above it, so that link doesn't appear. A cheaper tier is planned once
+                Cue can offer a free one.
+              </p>
+            </div>
+
             {/* Playing level — tailors AI answers (Ask about music, Transposing
                 advice) from beginner-friendly explanations to terse expert ones. */}
             <div className="flex flex-col gap-2">

@@ -3,6 +3,22 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.35 — 2026-09-20
+
+- **Choose which model the AI runs on.** Settings → AI has a new **Model**
+  setting: **Balanced** (the default, unchanged from before) or **Best** — the
+  most capable model, slower and several times the cost per request. Every AI
+  action bills your own Anthropic account, so the trade is yours to make.
+  Nothing changes unless you pick Best.
+- **"Try again — smarter" now follows your setting.** It re-runs a single answer
+  one step above whatever you've chosen. On **Best** there's nothing above it,
+  so the link no longer appears at all — previously it would have re-run an
+  identical request and charged you again for the same answer.
+- The setting is named by what you want rather than by model name, so a model
+  being retired can't strand it — and an unrecognised saved value quietly falls
+  back to Balanced instead of breaking every AI action. A cheaper tier is
+  planned for when Cue can offer a genuinely free one.
+
 ## v1.5.34 — 2026-09-20
 
 - **Fixed: "Add missing chord shapes" claimed your chords were already covered

@@ -17,7 +17,7 @@ import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, SMARTER_MODEL } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, escalatedModel, escalatedTierLabel, canEscalate } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
 import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
@@ -554,8 +554,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [aiRetry, setAiRetry]           = useState(null); // null | 'clean' | 'structure' | 'condense'
   function retrySmarter() {
     const k = aiRetry; setAiRetry(null);
-    if (k === 'clean') runCleanup(SMARTER_MODEL);
-    else if (k === 'structure') runDetectStructure(SMARTER_MODEL);
+    if (k === 'clean') runCleanup(escalatedModel());
+    else if (k === 'structure') runDetectStructure(escalatedModel());
   }
   const [findResult, setFindResult]     = useState(null); // null | { loading, error, items }
   const [fillResult, setFillResult]     = useState(null); // null | { loading, error, suggest }
@@ -785,7 +785,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       } else {
         flashAi('Already tidy.');
       }
-      if (model !== SMARTER_MODEL) setAiRetry('clean');
+      if (canEscalate(model)) setAiRetry('clean');
     } catch (e) {
       flashAi(e?.message || 'Clean up failed.');
     } finally {
@@ -809,7 +809,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       } else {
         flashAi('No new sections found — left as is.');
       }
-      if (model !== SMARTER_MODEL) setAiRetry('structure');
+      if (canEscalate(model)) setAiRetry('structure');
     } catch (e) {
       flashAi(e?.message || 'Detect structure failed.');
     } finally {
@@ -1651,10 +1651,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 {allApplied && appliedNow ? 'Done' : 'Close'}
               </button>
             </div>
-            <button onClick={() => runFill(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"
+            {/* Hidden at the top tier: there is nothing above it, and the button
+                would re-run an identical request and bill for the same answer. */}
+            {escalatedModel() && <button onClick={() => runFill(escalatedModel())} title={`Re-run on the ${escalatedTierLabel()} model — slower, and costs more`}
               className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
               <Sparkles size={13} /> Try again — smarter model
-            </button>
+            </button>}
           </>);
         })()}
       </div>
@@ -1712,10 +1714,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </div>
             )}
             <p className={`text-[11px] ${mutedText}`}>Apply sets Cue's Transpose (display only) — it doesn't change your saved text. Capo tips are just advice.</p>
-            <button onClick={() => runAdvice(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more"
+            {escalatedModel() && <button onClick={() => runAdvice(escalatedModel())} title={`Re-run on the ${escalatedTierLabel()} model — slower, and costs more`}
               className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
               <Sparkles size={13} /> Try again — smarter model
-            </button>
+            </button>}
           </>);
         })()}
       </div>
@@ -1755,10 +1757,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         )}
         {/* Try again with the stronger model when an answer looks off. Slower and
             pricier, so it's on demand only. */}
-        {askAnswer && !asking && lastAsk && (
+        {askAnswer && !asking && lastAsk && escalatedModel() && (
           <button
-            onClick={() => submitAsk(lastAsk, SMARTER_MODEL)}
-            title="Re-run this question on the more capable model (Opus) — slower and costs a bit more"
+            onClick={() => submitAsk(lastAsk, escalatedModel())}
+            title={`Re-run this question on the ${escalatedTierLabel()} model — slower, and costs more`}
             className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
           >
             <Sparkles size={13} /> Try again — smarter model
@@ -1831,8 +1833,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Outside the shapes-found branch: when nothing came back is exactly
             when escalating matters, and it used to be the one state with no way
             forward. */}
-        {!chordResult.loading && !chordResult.error && chordResult.missing.length > 0 && (
-          <button onClick={() => runChordShapes(chordResult.missing, SMARTER_MODEL)} title="Re-fetch these shapes on the more capable model (Opus) — slower, costs a bit more"
+        {!chordResult.loading && !chordResult.error && chordResult.missing.length > 0 && escalatedModel() && (
+          <button onClick={() => runChordShapes(chordResult.missing, escalatedModel())} title={`Re-fetch these shapes on the ${escalatedTierLabel()} model — slower, and costs more`}
             className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
             <Sparkles size={13} /> Try again — smarter model
           </button>
@@ -2282,10 +2284,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             failure on a phone reported nothing at all — the action just stopped.
             min-w-0 + truncate so a long message can't stretch the toolbar row. */}
         {aiMsg && <span className={`text-xs min-w-0 truncate ${mutedText}`} title={aiMsg}>{aiMsg}</span>}
-        {aiRetry && !aiBusy && !compactChrome && (
+        {aiRetry && !aiBusy && !compactChrome && escalatedModel() && (
           <button
             onClick={retrySmarter}
-            title="Re-run that on the more capable model (Opus) — slower, costs a bit more"
+            title={`Re-run that on the ${escalatedTierLabel()} model — slower, and costs more`}
             className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
           >
             <Sparkles size={13} /> Try again — smarter

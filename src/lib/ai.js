@@ -20,13 +20,86 @@
 import { timeSigOrEmpty } from '../utils/timeSig.js';
 
 const KEY_STORAGE = 'cue:anthropic_key';
-// Sonnet 5: fast, capable, far fewer "overloaded" errors than Opus, and cheaper —
-// the right balance for Cue's find/clean-up/fill/advice/Q&A tasks. (Web search,
-// streaming, and effort are all supported on this model.)
-const MODEL = 'claude-sonnet-5';
-// The stronger model used on demand by "Try again — smarter model": slower and
-// pricier, but more capable when Sonnet's answer looks off.
-export const SMARTER_MODEL = 'claude-opus-5';
+// ── Quality tiers ───────────────────────────────────────────────────────────
+// The user picks INTENT ("Balanced", "Best"), never a model id. Two reasons this
+// indirection earns its keep:
+//   * A retired model is remapped in ONE row here. A stored raw model id whose
+//     model is withdrawn would break every AI action until the user worked out
+//     why.
+//   * A tier is a CAPABILITY OBJECT, not a string. A model that rejects
+//     `output_config.effort` (Haiku 4.5 does), or needs the older web-search
+//     tool, or belongs to another provider entirely, becomes a new row rather
+//     than edits at a dozen call sites.
+//
+// `supportsEffort` and `searchTool` are carried even though both current tiers
+// agree on them — they're the fields the next tier will disagree about, and
+// having callers read them now is what stops this becoming a second migration.
+//
+// NO "economy" tier yet, deliberately. Within Anthropic the cheap end is Haiku
+// 4.5, which is exactly the model that rejects effort and needs the older search
+// tool — a capability table built for a tier that a genuinely free provider
+// would later demote. Economy arrives with that provider. See the Gemini note.
+export const AI_TIERS = [
+  {
+    id: 'balanced',
+    label: 'Balanced',
+    model: 'claude-sonnet-5',
+    blurb: 'Fast and capable, and far fewer "busy" errors. The right balance for most of Cue\'s tools.',
+    supportsEffort: true,
+    searchTool: 'web_search_20260209',
+  },
+  {
+    id: 'best',
+    label: 'Best',
+    model: 'claude-opus-5',
+    blurb: 'The most capable model — slower, and several times the cost per request. Worth it when an answer looks off.',
+    supportsEffort: true,
+    searchTool: 'web_search_20260209',
+  },
+];
+export const DEFAULT_AI_TIER = 'balanced';
+
+// PrefsContext owns this value; read straight from its blob rather than
+// duplicating storage. ai.js is not a React module, so it can't use the context.
+// Must match PREFS_KEY in context/PrefsContext.jsx.
+const PREFS_KEY = 'cue_prefs';
+
+export function tierById(id) {
+  return AI_TIERS.find(t => t.id === id) || AI_TIERS.find(t => t.id === DEFAULT_AI_TIER);
+}
+
+// The user's chosen tier, validated. An unknown or retired id falls back to the
+// default instead of stranding every AI action on a model that no longer exists.
+export function getAiTier() {
+  try {
+    const id = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')?.aiTier;
+    return AI_TIERS.some(t => t.id === id) ? id : DEFAULT_AI_TIER;
+  } catch { return DEFAULT_AI_TIER; }
+}
+
+const currentTier = () => tierById(getAiTier());
+const topTier = () => AI_TIERS[AI_TIERS.length - 1];
+
+// The model a plain call uses, resolved at CALL time so changing the setting
+// takes effect on the next action without a reload.
+const MODEL = () => currentTier().model;
+
+// "Try again — smarter" escalates one rung ABOVE the user's setting. Null when
+// they're already at the top — the link must then disappear rather than re-run
+// an identical request and bill them twice for the same answer.
+export function escalatedModel() {
+  const i = AI_TIERS.findIndex(t => t.id === getAiTier());
+  return AI_TIERS[i + 1]?.model ?? null;
+}
+export function escalatedTierLabel() {
+  const i = AI_TIERS.findIndex(t => t.id === getAiTier());
+  return AI_TIERS[i + 1]?.label ?? null;
+}
+// Is there anywhere further to go from the model that actually ran? `undefined`
+// means the call used the current tier's model.
+export function canEscalate(usedModel) {
+  return (usedModel || MODEL()) !== topTier().model;
+}
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const API_VERSION = '2023-06-01';
 
@@ -130,7 +203,7 @@ async function streamClaude(body, onText) {
         res = await fetch(API_URL, {
           method: 'POST',
           headers: REQUEST_HEADERS(apiKey),
-          body: JSON.stringify({ model: MODEL, ...body, stream: true }),
+          body: JSON.stringify({ model: MODEL(), ...body, stream: true }),
           signal: controller.signal,
         });
       } catch (e) {
@@ -206,7 +279,7 @@ async function callClaude(body) {
       res = await fetch(API_URL, {
         method: 'POST',
         headers: REQUEST_HEADERS(apiKey),
-        body: JSON.stringify({ model: MODEL, ...body }),
+        body: JSON.stringify({ model: MODEL(), ...body }),
       });
     } catch (e) {
       if (retryableNetworkFailure(attempt, MAX_ATTEMPTS, e)) { await sleep(800 * attempt); continue; }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X } from 'lucide-react';
-import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, SMARTER_MODEL } from '../lib/ai.js';
+import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, escalatedModel, escalatedTierLabel, canEscalate } from '../lib/ai.js';
 import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
@@ -2354,9 +2354,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             {!suggestBusy && suggestResults && suggestResults.length > 0 && (
               <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">Suggestions — difficulty is an estimate. Links open real chord sources.</p>
-                <button onClick={() => runSuggest(SMARTER_MODEL)} title="Re-run on the more capable model (Opus) — slower, costs a bit more" className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                {escalatedModel() && <button onClick={() => runSuggest(escalatedModel())} title={`Re-run on the ${escalatedTierLabel()} model — slower, and costs more`} className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                   <Sparkles size={13} /> Try again — smarter
-                </button>
+                </button>}
               </div>
             )}
           </div>
@@ -2415,9 +2415,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             {!dupBusy && dupGroups && dupGroups.length > 0 && (
               <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">Deleting also removes the song from any sets it's in.</p>
-                <button onClick={() => runFindDuplicates(SMARTER_MODEL)} title="Re-scan on the more capable model (Opus) — slower, costs a bit more" className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                {escalatedModel() && <button onClick={() => runFindDuplicates(escalatedModel())} title={`Re-scan on the ${escalatedTierLabel()} model — slower, and costs more`} className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                   <Sparkles size={13} /> Scan again — smarter
-                </button>
+                </button>}
               </div>
             )}
           </div>
