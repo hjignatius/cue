@@ -2544,7 +2544,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
       {/* AI setup — the same Settings panel, opened in place from the AI menu so
           the key can be entered without leaving the editor. */}
-      <SettingsPanel open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} />
+      <SettingsPanel open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} initialSection="ai" />
     </div>
   );
 }

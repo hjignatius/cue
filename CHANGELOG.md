@@ -3,6 +3,29 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.32 — 2026-09-20
+
+Settings had grown to six sections and eighteen controls, all permanently open.
+This shortens it three ways.
+
+- **Present's own settings now live in Present.** Controls fade delay, scroll
+  start delay, count-in sound/visual and pedal paging (with page turn size and
+  glide) moved to a **gear** in Present's tool tray — tap the wrench in the left
+  gutter, then the gear. You can now set them while watching what they do,
+  instead of guessing a glide in milliseconds from a settings screen. They are
+  still global settings applying to every song; nothing you had set has changed.
+- **Settings sections collapse, and show their values when shut.** Each row
+  reads its own current setting — *Dark · Auto*, *GCEA Ukulele*, *Key saved ·
+  Intermediate* — so the closed panel is still a complete picture of how Cue is
+  set up, and you open a section only to change something. One opens at a time.
+  Tapping a greyed-out **AI** button still lands you straight on the AI section.
+- **Better grouping.** Chord instrument, colour and label size split out of
+  Appearance into their own **Chords** section, and the single-row Exports and
+  Cloud Account sections merged into **Data & Account**.
+
+(v1.5.30 and v1.5.31 were withdrawn — the first broke Present, and this release
+replaces both.)
+
 ## v1.5.29 — 2026-09-20
 
 - **Fixed: "Fill in song details" looked like it had changed things it hadn't.**

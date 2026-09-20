@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
-import { usePrefs, PRESENT_NO_FADE, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
+import { X, ChevronRight} from 'lucide-react';
+import { usePrefs, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
@@ -74,15 +74,57 @@ const OTP_MAX_LEN = 10;
 // pending submit, so 6-, 8- and 10-digit projects all work untouched.
 const OTP_AUTOSUBMIT_MS = 400;
 
-export default function SettingsPanel({ open, onClose, hideAccount = false }) {
-  const { theme, chordColor, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, aiLevel, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
+// A collapsible settings section.
+//
+// The whole point of collapsing is the `summary`: the section's current values,
+// shown on the closed row. Without it an accordion only HIDES things and costs a
+// tap to read anything; with it, the shut panel is still a complete picture of
+// how Cue is set up, and you open a section only to change something.
+function Section({ title, badge, summary, open, onToggle, dark, children }) {
+  const border = dark ? 'border-gray-700' : 'border-gray-200';
+  const muted  = dark ? 'text-gray-400' : 'text-gray-500';
+  const label  = dark ? 'text-white' : 'text-gray-900';
+  return (
+    <section className={`rounded-xl border ${border}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className={`w-full flex items-center gap-3 px-3 py-3 text-left rounded-xl transition-colors ${dark ? 'hover:bg-gray-800/60' : 'hover:bg-gray-50'}`}
+      >
+        <span className={`text-xs font-semibold uppercase tracking-wide shrink-0 ${label}`}>
+          {title}{badge && <span className={`normal-case font-normal ml-1 ${muted}`}>{badge}</span>}
+        </span>
+        {/* Values sit right-aligned and truncate — they're a reminder, not the
+            control. Hidden while open, where the real controls say the same. */}
+        {!open && summary && (
+          <span className={`ml-auto text-xs truncate ${muted}`} title={summary}>{summary}</span>
+        )}
+        <ChevronRight
+          size={16}
+          className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''} ${muted} ${open ? '' : 'ml-1'}`}
+        />
+      </button>
+      {open && <div className={`px-3 pb-4 pt-1 flex flex-col gap-4 border-t ${border}`}>{children}</div>}
+    </section>
+  );
+}
+
+export default function SettingsPanel({ open, onClose, hideAccount = false, initialSection = null }) {
+  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
   const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
-  const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
-  const noFade = presentIdleSec === PRESENT_NO_FADE;
-  const idleSec = noFade ? 3 : Math.max(0, Math.min(5, presentIdleSec ?? 3));
-  const scrollDelaySec = Math.max(0, Math.min(10, scrollStartDelaySec ?? 0));
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
+
+  // One section open at a time — the point is to keep the panel short, and
+  // multi-open would let it grow back to the wall of controls this replaced.
+  // All shut on open: the summaries carry the state, so nothing is hidden that
+  // you need a tap to learn.
+  const [openSection, setOpenSection] = useState(initialSection);
+  const toggleSection = (id) => setOpenSection(cur => (cur === id ? null : id));
+  // Re-applied on every open, so arriving from "Set up AI…" lands on the AI
+  // section rather than a wall of shut rows — and a later plain open resets.
+  useEffect(() => { if (open) setOpenSection(initialSection); }, [open, initialSection]);
 
   // Two-step email sign-in: 'email' collects the address and sends the code,
   // 'code' verifies it in-app. `email` deliberately persists across the step
@@ -232,6 +274,24 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
     }
   }
 
+  // Current-value summaries for the shut rows. Declared HERE, below every piece
+  // of state they read (aiKeySaved, exportFolder, user) — placed higher up they
+  // hit those constants' temporal dead zone and take the panel out on open.
+  const instrumentLabel = INSTRUMENT_OPTIONS.find(o => o.id === instrument)?.label ?? 'None';
+  const accidentalLabel = accidentals === 'flats' ? 'Flats' : accidentals === 'sharps' ? 'Sharps' : 'Auto';
+  const appearanceSummary = `${dark ? 'Dark' : 'Light'} · ${accidentalLabel}`;
+  const chordsSummary = instrumentLabel;
+  const aiSummary = aiKeySaved
+    ? `Key saved · ${(aiLevel || 'intermediate').replace(/^./, c => c.toUpperCase())}`
+    : 'Not set up';
+  const accountSummary = user?.email || 'Signed out';
+  // Both halves of Data & Account on one line, skipping whichever doesn't apply.
+  const dataSummary = [
+    (isConfigured && !hideAccount) ? accountSummary : null,
+    canPickFolder ? (exportFolder || 'Ask every time') : null,
+  ].filter(Boolean).join(' · ');
+
+
   return (
     <>
       {open && (
@@ -254,8 +314,8 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
         <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-7">
 
           {/* Appearance */}
-          <section className="flex flex-col gap-4">
-            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Appearance</h3>
+          <Section title="Appearance" summary={appearanceSummary} dark={dark}
+            open={openSection === 'appearance'} onToggle={() => toggleSection('appearance')}>
 
             {/* Theme */}
             <div className="flex flex-col gap-2">
@@ -277,6 +337,33 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
               </div>
             </div>
 
+            {/* Accidentals — how transposed chords spell the five ambiguous pitch classes */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Sharps / Flats</span>
+              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                {[['auto', 'Auto'], ['flats', '♭ Flats'], ['sharps', '♯ Sharps']].map(([val, text], i) => (
+                  <button
+                    key={val}
+                    onClick={() => updatePref('accidentals', val)}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
+                      accidentals === val
+                        ? 'bg-indigo-600 text-white'
+                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                    }`}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+              <p className={`text-[11px] ${muted}`}>Spelling of transposed C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭. Auto follows the View Key.</p>
+            </div>
+          </Section>
+
+          {/* Chords — the instrument library plus how chord names look over
+              lyrics. Split out of Appearance: it was the tallest section, and
+              these three belong together more than they belong with Theme. */}
+          <Section title="Chords" summary={chordsSummary} dark={dark}
+            open={openSection === 'chords'} onToggle={() => toggleSection('chords')}>
             {/* Chord instrument — which diagram library the chord panel shows */}
             <div className="flex flex-col gap-2">
               <span className={`text-sm ${label}`}>Chord instrument</span>
@@ -347,181 +434,13 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
               </div>
               <p className={`text-[11px] ${muted}`}>Applies to chord names above lyrics only.</p>
             </div>
-
-            {/* Accidentals — how transposed chords spell the five ambiguous pitch classes */}
-            <div className="flex flex-col gap-2">
-              <span className={`text-sm ${label}`}>Sharps / Flats</span>
-              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                {[['auto', 'Auto'], ['flats', '♭ Flats'], ['sharps', '♯ Sharps']].map(([val, text], i) => (
-                  <button
-                    key={val}
-                    onClick={() => updatePref('accidentals', val)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
-                      accidentals === val
-                        ? 'bg-indigo-600 text-white'
-                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-              <p className={`text-[11px] ${muted}`}>Spelling of transposed C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭. Auto follows the View Key.</p>
-            </div>
-          </section>
-
-          {/* Metronome */}
-          <section className="flex flex-col gap-4">
-            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Metronome</h3>
-            <div className="flex flex-col gap-2">
-              <span className={`text-sm ${label}`}>BPM tap mode</span>
-              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                {[['sound', '♪ Sound'], ['silent', '⚡ Visual']].map(([val, text], i) => (
-                  <button
-                    key={val}
-                    onClick={() => updatePref('metronomeMode', val)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${i === 1 ? `border-l ${border}` : ''} ${
-                      metronomeMode === val
-                        ? 'bg-indigo-600 text-white'
-                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Present */}
-          <section className="flex flex-col gap-4">
-            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Present</h3>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className={`text-sm ${label}`}>Controls fade delay</span>
-                <span className={`text-sm tabular-nums ${muted}`}>{noFade ? 'Never' : idleSec === 0 ? 'Immediate' : `${idleSec}s`}</span>
-              </div>
-              {/* 0–5s: how long the floating controls and the side buttons wait
-                  after your last tap before fading and collapsing out of the way.
-                  Greyed while practice mode (no fade) is on, since it's inactive. */}
-              <div className={`flex rounded-lg border ${border} overflow-hidden ${noFade ? 'opacity-40' : ''}`}>
-                {[0, 1, 2, 3, 4, 5].map((n, i) => (
-                  <button
-                    key={n}
-                    onClick={() => updatePref('presentIdleSec', n)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
-                      !noFade && idleSec === n
-                        ? 'bg-indigo-600 text-white'
-                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-              {/* Practice mode: keep the floating controls and side gutter up all
-                  the time (no fade, no auto-collapse). Toggling it off restores the
-                  default 3s fade. */}
-              <button
-                onClick={() => updatePref('presentIdleSec', noFade ? 3 : PRESENT_NO_FADE)}
-                className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
-                  noFade
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                }`}
-              >
-                Keep controls up (practice mode)
-              </button>
-              <p className={`text-xs ${muted}`}>Seconds before the Present controls fade and collapse. 0 hides them right away. Practice mode keeps them up the whole time.</p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className={`text-sm ${label}`}>Scroll start delay</span>
-                <span className={`text-sm tabular-nums ${muted}`}>{scrollDelaySec === 0 ? 'None' : `${scrollDelaySec}s`}</span>
-              </div>
-              {/* 0–10s lead-in after the scroll button is pressed before
-                  auto-scroll actually begins. */}
-              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n, i) => (
-                  <button
-                    key={n}
-                    onClick={() => updatePref('scrollStartDelaySec', n)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
-                      scrollDelaySec === n
-                        ? 'bg-indigo-600 text-white'
-                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <p className={`text-xs ${muted}`}>Seconds to wait after pressing the scroll button before scrolling starts.</p>
-            </div>
-
-            {/* Pedal paging (GLOBAL, not per song): switch Next/Previous from
-                song-to-song skipping to paging through the current song a
-                screenful at a time (for a page-turner pedal). Disables auto-scroll
-                while on. A per-song Full Page song always turns whole pages. */}
-            <div className="flex flex-col gap-2">
-              <span className={`text-sm ${label}`}>Pedal paging mode</span>
-              <button
-                onClick={() => updatePref('pedalPaging', !pedalPaging)}
-                className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
-                  pedalPaging
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : `${border} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                }`}
-              >
-                {pedalPaging ? 'On' : 'Off'}
-              </button>
-              <p className={`text-xs ${muted}`}>Next/Previous page through the current song by one screen instead of skipping songs; at a song's end they move to the next/previous song. Auto-scroll is turned off in this mode.</p>
-
-              {/* Sub-settings: only shown while pedal paging is on. */}
-              {pedalPaging && (
-                <div className={`flex flex-col gap-2 mt-1 pl-3 border-l-2 ${border}`}>
-                  <span className={`text-sm ${label}`}>Page turn size</span>
-                  <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                    {[['full', 'Full'], ['threequarters', '3/4'], ['half', '1/2']].map(([val, text], i) => (
-                      <button
-                        key={val}
-                        onClick={() => updatePref('pageSize', val)}
-                        className={`flex-1 py-2.5 pointer-fine:py-2 text-sm tabular-nums transition-colors ${i > 0 ? `border-l ${border}` : ''} ${
-                          (pageSize ?? 'full') === val
-                            ? 'bg-indigo-600 text-white'
-                            : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                        }`}
-                      >
-                        {text}
-                      </button>
-                    ))}
-                  </div>
-                  <p className={`text-xs ${muted}`}>How far each Next / Previous press moves — a full screen, three quarters, or half a screen.</p>
-
-                  <div className="flex items-center justify-between mt-1">
-                    <span className={`text-sm ${label}`}>Page turn glide</span>
-                    <span className={`text-sm tabular-nums ${muted}`}>{glideMs === 0 ? 'Instant' : `${glideMs} ms`}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0" max="2000" step="50"
-                    value={glideMs}
-                    onChange={e => updatePref('pageGlideMs', Number(e.target.value))}
-                    aria-label="Page turn glide duration in milliseconds"
-                    className="w-full accent-indigo-600 cursor-pointer"
-                  />
-                  <p className={`text-xs ${muted}`}>How long a page turn takes to glide to the next screen. 0 is an instant jump; higher is a slower, smoother glide.</p>
-                </div>
-              )}
-            </div>
-          </section>
+          </Section>
 
           {/* AI (optional) — bring-your-own Anthropic key. Stored on this device
               only; powers the editor's AI menu (find music, clean up, fill in
               details). Never included in exports or backups. */}
-          <section className="flex flex-col gap-4" id="settings-ai">
-            <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>AI <span className="normal-case">(Optional)</span></h3>
+          <Section title="AI" badge="(Optional)" summary={aiSummary} dark={dark}
+            open={openSection === 'ai'} onToggle={() => toggleSection('ai')}>
             <div className="flex flex-col gap-2">
               <span className={`text-sm ${label}`}>Anthropic API key</span>
               <p className={`text-[11px] ${muted}`}>
@@ -640,13 +559,17 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
               </button>
               <p className={`text-[11px] ${muted}`}>When on, <em>Suggest songs to learn</em> uses the songs in your library to tailor picks and avoid ones you already have (your song titles are sent to the AI on your key). Turn off to get suggestions from your genres/artists only.</p>
             </div>
-          </section>
+          </Section>
 
-          {/* Exports — Chromium only; Safari/Firefox/iOS have no folder picker,
-              so the section is hidden rather than shown as unavailable. */}
-          {canPickFolder && (
-            <section className="flex flex-col gap-4">
-              <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Exports <span className="normal-case">(Chrome Only)</span></h3>
+          {/* Data & Account — where exports land, and who you're signed in as.
+              One section rather than two: each was a single row, and a heading
+              per row is pure overhead once the rows collapse. Shown if EITHER
+              half applies; the folder picker is Chromium-only (Safari/Firefox/
+              iOS have none, so it's hidden rather than shown as unavailable). */}
+          {(canPickFolder || (isConfigured && !hideAccount)) && (
+            <Section title="Data & Account" summary={dataSummary} dark={dark}
+              open={openSection === 'data'} onToggle={() => toggleSection('data')}>
+              {canPickFolder && (
               <div className="flex flex-col gap-2">
                 <span className={`text-sm ${label}`}>Save location</span>
                 <p className={`text-[11px] ${muted}`}>
@@ -672,13 +595,10 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   )}
                 </div>
               </div>
-            </section>
-          )}
+              )}
 
-          {/* Account */}
-          {isConfigured && !hideAccount && (
-            <section className="flex flex-col gap-4">
-              <h3 className={`text-xs font-semibold uppercase tracking-wide ${muted}`}>Cloud Account <span className="normal-case">(Optional)</span></h3>
+              {isConfigured && !hideAccount && (<>
+                {canPickFolder && <div className={`border-t ${border} -mx-3`} role="separator" />}
 
               {user ? (
                 <div className="flex flex-col gap-3">
@@ -772,8 +692,16 @@ export default function SettingsPanel({ open, onClose, hideAccount = false }) {
                   </button>
                 </form>
               )}
-            </section>
+              </>)}
+            </Section>
           )}
+
+          {/* Footnote, below the sections: it points somewhere else rather than
+              holding a control, so it isn't a row of its own. */}
+          <p className={`text-xs pt-1 ${muted}`}>
+            Controls fade, scroll start delay, count-in style and pedal paging live in{' '}
+            <span className={label}>Present</span> — tap the wrench, then the gear.
+          </p>
         </div>
       </div>
     </>

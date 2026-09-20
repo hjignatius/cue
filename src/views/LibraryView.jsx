@@ -1544,7 +1544,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [suggestResults, setSuggestResults] = useState(null); // null | array of picks
   const [suggestErr, setSuggestErr]         = useState('');
   async function runSuggest(model) {
-    if (!hasApiKey()) { setSettingsOpen(true); return; }
+    if (!hasApiKey()) { openAiSettings(); return; }
     setSuggestOpen(true); setSuggestBusy(true); setSuggestErr(''); setSuggestResults(null);
     try {
       // Only send the library when "Personalize from my library" is on.
@@ -1565,7 +1565,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [dupGroups, setDupGroups] = useState(null); // null | array of { reason, songs }
   const [dupErr, setDupErr]       = useState('');
   async function runFindDuplicates(model) {
-    if (!hasApiKey()) { setSettingsOpen(true); return; }
+    if (!hasApiKey()) { openAiSettings(); return; }
     setDupOpen(true); setDupBusy(true); setDupErr(''); setDupGroups(null);
     try {
       setDupGroups(await findDuplicateSongs({ songs, model }));
@@ -1616,6 +1616,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [newSetName, setNewSetName]     = useState('');
   const [setPickerSearch, setSetPickerSearch] = useState(''); // filter for the picker list
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Which section Settings should arrive on. 'ai' for the routes that open it
+  // BECAUSE no key is saved; null for the plain gear, which opens everything shut.
+  const [settingsSection, setSettingsSection] = useState(null);
+  const openAiSettings = () => { setSettingsSection('ai'); setSettingsOpen(true); };
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
 
   // ---- Portrait single-panel mode --------------------------------------------
@@ -1968,7 +1972,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 <RoundButton size={ROUND_SIZE_ACTION} label="Open user manual" title="Open user manual" fill={headerFill} onActivate={openManualPDF}>
                   <span className="font-bold leading-none" style={{ fontSize: 20 }}>?</span>
                 </RoundButton>
-                <RoundButton size={ROUND_SIZE_ACTION} label="Settings" title="Settings" fill={headerFill} onActivate={() => setSettingsOpen(true)}>
+                <RoundButton size={ROUND_SIZE_ACTION} label="Settings" title="Settings" fill={headerFill} onActivate={() => { setSettingsSection(null); setSettingsOpen(true); }}>
                   <Settings size={22} />
                 </RoundButton>
                 {/* Wrapper keeps the onboarding tour's spotlight target intact. */}
@@ -2057,7 +2061,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                       </button>
                       {!aiReady && (
                         <button
-                          onClick={() => { setAiMenuOpen(false); setSettingsOpen(true); }}
+                          onClick={() => { setAiMenuOpen(false); openAiSettings(); }}
                           className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                           <Settings size={15} className="opacity-70 shrink-0" /> Set up AI…
@@ -2261,7 +2265,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             songs={songs}
             onUpdateSet={handleUpdateSet}
             onUpdateSong={handleUpdateSong}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={openAiSettings}
             onDeleteSet={handleDeleteSet}
             onPresent={(presentSongs, idx = 0) => onPresent(presentSongs, idx)}
             onEdit={(song, idx, allSongs) => onEditSong?.(song, idx, allSongs)}
@@ -2302,7 +2306,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
       {showTour && <OnboardingTour onDone={finishTour} />}
 
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsSection} />
 
       {/* Suggest songs to learn — grounded recommendations from instrument +
           level + taste + library. Discovery only: each pick links out to a real
