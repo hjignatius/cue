@@ -3,6 +3,18 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.38 — 2026-09-21
+
+- **"Fill in song details" now shows what it would change, not just what it
+  found.** If the song already has a Key of G and Cue suggests Am, the row reads
+  **G → Am** rather than a bare *Am* you'd have to remember the old value to
+  judge. Same for Title, Artist, Time signature, Tempo and Duration. A blank
+  field still just shows the suggestion — filling a gap isn't a replacement —
+  and a row that agrees with your song still reads **Matches**.
+- **YouTube is the exception**, since two links either side of an arrow are
+  unreadable at that width. A suggestion that would replace an existing link
+  says **"replaces the current link"** underneath instead.
+
 ## v1.5.37 — 2026-09-21
 
 - **Fixed: "Try again — smarter" stayed on screen after you'd saved.** Run an

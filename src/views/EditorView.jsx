@@ -1616,7 +1616,28 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 <li key={r.field} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <span className="flex flex-col min-w-0">
                     <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
-                    <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.value}</span>
+                    {/* Show what the song holds NOW alongside what was found, so a
+                        change is legible as a change: "G → Am", not a bare "Am"
+                        you have to remember the old value to judge. Only when
+                        there IS a different current value — filling a blank is
+                        not a replacement, and "G → G" on a matching row is noise.
+                        YouTube is excluded: two URLs either side of an arrow are
+                        unreadable at this width. */}
+                    {(() => {
+                      const current = (metadata[r.field] || '').trim();
+                      const replacing = current && current !== r.value && r.field !== 'youtubeUrl';
+                      return (
+                        <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>
+                          {replacing && <><span className={mutedText}>{current}</span><span className={`mx-1.5 ${mutedText}`}>→</span></>}
+                          {r.value}
+                        </span>
+                      );
+                    })()}
+                    {/* YouTube gets a word instead of an arrow, so a replacement
+                        still announces itself. */}
+                    {r.field === 'youtubeUrl' && (metadata.youtubeUrl || '').trim() && metadata.youtubeUrl !== r.value && (
+                      <span className={`text-[11px] ${mutedText}`}>replaces the current link</span>
+                    )}
                   </span>
                   {/* Three states, not two. "Matches" means the song ALREADY
                       held this value — the tool agreeing with you, not acting on
