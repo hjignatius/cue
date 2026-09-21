@@ -573,6 +573,9 @@ Bb,8-10-11-10,1243</pre>
 <h2>Page-Turner Pedals &amp; How Songs Advance</h2>
 <p>A Bluetooth page-turner pedal pairs with an iPad as a keyboard, so it works in Present mode with no setup — each press sends a key Cue already listens for. Cue maps <strong>Next</strong> to <code>→</code>, <code>↓</code>, or <code>Page Down</code>, and <strong>Previous</strong> to <code>←</code>, <code>↑</code>, or <code>Page Up</code>. The on-screen ◀ / ▶ and the arrow keys do the same, and a held pedal turns one page, not several. What Next / Previous <em>do</em> is set two ways:</p>
 <h3>Full Page — per song</h3>
+<h3>Long lines</h3>
+<p>When a line is wider than the screen, Cue wraps it and continues on the next line. It breaks <strong>between words</strong>, keeping a chord welded to the syllable it sits above — so a chord written inside a word, like <code>won[G]derful</code>, can never split the word across two lines. The same applies to exported PDFs. A single stretch with no spaces in it that is wider than the screen is the one case that still can't be broken anywhere.</p>
+
 <p>Turn on <strong>Display → Full Page</strong> for a song (in the editor's metadata bar) and Present shows it as discrete full pages that fit the screen. Next turns a whole page; at the last page it rolls on to the next song. This is the natural fit for a multi-page <strong>PDF</strong> lead sheet. (A one-screen text song set to Full Page simply advances to the next song.)</p>
 <h2>Present Settings</h2>
 <p>The settings that only matter while you are presenting live <em>in</em> Present, not in the main Settings panel — you cannot sensibly judge a page-turn glide or a fade delay from a settings screen. Tap the <strong>wrench</strong> in the left-hand gutter to open the tool tray, then the <strong>gear</strong>:</p>

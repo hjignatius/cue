@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.40 — 2026-09-21
+
+- **Fixed: long lines could split a word in half.** When a line was too wide for
+  the screen, Cue broke it wherever a *chord* happened to sit — and chords are
+  written inside words all the time. A line like `It was a won[G]derful night`
+  could come out as "It was a won" / "derful night". Lines now break **between
+  words only**, with each chord kept welded to the syllable it sits above, so
+  `won[G]derful` stays in one piece wherever the break lands.
+- **Exported PDFs had the same fault and are fixed too** — they used the same
+  layout, so printed set sheets could split words the same way.
+- A stretch with no spaces in it that's wider than the screen still can't be
+  broken anywhere; that one is unavoidable.
+
 ## v1.5.39 — 2026-09-21
 
 - **The two order toggles are now sliding pills**, matching the panel switchers

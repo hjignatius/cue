@@ -20,6 +20,7 @@ import PdfSongView from '../components/PdfSongView.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import PresentSettings from '../components/PresentSettings.jsx';
 import { beatsPerBar } from '../utils/timeSig.js';
+import { wrapUnits } from '../utils/lineWrap.js';
 import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -131,8 +132,14 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
           return (
             <div key={i}>
               {label}
+              {/* Two levels: the outer row wraps BETWEEN units, the inner row
+                  never wraps. A unit is a run that must stay together — which is
+                  how "won[G]derful" survives a wrap that used to split it, since
+                  a chord position is not a word boundary. */}
               <div className="flex flex-wrap" style={{ marginBottom: fontPx * 0.2 }}>
-                {styleSegments(line.segments).map((seg, j) => {
+                {wrapUnits(styleSegments(line.segments)).map((unit, u) => (
+                <div key={u} className="flex">
+                {unit.map((seg, j) => {
                   const frets = diagrams && seg.chord ? shapeFor(seg.chord) : null;
                   return (
                     <div key={j} className="flex flex-col" style={{ whiteSpace: 'pre' }}>
@@ -156,6 +163,8 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
                     </div>
                   );
                 })}
+                </div>
+                ))}
               </div>
             </div>
           );

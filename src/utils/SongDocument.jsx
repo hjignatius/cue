@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { attachSectionLabels, styleSegments } from './chordPro.js';
+import { wrapUnits } from './lineWrap.js';
 import { transposeChord } from './transpose.js';
 import { PdfChordDiagram } from './PdfChordDiagram.jsx';
 import { registerPdfFonts, FONT_SANS, FONT_MONO } from './pdfFonts.js';
@@ -37,6 +38,9 @@ function buildStyles(scale, chordColor = '#4f46e5') {
     sectionLabel:   { fontSize: LABEL_FONT * s, fontFamily: FONT_SANS, fontWeight: 'bold', color: chordColor, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: LYRIC_FONT * 0.25 * s },
     lineContainer:  { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 * s, backgroundColor: '#ffffff' },
     segment:        { flexDirection: 'column', backgroundColor: '#ffffff' },
+    // A run that must not break. lineContainer wraps BETWEEN these; this never
+    // wraps inside, so a chord sitting mid-word can't become a break point.
+    wrapUnit:       { flexDirection: 'row', flexWrap: 'nowrap', backgroundColor: '#ffffff' },
     chordText:      { fontSize: CHORD_FONT * s, fontFamily: FONT_MONO, fontWeight: 'bold', color: chordColor, height: CHORD_FONT * 1.2 * s },
     lyricText:      { fontSize: LYRIC_FONT * s, color: '#1a1a2e', fontFamily: FONT_MONO },
     plainLyricLine: { fontSize: LYRIC_FONT * s, color: '#1a1a2e', fontFamily: FONT_MONO, marginBottom: 2 * s },
@@ -69,37 +73,45 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
   if (embed && shapeFor) {
     return (
       <View style={styles.lineContainer}>
-        {styleSegments(segments).map((seg, i) => {
-          const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
-          const shape = displayed ? shapeFor(displayed) : null;
-          return (
-            <View key={i} style={styles.segment}>
-              <View style={{ height: PDF_DIAG_BAND, justifyContent: 'flex-end', alignItems: 'flex-start' }}>
-                {shape
-                  ? <PdfChordDiagram chord={{ name: displayed, frets: shape.frets }} />
-                  : displayed
-                    ? <Text style={styles.chordText}>{displayed + ' '}</Text>
-                    : null}
-              </View>
-              <Text style={styles.lyricText}>
-                {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
-              </Text>
-            </View>
-          );
-        })}
+        {wrapUnits(styleSegments(segments)).map((unit, u) => (
+          <View key={u} style={styles.wrapUnit}>
+            {unit.map((seg, i) => {
+              const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
+              const shape = displayed ? shapeFor(displayed) : null;
+              return (
+                <View key={i} style={styles.segment}>
+                  <View style={{ height: PDF_DIAG_BAND, justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+                    {shape
+                      ? <PdfChordDiagram chord={{ name: displayed, frets: shape.frets }} />
+                      : displayed
+                        ? <Text style={styles.chordText}>{displayed + ' '}</Text>
+                        : null}
+                  </View>
+                  <Text style={styles.lyricText}>
+                    {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ))}
       </View>
     );
   }
   return (
     <View style={styles.lineContainer}>
-      {styleSegments(segments).map((seg, i) => (
-        <View key={i} style={styles.segment}>
-          <Text style={styles.chordText}>
-            {seg.chord ? (transposeChord(seg.chord, semitones, useFlats) + ' ') : ' '}
-          </Text>
-          <Text style={styles.lyricText}>
-            {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
-          </Text>
+      {wrapUnits(styleSegments(segments)).map((unit, u) => (
+        <View key={u} style={styles.wrapUnit}>
+          {unit.map((seg, i) => (
+            <View key={i} style={styles.segment}>
+              <Text style={styles.chordText}>
+                {seg.chord ? (transposeChord(seg.chord, semitones, useFlats) + ' ') : ' '}
+              </Text>
+              <Text style={styles.lyricText}>
+                {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
+              </Text>
+            </View>
+          ))}
         </View>
       ))}
     </View>
