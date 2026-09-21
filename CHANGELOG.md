@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.39 — 2026-09-21
+
+- **The two order toggles are now sliding pills**, matching the panel switchers
+  in the editor and the Library: the Setlist's **Custom / A–Z**, and the shared
+  set's order toggle. Same control, same behaviour, wherever you meet it.
+- In a shared set, **Original order** is now just **Original**.
+
 ## v1.5.38 — 2026-09-21
 
 - **"Fill in song details" now shows what it would change, not just what it

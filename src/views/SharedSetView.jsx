@@ -10,6 +10,7 @@ import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
+import SegmentedControl from '../components/SegmentedControl.jsx';
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -831,10 +832,16 @@ export default function SharedSetView() {
       {/* Sort view — publisher's order or A–Z. View only; never changes the set. */}
       {enriched.length > 1 && (
         <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0">
-          <div className="inline-flex items-center gap-0.5 bg-gray-200 dark:bg-gray-800 rounded p-0.5 text-xs">
-            <button onClick={() => setSortMode('custom')} className={`h-8 px-3 rounded transition-colors ${sortMode === 'custom' ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>Original order</button>
-            <button onClick={() => setSortMode('alpha')}  className={`h-8 px-3 rounded transition-colors ${sortMode === 'alpha'  ? 'bg-gray-500 dark:bg-gray-600 text-white' : 'text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'}`}>A–Z</button>
-          </div>
+          {/* Same sliding pill as the editor's Text/Preview/Chords and the
+              Library's panel switcher, so one control behaves one way. */}
+          <SegmentedControl
+            ariaLabel="Song order"
+            options={[{ id: 'custom', label: 'Original' }, { id: 'alpha', label: 'A–Z' }]}
+            value={sortMode}
+            onChange={setSortMode}
+            size="sm"
+            segmentPadX={14}
+          />
         </div>
       )}
 
