@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.41 — 2026-09-21
+
+- **Shared sets now open without a connection.** A set someone shared with you
+  needed the network *every single time* — so at a venue with no signal, a set
+  you'd opened twenty times simply wasn't there. Every time you open one it's
+  now saved on your device. With no connection it opens straight away, with a
+  banner saying which day's copy you're looking at and a **Retry** button for
+  when the signal comes back. PDF lead sheets come through too, provided they
+  finished downloading the first time.
+- Two things deliberately still need the network: a set the publisher has
+  **unshared** shows as unavailable rather than reappearing from your device,
+  and pulling updates needs the cloud by definition.
+
 ## v1.5.40 — 2026-09-21
 
 - **Fixed: long lines could split a word in half.** When a line was too wide for

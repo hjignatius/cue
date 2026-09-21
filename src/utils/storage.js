@@ -1,7 +1,11 @@
 import { openDB } from 'idb';
 
 const DB_NAME    = 'cue-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
+// The EXPORT format's version, written into backups — deliberately NOT bumped
+// with DB_VERSION here. v4 only adds a local cache store; nothing about what a
+// backup contains changed, and bumping this would make older Cue refuse files
+// it can read perfectly well.
 export const SCHEMA_VERSION = 3;
 
 // Singleton — opened once, reused everywhere
@@ -28,6 +32,13 @@ export async function getDB() {
         // Storage on publish / pull (see pdfSync.js: upload/downloadPdfBlob).
         if (!database.objectStoreNames.contains('pdfs')) {
           database.createObjectStore('pdfs', { keyPath: 'songId' });
+        }
+        // v4: the last-loaded content of a shared set, keyed by share token, so
+        // a share opens without the network. Purely a cache — it is never a
+        // source of truth, never exported, and losing it costs nothing but a
+        // round trip.
+        if (!database.objectStoreNames.contains('sharedSets')) {
+          database.createObjectStore('sharedSets', { keyPath: 'token' });
         }
       },
     });
@@ -351,6 +362,46 @@ export function newestLocalAt(set, setSongs = []) {
     .filter(Boolean)
     .sort()
     .at(-1) ?? '';
+}
+
+// ---- Shared-set cache ------------------------------------------------------
+//
+// A shared set used to need the network EVERY time it was opened: the bookmark
+// held only a token and a name, so at a venue with no signal a set you'd opened
+// twenty times was simply gone. Everything else in Cue works offline; this was
+// the exception, and it failed at the worst possible moment.
+//
+// Cache only. The cloud copy is always authoritative — this is what gets shown
+// when the cloud can't be reached, clearly labelled as of its date.
+const SHARED_CACHE_MAX = 20;
+
+export async function cacheSharedSet(token, data) {
+  if (!token || !data) return;
+  try {
+    const d = await getDB();
+    await d.put('sharedSets', { token, data, cachedAt: new Date().toISOString() });
+    // Keep it bounded — someone who opens a lot of one-off links shouldn't
+    // accumulate them forever. Oldest first.
+    const all = await d.getAll('sharedSets');
+    if (all.length > SHARED_CACHE_MAX) {
+      const stale = all.sort((a, b) => (a.cachedAt || '').localeCompare(b.cachedAt || ''))
+                       .slice(0, all.length - SHARED_CACHE_MAX);
+      for (const row of stale) await d.delete('sharedSets', row.token);
+    }
+  } catch (err) {
+    console.warn('[storage] could not cache shared set', err);
+  }
+}
+
+// { data, cachedAt } or null. Never throws — a missing cache is a normal state.
+export async function loadCachedSharedSet(token) {
+  if (!token) return null;
+  try {
+    const row = await (await getDB()).get('sharedSets', token);
+    return row?.data ? { data: row.data, cachedAt: row.cachedAt } : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function clearLibrary() {

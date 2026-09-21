@@ -3,11 +3,11 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getSharedSet, describeCloudError } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob } from '../utils/storage.js';
+import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { contentHash } from '../utils/contentHash.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
@@ -137,6 +137,19 @@ export default function SharedSetView() {
   const [updateDialog, setUpdateDialog] = useState(null); // null | { choices } — the Update list
   const [playMine, setPlayMine] = useState(false);        // present your edited copies instead of the shared version
   const [sortMode, setSortMode] = useState('custom');     // view-only: publisher order ('custom') vs alphabetical ('alpha')
+  // Non-null when what's on screen came from the offline cache rather than the
+  // cloud — carries the date it was last fetched, which the banner shows.
+  const [cachedAt, setCachedAt] = useState(null);
+  // "today" / "yesterday" / a short date — more useful on a stand than an ISO
+  // timestamp, and it answers the only question that matters: how stale is this?
+  const formatCachedAt = (iso) => {
+    const then = new Date(iso);
+    if (isNaN(then)) return 'earlier';
+    const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    return `on ${then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+  };
   const refreshLocal = useCallback(async () => {
     try { setLocalSongs(await loadSongs()); setLocalSets(await loadSets()); } catch { /* offline / no db */ }
   }, []);
@@ -150,15 +163,37 @@ export default function SharedSetView() {
     let cancelled = false;
     setStatus('loading');
     setSetData(null);
+    setCachedAt(null);
+
+    // Show a previously loaded copy of this share. Returns true if it managed to.
+    async function showCached() {
+      const hit = await loadCachedSharedSet(token);
+      if (cancelled || !hit) return false;
+      const songs = (hit.data.songs ?? []).map(row => row.content ?? row);
+      setSetData({ set: hit.data.set, songs });
+      setCachedAt(hit.cachedAt);
+      setStatus('ok');
+      return true;
+    }
 
     async function load() {
+      // Plainly offline: go straight to the cache rather than making someone
+      // watch a 20-second timeout to be told what we already know. This is the
+      // reported case — arriving at a venue assuming the wifi had connected.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        if (await showCached()) return;
+      }
       try {
         const data = await getSharedSet(token);
         if (cancelled) return;
         if (!data) { setStatus('not_found'); return; }
         const songs = (data.songs ?? []).map(row => row.content ?? row);
         setSetData({ set: data.set, songs });
+        setCachedAt(null);
         setStatus('ok');
+        // Keep a copy for the next time there's no signal. Fire and forget —
+        // a cache write must never delay or break showing the set.
+        cacheSharedSet(token, data);
         // Stage 2: fetch the bytes for any pdf songs so they render in Present.
         // The published content carries `ownerId`, and the additive Storage read
         // policy lets a shared viewer read {owner}/{songId}.pdf for a published set.
@@ -177,7 +212,12 @@ export default function SharedSetView() {
         console.error('SharedSetView:', err);
         const msg = err?.message ?? '';
         if (msg.includes('not found') || msg.includes('invalid') || msg.includes('revoked')) {
+          // A revoked or bad token is authoritative — do NOT fall back to a
+          // cached copy of a share that has since been withdrawn.
           setStatus('not_found');
+        } else if (await showCached()) {
+          // Couldn't reach the cloud, but we've seen this share before.
+          console.warn('[SharedSetView] showing the cached copy —', msg);
         } else {
           setLoadError(err);
           setStatus('error');
@@ -190,7 +230,9 @@ export default function SharedSetView() {
 
   // When set loads OK, update lastLoadedAt if this token is bookmarked
   useEffect(() => {
-    if (status !== 'ok') return;
+    // `cachedAt` means nothing was fetched — leave lastLoadedAt where it was, or
+    // a bookmark would claim to be fresher than it is.
+    if (status !== 'ok' || cachedAt) return;
     const shares = loadSavedShares();
     const idx = shares.findIndex(s => s.token === token);
     if (idx === -1) return;
@@ -198,7 +240,7 @@ export default function SharedSetView() {
     shares[idx] = { ...shares[idx], lastLoadedAt: now };
     persistSavedShares(shares);
     setSavedShares([...shares]);
-  }, [status, token]);
+  }, [status, token, cachedAt]);
 
   // Auto-bookmark when opened from the "Paste a share link" box (catalog intent),
   // so the set shows up under Sets → Shared with me without a manual bookmark tap.
@@ -826,6 +868,28 @@ export default function SharedSetView() {
             <UserCheck size={16} /><PillLabel>{playMine ? 'Including Songs You Edited' : 'Following Shared Set'}</PillLabel>
           </RoundButton>
           <span className={`text-xs ${muted}`}>{playMine ? '— amber songs play your copy' : `— you've edited ${mineDiffers.size || copiedCount}`}</span>
+        </div>
+      )}
+
+      {/* Showing a cached copy. Stated plainly with its date: this is the set as
+          it was, and the publisher may have changed it since. Not an error
+          screen — you're at a gig and the songs are on screen, which is the
+          point. Retry is there for when the signal comes back. */}
+      {cachedAt && (
+        <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0">
+          <div className={`rounded-xl border px-3 py-2 flex items-center gap-3 ${dark ? 'border-amber-500/40 bg-amber-500/10' : 'border-amber-500/50 bg-amber-50'}`}>
+            <CloudOff size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className={`text-xs flex-1 min-w-0 ${dark ? 'text-amber-200' : 'text-amber-900'}`}>
+              No connection — showing the copy you last opened{' '}
+              <span className="font-semibold">{formatCachedAt(cachedAt)}</span>. The publisher may have changed it since.
+            </span>
+            <button
+              onClick={() => setRetryCount(c => c + 1)}
+              className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${dark ? 'border-amber-500/40 text-amber-200 hover:bg-amber-500/20' : 'border-amber-500/50 text-amber-900 hover:bg-amber-100'}`}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       )}
 
