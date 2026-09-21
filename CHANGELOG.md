@@ -3,6 +3,14 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.42 — 2026-09-21
+
+- **A wrapped line is now indented**, so the continuation reads as the rest of
+  the line above rather than as a new lyric line — the way a hymnal or a printed
+  lead sheet does it. Easy to misread mid-song otherwise. Applies in Present and
+  in exported PDFs, in both Over Lyrics and Brackets. A line that fits is
+  untouched.
+
 ## v1.5.41 — 2026-09-21
 
 - **Shared sets now open without a connection.** A set someone shared with you

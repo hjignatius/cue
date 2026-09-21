@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { attachSectionLabels, styleSegments } from './chordPro.js';
-import { wrapUnits } from './lineWrap.js';
+import { wrapUnits, continuationIndent } from './lineWrap.js';
 import { transposeChord } from './transpose.js';
 import { PdfChordDiagram } from './PdfChordDiagram.jsx';
 import { registerPdfFonts, FONT_SANS, FONT_MONO } from './pdfFonts.js';
@@ -36,11 +36,14 @@ function buildStyles(scale, chordColor = '#4f46e5') {
     // Inline section label, above its section (Present-style). marginTop for the
     // section gap is applied per-line so the first line has none.
     sectionLabel:   { fontSize: LABEL_FONT * s, fontFamily: FONT_SANS, fontWeight: 'bold', color: chordColor, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: LYRIC_FONT * 0.25 * s },
-    lineContainer:  { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 * s, backgroundColor: '#ffffff' },
+    lineContainer:  { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 * s, backgroundColor: '#ffffff', paddingLeft: continuationIndent(LYRIC_FONT * s) },
     segment:        { flexDirection: 'column', backgroundColor: '#ffffff' },
     // A run that must not break. lineContainer wraps BETWEEN these; this never
     // wraps inside, so a chord sitting mid-word can't become a break point.
     wrapUnit:       { flexDirection: 'row', flexWrap: 'nowrap', backgroundColor: '#ffffff' },
+    // Pulls the FIRST unit back out of lineContainer's padding, so line 1 sits
+    // flush and only wrapped continuations are indented.
+    wrapUnitFirst:  { flexDirection: 'row', flexWrap: 'nowrap', backgroundColor: '#ffffff', marginLeft: -continuationIndent(LYRIC_FONT * s) },
     chordText:      { fontSize: CHORD_FONT * s, fontFamily: FONT_MONO, fontWeight: 'bold', color: chordColor, height: CHORD_FONT * 1.2 * s },
     lyricText:      { fontSize: LYRIC_FONT * s, color: '#1a1a2e', fontFamily: FONT_MONO },
     plainLyricLine: { fontSize: LYRIC_FONT * s, color: '#1a1a2e', fontFamily: FONT_MONO, marginBottom: 2 * s },
@@ -74,7 +77,7 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
     return (
       <View style={styles.lineContainer}>
         {wrapUnits(styleSegments(segments)).map((unit, u) => (
-          <View key={u} style={styles.wrapUnit}>
+          <View key={u} style={u === 0 ? styles.wrapUnitFirst : styles.wrapUnit}>
             {unit.map((seg, i) => {
               const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
               const shape = displayed ? shapeFor(displayed) : null;
@@ -101,7 +104,7 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
   return (
     <View style={styles.lineContainer}>
       {wrapUnits(styleSegments(segments)).map((unit, u) => (
-        <View key={u} style={styles.wrapUnit}>
+        <View key={u} style={u === 0 ? styles.wrapUnitFirst : styles.wrapUnit}>
           {unit.map((seg, i) => (
             <View key={i} style={styles.segment}>
               <Text style={styles.chordText}>

@@ -20,7 +20,7 @@ import PdfSongView from '../components/PdfSongView.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import PresentSettings from '../components/PresentSettings.jsx';
 import { beatsPerBar } from '../utils/timeSig.js';
-import { wrapUnits } from '../utils/lineWrap.js';
+import { wrapUnits, continuationIndent } from '../utils/lineWrap.js';
 import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -116,7 +116,7 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
             return (
               <div key={i}>
                 {label}
-                <div className="leading-relaxed" style={{ fontSize: fontPx, marginBottom: fontPx * 0.2 }}>
+                <div className="leading-relaxed" style={{ fontSize: fontPx, marginBottom: fontPx * 0.2, paddingLeft: continuationIndent(fontPx), textIndent: -continuationIndent(fontPx) }}>
                   {styleSegments(line.segments).map((seg, j) => (
                     <span key={j}>
                       {seg.chord && (
@@ -136,9 +136,13 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
                   never wraps. A unit is a run that must stay together — which is
                   how "won[G]derful" survives a wrap that used to split it, since
                   a chord position is not a word boundary. */}
-              <div className="flex flex-wrap" style={{ marginBottom: fontPx * 0.2 }}>
+              {/* Hanging indent: the row is padded, the first unit pulls back out
+                  by the same amount. So line 1 starts flush and every wrapped
+                  continuation is indented — otherwise a wrapped remainder reads
+                  as a new lyric line, which is easy to do mid-song. */}
+              <div className="flex flex-wrap" style={{ marginBottom: fontPx * 0.2, paddingLeft: continuationIndent(fontPx) }}>
                 {wrapUnits(styleSegments(line.segments)).map((unit, u) => (
-                <div key={u} className="flex">
+                <div key={u} className="flex" style={u === 0 ? { marginLeft: -continuationIndent(fontPx) } : undefined}>
                 {unit.map((seg, j) => {
                   const frets = diagrams && seg.chord ? shapeFor(seg.chord) : null;
                   return (

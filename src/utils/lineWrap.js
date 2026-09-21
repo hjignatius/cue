@@ -22,6 +22,20 @@
 // it only decides where a break is legal. Used by Present, the Preview pane and
 // the PDF export so all three break identically.
 
+// How far a wrapped continuation is indented, in characters. Two is enough to
+// read as "this is the rest of the line above" without stealing width from a
+// chart that is already tight. Shared so Present and the PDF agree.
+//
+// Achieved with a hanging indent: the row gets padding-left, and the FIRST unit
+// gets an equal negative margin to pull it back flush. CSS can't target "only
+// the wrapped rows" of a flex container, so this is the way — verified in both
+// the browser and @react-pdf's layout engine.
+export const CONTINUATION_INDENT_CHARS = 2;
+// Monospace advance as a fraction of the em, matching the value the PDF's layout
+// maths already uses.
+export const MONO_ADVANCE = 0.602;
+export const continuationIndent = (fontPx) => Math.round(fontPx * MONO_ADVANCE * CONTINUATION_INDENT_CHARS);
+
 const isSpace = (c) => /\s/.test(c);
 
 // Split one segment's styled runs into columns at word boundaries — that is,
