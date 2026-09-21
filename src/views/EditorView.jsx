@@ -684,6 +684,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     }
     setSongId(id);
     setIsDirty(false);
+    // The "Try again — smarter" offer refers to an AI result sitting UNSAVED in
+    // the editor, awaiting review. Saving accepts it, so the offer is spent —
+    // and re-running Clean up on already-cleaned text isn't the same operation
+    // the link promises. Nothing cleared this before, so it lingered for the
+    // rest of the session. The status line ("Cleaned up — review, then Save")
+    // goes with it: it has just been obeyed.
+    setAiRetry(null);
+    setAiMsg('');
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
     onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
     return id; // callers that need the id of a just-created song (see Present)
@@ -714,6 +722,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     if (b.songType !== undefined) setSongType(b.songType);
     setPendingPdf(null);
     setPdfErr('');
+    // Same reasoning as Save: the result the retry offer points at is gone —
+    // discarded rather than accepted, but gone either way.
+    setAiRetry(null);
+    setAiMsg('');
     setIsDirty(false);
     // Rewrite the draft to the baseline (in-memory + draft only, no song-record or
     // cloud write) so a reload cannot resurrect the discarded edits.

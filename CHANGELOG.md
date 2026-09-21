@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.37 — 2026-09-21
+
+- **Fixed: "Try again — smarter" stayed on screen after you'd saved.** Run an
+  in-place AI tool like **Clean up formatting**, save the result, and the retry
+  link kept sitting beside the **AI** button for the rest of the session — an
+  offer to redo something you'd already accepted. Saving now clears it, along
+  with the "review, then Save" status line, which has just been obeyed.
+  **Revert** clears them too: the result the offer pointed at is gone either
+  way.
+
 ## v1.5.36 — 2026-09-20
 
 - **A shared set now tells you what to do, not what happened.** "· changes not
