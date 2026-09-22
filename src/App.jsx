@@ -399,8 +399,14 @@ export default function App() {
     setSetlistContext({ songs: presenting.songs, idx: currentIndex });
     setLibraryContext(null);
     setPresenting(null);
+    // Remount the editor, exactly as every other route into it does. EditorView
+    // reads `song` only in its useState initialisers, so a still-mounted editor
+    // keeps whatever song it first opened with: Present -> Edit -> back -> skip
+    // ahead in the set -> Edit landed you on the earlier song, silently, with
+    // that song's text ready to be saved over.
+    setEditorKey(k => k + 1);
     setActiveSong(currentSong);
-    setEditorAnnotStamp(s => s + 1); // EditorView may have stayed mounted — force annotation re-check
+    setEditorAnnotStamp(s => s + 1); // re-check annotations for the newly opened song
     setView('editor');
   }
 

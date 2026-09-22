@@ -2243,7 +2243,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     if (onOpenSongFromList) onOpenSongFromList(song, idx, sorted);
                     else onOpenSong(song);
                   }}
-                  onPresent={s => onPresent?.([s], 0)}
+                  // Hand Present the whole visible list and where you are in it,
+                  // exactly as the setlist column does — so Next/Prev walk the
+                  // library in the order and filter you are looking at, rather
+                  // than dead-ending on the one song you picked.
+                  onPresent={() => onPresent?.(sorted, idx)}
                   onDuplicate={handleDuplicate}
                   onRetryPdf={handleRetryPdf}
                   selected={selected.has(song.id)}

@@ -3,6 +3,41 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.45 — 2026-09-22
+
+- **Present's tools moved into the floating panel.** The fixed column of buttons
+  down the left edge needed about 490px, and a phone in landscape has 400–440 —
+  so the bottom tools fell off the screen. The panel now has a Controls / Tools
+  selector at the top and holds both sets, and because it's draggable the tools
+  can also be pulled clear of the dynamic island, which a fixed column never
+  could. Exit stays pinned in the top-left corner: it's the only pointer route
+  out of Present, so it never moves.
+- **Lyrics and PDFs no longer run under the chord panel.** The content area now
+  stops where the panel starts instead of being covered by it. A PDF had no
+  horizontal scroll to give, so its right edge was simply hidden.
+- **Opening the chord panel shrinks the type instead of re-wrapping it.** The
+  column and the font scale together, so the characters-per-line count is
+  unchanged and every line break stays where it was — the page just gets
+  smaller. Annotations scale with it. On a phone in portrait there isn't room to
+  split the screen, so the panel floats over the lyrics there as before.
+- **Each song now gets a column as wide as it actually needs**, rather than a
+  fixed 65 characters. A narrow song was being given a column two-thirds empty
+  and capped at a smaller font than it had any need for; on an iPad a
+  45-character song could only reach about font 24 and can now reach the full
+  34. Wide songs are unchanged. Nothing re-wraps: the column is never narrower
+  than the song's longest line.
+- **Present from the Library now walks the library.** Next/Previous move through
+  the list in the order and filter you're looking at, starting from the song you
+  picked, the same way presenting from a setlist has always worked. Previously
+  Present was handed that one song and the buttons did nothing.
+- **Fixed: editing from Present could open the wrong song.** Every other route
+  into the editor remounts it; this one didn't, so a still-mounted editor kept
+  whatever song it first opened with. It was showing the earlier song *and* had
+  that song's text loaded, so a save would have written it over the newer song.
+- **The floating panel keeps its bottom row on screen.** Its edge margin now
+  gives way when the panel is taller than the viewport allows, instead of
+  holding position and letting the Save speed row hang off the bottom.
+
 ## v1.5.44 — 2026-09-22
 
 - **The Library / Sets / Setlist pill sits further from the bottom edge**, clear

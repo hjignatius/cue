@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { beatsPerBar } from '../utils/timeSig.js';
-import { ArrowDown, ChevronDown, ChevronUp, Pause } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronUp, Gauge, Pause, Wrench } from 'lucide-react';
 import { useDraggablePanel } from '../hooks/useDraggablePanel.js';
+import SegmentedControl, { SEGMENTED_HEIGHT } from './SegmentedControl.jsx';
 import RoundButton, {
   ROUND_FILL_NIGHT,
   ROUND_FILL_DAY,
-  ROUND_FILL_ACTIVE,
   TriangleLeft,
   TriangleRight,
 } from './RoundButton.jsx';
@@ -35,6 +35,10 @@ const PILL_BORDER = 'rgba(255,255,255,0.30)';
 export const PRESENT_CONTROL_EDGE_MARGIN   = 16;   // min gap from any viewport edge
 
 const PANEL_PADDING     = 12;
+// The panel shell carries a 1px border, and clientHeight excludes it — so without
+// this the inner column is 2px short of what the height maths promised, and the
+// only shrinkable child (the selector) silently absorbs the difference.
+const PANEL_BORDER      = 1;
 const HANDLE_H          = 24;
 const FLASH_MS          = 180;
 // Full-width "Save speed" row below the button grid. Present only when a save
@@ -46,9 +50,19 @@ const GRID_W = PRESENT_CONTROL_BUTTON_SIZE * 2 + PRESENT_CONTROL_GAP;
 const GRID_H = PRESENT_CONTROL_BUTTON_SIZE * GRID_ROWS + PRESENT_CONTROL_GAP * (GRID_ROWS - 1);
 
 const EXPANDED_W  = GRID_W + PANEL_PADDING * 2;
-const EXPANDED_H  = GRID_H + HANDLE_H + PRESENT_CONTROL_GAP + PANEL_PADDING * 2;
 const COLLAPSED_W = PRESENT_CONTROL_BUTTON_SIZE;
 const COLLAPSED_H = PRESENT_CONTROL_BUTTON_SIZE;
+
+// Which tab the panel is showing. Persisted: between songs you carry on where
+// you left off, rather than the panel resetting under you every time.
+const TAB_KEY       = 'cue:present_controls_tab';
+const SELECTOR_H    = SEGMENTED_HEIGHT.stack;
+// The collapse caret sits in its own full-width row directly beneath the selector,
+// so it lands where the collapsed blue pill appears. Kept deliberately short, and
+// tucked close under the selector, because those two rows are pure chrome and
+// every pixel they take comes off the controls in landscape.
+const CARET_H       = 16;
+const CARET_GAP     = 2;
 
 const POS_KEY       = 'cue:present_controls_pos';
 const COLLAPSED_KEY = 'cue:present_controls_collapsed';
@@ -223,6 +237,20 @@ export default function PresentControls(props) {
   const { dark, idleDelayMs = PRESENT_CONTROL_IDLE_DELAY_MS } = props;
 
   const [collapsed, setCollapsed] = useState(loadCollapsed);
+  // 'controls' (text size, navigation, scroll) or 'tools' (the per-song actions
+  // that used to live in the left gutter). One panel with a selector rather than
+  // two floating panels: two draggables on a phone collide by construction, and
+  // a single tall stack of everything didn't fit landscape at all.
+  const [tab, setTab] = useState(() => {
+    try { return localStorage.getItem(TAB_KEY) === 'tools' ? 'tools' : 'controls'; }
+    catch { return 'controls'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(TAB_KEY, tab); } catch { /* ignore */ }
+  }, [tab]);
+  // No tools wired (the shared viewer passes none) → no selector, no tools tab.
+  const hasTools = !!props.toolsSlot;
+  const showTools = hasTools && tab === 'tools';
   // Only user-initiated collapse/expand is remembered across sessions. The idle
   // auto-collapse is transient — persisting it would make every session start as
   // a pill a few seconds after the last, even when the user wanted it open.
@@ -233,7 +261,19 @@ export default function PresentControls(props) {
 
   // The save-speed row adds a button + one gap to the expanded panel; reserve it
   // whenever the feature is wired so the panel size stays stable as it enables.
-  const expandedH = EXPANDED_H + (props.showSaveSpeed ? SAVE_ROW_H + PRESENT_CONTROL_GAP : 0);
+  // Height follows the VISIBLE tab — only one set of buttons is ever rendered,
+  // which is what makes the whole thing fit a phone in landscape.
+  const toolsRows = props.toolsRows || 0;
+  const bodyH = showTools
+    ? toolsRows * PRESENT_CONTROL_BUTTON_SIZE + PRESENT_CONTROL_GAP * Math.max(0, toolsRows - 1)
+    : GRID_H + (props.showSaveSpeed ? SAVE_ROW_H + PRESENT_CONTROL_GAP : 0);
+  // The selector REPLACES the drag-handle row rather than sitting above it, and
+  // collapse moves to the corner button. Stacking the two cost 44px, which put
+  // the Controls tab at 408px — taller than a phone's ~402px landscape viewport,
+  // so the Save speed row fell off the bottom of the very screen this redesign
+  // exists to fit.
+  const headerH = hasTools ? SELECTOR_H + CARET_GAP + CARET_H : HANDLE_H;
+  const expandedH = headerH + PRESENT_CONTROL_GAP + bodyH + PANEL_PADDING * 2 + PANEL_BORDER * 2;
   const width  = collapsed ? COLLAPSED_W : EXPANDED_W;
   const height = collapsed ? COLLAPSED_H : expandedH;
 
@@ -328,20 +368,58 @@ export default function PresentControls(props) {
         </button>
       ) : (
         <div
-          className="w-full h-full rounded-2xl shadow-xl backdrop-blur-md border flex flex-col"
+          className="relative w-full h-full rounded-2xl shadow-xl backdrop-blur-md border flex flex-col"
           style={{ background: shellBg, borderColor: shellBorder, padding: PANEL_PADDING, gap: PRESENT_CONTROL_GAP }}
         >
-          <button
-            type="button"
-            aria-label="Collapse floating controls"
-            aria-expanded={true}
-            onClick={() => setCollapsedByUser(true)}
-            className="w-full flex items-center justify-center rounded-lg shrink-0"
-            style={{ height: HANDLE_H, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
-          >
-            <ChevronDown size={20} strokeWidth={2.5} />
-          </button>
-          <ControlGrid {...props} />
+          {/* Header row: the selector when there are tools to switch to, the bare
+              chevron otherwise. Either way it doubles as the drag grip — the
+              panel's whole surface starts a drag, and onClickCapture swallows the
+              click that would otherwise fire on whatever was under the finger. */}
+          {hasTools ? (
+            <SegmentedControl
+              ariaLabel="Panel"
+              options={[
+                { id: 'controls', label: 'Controls', icon: <Gauge size={18} strokeWidth={2} /> },
+                { id: 'tools',    label: 'Tools',    icon: <Wrench size={18} strokeWidth={2} /> },
+              ]}
+              value={tab}
+              onChange={setTab}
+              size="stack"
+              fullWidth
+              translucent
+            />
+          ) : (
+            <button
+              type="button"
+              aria-label="Collapse floating controls"
+              aria-expanded={true}
+              onClick={() => setCollapsedByUser(true)}
+              className="w-full flex items-center justify-center rounded-lg shrink-0"
+              style={{ height: HANDLE_H, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
+            >
+              <ChevronDown size={20} strokeWidth={2.5} />
+            </button>
+          )}
+          {/* Collapse — its own full-width row directly beneath the selector, so
+              it sits where the blue pill appears when the panel is collapsed and
+              you press the same spot to go each way. Short, and tucked close under
+              the selector: both rows are chrome, and in landscape every pixel they
+              take comes off the controls. */}
+          {hasTools && (
+            <button
+              type="button"
+              aria-label="Collapse floating controls"
+              aria-expanded={true}
+              onClick={() => setCollapsedByUser(true)}
+              className="w-full flex items-center justify-center rounded-lg shrink-0"
+              style={{ height: CARET_H, marginTop: CARET_GAP - PRESENT_CONTROL_GAP, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
+            >
+              <ChevronDown size={16} strokeWidth={2.5} />
+            </button>
+          )}
+          {showTools
+            ? <div style={{ display: 'grid', gridTemplateColumns: `repeat(2, ${PRESENT_CONTROL_BUTTON_SIZE}px)`, gap: PRESENT_CONTROL_GAP }}>{props.toolsSlot}</div>
+            : <ControlGrid {...props} />}
         </div>
       )}
     </div>

@@ -53,11 +53,19 @@ export function useDraggablePanel({ storageKey, width, height, margin = 0, defau
 
   const clampPos = useCallback((p) => {
     const { width: w, height: h } = sizeRef.current;
-    // Math.max guards the case where the panel is larger than the viewport:
-    // margin wins over a negative upper bound.
-    const maxX = Math.max(margin, window.innerWidth  - w - margin);
-    const maxY = Math.max(margin, window.innerHeight - h - margin);
-    return { x: clamp(p.x, margin, maxX), y: clamp(p.y, margin, maxY) };
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // The margin is a preference, not a floor. Holding y at `margin` when the
+    // panel is taller than (viewport - margin) pushes its far edge off-screen for
+    // no gain: a phone in landscape is ~402px, so a 390px panel held 16px down
+    // lost the bottom 4px — and the bottom of the Present panel is the Save row.
+    // Give the margin up only as far as needed, so a panel that fits keeps it.
+    const lowX = Math.min(margin, Math.max(0, vw - w));
+    const lowY = Math.min(margin, Math.max(0, vh - h));
+    // Math.max guards the case where the panel is larger than the viewport even
+    // at zero margin: the lower bound wins over a negative upper one.
+    const maxX = Math.max(lowX, vw - w - margin);
+    const maxY = Math.max(lowY, vh - h - margin);
+    return { x: clamp(p.x, lowX, maxX), y: clamp(p.y, lowY, maxY) };
   }, [margin]);
 
   const apply = useCallback((p) => { posRef.current = p; setPos(p); }, []);

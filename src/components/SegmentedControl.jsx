@@ -15,13 +15,23 @@ import { useRef } from 'react';
 // then sat up to ~16px off its label. 1fr columns in an inline grid all take the
 // widest label's width, which is both what a segmented control should look like
 // and what the thumb math already assumed.
-const PAD = { sm: 3, lg: 4 };
+const PAD = { sm: 3, lg: 4, stack: 3 };
 // Total track height (px). lg equals MIN_TOUCH_TARGET so it needs no extra hit padding.
-export const SEGMENTED_HEIGHT = { sm: 32, lg: 44 };
-const FONT = { sm: 13, lg: 15 };
+export const SEGMENTED_HEIGHT = { sm: 32, lg: 44, stack: 42 };
+// 'stack' is the icon-over-label tab bar. The track is 3 pad + 36 thumb + 3 pad,
+// and the thumb holds an 18px icon, a 2px gap and a 12px label.
+//
+// 42 is not a round number, it is a ceiling. This selector heads Present's
+// floating panel, whose Controls tab then comes to exactly 402px — a phone's
+// landscape viewport. One notch taller and the Save speed row starts going off
+// the bottom of the screen.
+const STACK_ICON = 18;
+const FONT = { sm: 13, lg: 15, stack: 12 };
 
 /**
- * @param options   [{ id, label }] — text only, no icons
+ * @param options   [{ id, label, icon? }]. At size 'stack' the icon sits above
+ *                  the label; at the other sizes an icon replaces the text and
+ *                  `label` becomes the accessible name.
  * @param value     id of the active option
  * @param onChange  (id) => void
  * @param size      'sm' | 'lg'
@@ -110,9 +120,19 @@ export default function SegmentedControl({
                 ? 'text-indigo-600 dark:text-indigo-400 font-medium'
                 : 'text-gray-500 dark:text-gray-400'
             }`}
+            aria-label={opt.icon && size !== 'stack' ? opt.label : undefined}
+            title={opt.icon && size !== 'stack' ? opt.label : undefined}
             style={{ fontSize: font, paddingLeft: segmentPadX, paddingRight: segmentPadX }}
           >
-            {opt.label}
+            {size === 'stack' && opt.icon ? (
+              // The label stays on screen rather than collapsing into an
+              // aria-label: an icon alone at this size is a guess, and the pair is
+              // the whole point — you read which tab you are on at a glance.
+              <span className="flex flex-col items-center justify-center" style={{ gap: 2, lineHeight: 1 }}>
+                <span className="flex items-center justify-center" style={{ height: STACK_ICON }}>{opt.icon}</span>
+                <span style={{ lineHeight: 1 }}>{opt.label}</span>
+              </span>
+            ) : (opt.icon ?? opt.label)}
           </button>
         );
       })}

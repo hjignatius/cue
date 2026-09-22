@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Pencil, Wrench, Settings as SettingsIcon } from 'lucide-react';
-import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN } from '../components/PresentControls.jsx';
+import { X, Pencil, Settings as SettingsIcon } from 'lucide-react';
+import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN, PRESENT_CONTROL_BUTTON_SIZE } from '../components/PresentControls.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -14,7 +14,6 @@ import ChordDiagram from '../components/ChordDiagram.jsx';
 import { resolveChordShape } from '../utils/chordLookup.js';
 import { loadCustomChords, loadHiddenChords } from '../utils/chordStorage.js';
 import { readableChordColor } from '../utils/chordColor.js';
-import { Fragment } from 'react';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import PdfSongView from '../components/PdfSongView.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
@@ -25,6 +24,7 @@ import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { isPdfSong } from '../utils/songType.js';
+import { songBodyWidthChars, songHeaderWidthChars } from '../utils/songWidth.js';
 
 // Parse "3:30" or "210" → seconds
 function parseDuration(dur) {
@@ -220,19 +220,14 @@ const MAX_SPEED  = 4;
 const DEFAULT_SPEED = 1;
 // Keep the multiplier off binary-float cruft so ×1.05 then ÷1.05 lands back on 1.
 const roundMult = (m) => Math.round(m * 1000) / 1000;
-// Whether the left-gutter tool tray (Edit / YouTube / ink / chords) is expanded.
-// Persisted so it stays as the user left it from song to song and across
-// re-entering Present.
-const TOOLS_OPEN_KEY = 'cue:present_tools_open';
-
 // Chord-panel size buttons and Present's action buttons share one size: the
 // adjustment/utility tier, smaller than PresentControls' 64px primary controls
 // but still a full MIN_TOUCH_TARGET, so RoundButton adds no padding. (The chord
 // buttons were 32 visual / 44 hit; enlarged to fill the 44 hit box.)
 export const CHORD_SIZE_BUTTON_SIZE = 44;
-// Present's action buttons (Chords / Finger drawing / YouTube / Edit / Exit).
+// Present's Exit button. The other tools now live in the floating panel at
+// PRESENT_CONTROL_BUTTON_SIZE; only Exit stays pinned in the corner.
 export const PRESENT_ACTION_BUTTON_SIZE = 44;
-const PRESENT_ACTION_GAP = 12;
 
 // When Cue runs as an installed app (Home Screen / Add to Dock), the OS draws
 // window controls over the top-left of the content — macOS traffic lights, or
@@ -283,9 +278,26 @@ const CHORD_STRIP_H = Math.max(CHORD_SIZE_BUTTON_SIZE, MIN_TOUCH_TARGET) + CHORD
 // sized to hold this many characters at the current font size, independent of
 // the chord shapes panel. Tune LYRIC_TARGET_CHARS to taste.
 const LYRIC_TARGET_CHARS = 65;
+// Floor for the measured per-song width. A song of one-word lines would otherwise
+// ask for a column a few characters wide — technically correct, unreadable, and
+// it leaves nowhere for a section label to sit.
+const LYRIC_MIN_CHARS = 20;
 // Horizontal padding of the scroll area inside the lyrics column (scrollRef uses
 // md:px-12 = 48px per side; the wide layout is always ≥1024px so md: is active).
 const LYRIC_COL_PADDING = 96;
+// The same padding below Tailwind's md breakpoint, where the lyric scroller is
+// pl-14 pr-6 (56 + 24) instead of px-12 (48 + 48). Mirrors the className on that
+// element — change one and you must change the other, or the fit scale below
+// drifts by a character.
+const LYRIC_COL_PADDING_SM = 80;
+const MD_BREAKPOINT = 768;
+// Narrowest lyric TEXT column (padding already removed) worth splitting the stage
+// for — about 38 characters at the minimum font size. Below this the chord panel
+// has eaten so much of the screen that shrinking the type to fit would land under
+// MIN_FONT and re-wrap anyway, for a column too narrow to read: a phone in
+// portrait leaves ~100px beside a 208px panel. There the panel goes back to
+// floating over full-width lyrics, which you can at least scroll out from under.
+const MIN_LYRIC_TEXT_W = 320;
 // Font stack matching SongBody's `font-mono` (Tailwind), used to measure the
 // monospace advance width so the column width tracks the real glyph metrics.
 const MONO_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
@@ -293,12 +305,13 @@ const MONO_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 // Pixel width of a lyrics column that holds LYRIC_TARGET_CHARS monospace chars at
 // the given font size, plus the scroll padding. Measured via canvas; falls back
 // to the ~0.6em monospace advance if measurement is unavailable.
-function lyricColumnWidth(fontPx) {
-  let textW = LYRIC_TARGET_CHARS * fontPx * 0.6;
+function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
+  const n = Math.max(1, Math.ceil(chars));
+  let textW = n * fontPx * 0.6;
   try {
     const ctx = document.createElement('canvas').getContext('2d');
     ctx.font = `${fontPx}px ${MONO_FONT_STACK}`;
-    const measured = ctx.measureText('0'.repeat(LYRIC_TARGET_CHARS)).width;
+    const measured = ctx.measureText('0'.repeat(n)).width;
     if (measured > 0) textW = measured;
   } catch { /* keep fallback */ }
   return Math.round(textW + LYRIC_COL_PADDING);
@@ -333,7 +346,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const isNarrow = useIsNarrow();
   const isPhone = useIsNarrow(640);
   const [index, setIndex]       = useState(Math.max(0, Math.min(startIndex, songs.length - 1)));
-  const [fontPx, setFontPx]     = useState(() => {
+  const [baseFontPx, setBaseFontPx] = useState(() => {
     try {
       const n = parseInt(localStorage.getItem(FONT_KEY) || '', 10);
       if (!isNaN(n)) return Math.min(MAX_FONT, Math.max(MIN_FONT, n));
@@ -367,12 +380,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
   const [annotating, setAnnotating] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(() => {
-    try { return localStorage.getItem(TOOLS_OPEN_KEY) === '1'; } catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem(TOOLS_OPEN_KEY, toolsOpen ? '1' : '0'); } catch { /* ignore */ }
-  }, [toolsOpen]);
   const { url: ytUrl, collapsed: ytCollapsed, openPlayer, collapsePlayer, expandPlayer } = useYouTube();
   const ytWasExpandedRef = useRef(false);
   const scrollRef      = useRef(null);
@@ -397,6 +404,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const semitones = isPdfSong(song) ? 0 : semitonesBetween(meta.key, song?.displayKey);
   // Accidental spelling for transposed chords/diagrams — auto follows the View Key.
   const useFlats = useFlatsForKey(accidentals, song?.displayKey);
+  // The View Key drives the info block, so it updates live on transpose. Declared
+  // up here, not beside hasKeyOrTempo, because the per-song column width below
+  // reads it from a dependency array — which runs during render, not after it.
+  const viewKey = song?.displayKey || meta.key?.trim() || '';
 
   // Per-song Full Page control + the within-song advance unit. The pedal, the
   // on-screen ◀/▶, and the pdf tap zones all resolve their meaning through `mode`
@@ -434,6 +445,95 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // PDF paging state (1-based); pdfCount comes from the rendered document.
   const [pdfPage, setPdfPage]   = useState(1);
   const [pdfCount, setPdfCount] = useState(1);
+
+  // The song's own width, in characters — what it actually needs rather than the
+  // one-size-fits-all LYRIC_TARGET_CHARS. Capped there so no song is ever given a
+  // WIDER column than before, and floored so a sparse one still gets a sane box.
+  //
+  // The header is folded in because a title that wraps pushes the lyrics down,
+  // and ink is anchored to an absolute y: a column narrow enough to wrap the
+  // title would leave every annotation on the song behind.
+  //
+  // Null (an Imbed song, whose width is diagrams rather than characters) falls
+  // back to the fixed target, which is exactly today's behaviour.
+  const targetChars = useMemo(() => {
+    if (songIsPdf) return LYRIC_TARGET_CHARS;
+    const body = songBodyWidthChars(song?.text, {
+      semitones, useFlats,
+      displayMode: song?.previewMode || song?.chordStyle || 'over',
+      condensed: song?.condensed === true,
+      embed: song?.embed === true,
+      instrument, chordLabelScale,
+    });
+    if (body == null) return LYRIC_TARGET_CHARS;
+    const header = songHeaderWidthChars({
+      title: meta.title, artist: meta.artist,
+      keyBpmReserveChars: (viewKey || meta.tempo) ? KEY_BPM_RESERVE_EM / 0.602 : 0,
+    });
+    return Math.min(LYRIC_TARGET_CHARS, Math.max(LYRIC_MIN_CHARS, body, header));
+  }, [songIsPdf, song?.text, song?.previewMode, song?.chordStyle, song?.condensed, song?.embed,
+      semitones, useFlats, instrument, chordLabelScale, meta.title, meta.artist, viewKey, meta.tempo]);
+
+  // Stage width, measured rather than assumed — Present is full-bleed, but an
+  // iPad in Stage Manager is not the window.
+  const stageRef = useRef(null);
+  // Seeded from the window so the very first paint is already the right size —
+  // entering Present with chords already open otherwise showed one full-width
+  // frame before the observer corrected it.
+  const [stageW, setStageW] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setStageW(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Horizontal padding inside the lyric scroller, which does NOT scale with the
+  // type and so has to be taken off both sides of the fit ratio below.
+  const lyricPad = stageW >= MD_BREAKPOINT ? LYRIC_COL_PADDING : LYRIC_COL_PADDING_SM;
+  const chordsShown = chordControlsAvailable && showChords;
+  // Is there enough stage left to put the lyrics BESIDE the panel? If not, the
+  // panel floats over them exactly as it used to.
+  const chordFits = stageW > 0 && stageW - chordsWidth - lyricPad >= MIN_LYRIC_TEXT_W;
+  // How much of the stage the docked chord panel is sitting on. The content box
+  // is held clear of it by this much, so nothing renders underneath the panel.
+  const chordInset = chordsShown && chordFits ? chordsWidth : 0;
+
+  // Opening the chord panel takes width away from the lyrics. Rather than let
+  // the text re-wrap into what is left — which moves every line break mid-song,
+  // the one moment you are reading ahead — shrink the type by exactly the
+  // fraction of the stage the panel took. Column and font scale together, so the
+  // characters-per-line figure is unchanged and the same words stay on the same
+  // lines; the page just gets smaller.
+  //
+  // Ink comes along for free: a stroke records the font size it was drawn at
+  // (captureFontPx) and AnnotationCanvas scales by renderFontPx/captureFontPx on
+  // both axes, so annotations shrink and grow locked to the words under them.
+  //
+  // Not rounded: a fractional px keeps chars-per-line exact, and a rounded one
+  // would let a line break move by a character on the way in or out.
+  //
+  // The padding has to come out of both sides of the ratio. A column is
+  // (65 chars x fontPx) + padding — affine, not linear — and the padding does not
+  // scale with the type. Scale the TEXT width and the character count is
+  // identical; scale the whole column and it drifts.
+  const baseColWidth = useMemo(() => lyricColumnWidth(baseFontPx, targetChars), [baseFontPx, targetChars]);
+  const fitScale = useMemo(() => {
+    if (!chordInset || !stageW) return 1;
+    // Never ask for more than the stage: a column already too wide for the screen
+    // scrolls sideways today, and that stays true — the panel just must not make
+    // it worse.
+    const want = Math.min(isNarrow ? stageW : baseColWidth, stageW) - lyricPad;
+    const have = stageW - chordInset - lyricPad;
+    return want > 0 && have > 0 ? Math.min(1, have / want) : 1;
+  }, [chordInset, stageW, isNarrow, baseColWidth, lyricPad]);
+  // MIN_FONT floors it: on a phone the panel can claim half the stage, and text
+  // scaled to fit that is smaller than anyone can read. Below the floor it falls
+  // back to re-wrapping, which is at least legible.
+  const fontPx = Math.max(MIN_FONT, baseFontPx * fitScale);
 
   const goTo = useCallback((target) => {
     const clamped = Math.max(0, Math.min(total - 1, target));
@@ -572,8 +672,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const prev = useCallback(() => (advancesWithinSong ? withinSongAdvance(-1) : goTo(index - 1)), [advancesWithinSong, withinSongAdvance, goTo, index]);
   const next = useCallback(() => (advancesWithinSong ? withinSongAdvance(1)  : goTo(index + 1)), [advancesWithinSong, withinSongAdvance, goTo, index]);
 
-  const smallerAction = useCallback(() => setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
-  const largerAction  = useCallback(() => setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
+  const smallerAction = useCallback(() => setBaseFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
+  const largerAction  = useCallback(() => setBaseFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
 
   // F faster, S slower — each press a ±10% proportional step, clamped to range.
   const fasterScroll = useCallback(() => setSpeedMult(m => roundMult(Math.min(MAX_SPEED, m * SPEED_STEP))), []);
@@ -601,8 +701,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   // Persist the lyric font size so A-/A+ changes survive leaving and re-entering.
   useEffect(() => {
-    try { localStorage.setItem(FONT_KEY, String(fontPx)); } catch { /* ignore */ }
-  }, [fontPx]);
+    try { localStorage.setItem(FONT_KEY, String(baseFontPx)); } catch { /* ignore */ }
+  }, [baseFontPx]);
 
   // Reset the speed tweak to neutral on every song change, so each song's
   // readout shows its own duration until you actively adjust (and Save) it.
@@ -690,8 +790,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       }
 
       if      (e.key === 'Escape')  onExit();
-      else if (e.key === '+' || e.key === '=') setFontPx(f => Math.min(MAX_FONT, f + FONT_STEP));
-      else if (e.key === '-' || e.key === '_') setFontPx(f => Math.max(MIN_FONT, f - FONT_STEP));
+      else if (e.key === '+' || e.key === '=') setBaseFontPx(f => Math.min(MAX_FONT, f + FONT_STEP));
+      else if (e.key === '-' || e.key === '_') setBaseFontPx(f => Math.max(MIN_FONT, f - FONT_STEP));
       // Space toggles auto-scroll — inert in pedal paging mode (nothing to toggle).
       else if (e.key === ' ') { e.preventDefault(); if (autoScrollAvailable) setScrolling(s => !s); }
     }
@@ -777,8 +877,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Same fill family again — one visual language across all three sizes.
   const actionFill = chordBtnFill;
 
-  // The View Key drives the info block, so it updates live on transpose.
-  const viewKey = song?.displayKey || meta.key?.trim() || '';
   const hasKeyOrTempo = !!(viewKey || meta.tempo);
 
   // How far v1 annotations must move down: exactly the artist line's height,
@@ -809,11 +907,19 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // change (A-/A+), never on chord-panel resize — so contentWrapRef.offsetWidth
   // stays constant when the chord panel is dragged and the annotation
   // ResizeObserver never fires.
-  const lyricColWidth = useMemo(() => lyricColumnWidth(fontPx), [fontPx]);
+  const lyricColWidth = useMemo(() => lyricColumnWidth(fontPx, targetChars), [fontPx, targetChars]);
+
 
   // Idle fade for the gutter action buttons — mirrors PresentControls: fade after
   // a spell of no input, wake on any pointerdown. Same delay/opacity so the two
   // control surfaces ghost together and come back together.
+  // How many rows the tools occupy in the panel's 2-column grid. Counted from the
+  // same conditions that render each button below — get these out of step and the
+  // panel is sized against buttons it isn't showing.
+  const toolCount = 2 + (showEdit ? 1 : 0) + (onSetFullPage ? 1 : 0)
+    + (disableAnnotations ? 0 : 1) + (chordsAvailable ? 1 : 0);
+  const toolRows  = Math.ceil(toolCount / 2);
+
   const [gutterIdle, setGutterIdle] = useState(false);
   const gutterIdleTimer = useRef(null);
   useEffect(() => {
@@ -835,6 +941,105 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // meant to be selected. Without it, a double-click (including the setlist row
   // double-tap that opens Present, whose second click can land on the just-mounted
   // lyrics) selects text and paints a highlight box over it.
+
+  // The per-song tools, handed to PresentControls as its "Tools" tab. They live
+  // here rather than inside that component because every one of them closes over
+  // this view's state (annotating, showChords, isFullPage, the YouTube player) —
+  // passing a slot keeps that ownership where it belongs instead of threading a
+  // dozen props through. Sized to the panel grid, not the old 44px gutter.
+  const presentTools = (<>
+    {/* Present's own settings — a set-and-forget tool, which is why it lives in
+        Tools rather than beside the controls reached for mid-song. */}
+    <RoundButton
+      size={PRESENT_CONTROL_BUTTON_SIZE}
+      label="Present settings"
+      fill={actionFill}
+      active={settingsOpen}
+      onActivate={() => setSettingsOpen(true)}
+    >
+      <SettingsIcon size={20} strokeWidth={2} />
+    </RoundButton>
+
+    {showEdit && (
+      <RoundButton
+        size={PRESENT_CONTROL_BUTTON_SIZE}
+        label="Edit this song"
+        fill={actionFill}
+        onActivate={() => onEdit?.(songs[index], index)}
+      >
+        <span className="font-bold leading-none" style={{ fontSize: 20 }}>E</span>
+      </RoundButton>
+    )}
+
+    {/* Per-song Full Page mirror of the editor's control. Active (indigo) =
+        discrete full pages that fit the screen; off = continuous scroll.
+        Applies to both PDF and text songs. (The Screen-vs-Songs pedal choice
+        is a global setting under Settings, not a per-song control.) */}
+    {onSetFullPage && (
+      <RoundButton
+        size={PRESENT_CONTROL_BUTTON_SIZE}
+        label={isFullPage ? 'Full Page mode: one page at a time' : 'Scroll mode: continuous scroll'}
+        fill={actionFill}
+        active={isFullPage}
+        onActivate={toggleFullPage}
+      >
+        <span className="font-bold leading-none" style={{ fontSize: 13 }}>
+          {isFullPage ? 'FP' : 'SC'}
+        </span>
+      </RoundButton>
+    )}
+
+    {(() => {
+      const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
+      return (
+        <RoundButton
+          size={PRESENT_CONTROL_BUTTON_SIZE}
+          label={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}
+          fill={actionFill}
+          disabled={!hasYT}
+          onActivate={() => openPlayer(meta.youtubeUrl, meta.title)}
+        >
+          {/* Red brand mark, matching the editor header. #ff0033 reads on
+              both the night and day action-button fills. RoundButton's opacity
+              still dims it when disabled. */}
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#ff0033" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+        </RoundButton>
+      );
+    })()}
+
+    {/* Pen glyph vs "Finger drawing" label: the mismatch is DELIBERATE, do not
+        "fix" the icon to a hand.
+        The glyph reads as ink, which is what the control is about. But the
+        toggle only gates FINGER and mouse drawing — an Apple Pencil draws
+        whatever the state (AnnotationCanvas:
+        shouldDraw = e.pointerType === 'pen' || annotating). So "off" does NOT
+        mean "no ink", and the label has to say what the toggle actually does
+        even though the glyph says what the feature is. */}
+    {!disableAnnotations && (
+      <RoundButton
+        size={PRESENT_CONTROL_BUTTON_SIZE}
+        label={annotating ? 'Finger drawing on' : 'Finger drawing off'}
+        fill={actionFill}
+        active={annotating}
+        onActivate={() => setAnnotating(v => !v)}
+      >
+        <Pencil size={22} strokeWidth={2} />
+      </RoundButton>
+    )}
+
+    {chordControlsAvailable && (
+    <RoundButton
+      size={PRESENT_CONTROL_BUTTON_SIZE}
+      label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
+      fill={actionFill}
+      active={showChords}
+      onActivate={() => setShowChords(v => !v)}
+    >
+      <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
+    </RoundButton>
+    )}
+  </>);
+
   return (
     <div className={`fixed inset-0 z-50 flex flex-col select-none ${bg}`}>
       {/* Source badge — which version is playing (shared vs. your edited copy).
@@ -864,7 +1069,16 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           squeezed as fontPx grows. This wrapper — not the scroller — is the
           panel's positioning context, so the panel sits below the top bar and
           does not scroll away with the lyrics. */}
-      <div className="flex-1 relative min-h-0">
+      <div ref={stageRef} className="flex-1 relative min-h-0">
+      {/* Everything that renders a song sits in this box, which stops where the
+          chord panel starts. Previously the content filled the whole wrapper and
+          the panel was docked on top of it, so a PDF page and any lyric line wide
+          enough ran underneath the panel. A text song could at least be scrolled
+          out from under it; a PDF is laid out to fit its container and had no
+          scroll to give, so its right edge was simply covered.
+          Absolute (not padding) so it remains the positioning context the
+          children below already expect from `inset-0`. */}
+      <div className="absolute inset-y-0 left-0" style={{ right: chordInset }}>
       {/* PDF in Full Page mode: one page fit-to-screen, tap zones turn pages. */}
       {songIsPdf && mode === 'page' && (
         <PdfSongView
@@ -906,8 +1120,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
         {/* Lyrics column. Wide layout: fixed width from LYRIC_TARGET_CHARS at the
             current font size, so the chord panel never steals its width (contentWrapRef
-            stays constant → ink never rescales on chord resize). Narrow layout keeps
-            flex-1 (the chord panel there is a fixed overlay that never takes row space). */}
+            stays constant → ink never rescales on chord resize). Narrow layout is
+            flex-1 of the chord-inset box, so it DOES narrow when the panel opens:
+            on a phone the column is the whole stage, and holding its width would
+            just put the lyrics back under the panel. The cost is that text re-wraps
+            and ink rescales when chords are toggled — the same reflow A−/A+ already
+            causes, and cheaper than text you cannot read. */}
         <div
           className={`relative ${isNarrow ? 'flex-1 min-w-0' : 'shrink-0'}`}
           style={isNarrow ? undefined : { width: lyricColWidth }}
@@ -977,20 +1195,23 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
         </div>
 
-        {/* Scroll-clear spacer. Matches the docked panel's live width so the end
-            of the longest line can be scrolled out from under it; without it the
-            tail would sit under the panel even at maximum scrollLeft. */}
-        {chordControlsAvailable && showChords && (
+        {/* Scroll-clear spacer, for the overlay case only. Matches the panel's
+            live width so the end of the longest line can be scrolled out from
+            under it; without it the tail would sit under the panel even at
+            maximum scrollLeft. Not needed when the content box is inset, because
+            then the row already ends where the panel begins. */}
+        {chordsShown && !chordInset && (
           <div className="shrink-0" style={{ width: chordsWidth }} aria-hidden="true" />
         )}
       </div>
       )}
+      </div>
 
         {/* Chord diagram — one docked, resizable panel at every width (phone,
             tablet, desktop): no blocking modal, so the round size buttons are
-            always present. Absolute, so it takes no row space and keeps its own
-            resizable width; the lyrics column runs under it at large fonts
-            instead of pushing it off the page. z-30 keeps it below
+            always present. Absolute, so it keeps its own resizable width and can
+            never be squeezed as fontPx grows; the content box is held clear of it
+            by chordInset rather than running underneath. z-30 keeps it below
             PresentControls (z-40) so the control pill stays reachable.
             overflow-hidden lives on the inner column, not here, so the handle's
             44px touch target can overflow the panel's left edge. */}
@@ -1041,21 +1262,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         )}
       </div>
 
-      {/* Action buttons — the top bar is gone, so these live in the upper-left
-          corner, in the lyric column's 48px left gutter where they cover no text
-          at rest. Exit stays on top, always visible; below it a Tools toggle
-          reveals or hides the four song tools (Edit, YouTube, Finger drawing,
-          Chords) so they don't clutter the stage while scrolling. The whole
-          group is stationary; PresentControls is draggable, so overlap is
-          possible by construction and z-order is the only guarantee: z-35 keeps
-          these above the chord panel (z-30) and below PresentControls (z-40), so
-          the control pill always wins. Exit is the only pointer route out of
-          Present (Escape is the keyboard fallback). The tool tray's open state
-          persists, so it stays as left from song to song and across re-entry. */}
+      {/* EXIT — pinned, alone, never moves. Everything else that used to stack
+          below it now lives in the floating panel's Tools tab: a fixed column of
+          eight 44px buttons needed ~490px, and a phone in landscape has ~400-440,
+          so the bottom tools fell off the screen entirely. The panel is draggable,
+          so the tools can also be pulled clear of the dynamic island, which a
+          fixed top-left column never could.
+          Exit stays put because it is the only pointer route out of Present
+          (Escape is the keyboard fallback) — nothing to hunt for and nothing to
+          drag it behind. z-35 puts it above the chord panel (z-30) and below the
+          control panel (z-40), so the panel always wins an overlap. */}
       <div
         className="fixed left-0 z-[35] flex flex-col items-center"
         style={{
-          top: GUTTER_TOP, gap: PRESENT_ACTION_GAP, paddingLeft: 2,
+          top: GUTTER_TOP, paddingLeft: 2,
           opacity: gutterIdle ? PRESENT_CONTROL_IDLE_OPACITY : 1,
           transition: 'opacity 300ms ease',
         }}
@@ -1068,112 +1288,6 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         >
           <X size={22} strokeWidth={2.5} />
         </RoundButton>
-
-        {/* Tools toggle. Indigo accent when open (via active) so it reads as the
-            container for the tray, distinct from the neutral tools it reveals. */}
-        <RoundButton
-          size={PRESENT_ACTION_BUTTON_SIZE}
-          label={toolsOpen ? 'Hide tools' : 'Show tools'}
-          fill={actionFill}
-          active={toolsOpen}
-          ariaExpanded={toolsOpen}
-          onActivate={() => setToolsOpen(v => !v)}
-        >
-          <Wrench size={20} strokeWidth={2} />
-        </RoundButton>
-
-        {toolsOpen && (<>
-        {/* Present's own settings. In the tray rather than the control pill: it's
-            a set-and-forget tool, not something reached for mid-song. */}
-        <RoundButton
-          size={PRESENT_ACTION_BUTTON_SIZE}
-          label="Present settings"
-          fill={actionFill}
-          active={settingsOpen}
-          onActivate={() => setSettingsOpen(true)}
-        >
-          <SettingsIcon size={20} strokeWidth={2} />
-        </RoundButton>
-
-        {showEdit && (
-          <RoundButton
-            size={PRESENT_ACTION_BUTTON_SIZE}
-            label="Edit this song"
-            fill={actionFill}
-            onActivate={() => onEdit?.(songs[index], index)}
-          >
-            <span className="font-bold leading-none" style={{ fontSize: 20 }}>E</span>
-          </RoundButton>
-        )}
-
-        {/* Per-song Full Page mirror of the editor's control. Active (indigo) =
-            discrete full pages that fit the screen; off = continuous scroll.
-            Applies to both PDF and text songs. (The Screen-vs-Songs pedal choice
-            is a global setting under Settings, not a per-song control.) */}
-        {onSetFullPage && (
-          <RoundButton
-            size={PRESENT_ACTION_BUTTON_SIZE}
-            label={isFullPage ? 'Full Page mode: one page at a time' : 'Scroll mode: continuous scroll'}
-            fill={actionFill}
-            active={isFullPage}
-            onActivate={toggleFullPage}
-          >
-            <span className="font-bold leading-none" style={{ fontSize: 13 }}>
-              {isFullPage ? 'FP' : 'SC'}
-            </span>
-          </RoundButton>
-        )}
-
-        {(() => {
-          const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
-          return (
-            <RoundButton
-              size={PRESENT_ACTION_BUTTON_SIZE}
-              label={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}
-              fill={actionFill}
-              disabled={!hasYT}
-              onActivate={() => openPlayer(meta.youtubeUrl, meta.title)}
-            >
-              {/* Red brand mark, matching the editor header. #ff0033 reads on
-                  both the night and day action-button fills. RoundButton's opacity
-                  still dims it when disabled. */}
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="#ff0033" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
-            </RoundButton>
-          );
-        })()}
-
-        {/* Pen glyph vs "Finger drawing" label: the mismatch is DELIBERATE, do not
-            "fix" the icon to a hand.
-            The glyph reads as ink, which is what the control is about. But the
-            toggle only gates FINGER and mouse drawing — an Apple Pencil draws
-            whatever the state (AnnotationCanvas:
-            shouldDraw = e.pointerType === 'pen' || annotating). So "off" does NOT
-            mean "no ink", and the label has to say what the toggle actually does
-            even though the glyph says what the feature is. */}
-        {!disableAnnotations && (
-          <RoundButton
-            size={PRESENT_ACTION_BUTTON_SIZE}
-            label={annotating ? 'Finger drawing on' : 'Finger drawing off'}
-            fill={actionFill}
-            active={annotating}
-            onActivate={() => setAnnotating(v => !v)}
-          >
-            <Pencil size={22} strokeWidth={2} />
-          </RoundButton>
-        )}
-
-        {chordControlsAvailable && (
-        <RoundButton
-          size={PRESENT_ACTION_BUTTON_SIZE}
-          label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
-          fill={actionFill}
-          active={showChords}
-          onActivate={() => setShowChords(v => !v)}
-        >
-          <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
-        </RoundButton>
-        )}
-        </>)}
       </div>
 
       {/* Floating control panel — the only in-view control surface for text size,
@@ -1186,8 +1300,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         idleDelayMs={idleDelayMs}
         onSmaller={smallerAction}
         onLarger={largerAction}
-        canSmaller={!songIsPdf && fontPx > MIN_FONT}
-        canLarger={!songIsPdf && fontPx < MAX_FONT}
+        canSmaller={!songIsPdf && baseFontPx > MIN_FONT}
+        canLarger={!songIsPdf && baseFontPx < MAX_FONT}
         onPrev={prev}
         onNext={next}
         canPrev={advancesWithinSong || index > 0}
@@ -1196,6 +1310,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         onSlower={slowerScroll}
         canFaster={speedMult < MAX_SPEED}
         canSlower={speedMult > MIN_SPEED}
+        toolsSlot={presentTools}
+        toolsRows={toolRows}
         showSaveSpeed={!!onSaveDuration || hasDuration}
         canSaveSpeed={canSaveSpeed}
         onSaveSpeed={saveSpeed}
@@ -1206,7 +1322,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         scrolling={scrolling}
         scrollDisabled={!autoScrollAvailable}
         speedPct={speedMult}
-        fontPx={fontPx}
+        fontPx={baseFontPx}
         tempo={Number(meta.tempo) || 0}
         timeSig={meta.timeSig}
       />
