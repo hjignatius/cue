@@ -27,6 +27,14 @@
   box-sizing: border-box;
 }
 
+/* The html background paints the LETTERBOX in a standalone iOS app — the strips
+   around the Dynamic Island and home indicator that the system reserves now that
+   viewport-fit=cover is deliberately absent (see index.html). Without this they
+   default to white, which frames a dark-theme app in white bars. Matches
+   Present's surfaces: white / neutral-950. */
+html { background-color: #ffffff; }
+html.dark { background-color: #0a0a0a; }
+
 html, body {
   margin: 0;
   height: 100%;

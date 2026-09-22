@@ -3,6 +3,20 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.43 — 2026-09-22
+
+- **Fixed: buttons didn't respond where you tapped them after rotating the
+  phone.** On iOS 27, rotating the device left every control's touch area about
+  one button away from where it was drawn — you had to press above or below it,
+  depending on which way you'd turned the phone. Pinch-zooming cleared it until
+  the next rotation. It affected the home-screen app on both Safari and Chrome;
+  the same page in a normal browser tab was always fine.
+  Cue was giving iOS two contradictory instructions about the strip of screen
+  around the Dynamic Island, and iOS 27 resolved them inconsistently. Removed.
+- A small visible consequence: the app no longer draws underneath the Dynamic
+  Island and home indicator, so there's a narrow band along those edges in the
+  app's own colour. A fair trade for buttons that work where you press them.
+
 ## v1.5.42 — 2026-09-21
 
 - **A wrapped line is now indented**, so the continuation reads as the rest of
