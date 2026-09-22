@@ -7,7 +7,7 @@ import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cache
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { contentHash } from '../utils/contentHash.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
@@ -900,10 +900,15 @@ export default function SharedSetView() {
               Library's panel switcher, so one control behaves one way. */}
           <SegmentedControl
             ariaLabel="Song order"
-            options={[{ id: 'custom', label: 'Original' }, { id: 'alpha', label: 'A–Z' }]}
+            options={[
+              // A medal rather than lucide's `Badge`: at 18px that icon's scalloped
+              // edge collapses into a plain ring, indistinguishable from a circle.
+              { id: 'custom', label: 'Original', icon: <Award size={18} strokeWidth={2} /> },
+              { id: 'alpha',  label: 'A–Z',      icon: <ArrowDownAZ size={18} strokeWidth={2} /> },
+            ]}
             value={sortMode}
             onChange={setSortMode}
-            size="sm"
+            size="stack"
             segmentPadX={14}
           />
         </div>

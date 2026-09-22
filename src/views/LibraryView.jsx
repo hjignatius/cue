@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, escalatedModel, escalatedTierLabel } from '../lib/ai.js';
 import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
@@ -1353,10 +1353,13 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           {/* Same sliding pill as the panel switcher above it. */}
           <SegmentedControl
             ariaLabel="Setlist order"
-            options={[{ id: 'custom', label: 'Custom' }, { id: 'alpha', label: 'A–Z' }]}
+            options={[
+              { id: 'custom', label: 'Custom', icon: <Scissors size={18} strokeWidth={2} /> },
+              { id: 'alpha',  label: 'A–Z',    icon: <ArrowDownAZ size={18} strokeWidth={2} /> },
+            ]}
             value={sortMode}
             onChange={applySort}
-            size="sm"
+            size="stack"
             segmentPadX={14}
           />
           {/* Present / Edit now live in each row's ⋮ menu. */}

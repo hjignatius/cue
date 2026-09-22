@@ -162,7 +162,7 @@ Tab-style choices share one control — [`SegmentedControl`](src/components/Segm
 |---|---|---|
 | `sm` | 32 | Compact inline choices (setlist and sharing order) |
 | `lg` | 44 | Text-only bars; equals `MIN_TOUCH_TARGET`, so it needs no extra hit padding |
-| `stack` | 42 | Icon above label — Present's Controls / Tools, Library / Sets / Setlist, the editor's Text / Preview / Chords |
+| `stack` | 42 | Icon above label — every tab bar in the app: Present's Controls / Tools, Library / Sets / Setlist, the editor's Text / Preview / Chords, the Setlist's Custom / A–Z, a shared set's Original / A–Z |
 
 An option may carry an `icon`. At `stack` it sits above the label; at the other sizes it replaces the text and `label` becomes the accessible name.
 

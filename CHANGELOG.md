@@ -3,6 +3,13 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.3 — 2026-09-22
+
+- **The last two order selectors have icons too** — the Setlist's Custom / A–Z
+  and a shared set's Original / A–Z. Scissors for Custom, a medal for Original,
+  and a sort-A-to-Z arrow for both A–Z. All five tab bars in the app now work
+  and look the same way.
+
 ## v1.6.2 — 2026-09-22
 
 - **Imbedded chord shapes are bigger, and the Chord label size setting now
