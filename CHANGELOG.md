@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.5.44 — 2026-09-22
+
+- **The Library / Sets / Setlist pill sits further from the bottom edge**, clear
+  of the iOS home-indicator bar. It had been relying on the safe-area inset for
+  most of that gap, and the inset went to zero when the rotation bug was fixed
+  in 1.5.43. The gap is now a fixed amount that doesn't depend on the insets, so
+  it can't quietly collapse again. List padding moved with it, so the last row
+  still clears the pill.
+
 ## v1.5.43 — 2026-09-22
 
 - **Fixed: buttons didn't respond where you tapped them after rotating the

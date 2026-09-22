@@ -68,9 +68,17 @@ function loadPhonePanel() {
     return PHONE_PANELS.includes(v) ? v : 'library';
   } catch { return 'library'; }
 }
-// Room under the last list row so it clears the floating pill and stays tappable:
-// pill height + its 8px bottom offset + breathing room + the safe-area inset.
-const PILL_CLEARANCE = `calc(${SEGMENTED_HEIGHT.lg}px + 20px + env(safe-area-inset-bottom))`;
+// How far the floating panel pill sits above the bottom edge.
+//
+// Was 8px, which relied on env(safe-area-inset-bottom) adding the rest. Since
+// viewport-fit=cover was removed (see index.html — it broke touch targets after
+// rotation on iOS 27) that env resolves to 0, leaving the pill uncomfortably
+// close to the iOS home-indicator bar. This is a plain number instead: it does
+// not depend on the insets resolving, so it can't quietly collapse again.
+const PILL_BOTTOM = 24;
+// Room under the last list row so it clears the floating pill and stays
+// tappable. Derived from PILL_BOTTOM so the two can never drift apart.
+const PILL_CLEARANCE = `calc(${SEGMENTED_HEIGHT.lg}px + ${PILL_BOTTOM + 12}px + env(safe-area-inset-bottom))`;
 
 const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
 function loadSharedWithMe() {
@@ -2298,7 +2306,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         <div
           className="fixed left-1/2 z-30 [transition:transform_220ms_ease,opacity_160ms_ease] motion-reduce:[transition:none]"
           style={{
-            bottom: 'calc(8px + env(safe-area-inset-bottom))',
+            bottom: `calc(${PILL_BOTTOM}px + env(safe-area-inset-bottom))`,
             transform: pillHidden ? 'translateX(-50%) translateY(calc(100% + 16px))' : 'translateX(-50%)',
             opacity: pillHidden ? 0 : 1,
             pointerEvents: pillHidden ? 'none' : undefined,
