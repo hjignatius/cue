@@ -4,11 +4,15 @@
 //   serves any instrument; 0 = open, -1 = muted (×), >0 = fretted.
 // No string-name labels are drawn — players know their instrument's strings.
 // scale: multiplier on base dimensions (default 1.0)
+// nameScale: multiplier on the CHORD NAME only (default 1.0) — the letters grow,
+//   the fretboard does not. The name sits in a reserved band well taller than it
+//   needs, so moderate growth costs nothing at all; past that the band (not the
+//   chart) stretches to keep clear of the open-string circles.
 // theme: 'dark' | 'light'
 
 import { readableChordColor } from '../utils/chordColor.js';
 
-export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordColor }) {
+export default function ChordDiagram({ chord, scale = 1, nameScale = 1, theme = 'dark', chordColor }) {
   const { name, frets } = chord;
 
   // Base layout (at scale 1)
@@ -20,7 +24,7 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
     padLeft: 10,
     padTop:  6,    // reduced — label zone now holds the extra space
     labelH:  22,   // tall enough to separate chord name from open circles
-    fontSize: { label: 10, pos: 6, string: 5.5 },
+    fontSize: { label: 12, pos: 6, string: 5.5 },
     nut:     2.5,
     strokeW: 0.8,
   };
@@ -33,7 +37,23 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
   const openR    = B.openR   * s;
   const padLeft  = B.padLeft * s;
   const padTop   = B.padTop  * s;
-  const labelH   = B.labelH  * s;
+  // The name is drawn with its baseline one font-height below padTop, and the
+  // open-string circles sit just above the nut — so the band has to hold the
+  // font plus their diameter and gap (2*openR + 1.5 + 1 = 7.5 base units). At the
+  // default that is 12 + 7.5 = 19.5 against a 22-unit band, which is why the name
+  // can grow a long way before the diagram's height moves at all. The FRETBOARD
+  // never changes either way: strGap/fretGap/bodyH are untouched by nameScale.
+  //
+  // Capped to the diagram's own width, because the name is centred inside an SVG
+  // that clips at its edges: at the largest label size "F#m7b5" ran straight out
+  // of the box and lost its last characters. A long name therefore grows less
+  // than a short one — which is the right trade, since the alternative is either
+  // a clipped name or diagrams of differing widths that would make the embedded
+  // row and the chord grid ragged.
+  const nameLen  = Math.max(1, String(name ?? '').length);
+  const widthBase = B.padLeft * 2 + B.strGap * (strings - 1);
+  const labelFont = Math.min(B.fontSize.label * nameScale, widthBase / (nameLen * 0.62));
+  const labelH   = Math.max(B.labelH, labelFont + 7.5) * s;
 
   const activeFrets = frets.filter(f => f > 0);
   const maxFret   = activeFrets.length ? Math.max(...activeFrets) : 0;
@@ -84,8 +104,8 @@ export default function ChordDiagram({ chord, scale = 1, theme = 'dark', chordCo
     >
       {/* Chord name — anchored one font-height below padTop so open circles
            (drawn just above the nut) never overlap the text */}
-      <text x={w / 2} y={padTop + B.fontSize.label * s} textAnchor="middle"
-        fontSize={B.fontSize.label * s} fontFamily="ui-monospace, monospace"
+      <text x={w / 2} y={padTop + labelFont * s} textAnchor="middle"
+        fontSize={labelFont * s} fontFamily="ui-monospace, monospace"
         fontWeight="600" fill={col.label}>{name}</text>
 
       {/* Nut or position marker */}

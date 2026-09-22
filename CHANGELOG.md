@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.4 — 2026-09-22
+
+- **Chord letters above the diagrams can now be made bigger on their own.**
+  "Chord label size" sizes the A, C, F#m7b5 above each chord shape, and leaves
+  the fretboard alone — so you can read the chord from a stand without the charts
+  growing to match. They start 20% larger than before and go to roughly double
+  across the setting's range. The chart's width never changes and its height only
+  at the very top of the range, where the name band stretches by a couple of
+  pixels. A long name stops growing once it reaches the diagram's edge rather
+  than being clipped.
+- Applies to imbedded chords in Present and the editor Preview, and to the chord
+  panel's diagrams.
+
 ## v1.6.3 — 2026-09-22
 
 - **The last two order selectors have icons too** — the Setlist's Custom / A–Z

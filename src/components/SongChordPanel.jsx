@@ -63,7 +63,7 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
   const [fretsStr,   setFretsStr]   = useState(initialFretsStr);
   const [fingersStr, setFingersStr] = useState(initialFingersStr);
   const dark = theme === 'dark';
-  const { chordColor } = usePrefs();
+  const { chordColor, chordLabelScale } = usePrefs();
 
   const previewFrets   = parseFretStr(fretsStr);
   const previewFingers = parseFingerStr(fingersStr);
@@ -87,7 +87,7 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
     <form onSubmit={handleSave} className={`border rounded-lg p-3 space-y-3 ${dark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
       {/* Live preview */}
       <div className="flex justify-center py-1">
-        <ChordDiagram chord={previewChord} scale={1.3} theme={theme} chordColor={chordColor} tuning={tuning} />
+        <ChordDiagram chord={previewChord} scale={1.3} nameScale={1 + chordLabelScale / 100} theme={theme} chordColor={chordColor} tuning={tuning} />
       </div>
 
       <div>
@@ -131,7 +131,7 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
 // ---- SongChordPanel --------------------------------------------------------
 
 export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [] }) {
-  const { theme, chordColor, instrument } = usePrefs();
+  const { theme, chordColor, instrument, chordLabelScale } = usePrefs();
   const dark = theme === 'dark';
   const tuning = getActiveTuning(instrument);
 
@@ -447,7 +447,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                         : dark ? 'border-gray-700 hover:border-gray-500 bg-gray-900/50' : 'border-gray-300 hover:border-gray-400 bg-white'
                     }`}
                   >
-                    <ChordDiagram chord={shape} scale={scale} theme={theme} chordColor={chordColor} tuning={tuning} />
+                    <ChordDiagram chord={shape} scale={scale} nameScale={1 + chordLabelScale / 100} theme={theme} chordColor={chordColor} tuning={tuning} />
                   </div>
                   {!readonly && (
                     <button
@@ -543,7 +543,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     }` : ''}
                     title={!readonly ? (hasAlternates ? `${shapes.length} voicings — click to pick · double-click to edit` : 'Click to manage voicings · double-click to edit') : undefined}
                   >
-                    <ChordDiagram chord={selectedShape} scale={scale} theme={theme} chordColor={chordColor} tuning={tuning} />
+                    <ChordDiagram chord={selectedShape} scale={scale} nameScale={1 + chordLabelScale / 100} theme={theme} chordColor={chordColor} tuning={tuning} />
                   </div>
                   {hasAlternates && (
                     <div className={`absolute bottom-1 right-1 text-[8px] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}>
