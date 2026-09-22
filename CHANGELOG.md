@@ -3,7 +3,7 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
-## v1.5.45 — 2026-09-22
+## v1.6.0 — 2026-09-22
 
 - **Present's tools moved into the floating panel.** The fixed column of buttons
   down the left edge needed about 490px, and a phone in landscape has 400–440 —

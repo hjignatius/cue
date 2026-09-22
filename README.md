@@ -15,6 +15,7 @@ A ChordPro song sheet manager for musicians. Organize your songs into setlists, 
 - Filter by key — tap any key chip to show only songs in that key
 - Single-tap a song to select it for batch export or delete
 - Double-tap a song to open it in the editor
+- **Present** from any row's ⋯ menu — Next/Previous then navigate the visible list from that song
 
 ### Editor
 - Full ChordPro editing with live chord preview
@@ -43,11 +44,19 @@ Title · Artist · Key · Tempo / BPM · Time Signature · Duration · YouTube U
 
 ### Present Mode
 - Full-screen, distraction-free view of chord sheets
-- **Floating control panel** — a draggable panel of 64px round buttons over the song: A−/A+ text size, ◀/▶ song navigation, a two-bar count-in, and auto-scroll. Position and collapsed state persist per device; it fades when idle and wakes on any touch. Collapses to a single pill; buttons dim when unavailable (first/last song, min/max size, no tempo)
+- **One floating panel, two tabs** — a draggable panel of 54px round buttons over the song, headed by a **Controls / Tools** selector:
+  - **Controls** — A−/A+ text size, ◀/▶ song navigation, F/S scroll speed, a two-bar count-in, auto-scroll, and Save speed
+  - **Tools** — Present settings, Edit, Full Page / Scroll, YouTube, ink annotation, chord diagrams
+
+  These tools used to sit in a fixed column down the left edge. That column needed about 490px and a phone in landscape has 400–440, so the bottom of it fell off the screen; being in a draggable panel also lets them be pulled clear of the dynamic island. Selected tab, position and collapsed state persist per device; the panel fades when idle and wakes on any touch, and collapses to a single pill. Buttons dim when unavailable (first/last song, min/max size, no tempo).
+- **Exit is pinned alone in the top-left** and never moves — it is the only pointer route out of Present (`Esc` is the keyboard fallback)
+- **Nothing renders under the chord panel.** The content area stops where the docked panel starts. Opening the panel **scales the type** rather than re-wrapping it: column and font shrink together, so characters-per-line is unchanged, every line break stays where it was, and annotations scale with the words. Where there is too little room to split the stage — a phone in portrait — the panel floats over full-width lyrics instead, and the lyrics can be scrolled out from under it
+- **The lyric column is sized per song**, to its own widest rendered line rather than a fixed 65 characters (capped there, and floored by the title block so a narrowing column can never wrap the header and strand ink). A narrow song is no longer capped at a smaller font than it needs
 - Auto-scroll **pauses in place** and resumes from that point — only a song change resets to the top
 - Keyboard: `←`/`→` songs, `+`/`−` text size, `space` auto-scroll, `Esc` exit
-- Edit button drops back into the editor at the current song; Save returns to presentation
+- Edit drops back into the editor at the current song; Save returns to presentation
 - YouTube player available per song during performance
+- **Present from the Library** walks the library: Next/Previous move through the list in the order and filter on screen, starting from the song you picked — the same way presenting from a setlist does
 
 ### Cloud Sync & Sharing
 Optional, and off unless Supabase env vars are set. Everything above works with no account; an account is only needed to publish or pull. Sign in via **Settings → Cloud Account (Optional)** (magic link — `signInWithOtp` with `shouldCreateUser: false`; accounts are provisioned in the Supabase dashboard, not by self-signup).
@@ -133,7 +142,7 @@ Menu and toolbar actions across the app share one control — [`RoundButton`](sr
 
 | Size tier | px | Used by |
 |---|---|---|
-| `ROUND_SIZE_ACTION` | 44 | Top app headers (Library, editor, shared-set), Present gutter, chord strip |
+| `ROUND_SIZE_ACTION` | 44 | Top app headers (Library, editor, shared-set), Present's pinned Exit, chord strip |
 | `ROUND_SIZE_COMPACT` | 36 visual / 44 hit | Dense panel & toolbar sub-headers (Select / New Song, Select / New Set, Setlist Present / Edit, editor Preview / Chords toggles) |
 
 | Fill | Value | When |
