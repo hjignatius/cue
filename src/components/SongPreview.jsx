@@ -76,13 +76,18 @@ function StyledRuns({ runs }) {
   );
 }
 
-// Diagram-view sizing: the smallest readable inline chord shape. Height is
-// instrument-independent (4 fret rows), so a fixed band keeps lyric baselines
-// aligned across the row whether a segment has a chord or not.
-const DIAG_SCALE = 0.6;
-const DIAG_BAND = 46;
+// Imbed diagram size, derived from the preview's lyric size the same way Present
+// derives it from fontPx, so the two agree on how big a diagram is relative to
+// the words under it. Scaled by the "Chord label size" preference, because in
+// Imbed mode the diagram is what the chord label has become.
+//
+// The band height is instrument-independent (always 4 fret rows), so holding it
+// fixed across a row keeps lyric baselines aligned whether or not a segment
+// carries a chord.
+const diagScaleFor = (chordLabelScale) => Math.max(0.4, (PV / 20) * (1 + chordLabelScale / 100));
+const diagBandFor  = (scale) => 76 * scale;
 
-function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFlats, diagramMode, shapeFor, dark }) {
+function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFlats, diagramMode, shapeFor, dark, diagScale, diagBand }) {
   const segs = styleSegments(segments);
 
   if (diagramMode) {
@@ -93,9 +98,9 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFla
           const frets = displayed ? shapeFor(displayed) : null;
           return (
             <div key={i} className="flex flex-col items-start shrink-0" style={{ whiteSpace: 'pre' }}>
-              <div className="flex items-end shrink-0" style={{ minHeight: DIAG_BAND }}>
+              <div className="flex items-end shrink-0" style={{ minHeight: diagBand }}>
                 {frets
-                  ? <ChordDiagram chord={{ name: displayed, frets }} scale={DIAG_SCALE} theme={dark ? 'dark' : 'light'} chordColor={chordColor} />
+                  ? <ChordDiagram chord={{ name: displayed, frets }} scale={diagScale} theme={dark ? 'dark' : 'light'} chordColor={chordColor} />
                   : displayed
                     // Undefined chord → fall back to the name (no shape in the library).
                     ? <span className="font-bold leading-tight self-end pb-0.5" style={{ color: chordColor, fontSize: chordFontSize }}>{displayed + ' '}</span>
@@ -169,6 +174,8 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
   const shapeFor = (name) => resolveChordShape(name, chordPrefs, instrument, chordSources.custom, chordSources.hidden)?.frets || null;
   const diagrams = diagramMode && displayMode === 'over' && instrument !== 'none';
   const chordFontSize = PV * 0.85 * (1 + chordLabelScale / 100); // matches Present's chordPx
+  const diagScale = diagScaleFor(chordLabelScale);
+  const diagBand  = diagBandFor(diagScale);
   const semitones = semitonesBetween(metadata?.key, displayKey);
   // Spelling of transposed accidentals: auto follows the View Key (displayKey).
   const useFlats = useFlatsForKey(accidentals, displayKey);
@@ -281,7 +288,7 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
                   return null;
                 } else if (line.type === 'chords') {
                   lineContent = displayMode === 'over'
-                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} useFlats={useFlats} diagramMode={diagrams} shapeFor={shapeFor} dark={dark} />
+                    ? <OverLyricsLine segments={line.segments} semitones={semitones} chordColor={chordColor} chordFontSize={chordFontSize} useFlats={useFlats} diagramMode={diagrams} shapeFor={shapeFor} dark={dark} diagScale={diagScale} diagBand={diagBand} />
                     : <BracketsLine segments={line.segments} semitones={semitones} chordColor={chordColor} useFlats={useFlats} />;
                 } else {
                   lineContent = (

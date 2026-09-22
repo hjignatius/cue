@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.2 — 2026-09-22
+
+- **Imbedded chord shapes are bigger, and the Chord label size setting now
+  controls them.** In Imbed mode the diagram *is* the chord label, but the
+  setting only ever moved chord names — so it looked like it had stopped
+  working. Diagrams are also 25% larger at the default setting: the old ratio
+  drew them noticeably smaller than the names they replace. The editor Preview
+  and Present now derive the size the same way, so they agree on how big a
+  diagram is next to the words under it.
+
 ## v1.6.1 — 2026-09-22
 
 - **The Library / Sets / Setlist and Text / Preview / Chords selectors now carry

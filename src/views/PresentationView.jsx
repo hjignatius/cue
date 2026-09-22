@@ -85,7 +85,12 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
   // Imbed (chords as diagrams) — over-lyrics only, needs an instrument. Diagrams
   // scale with the Present font; the band keeps lyric baselines aligned.
   const diagrams = embed && displayMode === 'over' && instrument !== 'none';
-  const diagScale = Math.max(0.4, fontPx / 25);
+  // When Imbed is on the diagram IS the chord label, so it follows the same
+  // "Chord label size" preference the chord names do — that setting was inert in
+  // this mode, which made it look like it had stopped working. The base divisor
+  // is 20 rather than 25 because the old ratio drew a diagram noticeably smaller
+  // than the name it replaces.
+  const diagScale = Math.max(0.4, (fontPx / 20) * (1 + chordLabelScale / 100));
   const diagBand = 76 * diagScale;
   // Same resolver as the chord panel / PDF — honors custom shapes and the song's
   // chosen voicing (chordPrefs), not just built-ins.

@@ -430,7 +430,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   </button>
                 ))}
               </div>
-              <p className={`text-[11px] ${muted}`}>Applies to chord names above lyrics only.</p>
+              <p className={`text-[11px] ${muted}`}>Applies to chord names above lyrics, and to the chord shapes when Imbed is on.</p>
             </div>
           </Section>
 
