@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.1 — 2026-09-22
+
+- **The Library / Sets / Setlist and Text / Preview / Chords selectors now carry
+  icons**, each above its label, matching Present's Controls / Tools panel. A
+  shelf for Library (the same mark the shared-set header uses), stacked pages for
+  Sets, a lined page for Setlist; a T for Text, a projector screen for Preview,
+  and a miniature chord diagram for Chords. Both bars end up 42px tall against
+  the 44px they were, so nothing moved to make room.
+
 ## v1.6.0 — 2026-09-22
 
 - **Present's tools moved into the floating panel.** The fixed column of buttons

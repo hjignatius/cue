@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, escalatedModel, escalatedTierLabel } from '../lib/ai.js';
 import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
@@ -2319,16 +2319,18 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           <SegmentedControl
             ariaLabel="Panel"
             options={[
-              { id: 'library', label: 'Library' },
-              { id: 'sets',    label: 'Sets' },
-              { id: 'setlist', label: 'Setlist' },
+              // Library reuses the shelf glyph the shared-set header already uses
+              // for it, so the same idea keeps the same mark across the app.
+              { id: 'library', label: 'Library', icon: <Library size={18} strokeWidth={2} /> },
+              { id: 'sets',    label: 'Sets',    icon: <FileStack size={18} strokeWidth={2} /> },
+              { id: 'setlist', label: 'Setlist', icon: <FileText size={18} strokeWidth={2} /> },
             ]}
             value={phonePanel}
             onChange={setPhonePanel}
-            size="lg"
+            size="stack"
             fullWidth={false}
             translucent
-            segmentPadX={18}
+            segmentPadX={14}
           />
         </div>
       )}

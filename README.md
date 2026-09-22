@@ -154,6 +154,20 @@ Menu and toolbar actions across the app share one control — [`RoundButton`](sr
 
 Icon-only anchor and toggle circles turn indigo when active; neutral actions keep the chrome fill. Present-launching buttons everywhere use the same `Tv` glyph; navigation uses the shared `TriangleLeft` / `TriangleRight` leaves. `PillLabel` is the shared white label span inside a pill.
 
+### Segmented selectors
+
+Tab-style choices share one control — [`SegmentedControl`](src/components/SegmentedControl.jsx): a rounded track of equal segments with a single thumb that slides behind the active one. The track is an inline **grid** of `1fr` columns rather than flex, so every segment takes the widest label's width and the thumb's "one Nth of the track" maths stays true; with flex, segments settle at their own label widths and the thumb drifts off its label.
+
+| Size | Height | Used by |
+|---|---|---|
+| `sm` | 32 | Compact inline choices (setlist and sharing order) |
+| `lg` | 44 | Text-only bars; equals `MIN_TOUCH_TARGET`, so it needs no extra hit padding |
+| `stack` | 42 | Icon above label — Present's Controls / Tools, Library / Sets / Setlist, the editor's Text / Preview / Chords |
+
+An option may carry an `icon`. At `stack` it sits above the label; at the other sizes it replaces the text and `label` becomes the accessible name.
+
+`stack` is 42 rather than a rounder number because it heads Present's floating panel, whose Controls tab then comes to exactly 402px — a phone's landscape viewport. One notch taller and the Save speed row starts leaving the screen. The editor's Chords tab uses a hand-drawn chord diagram on lucide's 24px grid; fret lines and lucide's 2px stroke are deliberately absent, because at 18px a dot on a 2px string is just a thickening of it.
+
 ### Storage layout
 | Store | Key | Contents |
 |---|---|---|

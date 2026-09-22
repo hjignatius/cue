@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText } from 'lucide-react';
+import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -435,6 +435,30 @@ function CharRuler({ textareaRef, text, target, dark }) {
 }
 
 
+// A chord diagram shrunk to an icon: a nut, three strings and two stopped notes.
+//
+// Hand-drawn rather than a scaled-down ChordDiagram — that component draws a name
+// label and is proportioned to be read, neither of which survives 18px. Drawn on
+// lucide's 24px grid so it sits in a row of lucide icons without looking like a
+// guest.
+//
+// The proportions are the whole trick and were settled by rendering candidates at
+// the size they are actually used. Fret lines and lucide's 2px stroke both had to
+// go: at 18px a dot sitting on a 2px string is only a slight thickening of it and
+// disappears, and a nut plus two fret lines reads as a hash, not a chord. Thin
+// strings (1.4) against fat dots (r=3) is what makes the shape legible small.
+function ChordGlyph({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth={1.4} strokeLinecap="round" aria-hidden="true">
+      <path d="M3 5h18" strokeWidth={3} />
+      {[6, 12, 18].map(x => <path key={x} d={`M${x} 5v15`} />)}
+      <circle cx="6"  cy="10"   r="3" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="15.5" r="3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi }) {
   const { theme, chordColor, chordDiagramSize, accidentals, symbols, instrument, aiLevel, updatePref } = usePrefs();
   // 'none' turns chord diagrams off entirely: no panel, no toggle, no Chords tab.
@@ -500,9 +524,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const formatsInline = compactChrome;
   // Shared by the in-toolbar (sm) and compact (lg) renderings of the selector.
   const panelOptions = [
-    { id: 'text',    label: 'Text' },
-    { id: 'preview', label: 'Preview' },
-    ...(chordsAvailable ? [{ id: 'chords', label: 'Chords' }] : []),
+    { id: 'text',    label: 'Text',    icon: <Type size={18} strokeWidth={2} /> },
+    { id: 'preview', label: 'Preview', icon: <Presentation size={18} strokeWidth={2} /> },
+    ...(chordsAvailable ? [{ id: 'chords', label: 'Chords', icon: <ChordGlyph size={18} /> }] : []),
   ];
   const setPanelFromOption = (id) => setNarrowTab(id === 'text' ? 'editor' : id);
   // If chords get turned off (instrument → none) while the narrow Chords tab is
@@ -2436,9 +2460,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             options={panelOptions}
             value={narrowTab === 'editor' ? 'text' : narrowTab}
             onChange={setPanelFromOption}
-            size="lg"
+            size="stack"
             fullWidth={false}
-            segmentPadX={18}
+            segmentPadX={14}
           />
         </div>
       )}
