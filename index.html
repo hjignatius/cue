@@ -4,9 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/cue-icon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-64.png" sizes="64x64" type="image/png" />
-    <!-- viewport-fit=cover so env(safe-area-inset-*) resolves to real values in
-         a standalone iOS window; without it the insets are always 0. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- TEMPORARY DIAGNOSTIC (2026-09-22) — viewport-fit=cover removed to test an
+         iOS 27 standalone bug: after rotating a HOME-SCREEN app, touch targets sit
+         offset from where elements are painted, by roughly one button, in the
+         direction of the rotation. A pinch-zoom resets it; rotating back clears it.
+         Safari as a normal TAB is unaffected — and a browser tab is precisely where
+         viewport-fit and apple-mobile-web-app-status-bar-style are IGNORED, which is
+         why these tags are the suspects: `cover` says "content goes under the safe
+         areas, I'll handle the insets" while the status-bar style below says
+         "default", i.e. opaque bar, start below it. Contradictory instructions about
+         the same strip of screen, live only in the failing mode. Safe-area insets
+         also differ by rotation DIRECTION (the Dynamic Island swaps sides), which
+         fits the direction-dependent offset.
+         COST while this is out: env(safe-area-inset-*) resolves to 0, so the
+         Library's floating pill sits slightly low over the home indicator.
+         If this fixes it, replace with a CONSISTENT pairing — status-bar-style
+         black-translucent + explicit top padding — rather than leaving cover off.
+         If it does not, restore this line: the bug is iOS's, not ours. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#4f46e5" />
