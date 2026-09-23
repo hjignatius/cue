@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.0 — 2026-09-23
+
+- **Fill in song details finds the YouTube video far more often.** It had two
+  web searches for the whole request, so a video lookup competed with tempo,
+  duration and time signature and usually lost. It now gets a search of its own
+  whenever you tick that field, and is told to search YouTube directly and copy
+  a watch URL out of the results rather than trying to recall a video id.
+- **And when it still comes up empty, there's a one-tap way out.** The dialog
+  now offers *Search YouTube for "<artist> <title>"*, opening the search you'd
+  have run yourself. A video id can only be copied from a real result, never
+  worked out, so Cue says nothing rather than inventing one — but you no longer
+  have to retype the song to go looking.
+
 ## v1.8.7 — 2026-09-23
 
 - **Fixed: "Cleaning up…" stayed on screen after the clean finished.** Removing

@@ -1645,7 +1645,29 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           const rows = FILL_FIELDS
             .map(f => ({ field: f.field, label: f.label, value: s[f.field] }))
             .filter(r => r.value);
-          if (rows.length === 0) return <p className={`text-sm ${mutedText}`}>Couldn't work out any details for this song. The key is read from the chords; the rest depends on identifying the song.</p>;
+          // A video id is the one field that can only be COPIED, never worked
+          // out, so it comes back empty more often than the rest. When the user
+          // asked for it and got nothing, hand them the search they would have
+          // run themselves — one tap, already filled in with the song.
+          const ytQuery = [metadata.artist, metadata.title].map(v => (v || '').trim()).filter(Boolean).join(' ');
+          const ytMissed = fillFields.includes('youtubeUrl') && !s.youtubeUrl && ytQuery;
+          const ytSearchLink = ytMissed ? (
+            <div className={`flex flex-col gap-1.5 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>YouTube</span>
+              <span className={`text-sm ${mutedText}`}>No video found — a link has to be copied from a real search result, so it says nothing rather than guessing.</span>
+              <a
+                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                <ExternalLink size={12} /> Search YouTube for “{ytQuery}”
+              </a>
+            </div>
+          ) : null;
+          if (rows.length === 0) return (<>
+            <p className={`text-sm ${mutedText}`}>Couldn't work out any details for this song. The key is read from the chords; the rest depends on identifying the song.</p>
+            {ytSearchLink}
+          </>);
           // Same predicate the per-row buttons already use, across every row: once
           // it's true there is nothing left to apply, so "Apply all" spends itself
           // (mirroring a row's "Applied") and Close becomes the primary action.
@@ -1709,6 +1731,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 </li>
               ))}
             </ul>
+            {ytSearchLink}
             <div className="flex gap-2">
               <button
                 onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}

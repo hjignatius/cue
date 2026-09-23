@@ -684,7 +684,12 @@ const FILL_RULES = {
   timeSig:    '- timeSig: the metre of that recording as "beats/value" (e.g. "4/4", "3/4", "6/8", "12/8"). Most popular songs are 4/4; waltzes are 3/4; many folk, blues and worship songs are 6/8 or 12/8. Say "" rather than defaulting to "4/4" when you are not reasonably sure.',
   tempo:      '- tempo: approximate BPM of the well-known recording, as a plain integer string (e.g. "72"). "" if you don\'t know.',
   duration:   '- duration: length of that recording as M:SS (e.g. "4:05"). "" if you don\'t know.',
-  youtubeUrl: '- youtubeUrl: a REAL YouTube watch URL for the official/most-popular version that you actually found via search (https://www.youtube.com/watch?v=… or https://youtu.be/…). NEVER guess or invent a video id — if you did not find a real link, use "".',
+  // A video id is an opaque 11-character string: it cannot be reasoned out, only
+  // copied. So the rule names the search to run and insists the URL come back
+  // verbatim from a result. The refusal clause stays — an invented id passes the
+  // regex check below and lands the user on a dead video, which is worse than an
+  // empty field.
+  youtubeUrl: '- youtubeUrl: run a search of your own for this ONE field — query `"<artist>" "<title>" site:youtube.com` (add "official video" or "official audio" if that returns nothing) — and copy a watch URL VERBATIM out of the results (https://www.youtube.com/watch?v=… or https://youtu.be/…). Do not reconstruct or remember a video id: if no search result gave you one, use "". A wrong id is worse than no link.',
 };
 // Only `key` is derived from the chart itself; everything else is a fact about a
 // recording that has to be looked up. Asking for key alone therefore needs no
@@ -734,7 +739,12 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
     max_tokens: 1200,
     output_config: { effort: 'low' },
     system,
-    ...(search ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }] } : {}),
+    // Two searches covered the whole request, so a YouTube lookup competed with
+    // tempo, duration and time signature and usually lost — the field came back
+    // empty about 60% of the time on a first pass. The video needs a search of
+    // its own, so buy one when it is asked for.
+    ...(search ? { tools: [{ type: 'web_search_20260209', name: 'web_search',
+      max_uses: want.includes('youtubeUrl') ? 4 : 2 }] } : {}),
     // With no chart there's nothing to paste, so name the song instead — the
     // Messages API still needs a user turn.
     messages: [{ role: 'user', content: chart ? chart.slice(0, 8000) : `The song is: ${known}.` }],
