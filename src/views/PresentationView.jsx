@@ -528,13 +528,20 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const baseColWidth = useMemo(() => lyricColumnWidth(baseFontPx, targetChars), [baseFontPx, targetChars]);
   const fitScale = useMemo(() => {
     if (!chordInset || !stageW) return 1;
-    // Never ask for more than the stage: a column already too wide for the screen
-    // scrolls sideways today, and that stays true — the panel just must not make
-    // it worse.
-    const want = Math.min(isNarrow ? stageW : baseColWidth, stageW) - lyricPad;
+    // Ask for what the SONG needs, on every layout. This used to ask for the
+    // whole stage on narrow ones, because there the column is flex-1 rather than
+    // a measured width — so opening the chord panel shrank the type by the
+    // panel's share of the screen whether or not the song needed that room. An
+    // iPad in portrait dropped a 30-character song from 20 to the 14px floor to
+    // protect width it was never using.
+    //
+    // Never ask for more than the stage, though: a column already too wide for
+    // the screen scrolls sideways today, and that stays true — the panel just
+    // must not make it worse.
+    const want = Math.min(baseColWidth, stageW) - lyricPad;
     const have = stageW - chordInset - lyricPad;
     return want > 0 && have > 0 ? Math.min(1, have / want) : 1;
-  }, [chordInset, stageW, isNarrow, baseColWidth, lyricPad]);
+  }, [chordInset, stageW, baseColWidth, lyricPad]);
   // MIN_FONT floors it: on a phone the panel can claim half the stage, and text
   // scaled to fit that is smaller than anyone can read. Below the floor it falls
   // back to re-wrapping, which is at least legible.

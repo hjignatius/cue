@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.14 — 2026-09-23
+
+- **Opening the chord panel on an iPad in portrait no longer shrinks the type
+  more than the song needs.** The fit was asking for the whole width of the
+  screen on narrow layouts rather than the width the song actually uses, so it
+  protected room the song was never occupying: a 30-character song dropped from
+  font 20 to the 14px floor. It now shrinks only as far as the song's longest
+  line requires — often not at all. On an iPad in portrait a 30 or 40 character
+  song now stays at 20, and a 55 character song lands around 16 instead of 14.
+  Wide layouts are unchanged; they already worked this way.
+
 ## v1.6.13 — 2026-09-23
 
 - **Fixed: "Try again — smarter model" kept offering itself after you'd already
