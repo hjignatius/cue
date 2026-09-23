@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.7.1 — 2026-09-23
+
+- **Clean up formatting and Detect structure now say when there's nothing
+  smarter left**, the way the AI dialogs do since 1.6.13. Their "Try again —
+  smarter" used to simply disappear after you'd used it, which reads as a glitch;
+  it now becomes "Best model used". These two were never offering a pointless
+  re-run — they had been checking correctly all along — they just weren't
+  explaining themselves.
+
 ## v1.7.0 — 2026-09-23
 
 - **New: "Suggest songs for this set"**, in the Setlist AI menu beside Suggest

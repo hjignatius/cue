@@ -18,7 +18,7 @@ import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, escalatedModel, escalatedTierLabel, canEscalate } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
 import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
@@ -577,10 +577,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Which in-place tool just ran (null = nothing to escalate), so the status line
   // can offer a "Try again — smarter" that re-runs it on the stronger model.
   const [aiRetry, setAiRetry]           = useState(null); // null | 'clean' | 'structure' | 'condense'
-  function retrySmarter() {
+  // The model that produced what the status line is reporting, so the offer
+  // beside it knows whether anything is left above it. Set on every successful
+  // run, not only the escalatable ones — once there is nothing smarter, the offer
+  // is replaced by a line saying so rather than quietly disappearing.
+  const [aiRetryModel, setAiRetryModel] = useState(undefined);
+  function retrySmarter(model) {
     const k = aiRetry; setAiRetry(null);
-    if (k === 'clean') runCleanup(escalatedModel());
-    else if (k === 'structure') runDetectStructure(escalatedModel());
+    if (k === 'clean') runCleanup(model);
+    else if (k === 'structure') runDetectStructure(model);
   }
   const [findResult, setFindResult]     = useState(null); // null | { loading, error, items }
   const [fillResult, setFillResult]     = useState(null); // null | { loading, error, suggest }
@@ -823,7 +828,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       } else {
         flashAi('Already tidy.');
       }
-      if (canEscalate(model)) setAiRetry('clean');
+      setAiRetry('clean'); setAiRetryModel(model);
     } catch (e) {
       flashAi(e?.message || 'Clean up failed.');
     } finally {
@@ -847,7 +852,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       } else {
         flashAi('No new sections found — left as is.');
       }
-      if (canEscalate(model)) setAiRetry('structure');
+      setAiRetry('structure'); setAiRetryModel(model);
     } catch (e) {
       flashAi(e?.message || 'Detect structure failed.');
     } finally {
@@ -2329,14 +2334,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             failure on a phone reported nothing at all — the action just stopped.
             min-w-0 + truncate so a long message can't stretch the toolbar row. */}
         {aiMsg && <span className={`text-xs min-w-0 truncate ${mutedText}`} title={aiMsg}>{aiMsg}</span>}
-        {aiRetry && !aiBusy && !compactChrome && escalatedModel() && (
-          <button
-            onClick={retrySmarter}
+        {aiRetry && !aiBusy && !compactChrome && (
+          <AiRetryLink
+            usedModel={aiRetryModel} onRetry={retrySmarter} dark={dark} variant="link"
+            label="Try again — smarter"
+            /* Shorter than the dialogs' wording on purpose: this sits in a
+               toolbar beside the status message, which truncates to make room. */
+            atBestLabel="Best model used"
             title={`Re-run that on the ${escalatedTierLabel()} model — slower, and costs more`}
-            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-          >
-            <Sparkles size={13} /> Try again — smarter
-          </button>
+          />
         )}
 
         {/* Spacer pushes Preview + Chords to the right */}
