@@ -729,6 +729,27 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
             Controls fade, scroll start delay, count-in style and pedal paging live in{' '}
             <span className={label}>Present</span> — tap the wrench, then the gear.
           </p>
+
+          {/* Support link. An outbound link, not a control: Cue takes no payment,
+              runs no payment code and stores nothing — this just opens PayPal in
+              the browser. Written https even though the link is usually quoted as
+              http; paypal.me redirects either way, but there is no reason to make
+              the first hop plaintext.
+              "Support", not "Donate": PayPal reserves Donate wording and the
+              charity fee rate for registered charities in many countries, and Cue
+              is one person's app, not a charity. */}
+          <p className={`text-xs ${muted}`}>
+            Cue is free and always will be.{' '}
+            <a
+              href="https://paypal.me/howardignatius"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              Support Cue
+            </a>{' '}
+            if it earns its keep.
+          </p>
         </div>
       </div>
     </>
