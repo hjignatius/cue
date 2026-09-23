@@ -293,12 +293,21 @@ const KEY_BPM_SCALE = 0.75;
 const KEY_BPM_RESERVE_EM = 6;
 // Vertical padding above and below the size strip.
 const CHORD_STRIP_PAD_Y = 4;
+// Extra clearance above the chord size strip in an installed app. The shell's
+// .ios-glass-inset lifts the whole view clear of the iOS scroll edge effect, but
+// the lyrics then begin at the scroller's own py-6 — 24px further down — while
+// the chord panel is pinned to the top of the content box. So the strip still
+// caught the bottom of the band by about 1mm on device, which is ~5-6px there.
+//
+// Applied in JS rather than as a class under the media query, because the strip
+// sets paddingTop inline and an inline style beats a class.
+const CHORD_STRIP_EXTRA_TOP = IS_STANDALONE ? 6 : 0;
 // The strip's height is fully determined by its contents: RoundButton pads the
 // 32px circle out to MIN_TOUCH_TARGET, plus this strip's own padding. Derived —
 // not a hardcoded 48 — so the resize target's top edge cannot drift away from the
 // strip if CHORD_SIZE_BUTTON_SIZE or the padding changes. The same constant sets
 // the strip's real padding below, so the two cannot disagree.
-const CHORD_STRIP_H = Math.max(CHORD_SIZE_BUTTON_SIZE, MIN_TOUCH_TARGET) + CHORD_STRIP_PAD_Y * 2;
+const CHORD_STRIP_H = Math.max(CHORD_SIZE_BUTTON_SIZE, MIN_TOUCH_TARGET) + CHORD_STRIP_PAD_Y * 2 + CHORD_STRIP_EXTRA_TOP;
 
 // Present mode targets a canonical monospace line width: the lyrics column is
 // sized to hold this many characters at the current font size, independent of
@@ -1396,7 +1405,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   built-in one stays out of the editor, which shares that
                   component. justify-center keeps the buttons centred on the
                   panel's live width as it is resized. */}
-              <div className="flex items-center justify-center gap-2 shrink-0" style={{ paddingTop: CHORD_STRIP_PAD_Y, paddingBottom: CHORD_STRIP_PAD_Y }}>
+              <div className="flex items-center justify-center gap-2 shrink-0" style={{ paddingTop: CHORD_STRIP_PAD_Y + CHORD_STRIP_EXTRA_TOP, paddingBottom: CHORD_STRIP_PAD_Y }}>
                 <RoundButton
                   size={CHORD_SIZE_BUTTON_SIZE}
                   label="Smaller chord diagrams"

@@ -3,6 +3,14 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.4 — 2026-09-23
+
+- **A little more clearance above Present's chord size buttons** on iPad and
+  iPhone. The shell inset from 1.8.3 lifted every screen clear of the iOS glass
+  band, but the lyrics then start a further 24px down while the chord panel is
+  pinned to the top of the content box — so that one strip was still catching
+  the bottom edge of it. Unchanged in a browser tab.
+
 ## v1.8.3 — 2026-09-23
 
 - **Fixed: the top row of buttons was washed out on iPad and iPhone.** From
