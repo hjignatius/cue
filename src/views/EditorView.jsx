@@ -824,7 +824,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         setText(cleaned);
         senseFormat(cleaned);
         setIsDirty(true);
-        flashAi('Cleaned up — review, then Save.');
+        // No "it worked" message: the chart visibly changed and Save has just
+        // lit up, so the words only repeat what the screen already shows — and
+        // they crowd the toolbar buttons beside them. The NON-events below still
+        // speak, because silence there is indistinguishable from a broken tool.
       } else {
         flashAi('Already tidy.');
       }
@@ -848,7 +851,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       if (labeled && labeled !== text) {
         setText(labeled);
         setIsDirty(true);
-        flashAi('Structure detected — review, then Save.');
+        // Headings appeared and Save lit up — nothing to add.
       } else {
         flashAi('No new sections found — left as is.');
       }
@@ -874,7 +877,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setPreviewFormat('brackets');
     setCondensed(true);
     setIsDirty(true);
-    flashAi(changed ? 'Condensed — review, then Save.' : 'Converted to brackets — already compact.');
+    if (!changed) flashAi('Converted to brackets — already compact.');
   }
 
   // Expand — the inverse: write every "(Chorus)" cue back out in full from its
@@ -884,7 +887,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     if (expanded !== text) setText(expanded);
     setCondensed(false);
     setIsDirty(true);
-    flashAi('Expanded — showing the full song. Save to keep.');
+    // The song visibly expands; Save lights up. Nothing worth the toolbar space.
   }
 
   // Find music online (AI + web search) — opens a results dialog. Instrument-aware
@@ -2332,7 +2335,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         </span>
         {/* Shown in BOTH layouts: hiding this on compact chrome meant an AI
             failure on a phone reported nothing at all — the action just stopped.
-            min-w-0 + truncate so a long message can't stretch the toolbar row. */}
+            What is left here is errors and non-events ("Already tidy") — the
+            "it worked, now Save" confirmations were removed, because the chart
+            had visibly changed and Save had lit up, so they said nothing the
+            screen wasn't already saying while crowding the buttons beside them.
+            min-w-0 + truncate keeps this the item that gives way when the row is
+            tight: measured, it shrinks to nothing before any control moves, so a
+            long message crowds the row but never pushes a button off it. */}
         {aiMsg && <span className={`text-xs min-w-0 truncate ${mutedText}`} title={aiMsg}>{aiMsg}</span>}
         {aiRetry && !aiBusy && !compactChrome && (
           <AiRetryLink

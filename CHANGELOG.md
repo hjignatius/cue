@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.6 — 2026-09-23
+
+- **The AI tools no longer announce that they worked.** "Cleaned up — review,
+  then Save", "Structure detected", "Condensed" and "Expanded" are gone from the
+  editor toolbar: the chart had visibly changed and Save had already lit up, so
+  they repeated what the screen was showing while crowding the buttons next to
+  them. What still speaks is the cases where nothing visible happened —
+  "Already tidy", "No new sections found", "Every chord already has a diagram" —
+  and every error, because silence there is indistinguishable from a broken
+  tool.
+
 ## v1.8.5 — 2026-09-23
 
 - **The built-in manual is up to date again.** Its Present chapter still
