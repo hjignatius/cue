@@ -59,16 +59,16 @@ const TAB_KEY       = 'cue:present_controls_tab';
 // segments showing where you are. Icon only — a label under it would say what the
 // button already says, and cost height the panel does not have in landscape.
 //
-// A pill: two thirds of the panel's width, full height. Full width read as a
-// header and dominated a panel whose actual controls are below it; a circle was
-// too small to aim at. Left-aligned rather than centred, because the collapse
-// caret owns the top-right corner and a centred pill this long reaches into it —
-// taps near its right end would collapse the panel instead of switching tabs.
+// A short pill, centred. Full width (120) read as a header and dominated a panel
+// whose actual controls sit below it; a 40px circle was too small to aim at. 54
+// is wide enough to read as a pill and still leaves the collapse caret its corner
+// with room to spare — at 80 a centred pill reached into the caret's hit area,
+// and a tap near its right end collapsed the panel instead of switching tabs.
 //
 // The hit box is padded to MIN_TOUCH_TARGET vertically and pulled back with a
 // negative margin, so the header row still measures TOGGLE_H rather than the
 // larger target.
-const TOGGLE_W      = 80;
+const TOGGLE_W      = 54;
 const TOGGLE_H      = 40;
 const TOGGLE_HIT_H  = 44;
 // The collapse caret sits in its own full-width row directly beneath the selector,
@@ -403,7 +403,7 @@ export default function PresentControls(props) {
               role="tab"
               aria-label={showTools ? 'Show controls' : 'Show tools'}
               onClick={() => setTab(showTools ? 'controls' : 'tools')}
-              className="self-start flex items-center justify-center shrink-0 relative bg-transparent border-0"
+              className="self-center flex items-center justify-center shrink-0 relative bg-transparent border-0"
               style={{
                 width: TOGGLE_W, height: TOGGLE_HIT_H,
                 margin: `${(TOGGLE_H - TOGGLE_HIT_H) / 2}px 0`,
