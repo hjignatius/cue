@@ -11,6 +11,7 @@ import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw,
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
+import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -620,6 +621,12 @@ export default function SharedSetView() {
   // Round-button language, matching the app header elsewhere: opaque slate on
   // light chrome, translucent grey on dark; indigo ACTIVE for anchor states.
   const headerFill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
+  // On a phone the header's action pills are dropped to icon-only circles.
+  // Measured at 390px: the right-hand group is a fixed 309px that never shrinks,
+  // which left 33px for the Cue mark and the set's name — so the name was already
+  // truncated to nothing, and a full-size mark would have overflowed the bar.
+  // Icon-only takes that group to 200px, which pays for both.
+  const compactHeader = useIsNarrow(640);
 
   // ---- Render -----------------------------------------------------------------
 
@@ -642,7 +649,7 @@ export default function SharedSetView() {
             aria-label="Open Cue"
             className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
           >
-            <CueMark size={26} />
+            <CueMark size={ROUND_SIZE_ACTION} />
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -675,7 +682,7 @@ export default function SharedSetView() {
             aria-label="Open Cue"
             className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
           >
-            <CueMark size={26} />
+            <CueMark size={ROUND_SIZE_ACTION} />
           </button>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -776,7 +783,7 @@ export default function SharedSetView() {
             aria-label="Open Cue"
             className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
           >
-            <CueMark size={26} />
+            <CueMark size={ROUND_SIZE_ACTION} />
           </button>
           <h1 className={`text-base font-semibold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{set.name}</h1>
         </div>
@@ -799,44 +806,44 @@ export default function SharedSetView() {
             const st = updatePlan?.status || 'copy';
             if (st === 'uptodate') {
               return (
-                <RoundButton size={ROUND_SIZE_ACTION} pill
+                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
                   label="Your copies are up to date"
                   title="Your saved copies match this shared set — nothing to update."
                   fill={headerFill} disabled>
-                  <Check size={20} /><PillLabel>Up to date</PillLabel>
+                  <Check size={20} />{!compactHeader && <PillLabel>Up to date</PillLabel>}
                 </RoundButton>
               );
             }
             if (st === 'update') {
               return (
-                <RoundButton size={ROUND_SIZE_ACTION} pill
+                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
                   label="Update my copies from this shared set"
                   title="This shared set has changed since you copied it — review and update your copies."
                   fill="#d97706" disabled={copying}
                   onActivate={() => setUpdateDialog({ choices: {} })}>
-                  <RefreshCw size={18} /><PillLabel>Update</PillLabel>
+                  <RefreshCw size={18} />{!compactHeader && <PillLabel>Update</PillLabel>}
                 </RoundButton>
               );
             }
             return (
-              <RoundButton size={ROUND_SIZE_ACTION} pill
+              <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
                 label="Copy songs to my library"
                 title="Save your own copy: adds all of these songs to your Cue library, where you can open, edit, and keep them."
                 fill={headerFill} disabled={copying}
                 onActivate={handleCopySet}>
-                <Library size={20} /><PillLabel>Copy</PillLabel>
+                <Library size={20} />{!compactHeader && <PillLabel>Copy</PillLabel>}
               </RoundButton>
             );
           })()}
           {/* Present — indigo anchor action */}
           <RoundButton
-            size={ROUND_SIZE_ACTION} pill
+            size={ROUND_SIZE_ACTION} pill={!compactHeader}
             label="Present the whole set"
             title="Play the set full-screen, one song at a time — big chords and lyrics for performing. No account needed."
             fill={headerFill} active={enriched.length > 0} disabled={enriched.length === 0}
             onActivate={() => present(displayed, 0)}
           >
-            <Tv size={20} /><PillLabel>Present</PillLabel>
+            <Tv size={20} />{!compactHeader && <PillLabel>Present</PillLabel>}
           </RoundButton>
           {/* Settings */}
           <RoundButton

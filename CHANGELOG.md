@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.12 — 2026-09-22
+
+- **The Cue mark in a shared set's header is now full size**, matching the action
+  buttons beside it.
+- **The set's name is readable on a phone again.** Making room for the bigger
+  mark meant measuring that header at iPhone width, which turned up something
+  worse: the action group was a fixed 309px that never shrank, leaving 33px for
+  the mark and the name — so on a 390px phone the name was already truncated away
+  to nothing. Below 640px the Copy and Present buttons now drop their labels and
+  become circles, which takes that group to 200px and gives the name 86px back.
+
 ## v1.6.11 — 2026-09-22
 
 - **The Controls/Tools button flashes blue when you touch it**, the same
