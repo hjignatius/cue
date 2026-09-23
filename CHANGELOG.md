@@ -3,6 +3,11 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.11 — 2026-09-22
+
+- **The Controls/Tools button flashes blue when you touch it**, the same
+  momentary indigo and the same duration as the round buttons below it.
+
 ## v1.6.10 — 2026-09-22
 
 - The Controls/Tools pill goes back to the 1.6.8 size (80 wide), which is the one

@@ -3,6 +3,7 @@ import { beatsPerBar } from '../utils/timeSig.js';
 import { ArrowDown, ChevronDown, ChevronUp, Gauge, Pause, Wrench } from 'lucide-react';
 import { useDraggablePanel } from '../hooks/useDraggablePanel.js';
 import RoundButton, {
+  ROUND_FILL_ACTIVE,
   ROUND_FILL_NIGHT,
   ROUND_FILL_DAY,
   TriangleLeft,
@@ -265,6 +266,19 @@ export default function PresentControls(props) {
   useEffect(() => {
     try { localStorage.setItem(TAB_KEY, tab); } catch { /* ignore */ }
   }, [tab]);
+  // Momentary indigo flash on press, the same feedback and the same FLASH_MS the
+  // grid buttons below use. Fired from the handler rather than left to CSS
+  // :active, which is unreliable in an iOS PWA — the same reason ControlGrid
+  // carries its own pulse() instead of a pseudo-class.
+  const [togFlash, setTogFlash] = useState(false);
+  const togFlashT = useRef(null);
+  useEffect(() => () => clearTimeout(togFlashT.current), []);
+  const pulseToggle = useCallback((fn) => {
+    fn?.();
+    setTogFlash(true);
+    clearTimeout(togFlashT.current);
+    togFlashT.current = setTimeout(() => setTogFlash(false), FLASH_MS);
+  }, []);
   // No tools wired (the shared viewer passes none) → no selector, no tools tab.
   const hasTools = !!props.toolsSlot;
   const showTools = hasTools && tab === 'tools';
@@ -402,18 +416,28 @@ export default function PresentControls(props) {
               type="button"
               role="tab"
               aria-label={showTools ? 'Show controls' : 'Show tools'}
-              onClick={() => setTab(showTools ? 'controls' : 'tools')}
+              onClick={() => pulseToggle(() => setTab(showTools ? 'controls' : 'tools'))}
               className="self-start flex items-center justify-center shrink-0 relative bg-transparent border-0"
               style={{
                 width: TOGGLE_W, height: TOGGLE_HIT_H,
                 margin: `${(TOGGLE_H - TOGGLE_HIT_H) / 2}px 0`,
-                color: toggleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent',
+                color: togFlash ? '#ffffff' : toggleTint,
+                touchAction: 'none', WebkitTapHighlightColor: 'transparent',
               }}
             >
               <span
                 aria-hidden="true"
                 className="absolute rounded-full border"
-                style={{ width: TOGGLE_W, height: TOGGLE_H, background: toggleBg, borderColor: shellBorder }}
+                style={{
+                  width: TOGGLE_W, height: TOGGLE_H,
+                  // No colour transition, deliberately: RoundButton transitions
+                  // only transform and filter, so its flash snaps to full indigo.
+                  // A 120ms ease inside a 180ms flash never reaches the colour
+                  // before it starts fading back, which reads as a weaker flash
+                  // than the buttons right below it.
+                  background: togFlash ? ROUND_FILL_ACTIVE : toggleBg,
+                  borderColor: togFlash ? ROUND_FILL_ACTIVE : shellBorder,
+                }}
               />
               {/* Both icons are always mounted and cross-faded, so pressing the
                   button visibly SWAPS one for the other. That swap is the whole
