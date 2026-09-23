@@ -3,6 +3,14 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.2 — 2026-09-23
+
+- **Exit now sits on the song title's line** in Present, instead of above it. As
+  an installed app it had been sitting 28-42px below the title, depending on
+  text size; it now lines up exactly, and stays lined up as you press A- / A+.
+  A song with no title — a PDF, or an untitled one — has no line to sit on, so
+  Exit keeps its own position there.
+
 ## v1.8.1 — 2026-09-23
 
 - **The tapped chord's shape now appears just above that chord**, instead of in

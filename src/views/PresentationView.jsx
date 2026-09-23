@@ -262,6 +262,13 @@ const IS_STANDALONE = typeof window !== 'undefined' &&
 // Clears macOS traffic lights (~y 12–28) and the iPad Stage Manager control with
 // margin to spare; falls back to the normal edge margin in a browser tab.
 const GUTTER_TOP = IS_STANDALONE ? 56 : PRESENT_CONTROL_EDGE_MARGIN;
+// The lyric scroller's vertical padding (py-6), which is what the title's top
+// edge sits at. Mirrors the className on that element.
+const LYRIC_PAD_TOP = 24;
+// Floor for Exit once it is riding the title line. Lower than the usual edge
+// margin because at the smallest lyric font the title's own centre is only 36px
+// down, and clamping to 16 would lose the alignment for the sake of 2px.
+const EXIT_MIN_TOP = 8;
 
 // Artist line height, as a multiple of fontPx. The artist sits in the lyric flow
 // (inside contentWrapRef), so this IS the amount v1 annotations must be pushed
@@ -630,6 +637,28 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // scaled to fit that is smaller than anyone can read. Below the floor it falls
   // back to re-wrapping, which is at least legible.
   const fontPx = Math.max(MIN_FONT, baseFontPx * fitScale);
+
+  // Exit sits on the song title's line rather than above it.
+  //
+  // MEASURED, not derived. The obvious arithmetic — scroller padding plus
+  // fontPx x 1.4 x 1.2 — matches the real box at 14px and 20px and is 6px out at
+  // 34px, so a formula would drift precisely where the title is largest. Reading
+  // the element costs one layout and cannot disagree with what is on screen.
+  //
+  // The title's HEIGHT is what gets measured, never its position: the title
+  // scrolls away with the lyrics and Exit must not follow it up the screen. Its
+  // height is a property of the font, so it holds at any scroll offset.
+  //
+  // No title (a PDF, or an untitled song) means no line to sit on, so Exit keeps
+  // its own offset.
+  const titleRef = useRef(null);
+  const [exitTop, setExitTop] = useState(GUTTER_TOP);
+  useLayoutEffect(() => {
+    const h = titleRef.current?.offsetHeight;
+    setExitTop(h
+      ? Math.max(EXIT_MIN_TOP, LYRIC_PAD_TOP + h / 2 - PRESENT_ACTION_BUTTON_SIZE / 2)
+      : GUTTER_TOP);
+  }, [fontPx, songIsPdf, meta.title]);
 
   // Place the shape ABOVE the chord it belongs to, which is the one direction
   // that covers only lines already sung. Flips below when the chord is near the
@@ -1294,7 +1323,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                 <div className="relative" style={{ marginBottom: fontPx * (24 / DEFAULT_FONT) }}>
                   <div style={{ paddingRight: hasKeyOrTempo ? fontPx * KEY_BPM_RESERVE_EM : 0 }}>
                     {meta.title?.trim() && (
-                      <h1 className={`font-mono font-bold ${textCol}`} style={{ fontSize: fontPx * 1.4, lineHeight: 1.2 }}>
+                      <h1 ref={titleRef} className={`font-mono font-bold ${textCol}`} style={{ fontSize: fontPx * 1.4, lineHeight: 1.2 }}>
                         {meta.title.trim()}
                       </h1>
                     )}
@@ -1455,7 +1484,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       <div
         className="fixed left-0 z-[35] flex flex-col items-center"
         style={{
-          top: GUTTER_TOP, paddingLeft: 2,
+          top: exitTop, paddingLeft: 2,
           opacity: gutterIdle ? PRESENT_CONTROL_IDLE_OPACITY : 1,
           transition: 'opacity 300ms ease',
         }}
