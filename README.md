@@ -44,7 +44,7 @@ Title · Artist · Key · Tempo / BPM · Time Signature · Duration · YouTube U
 
 ### Present Mode
 - Full-screen, distraction-free view of chord sheets
-- **One floating panel, two tabs** — a draggable panel of 54px round buttons over the song, headed by a **Controls / Tools** selector:
+- **One floating panel, two tabs** — a draggable panel of 54px round buttons over the song, headed by a single button that switches between them. It shows the icon of where it takes you (a wrench on the controls, a gauge on the tools) and swaps to the other as you press, so one press teaches the pairing without a label:
   - **Controls** — A−/A+ text size, ◀/▶ song navigation, F/S scroll speed, a two-bar count-in, auto-scroll, and Save speed
   - **Tools** — Present settings, Edit, Full Page / Scroll, YouTube, ink annotation, chord diagrams
 
@@ -162,7 +162,7 @@ Tab-style choices share one control — [`SegmentedControl`](src/components/Segm
 |---|---|---|
 | `sm` | 32 | Compact inline choices (setlist and sharing order) |
 | `lg` | 44 | Text-only bars; equals `MIN_TOUCH_TARGET`, so it needs no extra hit padding |
-| `stack` | 42 | Icon above label — every tab bar in the app: Present's Controls / Tools, Library / Sets / Setlist, the editor's Text / Preview / Chords, the Setlist's Custom / A–Z, a shared set's Original / A–Z |
+| `stack` | 42 | Icon above label — Library / Sets / Setlist, the editor's Text / Preview / Chords, the Setlist's Custom / A–Z, a shared set's Original / A–Z. (Present's panel switches with a single swapping button instead, to save height in landscape.) |
 
 An option may carry an `icon`. At `stack` it sits above the label; at the other sizes it replaces the text and `label` becomes the accessible name.
 

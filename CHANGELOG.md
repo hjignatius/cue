@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.5 — 2026-09-22
+
+- **One button now switches Present's panel between Controls and Tools**, in
+  place of the two-segment selector. It carries the icon of where it takes you —
+  a wrench while you are on the controls, a gauge while you are on the tools —
+  and swaps to the other one as you press it. No label: the icon says it, and
+  pressing it once teaches the pairing. The panel is also 2px shorter than with
+  the selector, which is 2px more room in landscape.
+
 ## v1.6.4 — 2026-09-22
 
 - **Chord letters above the diagrams can now be made bigger on their own.**
