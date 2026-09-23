@@ -48,6 +48,37 @@ html, body {
   overflow: hidden;
 }
 
+/* ── iOS scroll edge effect ────────────────────────────────────────────────
+   From iOS 26, an installed web app gets the Liquid Glass "scroll edge
+   effect": the system fills the status-bar area with a translucent band that
+   bleeds a row or two BELOW it, into the top of the page. Anything sitting at
+   the very top is washed out by it — measured on an iPad at about 2-3mm and an
+   iPhone at 1-2mm, which is roughly 10-16 and 6-12 CSS px.
+
+   There is no way to switch it off. No CSS property, no meta tag;
+   env(safe-area-inset-*) does not grow to account for it, and the old
+   backdrop-filter overlay trick stopped working when WebKit changed how
+   standalone web apps handle that region. Cue already carries the usual
+   mitigation — apple-mobile-web-app-status-bar-style is `default`, not
+   `black-translucent`, and viewport-fit=cover is deliberately absent — and the
+   band bleeds anyway.
+
+   So the only fix is to keep content out of it. 20px clears the worst measured
+   case with a little to spare.
+
+   Applied to each view's shell rather than to body or #root, because the views
+   size themselves with h-dvh: padding those would leave the shells a viewport
+   tall INSIDE a shorter box and scroll by 20px. On an h-dvh element with the
+   global box-sizing: border-box, this padding comes out of the height instead,
+   so the shell still fills the screen exactly.
+
+   display-mode only, with no pointer clause: a desktop PWA gains 20px it does
+   not strictly need, which costs nothing on a window that size and happens to
+   give macOS window controls more room. */
+@media (display-mode: standalone) {
+  .ios-glass-inset { padding-top: 20px; }
+}
+
 /* iPad-only panel scrollbars.
    iPadOS hides overlay scrollbars until you scroll and fades them fast, so the
    Library / Sets / Setlist panels get a slim persistent bar. Scoped to iPad by

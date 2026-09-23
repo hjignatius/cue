@@ -2022,7 +2022,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const btnBorder = `border ${dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`;
 
   return (
-    <div className={`h-dvh flex flex-col ${dark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`ios-glass-inset h-dvh flex flex-col ${dark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
       {/* Header */}
       {/* px-4 in phone portrait: removing the mark left only ~1px of slack at
           390px, which a 375pt device would still overflow. */}

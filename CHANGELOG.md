@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.3 — 2026-09-23
+
+- **Fixed: the top row of buttons was washed out on iPad and iPhone.** From
+  iOS 26 an installed web app gets the system's Liquid Glass "scroll edge
+  effect" — a translucent band over the status-bar area that bleeds a row or two
+  below it, over whatever sits at the very top of the page. It was covering the
+  chord size buttons in Present and the header buttons in the editor and
+  Library. There is no way to switch the effect off, so Cue now keeps its
+  content out of the band: every screen gains a small top inset when running as
+  an installed app. Nothing moves in a browser tab.
+
 ## v1.8.2 — 2026-09-23
 
 - **Exit now sits on the song title's line** in Present, instead of above it. As

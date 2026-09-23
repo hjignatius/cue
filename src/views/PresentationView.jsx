@@ -262,9 +262,6 @@ const IS_STANDALONE = typeof window !== 'undefined' &&
 // Clears macOS traffic lights (~y 12–28) and the iPad Stage Manager control with
 // margin to spare; falls back to the normal edge margin in a browser tab.
 const GUTTER_TOP = IS_STANDALONE ? 56 : PRESENT_CONTROL_EDGE_MARGIN;
-// The lyric scroller's vertical padding (py-6), which is what the title's top
-// edge sits at. Mirrors the className on that element.
-const LYRIC_PAD_TOP = 24;
 // Floor for Exit once it is riding the title line. Lower than the usual edge
 // margin because at the smallest lyric font the title's own centre is only 36px
 // down, and clamping to 16 would lose the alignment for the sake of 2px.
@@ -654,10 +651,17 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const titleRef = useRef(null);
   const [exitTop, setExitTop] = useState(GUTTER_TOP);
   useLayoutEffect(() => {
-    const h = titleRef.current?.offsetHeight;
-    setExitTop(h
-      ? Math.max(EXIT_MIN_TOP, LYRIC_PAD_TOP + h / 2 - PRESENT_ACTION_BUTTON_SIZE / 2)
-      : GUTTER_TOP);
+    const sc = scrollRef.current;
+    const h  = titleRef.current?.offsetHeight;
+    if (!sc || !h) { setExitTop(GUTTER_TOP); return; }
+    // Everything here is read, nothing assumed. The scroller's own top carries
+    // the .ios-glass-inset padding when it applies — Exit is position:fixed, so
+    // shell padding does NOT move it, and hardcoding the lyric padding left it
+    // 20px above the title on an installed app. Reading getComputedStyle also
+    // survives the md: breakpoint changing that padding.
+    const scTop  = sc.getBoundingClientRect().top;
+    const padTop = parseFloat(getComputedStyle(sc).paddingTop) || 0;
+    setExitTop(Math.max(EXIT_MIN_TOP, scTop + padTop + h / 2 - PRESENT_ACTION_BUTTON_SIZE / 2));
   }, [fontPx, songIsPdf, meta.title]);
 
   // Place the shape ABOVE the chord it belongs to, which is the one direction
@@ -1202,7 +1206,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   </>);
 
   return (
-    <div className={`fixed inset-0 z-50 flex flex-col select-none ${bg}`}>
+    <div className={`ios-glass-inset fixed inset-0 z-50 flex flex-col select-none ${bg}`}>
       {/* Source badge — which version is playing (shared vs. your edited copy).
           Fixed + pointer-events-none so it never affects the lyric layout. */}
       {sourceLabel && (

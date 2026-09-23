@@ -632,7 +632,7 @@ export default function SharedSetView() {
 
   if (status === 'loading') {
     return (
-      <div className={`min-h-dvh flex items-center justify-center ${bg}`}>
+      <div className={`ios-glass-inset min-h-dvh flex items-center justify-center ${bg}`}>
         <p className={`text-sm ${muted}`}>Loading…</p>
       </div>
     );
@@ -641,7 +641,7 @@ export default function SharedSetView() {
   if (status === 'not_found') {
     const bookmarked = savedShares.some(s => s.token === token);
     return (
-      <div className={`min-h-dvh flex flex-col ${bg}`}>
+      <div className={`ios-glass-inset min-h-dvh flex flex-col ${bg}`}>
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
           <button
             onClick={() => navigate('/')}
@@ -674,7 +674,7 @@ export default function SharedSetView() {
 
   if (status === 'error') {
     return (
-      <div className={`min-h-dvh flex flex-col ${bg}`}>
+      <div className={`ios-glass-inset min-h-dvh flex flex-col ${bg}`}>
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
           <button
             onClick={() => navigate('/')}
@@ -729,7 +729,7 @@ export default function SharedSetView() {
   // device, or when the set is already bookmarked.
   if (!gatePassed && !isBookmarked && !autoSave) {
     return (
-      <div className={`h-dvh flex flex-col items-center justify-center p-6 ${bg}`}>
+      <div className={`ios-glass-inset h-dvh flex flex-col items-center justify-center p-6 ${bg}`}>
         <div className={`w-full max-w-md rounded-2xl border ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'} shadow-xl p-6 flex flex-col gap-5`}>
           <div className="flex items-center gap-2">
             <CueMark size={24} />
@@ -773,7 +773,7 @@ export default function SharedSetView() {
   }
 
   return (
-    <div className={`h-dvh flex flex-col overflow-hidden ${bg}`}>
+    <div className={`ios-glass-inset h-dvh flex flex-col overflow-hidden ${bg}`}>
       {/* Header */}
       <header className={`px-6 py-4 border-b ${bdr} flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3 min-w-0">
