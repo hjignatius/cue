@@ -811,6 +811,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     clearTimeout(flashAi._t);
     flashAi._t = setTimeout(() => setAiMsg(''), ms);
   }
+  // Clear the status line NOW. The "…ing" progress messages are set with a plain
+  // setAiMsg and have no timer of their own — they used to be cleared by the
+  // success message that replaced them, so dropping those messages left
+  // "Cleaning up…" on screen for good. Also kills any pending flashAi timer, so
+  // an earlier message's countdown can't blank a later one.
+  function clearAiMsg() {
+    clearTimeout(flashAi._t);
+    setAiMsg('');
+  }
 
   // Clean up formatting (AI) — reformat the pasted chart in place, then re-sense
   // the format. The model is told never to change chords or lyrics.
@@ -828,6 +837,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         // lit up, so the words only repeat what the screen already shows — and
         // they crowd the toolbar buttons beside them. The NON-events below still
         // speak, because silence there is indistinguishable from a broken tool.
+        clearAiMsg();
       } else {
         flashAi('Already tidy.');
       }
@@ -852,6 +862,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         setText(labeled);
         setIsDirty(true);
         // Headings appeared and Save lit up — nothing to add.
+        clearAiMsg();
       } else {
         flashAi('No new sections found — left as is.');
       }
@@ -877,7 +888,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setPreviewFormat('brackets');
     setCondensed(true);
     setIsDirty(true);
-    if (!changed) flashAi('Converted to brackets — already compact.');
+    if (changed) clearAiMsg();
+    else flashAi('Converted to brackets — already compact.');
   }
 
   // Expand — the inverse: write every "(Chorus)" cue back out in full from its
@@ -888,6 +900,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setCondensed(false);
     setIsDirty(true);
     // The song visibly expands; Save lights up. Nothing worth the toolbar space.
+    clearAiMsg();
   }
 
   // Find music online (AI + web search) — opens a results dialog. Instrument-aware

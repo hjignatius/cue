@@ -3,6 +3,14 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.7 — 2026-09-23
+
+- **Fixed: "Cleaning up…" stayed on screen after the clean finished.** Removing
+  the "it worked" messages in 1.8.6 also removed the thing that had been
+  clearing the in-progress message — it was only ever cleared by the success
+  message replacing it. The progress line now clears itself on every path that
+  finishes: Clean up, Detect structure, Condense and Expand.
+
 ## v1.8.6 — 2026-09-23
 
 - **The AI tools no longer announce that they worked.** "Cleaned up — review,
