@@ -125,7 +125,7 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
                   {styleSegments(line.segments).map((seg, j) => (
                     <span key={j}>
                       {seg.chord && (
-                        <span className="font-bold" style={{ color: chordColor }}>[{seg.chord}]</span>
+                        <span data-chord={seg.chord} className="font-bold" style={{ color: chordColor }}>[{seg.chord}]</span>
                       )}
                       {seg.text ? <StyledRuns runs={seg.styledRuns} accentColor={chordColor} /> : null}
                     </span>
@@ -158,11 +158,11 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
                         </div>
                       ) : diagrams ? (
                         // Imbed on but no shape → keep the name, in a matching band.
-                        <span className="font-bold self-end pb-0.5" style={{ color: chordColor, fontSize: chordPx, minHeight: diagBand, display: 'flex', alignItems: 'flex-end' }}>
+                        <span data-chord={seg.chord || undefined} className="font-bold self-end pb-0.5" style={{ color: chordColor, fontSize: chordPx, minHeight: diagBand, display: 'flex', alignItems: 'flex-end' }}>
                           {seg.chord ? seg.chord + ' ' : ' '}
                         </span>
                       ) : (
-                        <span className="font-bold leading-tight" style={{ color: chordColor, fontSize: chordPx, height: chordPx * 1.2 }}>
+                        <span data-chord={seg.chord || undefined} className="font-bold leading-tight" style={{ color: chordColor, fontSize: chordPx, height: chordPx * 1.2 }}>
                           {seg.chord ? seg.chord + ' ' : ' '}
                         </span>
                       )}
@@ -191,6 +191,21 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
     </div>
   );
 }
+
+// Tap-vs-drag for the chord peek. 8px matches the drag threshold the floating
+// panel already uses; the time bound rejects a slow drag that ends near where it
+// started, which distance alone lets through.
+const TAP_SLOP = 8;
+const TAP_MS   = 500;
+// How long a peeked shape stays up with no further input.
+//
+// Erring long is deliberate, because the two failure modes do not cost the same.
+// Vanishing early makes you tap again in the middle of a song; lingering costs
+// nothing at all — it sits in a corner that covers no lyrics and is
+// pointer-events-none, so it cannot even be tapped by accident. A tap anywhere
+// that isn't a chord clears it at once, so this timer is the backstop rather
+// than the usual way it goes away.
+const CHORD_PEEK_MS = 5000;
 
 const MIN_FONT = 14;
 // 14→34 in steps of 2 is exactly 10 A+ presses. The ceiling is set by geometry,
@@ -446,6 +461,68 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // into the song's text (e.g. [G] [C] [D]), NOT from the PDF — so drop the type
   // gate and let the Chords On/Off toggle show them over the lead sheet.
   const chordControlsAvailable = chordsAvailable;
+
+  // Same resolver the chord panel, Imbed and the PDF export use, so a peeked
+  // shape is the one this song is set to play — custom shapes and the song's
+  // chosen voicing included. Memoised on instrument: it reads localStorage.
+  const peekSources = useMemo(() => ({
+    custom: loadCustomChords(instrument),
+    hidden: new Set(loadHiddenChords(instrument)),
+  }), [instrument]);
+  const peekShapeFor = useCallback(
+    (name) => resolveChordShape(name, song?.chordPrefs || {}, instrument, peekSources.custom, peekSources.hidden)?.frets || null,
+    [song?.chordPrefs, instrument, peekSources],
+  );
+
+  // ── Tap a chord to peek at its shape ──────────────────────────────────────
+  // A tap, not a hover: Present is used from a music stand, and the device it
+  // runs on has no pointer to hover with.
+  //
+  // The listeners go on the scroller in the CAPTURE phase, which is what makes
+  // this possible at all. AnnotationCanvas covers the lyrics at z-index 8 with
+  // pointer-events on at all times (so an Apple Pencil can draw without first
+  // arming the tool), so it swallows every event aimed at the words underneath.
+  // Capture runs on the way DOWN, before the canvas's own handlers, so the tap
+  // is seen without taking anything away from the pen.
+  //
+  // Finding what was tapped uses elementsFromPoint — the PLURAL form, which
+  // returns everything under the point in z-order rather than just the topmost.
+  // The topmost is always the ink canvas; the chord span is below it. That
+  // avoids having to switch the canvas's pointer-events off and back on mid-
+  // gesture to see past it.
+  const [chordPeek, setChordPeek] = useState(null); // null | { name, frets }
+  const peekTimer = useRef(null);
+  const tapStart  = useRef(null);
+  useEffect(() => () => clearTimeout(peekTimer.current), []);
+
+  const onLyricPointerDown = useCallback((e) => {
+    // A pen is always a drawing gesture here, armed or not.
+    tapStart.current = e.pointerType === 'pen'
+      ? null
+      : { x: e.clientX, y: e.clientY, t: Date.now() };
+  }, []);
+
+  const onLyricPointerUp = useCallback((e) => {
+    const start = tapStart.current;
+    tapStart.current = null;
+    if (!start || annotating || !chordsAvailable) return;
+    // Tap, not a scroll or a drag. Both bounds matter: the distance rejects a
+    // flick that happens to end where it began, the time rejects a slow drag.
+    if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_SLOP) return;
+    if (Date.now() - start.t > TAP_MS) return;
+
+    const hit = document.elementsFromPoint(e.clientX, e.clientY)
+      .find(el => el.dataset && el.dataset.chord);
+    // Tap away to dismiss. Means the timer is a backstop, not the main exit.
+    if (!hit) { clearTimeout(peekTimer.current); setChordPeek(null); return; }
+
+    // The name in the DOM is already transposed, so the shape is the one being
+    // played, not the one that was typed.
+    const name = hit.dataset.chord;
+    setChordPeek({ name, frets: peekShapeFor(name) });
+    clearTimeout(peekTimer.current);
+    peekTimer.current = setTimeout(() => setChordPeek(null), CHORD_PEEK_MS);
+  }, [annotating, chordsAvailable, peekShapeFor]);
 
   // PDF paging state (1-based); pdfCount comes from the rendered document.
   const [pdfPage, setPdfPage]   = useState(1);
@@ -1149,7 +1226,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           {/* Manual (touch) scroll is disabled while the pedal drives a text
               song, so the reader can't drift off the pedal's position; the glide
               still moves scrollTop programmatically. Pedal-off keeps auto. */}
-          <div ref={scrollRef} className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} pl-14 pr-6 py-6 md:px-12`}>
+          <div
+            ref={scrollRef}
+            onPointerDownCapture={onLyricPointerDown}
+            onPointerUpCapture={onLyricPointerUp}
+            className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} pl-14 pr-6 py-6 md:px-12`}
+          >
             {/* relative wrapper so the canvas can use position:absolute inset-0 */}
             <div ref={contentWrapRef} className="pb-32 relative">
               {/* Song info, in the lyric flow rather than in chrome.
@@ -1273,6 +1355,46 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           </div>
         )}
       </div>
+
+      {/* Peeked chord shape. Bottom-LEFT deliberately: Exit owns the top-left and
+          the control panel's home is the bottom-right, so this is the one corner
+          nothing else claims. A fixed corner rather than a popover at the finger —
+          it never lands on the line being sung, it needs no flip-above/flip-left
+          maths, and it is in the same place every time, which is what makes it
+          ignorable mid-song. z-[36] sits above the chord panel and below the
+          control panel. */}
+      {chordPeek && (
+        <div
+          className="fixed z-[36] pointer-events-none rounded-2xl border shadow-xl backdrop-blur-md flex flex-col items-center justify-center"
+          style={{
+            left: PRESENT_CONTROL_EDGE_MARGIN,
+            bottom: PRESENT_CONTROL_EDGE_MARGIN,
+            padding: 10,
+            minWidth: 96, minHeight: 124,
+            background: dark ? 'rgba(24,24,27,0.92)' : 'rgba(255,255,255,0.95)',
+            borderColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
+          }}
+        >
+          {chordPeek.frets ? (
+            <ChordDiagram
+              chord={{ name: chordPeek.name, frets: chordPeek.frets }}
+              scale={1.5}
+              theme={dark ? 'dark' : 'light'}
+              chordColor={readableChordColor(prefsChordColor, dark)}
+            />
+          ) : (
+            /* The name goes above the message so a tap that landed a character
+               off reads as a mis-tap rather than a hole in the chord library.
+               "Not listed", not "not found": the resolver also returns nothing
+               for a chord whose every voicing you have HIDDEN, and that one was
+               found — you removed it. Both are true of your chord list. */
+            <>
+              <span className={`font-mono font-bold text-lg ${dark ? 'text-white' : 'text-gray-900'}`}>{chordPeek.name}</span>
+              <span className={`text-xs mt-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Not listed</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* EXIT — pinned, alone, never moves. Everything else that used to stack
           below it now lives in the floating panel's Tools tab: a fixed column of

@@ -3,6 +3,21 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.0 — 2026-09-23
+
+- **New: tap a chord in Present to see its shape.** The diagram appears in the
+  bottom-left corner — the one corner Exit and the control panel don't claim —
+  so it never covers the line you're singing and it's in the same place every
+  time. Tap anywhere else to dismiss it, or leave it and it clears itself after
+  five seconds. A chord with no shape shows its name and "Not listed" rather
+  than nothing, so a tap that lands a character off reads as a mis-tap instead
+  of a gap in your chord library.
+- It uses the same resolver as the chord panel and Imbed, so you get the voicing
+  this song is set to play, including your own custom shapes — and the chord
+  name is already transposed, so it's the shape you're actually playing.
+- Especially useful on a phone, where opening the chord panel costs a third of
+  the screen or floats over the lyrics entirely.
+
 ## v1.7.2 — 2026-09-23
 
 - **A "Support Cue" link at the bottom of Settings**, next to the note about
