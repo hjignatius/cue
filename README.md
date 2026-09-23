@@ -26,7 +26,8 @@ A ChordPro song sheet manager for musicians. Organize your songs into setlists, 
 - **Chord diagrams:** fingering diagrams for a selectable instrument — GCEA ukulele, DGBE baritone, or 6-string guitar (EADGBE), or off — with adjustable size; supports a per-instrument custom chord library
 - **Imbed (chords as diagrams):** a per-song toggle (boxed with Format, over-lyrics only, wide screens) that renders each chord's *diagram* above the lyric instead of its name — in the Preview, Present, and single-song PDF export. Honors custom shapes and the chosen voicing; undefined chords fall back to the name
 - **Readable chord color:** a default black chord color flips to white on a dark theme (and back), so chords and diagrams stay visible; PDFs print black &amp; white
-- **Tap Tempo:** tap a button in rhythm to set BPM; toggle 4/4 ↔ 3/4; preview with a metronome click
+- **Chord label size:** a −30%…+30% preference that sizes chord names above lyrics, and — with Imbed on — the letters above each shape, leaving the shapes themselves unchanged, so a name can be made readable from a stand without the diagrams growing to match
+- **Tap Tempo:** tap a button in rhythm to set BPM; pick a real time signature (4/4, 3/4, 6/8, 5/4 …); preview with a metronome click
 - **YouTube URL:** paste any YouTube link in the metadata bar; a YouTube button appears in the toolbar to open the embedded player in an overlay
 - **Prev / Next navigation:** when a song is opened from the library list or a setlist, arrow buttons let you move between songs without going back to the library
 - **Present** button launches full-screen performance mode for the current song or the full setlist
@@ -106,6 +107,9 @@ Opt-in Claude-powered helpers, gated on a user-supplied Anthropic API key saved 
 - **Editor** (AI menu): Find music online (web search, instrument-aware), Clean up formatting, Fill in song details (title/artist/key/tempo/duration/YouTube), Add missing chord shapes (writes to the per-instrument custom library after review), Transposing advice (key/capo, one-tap Apply), Ask about music (streaming Q&A)
 - **Setlist**: Suggest set order (with Apply), Estimate set time (reasoned breakdown that fills unknown song durations), Suggest songs for this set (recommendations scoped to what the set already is — its genre, era, energy and key/tempo range — rather than to your taste)
 - Model: Claude Sonnet 5. The AI button is muted (not hidden) without a key; nothing runs or is billed until a key is saved.
+
+### Supporting Cue
+- A **Support Cue** link at the foot of Settings opens PayPal in the browser. Cue takes no payment, runs no payment code and stores nothing — it is an outbound link and nothing more.
 
 ### Onboarding Tour
 A 7-step spotlight tour runs on first launch, covering the library, import, sets, setlist, and editor features. Dismissed once and never shown again (stored in `localStorage`).

@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.5 — 2026-09-23
+
+- **The built-in manual is up to date again.** Its Present chapter still
+  described a top bar that hasn't existed since 1.6.0, and a control panel with
+  no Controls / Tools tabs. Rewritten: the tab toggle and what's on each tab,
+  the scroll-speed and Save speed controls, tapping a chord to see its shape,
+  and the collapse chevron's new corner. Also added Suggest songs for this set,
+  the Support Cue link, what Chord label size does with Imbed on, and a note
+  that each song now gets a column as wide as its own longest line.
+
 ## v1.8.4 — 2026-09-23
 
 - **A little more clearance above Present's chord size buttons** on iPad and

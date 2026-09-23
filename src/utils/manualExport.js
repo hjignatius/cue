@@ -160,6 +160,7 @@ function manualHTML() {
     <li class="toc-h2">Appearance</li>
     <li class="toc-h2">Metronome</li>
     <li class="toc-h2">Account</li>
+    <li class="toc-h2">Supporting Cue</li>
     <li class="toc-h1">3. The Library</li>
     <li class="toc-h2">Song List, Search &amp; Filter</li>
     <li class="toc-h2">Backup &amp; Restore</li>
@@ -184,8 +185,8 @@ function manualHTML() {
     <li class="toc-h2">Adding Custom Chord Shapes</li>
     <li class="toc-h2">Exporting &amp; Importing Custom Chords</li>
     <li class="toc-h1">7. Present Mode</li>
-    <li class="toc-h2">Top Bar Controls</li>
     <li class="toc-h2">The Floating Control Panel</li>
+    <li class="toc-h2">Seeing a Chord Shape</li>
     <li class="toc-h2">Annotations</li>
     <li class="toc-h2">Count-In</li>
     <li class="toc-h2">Auto-Scroll</li>
@@ -223,7 +224,7 @@ function manualHTML() {
   <tr><th>Setting</th><th>Description</th></tr>
   <tr><td><strong>Theme</strong></td><td>Switch between <strong>Light</strong> and <strong>Dark</strong> mode. The theme applies to every view including the editor, Present mode, and the shared-set viewer.</td></tr>
   <tr><td><strong>Chord color</strong></td><td>Tap the color swatch to choose any color for chord names. Applied in the editor preview and Present mode. Default is black.</td></tr>
-  <tr><td><strong>Chord label size</strong></td><td>Seven-step scale from −30% to +30% that adjusts the size of chord names above lyrics (<strong>Over Lyrics</strong> format only). The center step (0) is the default size. Has no effect on the Brackets format.</td></tr>
+  <tr><td><strong>Chord label size</strong></td><td>Seven-step scale from −30% to +30% that adjusts the size of chord names above lyrics (<strong>Over Lyrics</strong> format only). The center step (0) is the default size. With <strong>Imbed</strong> on, it sizes the letters above each chord shape — the shapes themselves stay put, so you can make the names readable from a stand without the diagrams growing to match. Has no effect on the Brackets format.</td></tr>
   <tr><td><strong>Sharps / Flats</strong></td><td>Controls how transposed chords spell the five ambiguous notes (C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭). <strong>Auto</strong> (default) matches the View Key — flat keys use flats, sharp keys use sharps; <strong>Flats</strong> and <strong>Sharps</strong> force one spelling. Whatever the mode, every chord in a transposed song is spelled consistently (no sharp/flat mix). The stored chords are never changed — this affects display only.</td></tr>
   <tr><td><strong>Chord instrument</strong></td><td>Chooses which instrument's fingering diagrams the Chords panel and PDF chord charts show: <strong>GCEA Ukulele</strong> (default), <strong>DGBE Baritone</strong>, <strong>Guitar</strong> (6-string, E A D G B E), or <strong>None</strong> to hide chord diagrams entirely. Chord <em>names</em> are the same across instruments — only the fingering changes. Your preferred voicing and any custom shapes are remembered <em>per instrument</em>, so switching instruments never disturbs another instrument's choices.</td></tr>
 </table>
@@ -231,11 +232,14 @@ function manualHTML() {
 <h2>Metronome</h2>
 <table>
   <tr><th>Setting</th><th>Description</th></tr>
-  <tr><td><strong>BPM tap mode</strong></td><td><strong>Sound</strong> — plays audio clicks when you tap the BPM button in Present mode. The downbeat of each measure is a higher pitch; other beats are lower. <strong>Visual</strong> — no sound; the top bar flashes once per beat instead.</td></tr>
+  <tr><td><strong>BPM tap mode</strong></td><td><strong>Sound</strong> — plays audio clicks when you tap the BPM button in Present mode. The downbeat of each measure is a higher pitch; other beats are lower. <strong>Visual</strong> — no sound; the screen flashes once per beat instead.</td></tr>
 </table>
 
 <h2>Account</h2>
 <p>The Account section appears only when cloud sharing is configured. Enter your email address and Cue emails you a numeric code; type it into the app to sign in. The email also contains a sign-in link, which works on desktop — but on an iPhone or iPad with Cue installed to the Home Screen, use the code. A tapped link always opens in Safari, and the session it creates lives in Safari's storage, not the installed app's, so the app would still show you as signed out. Once signed in, your email is shown with a <strong>Sign out</strong> button. An account is needed only to <em>publish</em> a shared set link — viewing a shared link requires no account.</p>
+
+<h2>Supporting Cue</h2>
+<p>At the foot of Settings there is a <strong>Support Cue</strong> link, which opens PayPal in your browser. Cue is free and takes no payment itself — it runs no payment code and stores nothing. It is an outbound link and nothing more.</p>
 
 <!-- 3 -->
 <h1>3. The Library</h1>
@@ -502,39 +506,50 @@ Bb,8-10-11-10,1243</pre>
 <h1>7. Present Mode</h1>
 <p>Present mode is full-screen. It is designed to be mirrored to a TV or projector while you perform.</p>
 
-<p>Text size, song navigation, count-in and auto-scroll all live on the <em>floating control panel</em> described below. The top bar holds everything else.</p>
-
-<h2>Top Bar Controls</h2>
-<table>
-  <tr><th>Control</th><th>Action</th></tr>
-  <tr><td><strong>Chords</strong></td><td>Toggles the chord diagram sidebar</td></tr>
-  <tr><td><strong>✎ Annotate</strong></td><td>Toggles annotation mode so you can draw over the song with a finger, mouse, or stylus. A floating tool strip appears — see <em>Annotations</em> below. An Apple Pencil always draws even when this is off. Hidden on the shared-set viewer.</td></tr>
-  <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Shown in red when a URL is saved; grayed out otherwise.</td></tr>
-  <tr><td><strong>Edit</strong></td><td>Opens the current song in the editor — see <em>Editing During Performance</em> below. Hidden on shared-set viewer.</td></tr>
-  <tr><td><strong>✕</strong></td><td>Exits Present mode (also <code>Escape</code> on keyboard)</td></tr>
-</table>
+<p>There is no top bar. Every control lives on the one <em>floating control panel</em> described below, which you can drag wherever suits the stage — the only fixed thing is <strong>✕</strong> in the top-left corner, level with the song title, which is always the way out (<code>Escape</code> on a keyboard).</p>
 
 <h2>The Floating Control Panel</h2>
 <p>A panel of large round buttons floats over the song, in the lower-right corner by default. It is sized for a fingertip on stage — no hunting for small toolbar buttons mid-song.</p>
+<p>It holds two sets of buttons, and the <strong>pill at the top switches between them</strong>. The pill always shows the icon of where it will take you: a <strong>wrench</strong> while you are looking at the controls, a <strong>dial</strong> while you are looking at the tools. Press it and it swaps to the other — one press teaches the pairing. Whichever you were last on is remembered.</p>
+
+<h3>Controls</h3>
 <table>
   <tr><th>Button</th><th>Action</th></tr>
-  <tr><td><strong>A− / A+</strong></td><td>Shrink or enlarge the lyric text. Your size is remembered when you leave and re-enter Present mode. Dimmed at the smallest and largest sizes.</td></tr>
+  <tr><td><strong>A− / A+</strong></td><td>Shrink or enlarge the lyric text. Your size is remembered when you leave and re-enter Present mode. Dimmed at the smallest and largest sizes. Cue gives each song a column as wide as its own longest line rather than a fixed width, so a song with short lines can be pushed considerably larger than one with long ones before it runs out of room.</td></tr>
   <tr><td><strong>◀ / ▶</strong></td><td>Previous / next song. Dimmed at the first and last song of the set, and when presenting a single song.</td></tr>
-  <tr><td><strong>Metronome (count-in)</strong></td><td>Plays a <strong>two-bar</strong> count-in, then stops — 8 beats in 4/4, 6 in 3/4, and so on. It counts the pulse you actually feel, so the compound signatures count in groups of three: <strong>6/8 counts 2 to the bar, 9/8 counts 3, 12/8 counts 4</strong> (twelve clicks would be no use to play to). It is a count-in, not a running metronome. Dimmed when the song has no tempo set. Sound or Visual is chosen in <strong>Present → wrench → gear → Count-in</strong>.</td></tr>
+  <tr><td><strong>Metronome (count-in)</strong></td><td>Plays a <strong>two-bar</strong> count-in, then stops — 8 beats in 4/4, 6 in 3/4, and so on. It counts the pulse you actually feel, so the compound signatures count in groups of three: <strong>6/8 counts 2 to the bar, 9/8 counts 3, 12/8 counts 4</strong> (twelve clicks would be no use to play to). It is a count-in, not a running metronome. Dimmed when the song has no tempo set. Sound or Visual is chosen in <strong>Present → wrench tab → gear → Count-in</strong>.</td></tr>
+  <tr><td><strong>F / S</strong></td><td>Faster / slower auto-scroll — about 20% per press, with a brief readout of the current pace. See <em>Auto-Scroll</em>.</td></tr>
   <tr><td><strong>↓ / ❚❚</strong></td><td>Starts auto-scroll; turns into a pause button and lights up while running.</td></tr>
+  <tr><td><strong>Save M:SS</strong></td><td>Only on your own songs, and only once you have changed the pace: bakes the current timing into the song's Duration. Otherwise the row just shows the play time.</td></tr>
+</table>
+
+<h3>Tools</h3>
+<table>
+  <tr><th>Button</th><th>Action</th></tr>
+  <tr><td><strong>Gear</strong></td><td>Opens <strong>Present settings</strong> — see below.</td></tr>
+  <tr><td><strong>E</strong></td><td>Opens the current song in the editor — see <em>Editing During Performance</em>. Hidden on the shared-set viewer.</td></tr>
+  <tr><td><strong>FP / SC</strong></td><td>Full Page or Scroll for this song. Indigo means discrete full pages that fit the screen; off means continuous scrolling.</td></tr>
+  <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Dimmed when the song has no URL saved.</td></tr>
+  <tr><td><strong>Ink</strong></td><td>Toggles annotation mode so you can draw over the song — see <em>Annotations</em>. An Apple Pencil always draws even when this is off. Hidden on the shared-set viewer.</td></tr>
+  <tr><td><strong>Chords</strong></td><td>Shows or hides the chord diagram panel.</td></tr>
 </table>
 
 <h3>Moving, hiding and fading</h3>
 <ul>
   <li><strong>Drag it anywhere.</strong> Press and drag from any part of the panel — including the buttons. A tap is never mistaken for a drag. Its position is saved on this device and stays on-screen if you rotate or resize.</li>
-  <li><strong>Collapse it.</strong> The small chevron at the top shrinks the panel to a single round pill. Tap the pill to bring it back. Collapsed or expanded is remembered.</li>
+  <li><strong>Collapse it.</strong> The small chevron in the panel's top-right corner shrinks it to a single blue pill. Tap the pill to bring it back. Collapsed or expanded is remembered.</li>
   <li><strong>It fades when idle.</strong> After about 4 seconds without input the panel dims so it does not compete with the lyrics. Any touch brings it straight back to full strength.</li>
 </ul>
 <p>The keyboard shortcuts still work too: <code>+</code> / <code>−</code> for text size, the arrow keys (or Page Up / Page Down) for songs, and <code>space</code> for auto-scroll. A page-turner pedal uses these same keys — see <em>Page-Turner Pedals</em>.</p>
-<div class="tip"><strong>Note:</strong> On a narrow screen the chord sidebar opens as a panel over the song and covers the floating controls. Close it with its <strong>✕</strong> — or the <strong>Chords</strong> button in the top bar — to reach them again.</div>
+<div class="tip"><strong>Note:</strong> On a narrow screen the chord sidebar opens as a panel over the song and covers the floating controls. Close it with its <strong>✕</strong> — or the <strong>Chords</strong> button on the panel's Tools tab — to reach them again.</div>
+
+<h2>Seeing a Chord Shape</h2>
+<p><strong>Tap any chord</strong> in the song and its shape appears just above that chord, for five seconds. Tap anywhere else to dismiss it sooner. The diagram follows the lyrics as they scroll, including under auto-scroll, and flips below the chord if you tap one near the top of the screen.</p>
+<p>It shows the voicing this song is set to play — your own custom shapes included — and the chord is already transposed, so you get the shape you are actually playing rather than the one that was typed. A chord Cue has no shape for shows its name and <strong>Not listed</strong>, which also covers a chord whose shapes you have hidden.</p>
+<p>This is the quickest way to check one shape without giving up screen width, and it is especially handy on a phone, where the chord panel costs a third of the stage. It is off when <strong>Chord instrument</strong> is set to None, and it never fires while you are drawing, or for an Apple Pencil.</p>
 
 <h2>Annotations</h2>
-<p>Tap the <strong>✎ pencil</strong> button in the top bar to draw over the song. A floating tool strip appears at the bottom of the screen with these tools:</p>
+<p>Tap the <strong>ink</strong> button on the panel's Tools tab to draw over the song. A floating tool strip appears at the bottom of the screen with these tools:</p>
 <table>
   <tr><th>Tool</th><th>What it does</th></tr>
   <tr><td><strong>Red / Blue pen</strong></td><td>Draw freehand ink in red or blue.</td></tr>
@@ -548,10 +563,10 @@ Bb,8-10-11-10,1243</pre>
 <div class="tip"><strong>Note:</strong> Annotations are stored only on this device and are tied to the song. They are never included in PDF exports, JSON bundles, backups, or shared-set links — a shared set shows no ink to its viewers.</div>
 
 <h2>Count-In</h2>
-<p>Tap the <strong>metronome</strong> button on the floating panel to hear or see a two-bar count-in. It plays a fixed number of beats and stops on its own — it does not keep running. The mode is set in <strong>Present settings</strong> (the wrench in the left gutter, then the gear) under <strong>Count-in</strong>:</p>
+<p>Tap the <strong>metronome</strong> button on the floating panel to hear or see a two-bar count-in. It plays a fixed number of beats and stops on its own — it does not keep running. The mode is set in <strong>Present settings</strong> (the panel's wrench tab, then the gear) under <strong>Count-in</strong>:</p>
 <ul>
   <li><strong>Sound</strong> — plays audio clicks. The downbeat of each measure is a higher pitch; other beats are lower.</li>
-  <li><strong>Visual</strong> — no sound. The top bar flashes white (dark theme) or black (light theme) once per beat. Downbeats flash at full intensity; other beats flash softer.</li>
+  <li><strong>Visual</strong> — no sound. The screen flashes white (dark theme) or black (light theme) once per beat. Downbeats flash at full intensity; other beats flash softer.</li>
 </ul>
 <p>Tempo and time signature are read directly from the song — 4/4 counts 8 beats across 2 measures, 3/4 counts 6, 6/8 counts 4 (two dotted-quarter pulses a bar), 12/8 counts 8. Set them in the editor and they are used automatically when presenting. With no tempo set, the button is dimmed. In a compound signature the <strong>Tempo</strong> you enter is the pulse you count, not the eighth note.</p>
 
@@ -598,7 +613,7 @@ Bb,8-10-11-10,1243</pre>
 <div class="tip"><strong>Note:</strong> A <strong>Full Page</strong> song always turns whole pages regardless of the Screen/Songs setting. The global setting applies to the on-screen ◀ / ▶ and the keyboard too, not just a pedal. Leave it on <strong>Songs</strong> for the usual scroll-and-skip behavior.</div>
 
 <h2>Editing During Performance</h2>
-<p>Tap <strong>Edit</strong> in the top bar to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
+<p>Tap <strong>E</strong> on the panel's Tools tab to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
 <p>While in this edit session, the <strong>Present</strong> button in the editor header changes to <strong>↩ Return to Performance</strong>. Tap it to go straight back to Present mode — the song content updates immediately to reflect any changes you made, with no save required.</p>
 <p>When you edit from a set, the editor also shows <strong>← Prev / Next →</strong> buttons so you can move through the other songs in the set and edit them too, without leaving the editor. Return to Performance resumes on whichever song you are editing.</p>
 <p>If you tap <strong>✕ Library</strong> instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
@@ -643,10 +658,11 @@ Bb,8-10-11-10,1243</pre>
 <p>The same <strong>AI</strong> menu also has <strong>Find duplicates</strong> — it scans your library for the same song saved more than once (including alternate spellings and "(Live)"/"(Acoustic)" variants) and lists each group so you can <strong>Delete</strong> the extras in place.</p>
 
 <h2>In the Setlist</h2>
-<p>The Setlist column's status bar (beside the Gap/estimate) has its own <strong>AI</strong> button with two actions:</p>
+<p>The Setlist column's status bar (beside the Gap/estimate) has its own <strong>AI</strong> button with three actions:</p>
 <ul>
   <li><strong>Suggest set order</strong> — proposes a running order that flows well (opener, pacing, key transitions, closer), shown in a pop-up with a short rationale and an <strong>Apply</strong> button that reorders the set.</li>
   <li><strong>Estimate set time</strong> — reasons like a gigging musician: fills in lengths for songs without a Duration, estimates the between-song gap time as a range, suggests a break and setup/finish time, and gives a total with practical notes. <strong>Save song estimates</strong> writes the filled-in durations into the songs so the always-on estimate stays accurate.</li>
+  <li><strong>Suggest songs for this set</strong> — works out what the set already <em>is</em> (its genre, era, energy, and roughly where it sits in key and tempo) and recommends songs that would sit naturally beside them, each with a chord source to follow. Your genres and favourite artists count, but only as a tiebreaker under the set's own character. It never suggests a song already in the set. Discovery only — Cue never copies a chart.</li>
 </ul>
 
 <h2>Cost &amp; Privacy</h2>
@@ -761,7 +777,7 @@ Pulling will discard them. Continue?</pre>
 <ul>
   <li><strong>Transpose without rewriting</strong> — set the song’s written key in the metadata bar, then use <strong>View Key</strong> in the editor toolbar to display it in any other key. The chords render shifted in real time and the saved text is untouched, so you can perform in a singer-friendly key without altering the original.</li>
   <li><strong>Theme and chord color</strong> — open Settings (⚙ gear in the Library header) to switch between Light and Dark mode and to choose a chord color. These settings apply everywhere including Present mode and the shared-set viewer.</li>
-  <li><strong>Chord label size</strong> — use the Chord label size control in Settings to make chord names above lyrics larger or smaller. This is useful if your display is small or if you are mirroring to a screen from a distance.</li>
+  <li><strong>Chord label size</strong> — use the Chord label size control in Settings to make chord names above lyrics larger or smaller. This is useful if your display is small or if you are mirroring to a screen from a distance. With Imbed on it enlarges the chord letters above the shapes, leaving the shapes at their own size.</li>
   <li><strong>YouTube URL</strong> — paste a YouTube link into the metadata bar to keep a reference track alongside the song. Tap the YouTube button in the editor or Present mode toolbar to open it in an overlay player. Useful for learning a song or playing along during rehearsal. The button is grayed out when no URL is set.</li>
   <li><strong>Non-destructive key changes</strong> — use View Key in the editor to render a song in a different key for you or your bandmates. It changes only how the song displays in the preview, Present mode, and the exported set PDF, never the stored chords, and is saved per song so it reopens the same way.</li>
   <li><strong>Waltzes, jigs and slow 12/8 blues</strong> — pick the signature in the Tempo row (3/4, 6/8, 12/8 …) and save. The metronome and flash mode count the right pulse when you present it, with no further setup.</li>
