@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.8.1 — 2026-09-23
+
+- **The tapped chord's shape now appears just above that chord**, instead of in
+  the bottom-left corner. Above is the one direction that only covers lines
+  you've already sung, and it puts the shape where your eye already is. It flips
+  below when you tap a chord near the top of the screen, stays on the stage
+  sideways, and follows the lyrics as they scroll — including under auto-scroll,
+  where a fixed box would have drifted off its chord within seconds.
+
 ## v1.8.0 — 2026-09-23
 
 - **New: tap a chord in Present to see its shape.** The diagram appears in the

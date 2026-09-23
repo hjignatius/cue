@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { X, Pencil, Settings as SettingsIcon } from 'lucide-react';
 import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN, PRESENT_CONTROL_BUTTON_SIZE } from '../components/PresentControls.jsx';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
@@ -206,6 +206,8 @@ const TAP_MS   = 500;
 // that isn't a chord clears it at once, so this timer is the backstop rather
 // than the usual way it goes away.
 const CHORD_PEEK_MS = 5000;
+// Gap between the tapped chord and the shape shown above it.
+const PEEK_GAP = 10;
 
 const MIN_FONT = 14;
 // 14→34 in steps of 2 is exactly 10 A+ presses. The ceiling is set by geometry,
@@ -491,8 +493,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // avoids having to switch the canvas's pointer-events off and back on mid-
   // gesture to see past it.
   const [chordPeek, setChordPeek] = useState(null); // null | { name, frets }
+  const [peekPos, setPeekPos]     = useState(null); // null | { left, top }
   const peekTimer = useRef(null);
   const tapStart  = useRef(null);
+  const peekRef   = useRef(null);   // the popup, for measuring
+  const anchorRef = useRef(null);   // the chord span it belongs to
   useEffect(() => () => clearTimeout(peekTimer.current), []);
 
   const onLyricPointerDown = useCallback((e) => {
@@ -519,6 +524,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     // The name in the DOM is already transposed, so the shape is the one being
     // played, not the one that was typed.
     const name = hit.dataset.chord;
+    anchorRef.current = hit;
+    setPeekPos(null);
     setChordPeek({ name, frets: peekShapeFor(name) });
     clearTimeout(peekTimer.current);
     peekTimer.current = setTimeout(() => setChordPeek(null), CHORD_PEEK_MS);
@@ -623,6 +630,42 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // scaled to fit that is smaller than anyone can read. Below the floor it falls
   // back to re-wrapping, which is at least legible.
   const fontPx = Math.max(MIN_FONT, baseFontPx * fitScale);
+
+  // Place the shape ABOVE the chord it belongs to, which is the one direction
+  // that covers only lines already sung. Flips below when the chord is near the
+  // top of the screen and there is no room, and clamps sideways so the box stays
+  // on the stage — inside the chord panel's edge when that panel is open.
+  //
+  // Measured rather than assumed: the box is a different width for a ukulele and
+  // a guitar, and different again for the "Not listed" card. A layout effect runs
+  // before paint, so it positions in the same frame it appears in.
+  //
+  // Repositioned on scroll, because the lyrics move under it — including on their
+  // own, under auto-scroll, where a fixed box would drift off its chord within a
+  // second or two. Dismisses if its chord leaves the stage entirely.
+  useLayoutEffect(() => {
+    if (!chordPeek) { setPeekPos(null); return undefined; }
+    const place = () => {
+      const box = peekRef.current?.getBoundingClientRect();
+      const a = anchorRef.current?.getBoundingClientRect();
+      if (!box || !a) return;
+      if (a.bottom < 0 || a.top > window.innerHeight) { setChordPeek(null); return; }
+      const m = PRESENT_CONTROL_EDGE_MARGIN;
+      const right = window.innerWidth - chordInset - m;
+      const left = Math.max(m, Math.min(a.left + a.width / 2 - box.width / 2, right - box.width));
+      const above = a.top - PEEK_GAP - box.height;
+      const top = above >= m
+        ? above
+        : Math.min(a.bottom + PEEK_GAP, window.innerHeight - m - box.height);
+      setPeekPos({ left, top });
+    };
+    place();
+    const el = scrollRef.current;
+    el?.addEventListener('scroll', place, { passive: true });
+    window.addEventListener('resize', place);
+    return () => { el?.removeEventListener('scroll', place); window.removeEventListener('resize', place); };
+  }, [chordPeek, chordInset]);
+
 
   const goTo = useCallback((target) => {
     const clamped = Math.max(0, Math.min(total - 1, target));
@@ -1356,19 +1399,22 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         )}
       </div>
 
-      {/* Peeked chord shape. Bottom-LEFT deliberately: Exit owns the top-left and
-          the control panel's home is the bottom-right, so this is the one corner
-          nothing else claims. A fixed corner rather than a popover at the finger —
-          it never lands on the line being sung, it needs no flip-above/flip-left
-          maths, and it is in the same place every time, which is what makes it
-          ignorable mid-song. z-[36] sits above the chord panel and below the
-          control panel. */}
+      {/* Peeked chord shape, floating just above the chord that was tapped —
+          upward is the one direction that only covers lines already sung.
+          Positioned by the layout effect above, which measures the box (a guitar
+          diagram is wider than a ukulele one) and keeps it on the stage.
+          pointer-events-none so it can never swallow the next tap, and z-[36]
+          sits above the chord panel and below the control panel.
+          Hidden until placed: the layout effect runs before paint, so this costs
+          no visible frame, but it stops a flash at 0,0 on the first render. */}
       {chordPeek && (
         <div
+          ref={peekRef}
           className="fixed z-[36] pointer-events-none rounded-2xl border shadow-xl backdrop-blur-md flex flex-col items-center justify-center"
           style={{
-            left: PRESENT_CONTROL_EDGE_MARGIN,
-            bottom: PRESENT_CONTROL_EDGE_MARGIN,
+            left: peekPos ? peekPos.left : 0,
+            top: peekPos ? peekPos.top : 0,
+            opacity: peekPos ? 1 : 0,
             padding: 10,
             minWidth: 96, minHeight: 124,
             background: dark ? 'rgba(24,24,27,0.92)' : 'rgba(255,255,255,0.95)',
