@@ -3,6 +3,21 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.7.0 — 2026-09-23
+
+- **New: "Suggest songs for this set"**, in the Setlist AI menu beside Suggest
+  set order and Estimate set time. Where the Library's "Suggest songs to learn"
+  asks what suits *you*, this asks what would sit well beside the songs a set
+  already holds — it works out the set's genre, era, energy and roughly where it
+  sits in key and tempo, and recommends from that. Your genres and favourite
+  artists still count, but only as a tiebreaker under the set's own character.
+  Never suggests a song already in the set, and web-grounded like the Library
+  version, with a chord source for each pick. Discovery only: Cue never copies a
+  chart.
+- Your library is sent along only for de-duplication, and only when
+  "Personalize from my library" is on — the same privacy choice that governs the
+  Library-wide suggester.
+
 ## v1.6.14 — 2026-09-23
 
 - **Opening the chord panel on an iPad in portrait no longer shrinks the type

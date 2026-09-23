@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ } from 'lucide-react';
-import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, escalatedTierLabel } from '../lib/ai.js';
+import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
@@ -27,6 +27,7 @@ import { useIsPhonePortrait, usePortraitPanels } from '../hooks/useIsPhonePortra
 import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
 import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
 import AiRetryLink from '../components/AiRetryLink.jsx';
+import SongSuggestionsDialog from '../components/SongSuggestionsDialog.jsx';
 import RowMenu from '../components/RowMenu.jsx';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
@@ -1217,7 +1218,7 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
 }
 
 function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, onDeleteSet, onPresent, onEdit, border }) {
-  const { theme } = usePrefs();
+  const { theme, instrument, aiLevel, genres, favoriteArtists, personalizeFromLibrary } = usePrefs();
   const dark = theme === 'dark';
   const [overId, setOverId] = useState(null); // dnd-kit: id of the row currently dragged over
   // Setlist AI: suggested order + time estimate. Muted until a key is saved.
@@ -1226,6 +1227,14 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   const [aiBusy, setAiBusy] = useState('');            // '' | 'order' | 'time'
   const [orderResult, setOrderResult] = useState(null); // null | { loading, error, order, summary }
   const [timeResult, setTimeResult] = useState(null);   // null | { loading, error, estimates:[{n,duration,id,title}] }
+  // "Suggest songs for this set" — recommendations scoped to what the set already
+  // is, rather than the Library's browse-by-taste. State lives here, like the
+  // column's other AI state, rather than being threaded from the main component.
+  const [sugOpen, setSugOpen]       = useState(false);
+  const [sugBusy, setSugBusy]       = useState(false);
+  const [sugErr, setSugErr]         = useState('');
+  const [sugResults, setSugResults] = useState(null);
+  const [sugModel, setSugModel]     = useState(undefined);
   useEffect(() => {
     const refresh = () => setAiReady(hasApiKey());
     window.addEventListener('cue:ai-key', refresh);
@@ -1329,6 +1338,33 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       .catch(e => setTimeResult({ loading: false, error: e?.message || 'Could not estimate the time.', data: null }))
       .finally(() => setAiBusy(''));
   }
+  async function runSetSuggest(model) {
+    setAiMenuOpen(false);
+    if (aiBusy || displaySongs.length === 0) return;
+    setSugOpen(true); setAiBusy('suggest'); setSugBusy(true); setSugErr(''); setSugResults(null);
+    setSugModel(model);
+    try {
+      // The library goes along only for de-duplication, and only when
+      // "Personalize from my library" is on — the same privacy choice that
+      // governs the Library-wide suggester.
+      const haveTitles = personalizeFromLibrary
+        ? songs.map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
+        : [];
+      setSugResults(await suggestSongsForSet({
+        instrument, level: aiLevel, genres, artists: favoriteArtists,
+        setName: set.name,
+        setSongs: displaySongs.map(s => ({
+          title: s.metadata?.title, artist: s.metadata?.artist,
+          key: s.metadata?.key, tempo: s.metadata?.tempo,
+        })),
+        haveTitles, model,
+      }));
+    } catch (e) {
+      setSugErr(e?.message || 'Couldn’t suggest songs. Try again.');
+    } finally {
+      setSugBusy(false); setAiBusy('');
+    }
+  }
   async function saveEstimates() {
     for (const e of (timeResult?.data?.songs || [])) {
       const song = displaySongs[e.n - 1];
@@ -1414,6 +1450,8 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                     className={`w-full text-left px-3 py-3 text-sm disabled:opacity-40 ${dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'}`}>Suggest set order</button>
                   <button role="menuitem" onClick={runEstimate}
                     className={`w-full text-left px-3 py-3 text-sm ${dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'}`}>Estimate set time</button>
+                  <button role="menuitem" onClick={() => runSetSuggest()}
+                    className={`w-full text-left px-3 py-3 text-sm ${dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'}`}>Suggest songs for this set</button>
                 </>) : (
                   <button role="menuitem" onClick={() => { setAiMenuOpen(false); onOpenSettings?.(); }}
                     className={`w-full text-left px-3 py-3 text-sm ${dark ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-800 hover:bg-gray-100'}`}>Set up AI…</button>
@@ -1454,6 +1492,18 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           </SortableContext>
         </DndContext>
       </div>
+
+      {/* Songs that would fit this set — same dialog the Library's "Songs to
+          learn" uses, different brief. */}
+      <SongSuggestionsDialog
+        open={sugOpen} onClose={() => setSugOpen(false)} dark={dark} border={border}
+        heading="Songs for this set"
+        waitingLabel="Finding songs that fit…"
+        emptyText="Nothing obvious fits this set. Try again once it has a few more songs in it."
+        footerNote="Suggestions — difficulty is an estimate. Links open real chord sources."
+        busy={sugBusy} error={sugErr} results={sugResults}
+        usedModel={sugModel} onRetry={m => runSetSuggest(m)}
+      />
 
       {/* Suggested order */}
       {orderResult && (
@@ -2352,56 +2402,15 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Suggest songs to learn — grounded recommendations from instrument +
           level + taste + library. Discovery only: each pick links out to a real
           chord source; the user imports what they like. */}
-      {suggestOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !suggestBusy && setSuggestOpen(false)}>
-          <div className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
-            <div className={`flex items-center justify-between px-5 py-3 border-b ${border}`}>
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-indigo-500" />
-                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Songs to learn</h2>
-              </div>
-              <button onClick={() => setSuggestOpen(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-500 hover:bg-gray-100'}`} aria-label="Close"><X size={18} /></button>
-            </div>
-            <div className="overflow-y-auto px-5 py-4 flex flex-col gap-3">
-              {suggestBusy ? (
-                <AiWaiting label="Finding songs for you…" dark={dark} />
-              ) : suggestErr ? (
-                <div className="py-6 text-center">
-                  <p className="text-sm text-red-500 mb-3">{suggestErr}</p>
-                  <button onClick={() => runSuggest()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2">Try again</button>
-                </div>
-              ) : (suggestResults && suggestResults.length === 0) ? (
-                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No suggestions this time. Add a genre or a favorite artist in Settings and try again.</p>
-              ) : (<>
-              <AiCaution dark={dark}>AI can get things wrong — check a song is what you expect before learning it, and that the link goes where it says.</AiCaution>
-              {(suggestResults || []).map((s, i) => (
-                <div key={i} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className={`font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{s.title || 'Untitled'}</p>
-                      {s.artist && <p className="text-sm text-gray-500 dark:text-gray-400">{s.artist}</p>}
-                    </div>
-                    {s.difficulty && <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">{s.difficulty}</span>}
-                  </div>
-                  {s.why && <p className="text-sm mt-1.5 text-gray-600 dark:text-gray-300">{s.why}</p>}
-                  {s.url && (
-                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                      <ExternalLink size={12} /> Find chords
-                    </a>
-                  )}
-                </div>
-              ))}</>)}
-            </div>
-            {!suggestBusy && suggestResults && suggestResults.length > 0 && (
-              <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">Suggestions — difficulty is an estimate. Links open real chord sources.</p>
-                <AiRetryLink usedModel={suggestModel} onRetry={m => runSuggest(m)} dark={dark}
-                  variant="link" label="Try again — smarter" />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <SongSuggestionsDialog
+        open={suggestOpen} onClose={() => setSuggestOpen(false)} dark={dark} border={border}
+        heading="Songs to learn"
+        waitingLabel="Finding songs for you…"
+        emptyText="No suggestions this time. Add a genre or a favorite artist in Settings and try again."
+        footerNote="Suggestions — difficulty is an estimate. Links open real chord sources."
+        busy={suggestBusy} error={suggestErr} results={suggestResults}
+        usedModel={suggestModel} onRetry={m => runSuggest(m)}
+      />
 
       {/* Find duplicates — groups of the same song saved more than once, with a
           per-song Delete so the library can be tidied in place. */}

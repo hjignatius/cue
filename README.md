@@ -103,7 +103,7 @@ All export functions read fresh data from IndexedDB at export time, so recently 
 ### AI Assistant (optional, bring-your-own-key)
 Opt-in Claude-powered helpers, gated on a user-supplied Anthropic API key saved in **Settings → AI** (`cue:anthropic_key`, device-only). Calls go directly from the browser to the Anthropic Messages API (no backend); a **Playing level** pref (`aiLevel`) tunes the tone. All AI access is behind `src/lib/ai.js`, so a future move to a shared-key server proxy is a localized change.
 - **Editor** (AI menu): Find music online (web search, instrument-aware), Clean up formatting, Fill in song details (title/artist/key/tempo/duration/YouTube), Add missing chord shapes (writes to the per-instrument custom library after review), Transposing advice (key/capo, one-tap Apply), Ask about music (streaming Q&A)
-- **Setlist**: Suggest set order (with Apply), Estimate set time (reasoned breakdown that fills unknown song durations)
+- **Setlist**: Suggest set order (with Apply), Estimate set time (reasoned breakdown that fills unknown song durations), Suggest songs for this set (recommendations scoped to what the set already is — its genre, era, energy and key/tempo range — rather than to your taste)
 - Model: Claude Sonnet 5. The AI button is muted (not hidden) without a key; nothing runs or is billed until a key is saved.
 
 ### Onboarding Tour

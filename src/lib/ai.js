@@ -584,6 +584,75 @@ Only include songs you are confident are real, and URLs you actually found via s
     }));
 }
 
+// ── Suggest songs that fit THIS set ─────────────────────────────────────────
+// The set-scoped sibling of suggestSongsToLearn. Same return shape, so both feed
+// the same dialog — but the brief is different in kind: "songs to learn" asks
+// what suits the PLAYER, this asks what would sit well beside the songs already
+// in a set. Taste prefs still go in, but as a tiebreaker under the set's own
+// character rather than as the main signal.
+export async function suggestSongsForSet({
+  instrument, level, genres = [], artists = '', setName = '', setSongs = [], haveTitles = [], model,
+} = {}) {
+  const inst = instrument
+    ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
+    : 'Guitar';
+  // Key and tempo go in where the song has them: they say more about whether a
+  // suggestion will sit next to these than the titles alone do.
+  const inSet = setSongs.slice(0, 40).map((s) => {
+    const name = [s.artist, s.title].filter(Boolean).join(' — ') || s.title || 'Untitled';
+    const extra = [s.key && `key ${s.key}`, s.tempo && `${s.tempo} bpm`].filter(Boolean).join(', ');
+    return extra ? `- ${name} (${extra})` : `- ${name}`;
+  }).join('\n');
+  if (!inSet) return [];
+
+  const genreLine = genres.length ? genres.join(', ') : '(not specified — go by the set)';
+  const artistLine = (artists || '').trim() || '(none given)';
+  // Dedup list: only present when "Personalize from my library" is on, so the
+  // caller's privacy choice decides whether the library leaves the device.
+  const have = haveTitles.slice(0, 60);
+  const haveBlock = have.length
+    ? `Also already in their library — do NOT recommend any of these either:\n${have.map(t => `- ${t}`).join('\n')}`
+    : '';
+
+  const system = `You suggest songs that would fit an existing setlist. The musician plays ${inst} at a ${level || 'intermediate'} level.
+
+The set${setName ? ` is called "${setName}" and` : ''} currently holds:
+${inSet}
+
+Work out what this set IS — its genre, era, energy, mood, and roughly where it sits in key and tempo — and suggest songs that would sit naturally beside these. Match the set first; their general taste below is only a tiebreaker between otherwise equal picks.
+
+Genres they like: ${genreLine}
+Favorite artists: ${artistLine}
+
+Never suggest a song already in the set above.
+${haveBlock}
+
+Do at most TWO or THREE web searches to ground your picks in real songs and to find one chord/tab source per song (prefer ${inst.toLowerCase()} sources). Then respond with ONLY a JSON array (no prose, no code fence) of up to 8 objects:
+[{"title":"…","artist":"…","why":"one short phrase on why it fits THIS set — name what it shares with the songs above","difficulty":"a 2-4 word note relative to their level","url":"https://… a real chord/tab page you found"}]
+Only include songs you are confident are real, and URLs you actually found via search. If nothing fits well, return [].`;
+
+  const data = await callClaude({
+    ...(model ? { model } : {}),
+    max_tokens: 2500,
+    output_config: { effort: 'low' },
+    system,
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
+    messages: [{ role: 'user', content: `Suggest songs that would fit this set.` }],
+  });
+  const json = extractJson(textOf(data));
+  const arr = Array.isArray(json) ? json : [];
+  return arr
+    .filter((r) => r && (r.title || r.artist))
+    .slice(0, 8)
+    .map((r) => ({
+      title: String(r.title || '').trim(),
+      artist: String(r.artist || '').trim(),
+      why: String(r.why || '').trim(),
+      difficulty: String(r.difficulty || '').trim(),
+      url: typeof r.url === 'string' && /^https?:\/\//.test(r.url) ? r.url : '',
+    }));
+}
+
 // ── Fill in song details ────────────────────────────────────────────────────
 // Read the chart and suggest metadata. Returns
 // { title, artist, key, tempo, duration, youtubeUrl } — any field may be '' when
