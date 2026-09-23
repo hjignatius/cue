@@ -61,7 +61,7 @@ Title · Artist · Key · Tempo / BPM · Time Signature · Duration · YouTube U
 - **Present from the Library** walks the library: Next/Previous move through the list in the order and filter on screen, starting from the song you picked — the same way presenting from a setlist does
 
 ### Cloud Sync & Sharing
-Optional, and off unless Supabase env vars are set. Everything above works with no account; an account is only needed to publish or pull. Sign in via **Settings → Cloud Account (Optional)** (magic link — `signInWithOtp` with `shouldCreateUser: false`; accounts are provisioned in the Supabase dashboard, not by self-signup).
+Optional, and off unless Supabase env vars are set. The tables, the Storage bucket and what a *new* table needs granted since Supabase's 2026-10-30 change are documented in [`supabase/README.md`](supabase/README.md). Everything above works with no account; an account is only needed to publish or pull. Sign in via **Settings → Cloud Account (Optional)** (magic link — `signInWithOtp` with `shouldCreateUser: false`; accounts are provisioned in the Supabase dashboard, not by self-signup).
 
 | Action | Control | Effect |
 |---|---|---|
