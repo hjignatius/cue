@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.6 — 2026-09-22
+
+- **Present's panel gives more of itself to the controls.** The Controls/Tools
+  button is now a small circle rather than a full-width bar, and the collapse
+  caret moved into the panel's top-right corner where it takes no room of its
+  own. Between them the panel lost 30px of chrome — the Controls tab is 370px
+  where it was 400, which is 30px further clear of the bottom of a phone in
+  landscape. Both stay full-size to the finger: the toggle's hit area is still a
+  full touch target, and the caret's corner is larger than the glyph in it.
+
 ## v1.6.5 — 2026-09-22
 
 - **One button now switches Present's panel between Controls and Tools**, in

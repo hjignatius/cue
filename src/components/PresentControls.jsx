@@ -58,13 +58,23 @@ const TAB_KEY       = 'cue:present_controls_tab';
 // The tab toggle is ONE button carrying the icon of where it takes you, not two
 // segments showing where you are. Icon only — a label under it would say what the
 // button already says, and cost height the panel does not have in landscape.
-const TOGGLE_H      = 40;
+//
+// A small circle rather than a full-width bar: at full width it read as a header
+// and dominated a panel whose actual controls are below it. Its VISUAL is 28px but
+// its hit box is padded out to MIN_TOUCH_TARGET and pulled back with a negative
+// margin, so the row still measures 28 — the same trick RoundButton uses, and
+// necessary here because 28px is not a target you want to hunt for mid-song.
+const TOGGLE_SIZE   = 28;
+const TOGGLE_HIT    = 44;
 // The collapse caret sits in its own full-width row directly beneath the selector,
 // so it lands where the collapsed blue pill appears. Kept deliberately short, and
 // tucked close under the selector, because those two rows are pure chrome and
 // every pixel they take comes off the controls in landscape.
-const CARET_H       = 16;
-const CARET_GAP     = 2;
+// The collapse caret is pinned in the panel's top-right corner and positioned
+// absolutely, so it takes no room in the header row at all. Its glyph is small
+// but its hit box is not — the corner is easy to aim at, and the pill you get
+// back is 54px, so only the way IN is small.
+const CARET_HIT     = 34;
 
 const POS_KEY       = 'cue:present_controls_pos';
 const COLLAPSED_KEY = 'cue:present_controls_collapsed';
@@ -273,7 +283,9 @@ export default function PresentControls(props) {
   // chrome rows cost 44px once before, which put the Controls tab at 408px against
   // a phone's ~402px landscape viewport — the Save speed row fell off the bottom
   // of the very screen this redesign exists to fit.
-  const headerH = hasTools ? TOGGLE_H + CARET_GAP + CARET_H : HANDLE_H;
+  // The caret is corner-anchored and absolutely positioned, so it costs the
+  // header nothing — the row is just the toggle.
+  const headerH = hasTools ? TOGGLE_SIZE : HANDLE_H;
   const expandedH = headerH + PRESENT_CONTROL_GAP + bodyH + PANEL_PADDING * 2 + PANEL_BORDER * 2;
   const width  = collapsed ? COLLAPSED_W : EXPANDED_W;
   const height = collapsed ? COLLAPSED_H : expandedH;
@@ -386,21 +398,26 @@ export default function PresentControls(props) {
               role="tab"
               aria-label={showTools ? 'Show controls' : 'Show tools'}
               onClick={() => setTab(showTools ? 'controls' : 'tools')}
-              className="w-full flex items-center justify-center rounded-full border shrink-0 relative overflow-hidden"
+              className="self-center flex items-center justify-center shrink-0 relative bg-transparent border-0"
               style={{
-                height: TOGGLE_H,
-                background: toggleBg, borderColor: shellBorder, color: toggleTint,
-                touchAction: 'none', WebkitTapHighlightColor: 'transparent',
+                width: TOGGLE_HIT, height: TOGGLE_HIT,
+                margin: `${(TOGGLE_SIZE - TOGGLE_HIT) / 2}px 0`,
+                color: toggleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent',
               }}
             >
+              <span
+                aria-hidden="true"
+                className="absolute rounded-full border"
+                style={{ width: TOGGLE_SIZE, height: TOGGLE_SIZE, background: toggleBg, borderColor: shellBorder }}
+              />
               {/* Both icons are always mounted and cross-faded, so pressing the
                   button visibly SWAPS one for the other. That swap is the whole
                   explanation of the control: the icon you see is where you are
                   going, and watching it turn into the other one teaches that in a
                   single press, with nothing to read. */}
               {[
-                { key: 'tools',    icon: <Wrench size={22} strokeWidth={2} />, on: !showTools },
-                { key: 'controls', icon: <Gauge  size={22} strokeWidth={2} />, on: showTools },
+                { key: 'tools',    icon: <Wrench size={16} strokeWidth={2.25} />, on: !showTools },
+                { key: 'controls', icon: <Gauge  size={16} strokeWidth={2.25} />, on: showTools },
               ].map(({ key, icon, on }) => (
                 <span
                   key={key}
@@ -428,19 +445,20 @@ export default function PresentControls(props) {
               <ChevronDown size={20} strokeWidth={2.5} />
             </button>
           )}
-          {/* Collapse — its own full-width row directly beneath the selector, so
-              it sits where the blue pill appears when the panel is collapsed and
-              you press the same spot to go each way. Short, and tucked close under
-              the selector: both rows are chrome, and in landscape every pixel they
-              take comes off the controls. */}
+          {/* Collapse — pinned in the top-right corner, out of the flow, so the
+              header row is nothing but the toggle. Quiet tint on purpose: it is
+              chrome next to a control, and the two must not compete for the eye. */}
           {hasTools && (
             <button
               type="button"
               aria-label="Collapse floating controls"
               aria-expanded={true}
               onClick={() => setCollapsedByUser(true)}
-              className="w-full flex items-center justify-center rounded-lg shrink-0"
-              style={{ height: CARET_H, marginTop: CARET_GAP - PRESENT_CONTROL_GAP, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
+              className="absolute flex items-center justify-center rounded-lg"
+              style={{
+                top: 1, right: 1, width: CARET_HIT, height: CARET_HIT,
+                color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent',
+              }}
             >
               <ChevronDown size={16} strokeWidth={2.5} />
             </button>
