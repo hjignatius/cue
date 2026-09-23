@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ } from 'lucide-react';
-import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, escalatedModel, escalatedTierLabel } from '../lib/ai.js';
+import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, escalatedTierLabel } from '../lib/ai.js';
 import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
@@ -26,6 +26,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import { useIsPhonePortrait, usePortraitPanels } from '../hooks/useIsPhonePortrait.js';
 import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
 import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
+import AiRetryLink from '../components/AiRetryLink.jsx';
 import RowMenu from '../components/RowMenu.jsx';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
@@ -1574,6 +1575,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   async function runSuggest(model) {
     if (!hasApiKey()) { openAiSettings(); return; }
     setSuggestOpen(true); setSuggestBusy(true); setSuggestErr(''); setSuggestResults(null);
+    setSuggestModel(model);
     try {
       // Only send the library when "Personalize from my library" is on.
       const haveTitles = personalizeFromLibrary
@@ -1592,9 +1594,14 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [dupBusy, setDupBusy]     = useState(false);
   const [dupGroups, setDupGroups] = useState(null); // null | array of { reason, songs }
   const [dupErr, setDupErr]       = useState('');
+  // Model that produced what is on screen, so the escalate offer knows whether
+  // there is anything left above it. undefined = the current tier's model.
+  const [dupModel, setDupModel]   = useState(undefined);
+  const [suggestModel, setSuggestModel] = useState(undefined);
   async function runFindDuplicates(model) {
     if (!hasApiKey()) { openAiSettings(); return; }
     setDupOpen(true); setDupBusy(true); setDupErr(''); setDupGroups(null);
+    setDupModel(model);
     try {
       setDupGroups(await findDuplicateSongs({ songs, model }));
     } catch (e) {
@@ -2388,9 +2395,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             {!suggestBusy && suggestResults && suggestResults.length > 0 && (
               <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">Suggestions — difficulty is an estimate. Links open real chord sources.</p>
-                {escalatedModel() && <button onClick={() => runSuggest(escalatedModel())} title={`Re-run on the ${escalatedTierLabel()} model — slower, and costs more`} className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                  <Sparkles size={13} /> Try again — smarter
-                </button>}
+                <AiRetryLink usedModel={suggestModel} onRetry={m => runSuggest(m)} dark={dark}
+                  variant="link" label="Try again — smarter" />
               </div>
             )}
           </div>
@@ -2449,9 +2455,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             {!dupBusy && dupGroups && dupGroups.length > 0 && (
               <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500">Deleting also removes the song from any sets it's in.</p>
-                {escalatedModel() && <button onClick={() => runFindDuplicates(escalatedModel())} title={`Re-scan on the ${escalatedTierLabel()} model — slower, and costs more`} className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                  <Sparkles size={13} /> Scan again — smarter
-                </button>}
+                <AiRetryLink usedModel={dupModel} onRetry={m => runFindDuplicates(m)} dark={dark}
+                  variant="link" label="Scan again — smarter"
+                  title={`Re-scan on the ${escalatedTierLabel()} model — slower, and costs more`} />
               </div>
             )}
           </div>

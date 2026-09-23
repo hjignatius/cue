@@ -3,6 +3,19 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.13 — 2026-09-23
+
+- **Fixed: "Try again — smarter model" kept offering itself after you'd already
+  used it.** Pressing it a second time re-ran the same model for the same answer
+  and billed you twice. The offer was checking whether anything sat above your
+  *setting*, not above the model that had actually answered.
+- **It now says what happened instead of just vanishing.** Once the best model
+  has answered, the button is replaced by "Best model — nothing smarter to try",
+  so you're not left wondering whether there was something better you missed.
+- Applies to Fill in song details, Transposing advice, Ask about music, Add
+  missing chord shapes, Suggest songs to learn and Find duplicates. The in-place
+  editor tools were already checking correctly.
+
 ## v1.6.12 — 2026-09-22
 
 - **The Cue mark in a shared set's header is now full size**, matching the action

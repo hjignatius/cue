@@ -8,6 +8,7 @@ import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
+import AiRetryLink from '../components/AiRetryLink.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
@@ -592,6 +593,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [asking, setAsking]             = useState(false);
   const [askError, setAskError]         = useState('');
   const [lastAsk, setLastAsk]           = useState(''); // last question, for "Try again — smarter"
+  const [lastAskModel, setLastAskModel] = useState(undefined); // model that answered it
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const aiAnchorRef                     = useRef(null);
   const [showBackConfirm, setShowBackConfirm] = useState(false);
@@ -931,7 +933,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       // Safe to read `metadata` from this closure: the dialog is modal for the
       // whole request, so the song can't have been edited while we waited.
       setFillBaseline({ ...metadata });
-      setFillResult({ loading: false, error: '', suggest });
+      setFillResult({ loading: false, error: '', suggest, model });
     } catch (e) {
       setFillResult({ loading: false, error: e?.message || 'Could not read details.', suggest: null });
     } finally {
@@ -965,7 +967,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setAdviceResult({ loading: true, error: '', data: null });
     try {
       const data = await transposeAdvice(songContext(), model);
-      setAdviceResult({ loading: false, error: '', data });
+      setAdviceResult({ loading: false, error: '', data, model });
     } catch (e) {
       setAdviceResult({ loading: false, error: e?.message || 'Advice failed.', data: null });
     } finally {
@@ -989,6 +991,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const q = (qOverride ?? askQuestion).trim();
     if (asking || !q) return;
     setLastAsk(q);
+    setLastAskModel(model);
     setAskQuestion('');   // empty the box once asked, so it's ready for the next question
     setAsking(true);
     setAskError('');
@@ -1045,9 +1048,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         level: aiLevel,
         model,
       });
-      setChordResult({ loading: false, error: '', shapes, missing });
+      setChordResult({ loading: false, error: '', shapes, missing, model });
     } catch (e) {
-      setChordResult({ loading: false, error: e?.message || 'Could not fetch chord shapes.', shapes: [], missing });
+      setChordResult({ loading: false, error: e?.message || 'Could not fetch chord shapes.', shapes: [], missing, model });
     } finally {
       setAiBusy('');
     }
@@ -1708,12 +1711,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 {allApplied && appliedNow ? 'Done' : 'Close'}
               </button>
             </div>
-            {/* Hidden at the top tier: there is nothing above it, and the button
-                would re-run an identical request and bill for the same answer. */}
-            {escalatedModel() && <button onClick={() => runFill(escalatedModel())} title={`Re-run on the ${escalatedTierLabel()} model — slower, and costs more`}
-              className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
-              <Sparkles size={13} /> Try again — smarter model
-            </button>}
+            <AiRetryLink usedModel={fillResult.model} onRetry={m => runFill(m)} dark={dark} />
           </>);
         })()}
       </div>
@@ -1771,10 +1769,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </div>
             )}
             <p className={`text-[11px] ${mutedText}`}>Apply sets Cue's Transpose (display only) — it doesn't change your saved text. Capo tips are just advice.</p>
-            {escalatedModel() && <button onClick={() => runAdvice(escalatedModel())} title={`Re-run on the ${escalatedTierLabel()} model — slower, and costs more`}
-              className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
-              <Sparkles size={13} /> Try again — smarter model
-            </button>}
+            <AiRetryLink usedModel={adviceResult.model} onRetry={m => runAdvice(m)} dark={dark} />
           </>);
         })()}
       </div>
@@ -1814,14 +1809,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         )}
         {/* Try again with the stronger model when an answer looks off. Slower and
             pricier, so it's on demand only. */}
-        {askAnswer && !asking && lastAsk && escalatedModel() && (
-          <button
-            onClick={() => submitAsk(lastAsk, escalatedModel())}
-            title={`Re-run this question on the ${escalatedTierLabel()} model — slower, and costs more`}
-            className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
-          >
-            <Sparkles size={13} /> Try again — smarter model
-          </button>
+        {askAnswer && !asking && lastAsk && (
+          <AiRetryLink usedModel={lastAskModel} onRetry={m => submitAsk(lastAsk, m)} dark={dark}
+            title={`Re-run this question on the ${escalatedTierLabel()} model — slower, and costs more`} />
         )}
       </div>
     </div>
@@ -1890,11 +1880,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {/* Outside the shapes-found branch: when nothing came back is exactly
             when escalating matters, and it used to be the one state with no way
             forward. */}
-        {!chordResult.loading && !chordResult.error && chordResult.missing.length > 0 && escalatedModel() && (
-          <button onClick={() => runChordShapes(chordResult.missing, escalatedModel())} title={`Re-fetch these shapes on the ${escalatedTierLabel()} model — slower, and costs more`}
-            className={`self-start flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}>
-            <Sparkles size={13} /> Try again — smarter model
-          </button>
+        {!chordResult.loading && !chordResult.error && chordResult.missing.length > 0 && (
+          <AiRetryLink usedModel={chordResult.model} onRetry={m => runChordShapes(chordResult.missing, m)} dark={dark}
+            title={`Re-fetch these shapes on the ${escalatedTierLabel()} model — slower, and costs more`} />
         )}
       </div>
     </div>
