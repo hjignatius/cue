@@ -3,6 +3,12 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.6.8 — 2026-09-22
+
+- The Controls/Tools button is a pill — twice as long as 1.6.7's circle, at the
+  same height. It sits to the left of the header, leaving the top-right corner
+  to the collapse caret.
+
 ## v1.6.7 — 2026-09-22
 
 - The Controls/Tools button keeps its full height and icon and is about a third

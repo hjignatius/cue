@@ -59,12 +59,18 @@ const TAB_KEY       = 'cue:present_controls_tab';
 // segments showing where you are. Icon only — a label under it would say what the
 // button already says, and cost height the panel does not have in landscape.
 //
-// Full height, about a third of the panel's width: at full width the button read
-// as a header and dominated a panel whose actual controls are below it. Its hit
-// box is padded out to MIN_TOUCH_TARGET and pulled back with a negative margin,
-// so the header row still measures TOGGLE_SIZE rather than the larger target.
-const TOGGLE_SIZE   = 40;
-const TOGGLE_HIT    = 44;
+// A pill: two thirds of the panel's width, full height. Full width read as a
+// header and dominated a panel whose actual controls are below it; a circle was
+// too small to aim at. Left-aligned rather than centred, because the collapse
+// caret owns the top-right corner and a centred pill this long reaches into it —
+// taps near its right end would collapse the panel instead of switching tabs.
+//
+// The hit box is padded to MIN_TOUCH_TARGET vertically and pulled back with a
+// negative margin, so the header row still measures TOGGLE_H rather than the
+// larger target.
+const TOGGLE_W      = 80;
+const TOGGLE_H      = 40;
+const TOGGLE_HIT_H  = 44;
 // The collapse caret sits in its own full-width row directly beneath the selector,
 // so it lands where the collapsed blue pill appears. Kept deliberately short, and
 // tucked close under the selector, because those two rows are pure chrome and
@@ -284,7 +290,7 @@ export default function PresentControls(props) {
   // of the very screen this redesign exists to fit.
   // The caret is corner-anchored and absolutely positioned, so it costs the
   // header nothing — the row is just the toggle.
-  const headerH = hasTools ? TOGGLE_SIZE : HANDLE_H;
+  const headerH = hasTools ? TOGGLE_H : HANDLE_H;
   const expandedH = headerH + PRESENT_CONTROL_GAP + bodyH + PANEL_PADDING * 2 + PANEL_BORDER * 2;
   const width  = collapsed ? COLLAPSED_W : EXPANDED_W;
   const height = collapsed ? COLLAPSED_H : expandedH;
@@ -397,17 +403,17 @@ export default function PresentControls(props) {
               role="tab"
               aria-label={showTools ? 'Show controls' : 'Show tools'}
               onClick={() => setTab(showTools ? 'controls' : 'tools')}
-              className="self-center flex items-center justify-center shrink-0 relative bg-transparent border-0"
+              className="self-start flex items-center justify-center shrink-0 relative bg-transparent border-0"
               style={{
-                width: TOGGLE_HIT, height: TOGGLE_HIT,
-                margin: `${(TOGGLE_SIZE - TOGGLE_HIT) / 2}px 0`,
+                width: TOGGLE_W, height: TOGGLE_HIT_H,
+                margin: `${(TOGGLE_H - TOGGLE_HIT_H) / 2}px 0`,
                 color: toggleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent',
               }}
             >
               <span
                 aria-hidden="true"
                 className="absolute rounded-full border"
-                style={{ width: TOGGLE_SIZE, height: TOGGLE_SIZE, background: toggleBg, borderColor: shellBorder }}
+                style={{ width: TOGGLE_W, height: TOGGLE_H, background: toggleBg, borderColor: shellBorder }}
               />
               {/* Both icons are always mounted and cross-faded, so pressing the
                   button visibly SWAPS one for the other. That swap is the whole
