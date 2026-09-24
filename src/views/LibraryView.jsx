@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
-import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
+import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
+import { stageProgress, advanceStage } from '../utils/aiStage.js';
+
+// Progress wording per AI tool. Only the words live here — the weights are in
+// utils/aiStage.js, so no two bars can disagree about what a search or a written
+// item is worth.
+const ORDER_STAGE   = { idleLabel: 'Ordering the set…',        writeLabel: 'Placing the songs…',     unit: 'song' };
+const TIME_STAGE    = { idleLabel: 'Working out the timing…',  writeLabel: 'Adding it up…',          unit: 'step' };
+const SUGGEST_STAGE = { idleLabel: 'Finding songs…',           writeLabel: 'Picking songs…',         unit: 'song' };
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -1226,6 +1234,11 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [aiBusy, setAiBusy] = useState('');            // '' | 'order' | 'time'
   const [orderResult, setOrderResult] = useState(null); // null | { loading, error, order, summary }
+  // Progress wording per tool. The weights live in utils/aiStage.js; only the
+  // words differ here, so a bar can never disagree with another about what a
+  // search or a written item is worth.
+  const [orderStage, setOrderStage] = useState(null);
+  const [timeStage, setTimeStage]   = useState(null);
   const [timeResult, setTimeResult] = useState(null);   // null | { loading, error, estimates:[{n,duration,id,title}] }
   // "Suggest songs for this set" — recommendations scoped to what the set already
   // is, rather than the Library's browse-by-taste. State lives here, like the
@@ -1234,6 +1247,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   const [sugBusy, setSugBusy]       = useState(false);
   const [sugErr, setSugErr]         = useState('');
   const [sugResults, setSugResults] = useState(null);
+  const [sugStage, setSugStage]     = useState(null);
   const [sugModel, setSugModel]     = useState(undefined);
   useEffect(() => {
     const refresh = () => setAiReady(hasApiKey());
@@ -1316,9 +1330,11 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   function runSuggestOrder() {
     setAiMenuOpen(false);
     if (aiBusy || displaySongs.length < 2) return;
-    setAiBusy('order');
+    setAiBusy('order'); setOrderStage(null);
     setOrderResult({ loading: true, error: '', order: [], summary: '' });
-    suggestSetOrder(displaySongs.map(s => ({ title: s.metadata?.title, artist: s.metadata?.artist, key: s.metadata?.key, tempo: s.metadata?.tempo })))
+    suggestSetOrder(
+      displaySongs.map(s => ({ title: s.metadata?.title, artist: s.metadata?.artist, key: s.metadata?.key, tempo: s.metadata?.tempo })),
+      st => setOrderStage(prev => advanceStage(prev, st, ORDER_STAGE)))
       .then(r => setOrderResult({ loading: false, error: '', order: r.order, summary: r.summary }))
       .catch(e => setOrderResult({ loading: false, error: e?.message || 'Could not suggest an order.', order: [], summary: '' }))
       .finally(() => setAiBusy(''));
@@ -1331,9 +1347,11 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   function runEstimate() {
     setAiMenuOpen(false);
     if (aiBusy || displaySongs.length === 0) return;
-    setAiBusy('time');
+    setAiBusy('time'); setTimeStage(null);
     setTimeResult({ loading: true, error: '', data: null });
-    estimateSetTime(displaySongs.map((s, i) => ({ n: i + 1, title: s.metadata?.title, artist: s.metadata?.artist, seconds: parseDuration(s.metadata?.duration) })))
+    estimateSetTime(
+      displaySongs.map((s, i) => ({ n: i + 1, title: s.metadata?.title, artist: s.metadata?.artist, seconds: parseDuration(s.metadata?.duration) })),
+      st => setTimeStage(prev => advanceStage(prev, st, TIME_STAGE)))
       .then(data => setTimeResult({ loading: false, error: '', data }))
       .catch(e => setTimeResult({ loading: false, error: e?.message || 'Could not estimate the time.', data: null }))
       .finally(() => setAiBusy(''));
@@ -1341,7 +1359,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   async function runSetSuggest(model) {
     setAiMenuOpen(false);
     if (aiBusy || displaySongs.length === 0) return;
-    setSugOpen(true); setAiBusy('suggest'); setSugBusy(true); setSugErr(''); setSugResults(null);
+    setSugOpen(true); setAiBusy('suggest'); setSugBusy(true); setSugErr(''); setSugResults(null); setSugStage(null);
     setSugModel(model);
     try {
       // The library goes along only for de-duplication, and only when
@@ -1351,6 +1369,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
         ? songs.map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
         : [];
       setSugResults(await suggestSongsForSet({
+        onStage: st => setSugStage(prev => advanceStage(prev, st, SUGGEST_STAGE)),
         instrument, level: aiLevel, genres, artists: favoriteArtists,
         setName: set.name,
         setSongs: displaySongs.map(s => ({
@@ -1501,19 +1520,24 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
         waitingLabel="Finding songs that fit…"
         emptyText="Nothing obvious fits this set. Try again once it has a few more songs in it."
         footerNote="Suggestions — difficulty is an estimate. Links open real chord sources."
-        busy={sugBusy} error={sugErr} results={sugResults}
+        busy={sugBusy} error={sugErr} results={sugResults} stage={sugStage}
         usedModel={sugModel} onRetry={m => runSetSuggest(m)}
       />
 
       {/* Suggested order */}
       {orderResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setOrderResult(null)}>
+        /* No scrim on the AI dialogs: each is about the set or library behind
+           it, and dimming that hides what you are deciding about. */
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOrderResult(null)}>
           <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex items-start justify-between gap-3">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
               <button onClick={() => setOrderResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
             </div>
-            {orderResult.loading && <AiWaiting label="Ordering the set…" dark={dark} />}
+            {orderResult.loading && (() => {
+              const p = stageProgress(orderStage, ORDER_STAGE);
+              return <AiProgress label={p.label} detail={p.detail} percent={orderStage?.pct ?? p.percent} dark={dark} />;
+            })()}
             {!orderResult.loading && orderResult.error && <p className="text-sm text-red-500">{orderResult.error}</p>}
             {!orderResult.loading && !orderResult.error && orderResult.order.length > 0 && (<>
               {orderResult.summary && <p className={`text-sm ${dark ? 'text-gray-200' : 'text-gray-800'}`}>{orderResult.summary}</p>}
@@ -1556,13 +1580,16 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           ];
         }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setTimeResult(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setTimeResult(null)}>
             <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className="flex items-start justify-between gap-3">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
                 <button onClick={() => setTimeResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
               </div>
-              {timeResult.loading && <AiWaiting label="Working out the timing…" dark={dark} />}
+              {timeResult.loading && (() => {
+                const p = stageProgress(timeStage, TIME_STAGE);
+                return <AiProgress label={p.label} detail={p.detail} percent={timeStage?.pct ?? p.percent} dark={dark} />;
+              })()}
               {!timeResult.loading && timeResult.error && <p className="text-sm text-red-500">{timeResult.error}</p>}
               {!timeResult.loading && d && (<>
                 <p className={`text-2xl font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{totalLow === totalHigh ? fmtMin(totalLow) : `${fmtMin(totalLow)} – ${fmtMin(totalHigh)}`}</p>
@@ -1621,17 +1648,19 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [suggestOpen, setSuggestOpen]       = useState(false);
   const [suggestBusy, setSuggestBusy]       = useState(false);
   const [suggestResults, setSuggestResults] = useState(null); // null | array of picks
+  const [suggestStage, setSuggestStage]     = useState(null);
   const [suggestErr, setSuggestErr]         = useState('');
   async function runSuggest(model) {
     if (!hasApiKey()) { openAiSettings(); return; }
-    setSuggestOpen(true); setSuggestBusy(true); setSuggestErr(''); setSuggestResults(null);
+    setSuggestOpen(true); setSuggestBusy(true); setSuggestErr(''); setSuggestResults(null); setSuggestStage(null);
     setSuggestModel(model);
     try {
       // Only send the library when "Personalize from my library" is on.
       const haveTitles = personalizeFromLibrary
         ? songs.map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
         : [];
-      const res = await suggestSongsToLearn({ instrument, level: aiLevel, genres, artists: favoriteArtists, haveTitles, model });
+      const res = await suggestSongsToLearn({ instrument, level: aiLevel, genres, artists: favoriteArtists, haveTitles, model,
+        onStage: st => setSuggestStage(prev => advanceStage(prev, st, SUGGEST_STAGE)) });
       setSuggestResults(res);
     } catch (e) {
       setSuggestErr(e?.message || 'Couldn’t get suggestions. Try again.');
@@ -2408,14 +2437,14 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         waitingLabel="Finding songs for you…"
         emptyText="No suggestions this time. Add a genre or a favorite artist in Settings and try again."
         footerNote="Suggestions — difficulty is an estimate. Links open real chord sources."
-        busy={suggestBusy} error={suggestErr} results={suggestResults}
+        busy={suggestBusy} error={suggestErr} results={suggestResults} stage={suggestStage}
         usedModel={suggestModel} onRetry={m => runSuggest(m)}
       />
 
       {/* Find duplicates — groups of the same song saved more than once, with a
           per-song Delete so the library can be tidied in place. */}
       {dupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => !dupBusy && setDupOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => !dupBusy && setDupOpen(false)}>
           <div className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
             <div className={`flex items-center justify-between px-5 py-3 border-b ${border}`}>
               <div className="flex items-center gap-2">
@@ -2426,7 +2455,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </div>
             <div className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
               {dupBusy ? (
-                <AiWaiting label="Scanning your library…" dark={dark} />
+                /* Indeterminate on purpose: the reply is however many duplicate
+                   groups exist, so there is a numerator and nothing to divide it
+                   by. A filling bar would have to invent the total. */
+                <AiProgress label="Scanning your library…" percent={null} dark={dark} />
               ) : dupErr ? (
                 <div className="py-6 text-center">
                   <p className="text-sm text-red-500 mb-3">{dupErr}</p>

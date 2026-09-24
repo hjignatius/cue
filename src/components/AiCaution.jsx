@@ -35,7 +35,13 @@ export function AiWaiting({ label, dark }) {
 //
 // `detail` is the line under the bar (the search query, the field count). It is
 // what tells you the lookup found YOUR song rather than something else.
+// `percent={null}` means INDETERMINATE: the work has no countable denominator,
+// so the bar sweeps instead of filling. Used by Find duplicates, whose reply is
+// a list of however many groups exist — a numerator with nothing to divide by.
+// A sweeping bar is the one honest way to draw that; a filling one would have to
+// invent the total.
 export function AiProgress({ label, detail, percent, dark }) {
+  const indeterminate = percent == null;
   return (
     <div className="flex flex-col items-center gap-2 py-6 w-full">
       <div className={`flex items-center gap-2 text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -46,8 +52,10 @@ export function AiProgress({ label, detail, percent, dark }) {
             the ease is there to stop each jump reading as a glitch — not to
             imply movement between them. */}
         <div
-          className="h-full bg-indigo-500 rounded-full transition-[width] duration-500 ease-out"
-          style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+          className={indeterminate
+            ? 'h-full w-1/3 bg-indigo-500 rounded-full ai-sweep'
+            : 'h-full bg-indigo-500 rounded-full transition-[width] duration-500 ease-out'}
+          style={indeterminate ? undefined : { width: `${Math.min(100, Math.max(0, percent))}%` }}
         />
       </div>
       {detail && (

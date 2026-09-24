@@ -380,6 +380,43 @@ DO:
 
 Output ONLY the cleaned chart text. No commentary, no explanation, no Markdown code fences.`;
 
+// JSON_PROGRESS — progress for a tool that streams a JSON reply of KNOWN SHAPE,
+// and may search the web on the way. Returns the [onText, onSearch] pair that
+// streamClaude takes.
+//
+// `count(acc)` must return something that has really arrived: a key that has
+// appeared, an array element that has closed. `of` is its denominator — exact
+// where the shape is fixed (a reply's keys; a permutation of n songs), a
+// documented cap where it is not (up to 8 suggestions).
+//
+// A cap makes the bar stop short when fewer come back than allowed. That is the
+// honest failure of the two available: the alternative is a denominator we could
+// only know once the reply was finished, which is no use during it.
+function jsonProgress(onStage, { count, of, budget = 0 }) {
+  if (!onStage) return [undefined, undefined];
+  return [
+    // `searches` travels with the write event so the bar knows whether the
+    // search band was ever in play FOR THIS RUN — not just for this tool. Fill
+    // in song details searches or doesn't depending on which fields were
+    // ticked, and a bar holding a third of its length open for searches that
+    // were never bought jumps from nearly empty to nearly full.
+    (acc) => onStage({ phase: 'writing', wrote: Math.min(of, count(acc)), of, searches: budget > 0 }),
+    budget ? (st) => onStage({ phase: 'search', ...st, budget }) : undefined,
+  ];
+}
+
+// Counters. Each names a thing that has finished arriving, never elapsed time.
+// split() rather than a regex: these run once per streamed token.
+const countKeys  = (keys)    => (acc) => keys.filter(k => acc.includes(`"${k}"`)).length;
+const countItems = (lastKey) => (acc) => acc.split(`"${lastKey}"`).length - 1;
+// One number inside the "order" array is one song placed.
+const countOrder = () => (acc) => {
+  const open = acc.indexOf('[');
+  if (open < 0) return 0;
+  const close = acc.indexOf(']', open);
+  return ((close < 0 ? acc.slice(open) : acc.slice(open, close)).match(/\d+/g) || []).length;
+};
+
 // ECHO_PROGRESS — progress for the two tools that hand the chart back.
 //
 // Clean up and Detect structure both return the SAME SONG: one retouches the
@@ -588,7 +625,12 @@ If there are no duplicates, return [].`;
 // already in their library). Web-search grounded so the songs and their chord
 // sources are real, and deduped against what they already have.
 // Result: array of { title, artist, why, difficulty, url }.
-export async function suggestSongsToLearn({ instrument, level, genres = [], artists = '', haveTitles = [], model } = {}) {
+// The suggestion tools' two budgets, named because the progress bar uses both
+// as denominators: three searches bought, and a reply capped at eight songs.
+const SUGGEST_SEARCHES = 3;
+const SUGGEST_MAX = 8;
+
+export async function suggestSongsToLearn({ instrument, level, genres = [], artists = '', haveTitles = [], model, onStage } = {}) {
   const inst = instrument
     ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
     : 'Guitar';
@@ -611,15 +653,15 @@ Do at most TWO or THREE web searches to ground your picks in real songs and to f
 [{"title":"…","artist":"…","why":"one short phrase on why it fits them","difficulty":"a 2-4 word note relative to their level, e.g. 'easy — 4 chords' or 'a stretch'","url":"https://… a real chord/tab page you found"}]
 Only include songs you are confident are real, and URLs you actually found via search. Never repeat a song from their library. If you can't find good matches, return [].`;
 
-  const data = await callClaude({
+  const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 2500,
     output_config: { effort: 'low' },
     system,
-    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: SUGGEST_SEARCHES }],
     messages: [{ role: 'user', content: `Suggest ${inst} songs for me to learn.` }],
-  });
-  const json = extractJson(textOf(data));
+  }, ...jsonProgress(onStage, { count: countItems('url'), of: SUGGEST_MAX, budget: SUGGEST_SEARCHES }));
+  const json = extractJson(raw);
   const arr = Array.isArray(json) ? json : [];
   return arr
     .filter((r) => r && (r.title || r.artist))
@@ -640,7 +682,7 @@ Only include songs you are confident are real, and URLs you actually found via s
 // in a set. Taste prefs still go in, but as a tiebreaker under the set's own
 // character rather than as the main signal.
 export async function suggestSongsForSet({
-  instrument, level, genres = [], artists = '', setName = '', setSongs = [], haveTitles = [], model,
+  instrument, level, genres = [], artists = '', setName = '', setSongs = [], haveTitles = [], model, onStage,
 } = {}) {
   const inst = instrument
     ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
@@ -680,15 +722,15 @@ Do at most TWO or THREE web searches to ground your picks in real songs and to f
 [{"title":"…","artist":"…","why":"one short phrase on why it fits THIS set — name what it shares with the songs above","difficulty":"a 2-4 word note relative to their level","url":"https://… a real chord/tab page you found"}]
 Only include songs you are confident are real, and URLs you actually found via search. If nothing fits well, return [].`;
 
-  const data = await callClaude({
+  const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 2500,
     output_config: { effort: 'low' },
     system,
-    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: SUGGEST_SEARCHES }],
     messages: [{ role: 'user', content: `Suggest songs that would fit this set.` }],
-  });
-  const json = extractJson(textOf(data));
+  }, ...jsonProgress(onStage, { count: countItems('url'), of: SUGGEST_MAX, budget: SUGGEST_SEARCHES }));
+  const json = extractJson(raw);
   const arr = Array.isArray(json) ? json : [];
   return arr
     .filter((r) => r && (r.title || r.artist))
@@ -811,8 +853,7 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
   // Write progress is counted, not estimated: the reply is a JSON object with a
   // known set of keys, so the keys that have appeared so far are exactly how far
   // through it is.
-  onStage ? (acc) => onStage({ phase: 'writing', wrote: want.filter(f => acc.includes(`"${f}"`)).length, of: want.length }) : undefined,
-  onStage ? (s) => onStage({ phase: 'search', ...s, budget }) : undefined);
+  ...jsonProgress(onStage, { count: countKeys(want), of: want.length, budget: search ? budget : 0 }));
 
   const j = extractJson(raw) || {};
   const str = (v) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
@@ -867,7 +908,7 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
 // ── Setlist: suggested order ────────────────────────────────────────────────
 // items: [{ title, artist, key, tempo }] in current order. Returns
 // { order: [1-based permutation], summary }.
-export async function suggestSetOrder(items) {
+export async function suggestSetOrder(items, onStage) {
   const n = (items || []).length;
   if (n === 0) return { order: [], summary: '' };
   const list = items.map((s, i) => {
@@ -879,14 +920,16 @@ export async function suggestSetOrder(items) {
 Respond with ONLY a JSON object (no prose, no code fence):
 {"order": [numbers], "summary": "1-2 sentences on the shape of the set"}
 "order" must be a permutation of the song numbers 1..${n} — every number exactly once — in the new playing sequence.`;
+  // Each number that arrives inside "order" is one song placed, and the set's
+  // own length is the denominator — so this bar is exact, not capped.
 
-  const data = await callClaude({
+  const raw = await streamClaude({
     max_tokens: 800,
     output_config: { effort: 'medium' },
     system,
     messages: [{ role: 'user', content: list }],
-  });
-  const j = extractJson(textOf(data)) || {};
+  }, ...jsonProgress(onStage, { count: countOrder(), of: n }));
+  const j = extractJson(raw) || {};
   let order = Array.isArray(j.order) ? j.order.map(Number).filter((x) => Number.isInteger(x) && x >= 1 && x <= n) : [];
   order = [...new Set(order)];
   if (order.length !== n) order = Array.from({ length: n }, (_, i) => i + 1); // not a full permutation → identity
@@ -898,7 +941,7 @@ Respond with ONLY a JSON object (no prose, no code fence):
 // (dead-air) time as a range, decides on a break and top/tail time, and gives
 // practical notes. items: [{ n, title, artist, seconds }] (seconds 0 = unknown).
 // Returns { songs:[{n,duration}], gapsLowMin, gapsHighMin, breakMin, topTailMin, notes }.
-export async function estimateSetTime(items) {
+export async function estimateSetTime(items, onStage) {
   const n = (items || []).length;
   if (n === 0) return null;
   const list = items.map((s) => {
@@ -915,13 +958,17 @@ Respond with ONLY a JSON object (no prose, no code fence):
 {"songs":[{"n":<number>,"duration":"M:SS"}],"gapsLowMin":<int>,"gapsHighMin":<int>,"breakMin":<int>,"topTailMin":<int>,"notes":"2-3 short sentences of practical advice: where the time leverage is, break placement/length, pacing"}
 "songs" must include ONLY the songs shown as [?]. All minute fields are integers.`;
 
-  const data = await callClaude({
+  // The reply's six top-level fields, in the order the prompt asks for them.
+  // Six real steps, and the last one (`notes`) is the prose, so the bar reaching
+  // the end genuinely means the thinking is done.
+  const TIME_KEYS = ['songs', 'gapsLowMin', 'gapsHighMin', 'breakMin', 'topTailMin', 'notes'];
+  const raw = await streamClaude({
     max_tokens: 1200,
     output_config: { effort: 'medium' },
     system,
     messages: [{ role: 'user', content: list }],
-  });
-  const j = extractJson(textOf(data)) || {};
+  }, ...jsonProgress(onStage, { count: countKeys(TIME_KEYS), of: TIME_KEYS.length }));
+  const j = extractJson(raw) || {};
   const int = (v) => { const x = Math.round(Number(v)); return Number.isFinite(x) && x >= 0 ? x : 0; };
   const songs = Array.isArray(j.songs)
     ? j.songs.map((o) => ({ n: Number(o?.n), duration: typeof o?.duration === 'string' && /^\d{1,2}:\d{2}$/.test(o.duration.trim()) ? o.duration.trim() : '' })).filter((o) => Number.isInteger(o.n) && o.duration)

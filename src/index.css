@@ -100,3 +100,16 @@ html, body {
   }
   [data-phone-scroll]::-webkit-scrollbar-thumb:hover { background: rgba(120,120,128,0.75); }
 }
+
+/* Indeterminate progress (AiProgress with percent={null}): a third-width bar
+   sweeping the track, for work whose total is genuinely unknown. Respects
+   reduced-motion by standing still rather than disappearing — a bar that is
+   there but not moving still says "in progress". */
+@keyframes ai-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.ai-sweep { animation: ai-sweep 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ai-sweep { animation: none; transform: translateX(100%); }
+}

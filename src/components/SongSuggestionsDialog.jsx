@@ -11,20 +11,23 @@
 // to a real source and the player imports what they like.
 
 import { Sparkles, X, ExternalLink } from 'lucide-react';
-import { AiWaiting, AiCaution } from './AiCaution.jsx';
+import { AiProgress, AiCaution } from './AiCaution.jsx';
+import { stageProgress } from '../utils/aiStage.js';
 import AiRetryLink from './AiRetryLink.jsx';
 
 export default function SongSuggestionsDialog({
   open, onClose, dark, border,
   heading, waitingLabel, emptyText, footerNote,
-  busy, error, results, usedModel, onRetry,
+  busy, error, results, usedModel, onRetry, stage,
   retryLabel = 'Try again — smarter',
 }) {
   if (!open) return null;
   const has = !busy && results && results.length > 0;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      /* No scrim: these suggest songs to sit beside what is already on the
+         screen behind, and dimming it hides the thing being judged. */
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={() => !busy && onClose()}
     >
       <div
@@ -40,9 +43,10 @@ export default function SongSuggestionsDialog({
         </div>
 
         <div className="overflow-y-auto px-5 py-4 flex flex-col gap-3">
-          {busy ? (
-            <AiWaiting label={waitingLabel} dark={dark} />
-          ) : error ? (
+          {busy ? (() => {
+            const p = stageProgress(stage, { idleLabel: waitingLabel, writeLabel: 'Picking songs…', unit: 'song' });
+            return <AiProgress label={p.label} detail={p.detail} percent={stage?.pct ?? p.percent} dark={dark} />;
+          })() : error ? (
             <div className="py-6 text-center">
               <p className="text-sm text-red-500 mb-3">{error}</p>
               <button onClick={() => onRetry()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2">Try again</button>

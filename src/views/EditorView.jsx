@@ -29,43 +29,13 @@ import { isChordLine } from '../utils/visualImport.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
+import { stageProgress, advanceStage } from '../utils/aiStage.js';
 
-// Fill-in-details progress: turn a stage event from fillSongDetails into the
-// three things the bar needs. Module scope so it can't capture render state.
-//
-// The weights are a budget, not a guess at duration: 10% to get the request
-// away, 55% across the searches, 28% across the fields being written, and the
-// last 7% is the parse and the dialog swap. What makes each number honest is
-// that it only advances on an event that happened — a search that started, a
-// search that returned, a key that appeared in the JSON.
-//
-// A search counts as HALF when it starts and whole when its results land,
-// because the wait between those two is the longest pause in the whole run and
-// a bar that sat still through it would look stuck at exactly the wrong moment.
-//
-// The model may use fewer searches than its budget, so the bar can jump from
-// part-way to writing. That is better than the reverse: a bar sized to the
-// searches actually used can't be drawn until they're over.
-function fillProgress(stage, hasChart) {
-  if (!stage) {
-    return { percent: 6, label: hasChart ? 'Reading the chart…' : 'Identifying the song…', detail: '' };
-  }
-  if (stage.phase === 'search') {
-    const { started = 0, done = 0, budget = 2, query = '' } = stage;
-    const credit = Math.min(budget, done + (started - done) * 0.5);
-    return {
-      percent: 10 + 55 * (credit / budget),
-      label: done >= 1 ? `Searching the web — ${done} of ${budget}…` : 'Searching the web…',
-      detail: query ? `“${query}”` : '',
-    };
-  }
-  const { wrote = 0, of = 1 } = stage;
-  return {
-    percent: 70 + 28 * (of ? wrote / of : 0),
-    label: 'Filling in the details…',
-    detail: `${wrote} of ${of} ${of === 1 ? 'field' : 'fields'}`,
-  };
-}
+// Fill in song details: the wording for the shared stage mapper. See
+// utils/aiStage.js for why the weights are what they are.
+const FILL_STAGE = { writeLabel: 'Filling in the details…', unit: 'field' };
+const fillProgress = (stage, hasChart) =>
+  stageProgress(stage, { ...FILL_STAGE, idleLabel: hasChart ? 'Reading the chart…' : 'Identifying the song…' });
 
 // Touch target for the editor's panel-resize handles. The visible strip stays
 // 3px; this is the invisible grab area around it.
@@ -1019,14 +989,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setFillResult({ loading: true, error: '', suggest: null });
     try {
       const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use, (s) => {
-        setFillStage(prev => {
-          // Write events arrive on every token. Returning the SAME object when
-          // nothing the bar shows has changed skips the re-render entirely,
-          // which matters here: this fires a few hundred times a run.
-          if (prev && prev.phase === s.phase && prev.wrote === s.wrote && prev.done === s.done && prev.started === s.started) return prev;
-          const { percent } = fillProgress(s, !!text.trim());
-          return { ...s, pct: Math.max(prev?.pct ?? 0, percent) };
-        });
+        setFillStage(prev => advanceStage(prev, s, { ...FILL_STAGE, idleLabel: '' }));
       });
       // Safe to read `metadata` from this closure: the dialog is modal for the
       // whole request, so the song can't have been edited while we waited.
