@@ -30,6 +30,7 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
+import { useAiAbort } from '../hooks/useAiAbort.js';
 
 // Fill in song details: the wording for the shared stage mapper. See
 // utils/aiStage.js for why the weights are what they are.
@@ -591,6 +592,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // that merely AGREES with the song is indistinguishable from one the user
   // applied — both just satisfy `metadata[field] === value`.
   const [fillBaseline, setFillBaseline] = useState({});
+  const { startAi, cancelAi }           = useAiAbort();
   const [aiMsg, setAiMsg]               = useState('');
   // 0-100 for the in-place toolbar tools. A bar where the "…ing" words used to
   // be: same information, a fifth of the width, and the toolbar is a row whose
@@ -860,12 +862,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   //
   // Every entry point goes through here now, so a new AI action cannot forget
   // one of these four again.
+  // Returns the AbortSignal for this run: beginAi is where a run starts, so it
+  // is also where the previous one is cancelled.
   function beginAi(kind) {
     setAiBusy(kind);
     setAiRetry(null);
     setAiPct(0);
     clearAiMsg();
+    return startAi(kind);
   }
+
+  // Close a dialog AND stop what it was waiting for. These two always go
+  // together — a close that leaves the request running is the bug this pairing
+  // exists to prevent, because the result would reopen the dialog.
+  function closeFill()   { cancelAi('fill');   setFillResult(null); }
+  function closeAdvice() { cancelAi('advice'); setAdviceResult(null); }
+  function closeChords() { cancelAi('chords'); setChordResult(null); }
+  function closeFind()   { cancelAi('find');   setFindResult(null); }
 
   async function runCleanup(model) {
     if (aiBusy || text.trim() === '') return;
@@ -944,16 +957,18 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // via the user's chord-library setting.
   async function runFind() {
     if (aiBusy) return;
-    beginAi('find');
+    const signal = beginAi('find');
     setFindResult({ loading: true, error: '', items: [] });
     try {
       const items = await findMusicOnline({
         title: metadata.title,
         artist: metadata.artist,
         instrument: chordLibraryToInstrument(instrument),
+        signal,
       });
       setFindResult({ loading: false, error: '', items });
     } catch (e) {
+      if (e?.code === 'aborted') return;
       setFindResult({ loading: false, error: e?.message || 'Search failed.', items: [] });
     } finally {
       setAiBusy('');
@@ -984,18 +999,21 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const use = fields || fillFields;
     if (use.length === 0) return;
     setFillFields(use);
-    beginAi('fill');
+    const signal = beginAi('fill');
     setFillStage(null);
     setFillResult({ loading: true, error: '', suggest: null });
     try {
       const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use, (s) => {
         setFillStage(prev => advanceStage(prev, s, { ...FILL_STAGE, idleLabel: '' }));
-      });
+      }, signal);
       // Safe to read `metadata` from this closure: the dialog is modal for the
       // whole request, so the song can't have been edited while we waited.
       setFillBaseline({ ...metadata });
       setFillResult({ loading: false, error: '', suggest, model });
     } catch (e) {
+      // A cancel is not a failure, and must not write the state that would put
+      // the dialog back on screen.
+      if (e?.code === 'aborted') return;
       setFillResult({ loading: false, error: e?.message || 'Could not read details.', suggest: null });
     } finally {
       setAiBusy('');
@@ -1024,13 +1042,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Transposing advice (AI) — song/instrument/level-aware key + capo guidance.
   async function runAdvice(model) {
     if (aiBusy) return;
-    beginAi('advice');
+    const signal = beginAi('advice');
     setAdvicePct(0);
     setAdviceResult({ loading: true, error: '', data: null });
     try {
-      const data = await transposeAdvice(songContext(), model, p => setAdvicePct(v => Math.max(v, p * 100)));
+      const data = await transposeAdvice(songContext(), model, p => setAdvicePct(v => Math.max(v, p * 100)), signal);
       setAdviceResult({ loading: false, error: '', data, model });
     } catch (e) {
+      if (e?.code === 'aborted') return;
       setAdviceResult({ loading: false, error: e?.message || 'Advice failed.', data: null });
     } finally {
       setAiBusy('');
@@ -1043,7 +1062,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setDisplayKey(k === metadata.key ? '' : k);
     setIsDirty(true);
     flashAi(`Transpose set to ${k}.`);
-    setAdviceResult(null);
+    closeAdvice();
   }
 
   // Ask about music (AI) — free-form Q&A, seeded with the current song + level.
@@ -1060,8 +1079,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setAskAnswer('');
     try {
       // Stream: the answer fills in live as it arrives.
-      await askMusic(q, songContext(), (partial) => setAskAnswer(partial), model);
+      await askMusic(q, songContext(), (partial) => setAskAnswer(partial), model, startAi('ask'));
     } catch (e) {
+      if (e?.code === 'aborted') return;
       setAskError(e?.message || 'Question failed.');
     } finally {
       setAsking(false);
@@ -1101,7 +1121,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     // On a "Try again" retry, reuse the same chord set that's already shown.
     const missing = missingOverride || missingChordNames();
     if (missing.length === 0) { flashAi('Every chord already has a diagram.'); return; }
-    beginAi('chords');
+    const signal = beginAi('chords');
     setChordResult({ loading: true, error: '', shapes: [], missing });
     try {
       const shapes = await chordShapesFor(missing, {
@@ -1109,9 +1129,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         tuning: getActiveTuning(instrument),
         level: aiLevel,
         model,
+        signal,
       });
       setChordResult({ loading: false, error: '', shapes, missing, model });
     } catch (e) {
+      if (e?.code === 'aborted') return;
       setChordResult({ loading: false, error: e?.message || 'Could not fetch chord shapes.', shapes: [], missing, model });
     } finally {
       setAiBusy('');
@@ -1572,7 +1594,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Find music online — results dialog (web-search-grounded links).
   const findDialog = findResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setFindResult(null)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => closeFind()}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -1581,10 +1603,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               {metadata.title ? <>Sources for <span className="font-medium">{metadata.title}</span>{metadata.artist ? <> · {metadata.artist}</> : null}, favouring {chordLibraryToInstrument(instrument)}.</> : 'Add a title in the metadata bar for better results.'}
             </p>
           </div>
-          <button onClick={() => setFindResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <button onClick={() => closeFind()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {findResult.loading && (
-          <AiWaiting label="Searching the web…" dark={dark} />
+          <AiWaiting label="Searching the web…" dark={dark} onCancel={closeFind} />
         )}
         {!findResult.loading && findResult.error && (
           <p className="text-sm text-red-500">{findResult.error}</p>
@@ -1684,15 +1706,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
        behind them, and dimming it hides the thing you are deciding about. The
        panel's border and shadow carry the separation instead. Click-outside
        still closes. */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setFillResult(null)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeFill()}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
-          <button onClick={() => setFillResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <button onClick={() => closeFill()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {fillResult.loading && (() => {
           const p = fillProgress(fillStage, !!text.trim());
-          return <AiProgress label={p.label} detail={p.detail} percent={fillStage?.pct ?? p.percent} dark={dark} />;
+          return <AiProgress label={p.label} detail={p.detail} percent={fillStage?.pct ?? p.percent} dark={dark} onCancel={closeFill} />;
         })()}
         {!fillResult.loading && fillResult.error && (
           <p className="text-sm text-red-500">{fillResult.error}</p>
@@ -1802,7 +1824,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 {allApplied ? (appliedNow ? 'All applied' : 'Nothing to change') : 'Apply all'}
               </button>
               <button
-                onClick={() => setFillResult(null)}
+                onClick={() => closeFill()}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
                   allApplied
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
@@ -1820,17 +1842,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Transposing advice — key suggestions (one-tap Apply → Transpose) + capo tips.
   const adviceDialog = adviceResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setAdviceResult(null)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeAdvice()}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Transposing advice</h2>
             <p className={`text-xs ${mutedText}`}>For {chordLibraryToInstrument(instrument)} · {aiLevel} level{metadata.key ? <> · currently in {metadata.key}</> : null}</p>
           </div>
-          <button onClick={() => setAdviceResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <button onClick={() => closeAdvice()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {adviceResult.loading && (
-          <AiProgress label="Working out your options…" percent={advicePct} dark={dark} />
+          <AiProgress label="Working out your options…" percent={advicePct} dark={dark} onCancel={closeAdvice} />
         )}
         {!adviceResult.loading && adviceResult.error && (
           <p className="text-sm text-red-500">{adviceResult.error}</p>
@@ -1920,17 +1942,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Add missing chord shapes — review each proposed voicing as a rendered
   // diagram before it's saved to the custom library.
   const chordDialog = chordResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setChordResult(null)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => closeChords()}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Add missing chord shapes</h2>
             <p className={`text-xs ${mutedText}`}>Undefined chords: {chordResult.missing.join(', ')}</p>
           </div>
-          <button onClick={() => setChordResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <button onClick={() => closeChords()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {chordResult.loading && (
-          <AiWaiting label="Working out the shapes…" dark={dark} />
+          <AiWaiting label="Working out the shapes…" dark={dark} onCancel={closeChords} />
         )}
         {!chordResult.loading && chordResult.error && (
           <p className="text-sm text-red-500">{chordResult.error}</p>
@@ -1982,7 +2004,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               Add all
             </button>
             <button
-              onClick={() => setChordResult(null)}
+              onClick={() => closeChords()}
               className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
             >
               Close

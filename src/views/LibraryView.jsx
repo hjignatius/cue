@@ -3,6 +3,7 @@ import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, G
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
+import { useAiAbort } from '../hooks/useAiAbort.js';
 
 // Progress wording per AI tool. Only the words live here — the weights are in
 // utils/aiStage.js, so no two bars can disagree about what a search or a written
@@ -1237,6 +1238,12 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   // Progress wording per tool. The weights live in utils/aiStage.js; only the
   // words differ here, so a bar can never disagree with another about what a
   // search or a written item is worth.
+  const { startAi, cancelAi }       = useAiAbort();
+  // Closing an AI dialog stops the request behind it. Paired deliberately: a
+  // close that leaves the request running lets its result set the state that
+  // puts the dialog straight back on screen.
+  const closeOrder = () => { cancelAi('order'); setOrderResult(null); };
+  const closeTime  = () => { cancelAi('time');  setTimeResult(null); };
   const [orderStage, setOrderStage] = useState(null);
   const [timeStage, setTimeStage]   = useState(null);
   const [timeResult, setTimeResult] = useState(null);   // null | { loading, error, estimates:[{n,duration,id,title}] }
@@ -1334,15 +1341,17 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
     setOrderResult({ loading: true, error: '', order: [], summary: '' });
     suggestSetOrder(
       displaySongs.map(s => ({ title: s.metadata?.title, artist: s.metadata?.artist, key: s.metadata?.key, tempo: s.metadata?.tempo })),
-      st => setOrderStage(prev => advanceStage(prev, st, ORDER_STAGE)))
+      st => setOrderStage(prev => advanceStage(prev, st, ORDER_STAGE)),
+      startAi('order'))
       .then(r => setOrderResult({ loading: false, error: '', order: r.order, summary: r.summary }))
-      .catch(e => setOrderResult({ loading: false, error: e?.message || 'Could not suggest an order.', order: [], summary: '' }))
+      // A cancel must not write the state that would reopen the dialog.
+      .catch(e => { if (e?.code !== 'aborted') setOrderResult({ loading: false, error: e?.message || 'Could not suggest an order.', order: [], summary: '' }); })
       .finally(() => setAiBusy(''));
   }
   function applyOrder(order) {
     const ids = order.map(p => displaySongs[p - 1]?.id).filter(Boolean);
     if (ids.length === displaySongs.length) onUpdateSet({ ...set, songIds: ids, sortMode: 'custom' });
-    setOrderResult(null);
+    closeOrder();
   }
   function runEstimate() {
     setAiMenuOpen(false);
@@ -1351,9 +1360,10 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
     setTimeResult({ loading: true, error: '', data: null });
     estimateSetTime(
       displaySongs.map((s, i) => ({ n: i + 1, title: s.metadata?.title, artist: s.metadata?.artist, seconds: parseDuration(s.metadata?.duration) })),
-      st => setTimeStage(prev => advanceStage(prev, st, TIME_STAGE)))
+      st => setTimeStage(prev => advanceStage(prev, st, TIME_STAGE)),
+      startAi('time'))
       .then(data => setTimeResult({ loading: false, error: '', data }))
-      .catch(e => setTimeResult({ loading: false, error: e?.message || 'Could not estimate the time.', data: null }))
+      .catch(e => { if (e?.code !== 'aborted') setTimeResult({ loading: false, error: e?.message || 'Could not estimate the time.', data: null }); })
       .finally(() => setAiBusy(''));
   }
   async function runSetSuggest(model) {
@@ -1370,6 +1380,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
         : [];
       setSugResults(await suggestSongsForSet({
         onStage: st => setSugStage(prev => advanceStage(prev, st, SUGGEST_STAGE)),
+        signal: startAi('suggestSet'),
         instrument, level: aiLevel, genres, artists: favoriteArtists,
         setName: set.name,
         setSongs: displaySongs.map(s => ({
@@ -1379,6 +1390,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
         haveTitles, model,
       }));
     } catch (e) {
+      if (e?.code === 'aborted') return;
       setSugErr(e?.message || 'Couldn’t suggest songs. Try again.');
     } finally {
       setSugBusy(false); setAiBusy('');
@@ -1389,7 +1401,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       const song = displaySongs[e.n - 1];
       if (song) await onUpdateSong?.({ ...song, metadata: { ...song.metadata, duration: e.duration } });
     }
-    setTimeResult(null);
+    closeTime();
   }
 
   const totalSec      = displaySongs.reduce((sum, s) => sum + parseDuration(s.metadata?.duration), 0);
@@ -1515,7 +1527,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       {/* Songs that would fit this set — same dialog the Library's "Songs to
           learn" uses, different brief. */}
       <SongSuggestionsDialog
-        open={sugOpen} onClose={() => setSugOpen(false)} dark={dark} border={border}
+        open={sugOpen} onClose={() => { cancelAi('suggestSet'); setSugOpen(false); }} dark={dark} border={border}
         heading="Songs for this set"
         waitingLabel="Finding songs that fit…"
         emptyText="Nothing obvious fits this set. Try again once it has a few more songs in it."
@@ -1528,15 +1540,15 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       {orderResult && (
         /* No scrim on the AI dialogs: each is about the set or library behind
            it, and dimming that hides what you are deciding about. */
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOrderResult(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeOrder()}>
           <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex items-start justify-between gap-3">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
-              <button onClick={() => setOrderResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+              <button onClick={() => closeOrder()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
             </div>
             {orderResult.loading && (() => {
               const p = stageProgress(orderStage, ORDER_STAGE);
-              return <AiProgress label={p.label} detail={p.detail} percent={orderStage?.pct ?? p.percent} dark={dark} />;
+              return <AiProgress label={p.label} detail={p.detail} percent={orderStage?.pct ?? p.percent} dark={dark} onCancel={closeOrder} />;
             })()}
             {!orderResult.loading && orderResult.error && <p className="text-sm text-red-500">{orderResult.error}</p>}
             {!orderResult.loading && !orderResult.error && orderResult.order.length > 0 && (<>
@@ -1551,7 +1563,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
               </ol>
               <div className="flex gap-2">
                 <button onClick={() => applyOrder(orderResult.order)} className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Apply</button>
-                <button onClick={() => setOrderResult(null)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                <button onClick={() => closeOrder()} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
               </div>
             </>)}
           </div>
@@ -1580,15 +1592,15 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           ];
         }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setTimeResult(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeTime()}>
             <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className="flex items-start justify-between gap-3">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
-                <button onClick={() => setTimeResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+                <button onClick={() => closeTime()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
               </div>
               {timeResult.loading && (() => {
                 const p = stageProgress(timeStage, TIME_STAGE);
-                return <AiProgress label={p.label} detail={p.detail} percent={timeStage?.pct ?? p.percent} dark={dark} />;
+                return <AiProgress label={p.label} detail={p.detail} percent={timeStage?.pct ?? p.percent} dark={dark} onCancel={closeTime} />;
               })()}
               {!timeResult.loading && timeResult.error && <p className="text-sm text-red-500">{timeResult.error}</p>}
               {!timeResult.loading && d && (<>
@@ -1611,11 +1623,11 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                   <AiCaution dark={dark}>AI can get things wrong — these lengths are estimates, so treat the total as a guide.</AiCaution>
                   <div className="flex gap-2">
                     <button onClick={saveEstimates} className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Save song estimates</button>
-                    <button onClick={() => setTimeResult(null)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                    <button onClick={() => closeTime()} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
                   </div>
                 </>)}
                 {d.songs.length === 0 && (
-                  <button onClick={() => setTimeResult(null)} className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                  <button onClick={() => closeTime()} className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
                 )}
               </>)}
             </div>
@@ -1660,9 +1672,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         ? songs.map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
         : [];
       const res = await suggestSongsToLearn({ instrument, level: aiLevel, genres, artists: favoriteArtists, haveTitles, model,
-        onStage: st => setSuggestStage(prev => advanceStage(prev, st, SUGGEST_STAGE)) });
+        onStage: st => setSuggestStage(prev => advanceStage(prev, st, SUGGEST_STAGE)), signal: startAi('suggestLearn') });
       setSuggestResults(res);
     } catch (e) {
+      if (e?.code === 'aborted') return;
       setSuggestErr(e?.message || 'Couldn’t get suggestions. Try again.');
     } finally {
       setSuggestBusy(false);
@@ -1682,8 +1695,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     setDupOpen(true); setDupBusy(true); setDupErr(''); setDupGroups(null);
     setDupModel(model);
     try {
-      setDupGroups(await findDuplicateSongs({ songs, model }));
+      setDupGroups(await findDuplicateSongs({ songs, model, signal: startAi('dup') }));
     } catch (e) {
+      if (e?.code === 'aborted') return;
       setDupErr(e?.message || 'Couldn’t scan for duplicates. Try again.');
     } finally {
       setDupBusy(false);
@@ -2432,7 +2446,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           level + taste + library. Discovery only: each pick links out to a real
           chord source; the user imports what they like. */}
       <SongSuggestionsDialog
-        open={suggestOpen} onClose={() => setSuggestOpen(false)} dark={dark} border={border}
+        open={suggestOpen} onClose={() => { cancelAi('suggestLearn'); setSuggestOpen(false); }} dark={dark} border={border}
         heading="Songs to learn"
         waitingLabel="Finding songs for you…"
         emptyText="No suggestions this time. Add a genre or a favorite artist in Settings and try again."
@@ -2458,7 +2472,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 /* Indeterminate on purpose: the reply is however many duplicate
                    groups exist, so there is a numerator and nothing to divide it
                    by. A filling bar would have to invent the total. */
-                <AiProgress label="Scanning your library…" percent={null} dark={dark} />
+                <AiProgress label="Scanning your library…" percent={null} dark={dark} onCancel={() => { cancelAi('dup'); setDupOpen(false); }} />
               ) : dupErr ? (
                 <div className="py-6 text-center">
                   <p className="text-sm text-red-500 mb-3">{dupErr}</p>

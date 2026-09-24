@@ -12,14 +12,30 @@ export const AI_CAUTION = 'AI can get things wrong — check anything that matte
 // It is NOT a substitute for the caution on the result. This disappears the
 // moment the answer arrives — which is exactly when someone is deciding whether
 // to trust it — so any result stating checkable facts carries AiCaution too.
-export function AiWaiting({ label, dark }) {
+export function AiWaiting({ label, dark, onCancel }) {
   return (
     <div className="flex flex-col items-center gap-2 py-6">
       <div className={`flex items-center gap-2 text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
         <Loader2 size={16} className="animate-spin" /> {label}
       </div>
       <AiCaution dark={dark} center />
+      <CancelLink onCancel={onCancel} dark={dark} />
     </div>
+  );
+}
+
+// The way out of a wait. Present on every AI wait, because the alternative was
+// the dialog's close box — which used to leave the request running and then let
+// its result reopen the dialog on top of whatever came next.
+function CancelLink({ onCancel, dark }) {
+  if (!onCancel) return null;
+  return (
+    <button
+      onClick={onCancel}
+      className={`mt-1 text-xs font-medium underline-offset-2 hover:underline ${dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+    >
+      Cancel
+    </button>
   );
 }
 
@@ -40,7 +56,7 @@ export function AiWaiting({ label, dark }) {
 // a list of however many groups exist — a numerator with nothing to divide by.
 // A sweeping bar is the one honest way to draw that; a filling one would have to
 // invent the total.
-export function AiProgress({ label, detail, percent, dark }) {
+export function AiProgress({ label, detail, percent, dark, onCancel }) {
   const indeterminate = percent == null;
   return (
     <div className="flex flex-col items-center gap-2 py-6 w-full">
@@ -62,6 +78,7 @@ export function AiProgress({ label, detail, percent, dark }) {
         <p className={`text-[11px] max-w-full truncate ${dark ? 'text-gray-500' : 'text-gray-400'}`} title={detail}>{detail}</p>
       )}
       <AiCaution dark={dark} center />
+      <CancelLink onCancel={onCancel} dark={dark} />
     </div>
   );
 }

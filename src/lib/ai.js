@@ -190,7 +190,7 @@ const REQUEST_HEADERS = (apiKey) => ({
 // the one request and only the finished answer comes back — which is why a
 // progress indicator has to stream even when the caller wants JSON rather than
 // live text.
-async function streamClaude(body, onText, onSearch) {
+async function streamClaude({ signal, ...body }, onText, onSearch) {
   const apiKey = getApiKey();
   if (!apiKey) {
     const err = new Error('Add your Anthropic API key in Settings to use AI features.');
@@ -200,9 +200,16 @@ async function streamClaude(body, onText, onSearch) {
 
   const MAX_ATTEMPTS = 3;
   const TIMEOUT_MS = 90000;   // hard cap per attempt, so a stall can't spin forever
+  if (signal?.aborted) throw abortedError();
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Two things can abort an attempt: our own timeout, and the caller closing
+    // the dialog. They share one controller and are told apart afterwards by
+    // asking the caller's signal — the difference matters, because a timeout is
+    // an error worth showing and a close is not.
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const relay = () => controller.abort();
+    signal?.addEventListener('abort', relay, { once: true });
     try {
       let res;
       try {
@@ -213,11 +220,12 @@ async function streamClaude(body, onText, onSearch) {
           signal: controller.signal,
         });
       } catch (e) {
-        if (e?.name === 'AbortError') { const err = new Error('The answer timed out — try again.'); err.code = 'timeout'; throw err; }
+        if (e?.name === 'AbortError') throw signal?.aborted ? abortedError() : timeoutError();
         if (retryableNetworkFailure(attempt, MAX_ATTEMPTS, e)) { await sleep(800 * attempt); continue; }
         throw networkError(e);
       }
 
+      if (signal?.aborted) throw abortedError();
       if (!res.ok || !res.body) {
         let data = {};
         try { data = await res.json(); } catch { /* non-JSON */ }
@@ -281,21 +289,36 @@ async function streamClaude(body, onText, onSearch) {
           }
         }
       } catch (e) {
-        if (e?.name === 'AbortError') { const err = new Error('The answer timed out — try again.'); err.code = 'timeout'; throw err; }
+        if (e?.name === 'AbortError') throw signal?.aborted ? abortedError() : timeoutError();
         throw e;
       }
       return acc.trim();
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', relay);
     }
   }
+}
+
+// Closing the dialog is not a failure, so `aborted` is the one error code every
+// caller is expected to swallow: no message, no retry offer, nothing on screen.
+// It exists as an error only because that is how an interrupted await reports.
+function abortedError() {
+  const err = new Error('Cancelled.');
+  err.code = 'aborted';
+  return err;
+}
+function timeoutError() {
+  const err = new Error('The answer timed out — try again.');
+  err.code = 'timeout';
+  return err;
 }
 
 // Low-level call. Returns the parsed response JSON; throws a code-tagged Error.
 // Retries transient busy/rate-limit responses (429, 529 "overloaded") a couple
 // of times with backoff before giving up — these fail before any generation, so
 // a retry costs nothing extra.
-async function callClaude(body) {
+async function callClaude({ signal, ...body }) {
   const apiKey = getApiKey();
   if (!apiKey) {
     const err = new Error('Add your Anthropic API key in Settings to use AI features.');
@@ -304,6 +327,7 @@ async function callClaude(body) {
   }
 
   const MAX_ATTEMPTS = 3;
+  if (signal?.aborted) throw abortedError();
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let res;
     try {
@@ -311,11 +335,14 @@ async function callClaude(body) {
         method: 'POST',
         headers: REQUEST_HEADERS(apiKey),
         body: JSON.stringify({ model: MODEL(), ...body }),
+        signal,
       });
     } catch (e) {
+      if (e?.name === 'AbortError') throw abortedError();
       if (retryableNetworkFailure(attempt, MAX_ATTEMPTS, e)) { await sleep(800 * attempt); continue; }
       throw networkError(e);
     }
+    if (signal?.aborted) throw abortedError();
 
     if (res.ok) {
       try { return await res.json(); }
@@ -437,7 +464,7 @@ const echoProgress = (input, onProgress) => {
 
 // `onProgress(fraction)` is optional. See ECHO_PROGRESS below for what makes the
 // fraction real rather than invented.
-export async function cleanUpChart(text, { symbols, model, onProgress } = {}) {
+export async function cleanUpChart(text, { symbols, model, onProgress, signal } = {}) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to clean up — the chart is empty.');
     err.code = 'empty';
@@ -453,6 +480,7 @@ export async function cleanUpChart(text, { symbols, model, onProgress } = {}) {
   const out = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
+    signal,
     output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: text }],
@@ -481,7 +509,7 @@ HOW TO LABEL:
 
 Output ONLY the chart text with headers added. No commentary, no explanation, no Markdown code fences.`;
 
-export async function detectStructure(text, { model, onProgress } = {}) {
+export async function detectStructure(text, { model, onProgress, signal } = {}) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to label — the chart is empty.');
     err.code = 'empty';
@@ -490,6 +518,7 @@ export async function detectStructure(text, { model, onProgress } = {}) {
   const out = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
+    signal,
     output_config: { effort: 'low' },
     system: STRUCTURE_SYSTEM,
     messages: [{ role: 'user', content: text }],
@@ -528,7 +557,7 @@ If the song has no exact repeats, return it essentially unchanged (it is already
 
 Output ONLY the condensed chart text. No commentary, no explanation, no Markdown code fences.`;
 
-export async function condenseChart(text, { model } = {}) {
+export async function condenseChart(text, { model, signal } = {}) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to condense — the chart is empty.');
     err.code = 'empty';
@@ -537,6 +566,7 @@ export async function condenseChart(text, { model } = {}) {
   const data = await callClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
+    signal,
     output_config: { effort: 'low' },
     system: CONDENSE_SYSTEM,
     messages: [{ role: 'user', content: text }],
@@ -549,7 +579,7 @@ export async function condenseChart(text, { model } = {}) {
 // ── Find music online ───────────────────────────────────────────────────────
 // Web-search-grounded: returns real sites, favouring the user's instrument.
 // Result: array of { name, url, note }.
-export async function findMusicOnline({ title, artist, instrument }) {
+export async function findMusicOnline({ title, artist, instrument, signal }) {
   const inst = instrument
     ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
     : 'Guitar';
@@ -563,6 +593,7 @@ Only include URLs you actually found via search. Order best first. If you find n
 
   const data = await callClaude({
     max_tokens: 1500,
+    signal,
     output_config: { effort: 'low' },
     system,
     tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }],
@@ -582,7 +613,7 @@ Only include URLs you actually found via search. Order best first. If you find n
 // featured-artist or typo differences — without flagging genuinely different
 // songs that merely share a title word. Pure reasoning, no web search.
 // `songs` is [{ id, metadata }]. Result: array of { reason, songs:[songObj…] }.
-export async function findDuplicateSongs({ songs = [], model } = {}) {
+export async function findDuplicateSongs({ songs = [], model, signal } = {}) {
   const list = songs.slice(0, 400).map((s, i) => ({
     n: i + 1,
     title: s.metadata?.title || 'Untitled',
@@ -603,6 +634,7 @@ If there are no duplicates, return [].`;
   const data = await callClaude({
     ...(model ? { model } : {}),
     max_tokens: 2000,
+    signal,
     output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: JSON.stringify(list) }],
@@ -630,7 +662,7 @@ If there are no duplicates, return [].`;
 const SUGGEST_SEARCHES = 3;
 const SUGGEST_MAX = 8;
 
-export async function suggestSongsToLearn({ instrument, level, genres = [], artists = '', haveTitles = [], model, onStage } = {}) {
+export async function suggestSongsToLearn({ instrument, level, genres = [], artists = '', haveTitles = [], model, onStage, signal } = {}) {
   const inst = instrument
     ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
     : 'Guitar';
@@ -656,6 +688,7 @@ Only include songs you are confident are real, and URLs you actually found via s
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 2500,
+    signal,
     output_config: { effort: 'low' },
     system,
     tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: SUGGEST_SEARCHES }],
@@ -682,7 +715,7 @@ Only include songs you are confident are real, and URLs you actually found via s
 // in a set. Taste prefs still go in, but as a tiebreaker under the set's own
 // character rather than as the main signal.
 export async function suggestSongsForSet({
-  instrument, level, genres = [], artists = '', setName = '', setSongs = [], haveTitles = [], model, onStage,
+  instrument, level, genres = [], artists = '', setName = '', setSongs = [], haveTitles = [], model, onStage, signal,
 } = {}) {
   const inst = instrument
     ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
@@ -725,6 +758,7 @@ Only include songs you are confident are real, and URLs you actually found via s
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 2500,
+    signal,
     output_config: { effort: 'low' },
     system,
     tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: SUGGEST_SEARCHES }],
@@ -791,7 +825,7 @@ const NEEDS_SEARCH = new Set(['title', 'artist', 'timeSig', 'tempo', 'duration',
 // request runs — 'search' while the web is being consulted, 'writing' as the
 // answer is produced — so the dialog can show progress instead of a spinner.
 // Nothing about the result depends on it.
-export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL, onStage) {
+export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL, onStage, signal) {
   const chart = (text || '').trim();
   // The user's existing title/artist always go in as CONTEXT even when they
   // weren't ticked — they're how the song gets identified at all.
@@ -843,6 +877,7 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
+    signal,
     output_config: { effort: 'low' },
     system,
     ...(search ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: budget }] } : {}),
@@ -874,7 +909,7 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
 // Given chord NAMES with no diagram, return playable voicings for the instrument
 // as { name, frets: [ints] } (frets: 0 open, -1 muted, >0 fret). Length matches
 // the tuning. Invalid/unplayable entries are dropped.
-export async function chordShapesFor(names, { instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level, model } = {}) {
+export async function chordShapesFor(names, { instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level, model, signal } = {}) {
   const list = [...new Set((names || []).map((n) => (n || '').trim()).filter(Boolean))];
   if (list.length === 0) return [];
   const n = tuning.length;
@@ -890,6 +925,7 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
   const data = await callClaude({
     ...(model ? { model } : {}),
     max_tokens: 1500,
+    signal,
     output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: `Chords: ${list.join(', ')}` }],
@@ -908,7 +944,7 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
 // ── Setlist: suggested order ────────────────────────────────────────────────
 // items: [{ title, artist, key, tempo }] in current order. Returns
 // { order: [1-based permutation], summary }.
-export async function suggestSetOrder(items, onStage) {
+export async function suggestSetOrder(items, onStage, signal) {
   const n = (items || []).length;
   if (n === 0) return { order: [], summary: '' };
   const list = items.map((s, i) => {
@@ -925,6 +961,7 @@ Respond with ONLY a JSON object (no prose, no code fence):
 
   const raw = await streamClaude({
     max_tokens: 800,
+    signal,
     output_config: { effort: 'medium' },
     system,
     messages: [{ role: 'user', content: list }],
@@ -941,7 +978,7 @@ Respond with ONLY a JSON object (no prose, no code fence):
 // (dead-air) time as a range, decides on a break and top/tail time, and gives
 // practical notes. items: [{ n, title, artist, seconds }] (seconds 0 = unknown).
 // Returns { songs:[{n,duration}], gapsLowMin, gapsHighMin, breakMin, topTailMin, notes }.
-export async function estimateSetTime(items, onStage) {
+export async function estimateSetTime(items, onStage, signal) {
   const n = (items || []).length;
   if (n === 0) return null;
   const list = items.map((s) => {
@@ -964,6 +1001,7 @@ Respond with ONLY a JSON object (no prose, no code fence):
   const TIME_KEYS = ['songs', 'gapsLowMin', 'gapsHighMin', 'breakMin', 'topTailMin', 'notes'];
   const raw = await streamClaude({
     max_tokens: 1200,
+    signal,
     output_config: { effort: 'medium' },
     system,
     messages: [{ role: 'user', content: list }],
@@ -997,7 +1035,7 @@ function levelLine(level) { return LEVEL_GUIDE[level] || LEVEL_GUIDE.intermediat
 // ── Ask about music (Q&A) ───────────────────────────────────────────────────
 // Free-form music question, optionally about the current song. Returns answer
 // text. No web search — general musical knowledge, tailored to the player level.
-export async function askMusic(question, ctx = {}, onText, model) {
+export async function askMusic(question, ctx = {}, onText, model, signal) {
   if (!question || !question.trim()) {
     const err = new Error('Type a question first.');
     err.code = 'empty';
@@ -1042,7 +1080,7 @@ For a strumming (or picking) pattern, give it as TEXT: D = downstroke, U = upstr
 // of the reply's known shape as each one appears. Coarse — three steps — but
 // each step is a thing that really arrived, and the spinner beside it carries
 // the time in between.
-export async function transposeAdvice(ctx = {}, model, onProgress) {
+export async function transposeAdvice(ctx = {}, model, onProgress, signal) {
   const { title, artist, key, instrument, level, chart } = ctx;
   const inst = instrument || 'guitar';
 
@@ -1067,6 +1105,7 @@ Rules:
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
+    signal,
     output_config: { effort: 'medium' },
     system,
     messages: [{ role: 'user', content: userText }],

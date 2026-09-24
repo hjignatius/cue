@@ -45,7 +45,8 @@ export default function SongSuggestionsDialog({
         <div className="overflow-y-auto px-5 py-4 flex flex-col gap-3">
           {busy ? (() => {
             const p = stageProgress(stage, { idleLabel: waitingLabel, writeLabel: 'Picking songs…', unit: 'song' });
-            return <AiProgress label={p.label} detail={p.detail} percent={stage?.pct ?? p.percent} dark={dark} />;
+            // Cancel and Close are the same act here: onClose cancels in the parent.
+            return <AiProgress label={p.label} detail={p.detail} percent={stage?.pct ?? p.percent} dark={dark} onCancel={onClose} />;
           })() : error ? (
             <div className="py-6 text-center">
               <p className="text-sm text-red-500 mb-3">{error}</p>
