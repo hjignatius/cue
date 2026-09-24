@@ -330,7 +330,19 @@ function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
     const measured = ctx.measureText('0'.repeat(n)).width;
     if (measured > 0) textW = measured;
   } catch { /* keep fallback */ }
-  return Math.round(textW + LYRIC_COL_PADDING);
+  // CEIL, never round. Rounding DOWN leaves the column a fraction of a pixel
+  // narrower than the glyphs it has to hold, and the last character of the
+  // widest line wraps to its own row — which is what a reader sees as "Cue broke
+  // this line one character early". Sampled across fractional font sizes, round()
+  // was short about half the time.
+  //
+  // It only shows up at some sizes, which is why it looked platform-specific: a
+  // whole-number font often lands exactly, while the fractional sizes that
+  // fit-scaling produces (chord panel open) usually do not.
+  //
+  // Plus a pixel of slack, because the browser's own text layout accumulates
+  // sub-pixel advances slightly differently from one measureText call.
+  return Math.ceil(textW + LYRIC_COL_PADDING) + 1;
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false, sourceLabel = null }) {
