@@ -1528,7 +1528,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }
 
   const navConfirm = pendingNav !== null && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    /* No scrim, like the AI dialogs. This one interrupts you on the way out of a
+       song you have edited, and the edits are the thing you are deciding about —
+       dimming them is the opposite of helpful. */
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex flex-col gap-1">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Save Changes?</h2>
@@ -1553,7 +1556,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   );
 
   const backConfirm = showBackConfirm && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex flex-col gap-1">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Save Changes?</h2>
