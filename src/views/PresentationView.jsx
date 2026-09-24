@@ -44,23 +44,57 @@ function formatDuration(secs) {
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 }
 
+// ONE context for the app's lifetime, and one count-in at a time.
+//
+// This used to build a fresh AudioContext per tap and schedule the beats on it,
+// with nothing holding on to the previous one — so tapping the count-in twice
+// left two click trains running over each other, three taps left three, and so
+// on. A browser also caps how many contexts a page may create (Safari lowest),
+// so enough taps eventually made the click stop working altogether.
+//
+// Created lazily on the first tap, which is a user gesture: an AudioContext made
+// before one starts suspended under autoplay policy.
+let metroCtx = null;
+let metroNodes = [];
+
+function stopMetronome() {
+  for (const n of metroNodes) {
+    try { n.stop(); } catch { /* already stopped, or never started */ }
+    try { n.disconnect(); } catch { /* ignore */ }
+  }
+  metroNodes = [];
+}
+
 function playMetronome(bpm, timeSig = '4/4') {
   if (!bpm) return;
+  if (!metroCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    metroCtx = new AC();
+  }
+  // A context can be suspended by the OS (a call, a route change); resuming is a
+  // no-op when it is already running.
+  if (metroCtx.state === 'suspended') metroCtx.resume().catch(() => {});
+  // A second tap RESTARTS the count-in rather than layering on it — matching
+  // the visual mode, which has always cleared its timers first.
+  stopMetronome();
+
   const beatsPerMeasure = beatsPerBar(timeSig);
   const totalBeats = beatsPerMeasure * 2;
   const interval = 60 / bpm;
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const t0 = metroCtx.currentTime;
   for (let i = 0; i < totalBeats; i++) {
     const isAccent = i % beatsPerMeasure === 0;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const osc = metroCtx.createOscillator();
+    const gain = metroCtx.createGain();
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(metroCtx.destination);
     osc.frequency.value = isAccent ? 1000 : 700;
-    gain.gain.setValueAtTime(isAccent ? 1 : 0.55, ctx.currentTime + i * interval);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * interval + 0.05);
-    osc.start(ctx.currentTime + i * interval);
-    osc.stop(ctx.currentTime + i * interval + 0.05);
+    gain.gain.setValueAtTime(isAccent ? 1 : 0.55, t0 + i * interval);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + i * interval + 0.05);
+    osc.start(t0 + i * interval);
+    osc.stop(t0 + i * interval + 0.05);
+    metroNodes.push(osc, gain);
   }
 }
 
@@ -924,8 +958,9 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     }
   }
 
-  // Clear flash timers on unmount
-  useEffect(() => () => flashTimers.current.forEach(clearTimeout), []);
+  // Clear flash timers on unmount — and silence a count-in still in flight, or
+  // it keeps clicking after you have left Present.
+  useEffect(() => () => { flashTimers.current.forEach(clearTimeout); stopMetronome(); }, []);
 
   // The Present-scoped settings sheet (fade, scroll lead-in, count-in, paging).
   // Declared HERE, immediately above the ref that mirrors it — the ref assignment
