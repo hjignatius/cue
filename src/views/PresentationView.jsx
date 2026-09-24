@@ -19,6 +19,7 @@ import PdfSongView from '../components/PdfSongView.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import PresentSettings from '../components/PresentSettings.jsx';
 import { beatsPerBar } from '../utils/timeSig.js';
+import { playMetronome, stopMetronome } from '../utils/metronome.js';
 import { wrapUnits, continuationIndent } from '../utils/lineWrap.js';
 import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
@@ -42,60 +43,6 @@ function parseDuration(dur) {
 function formatDuration(secs) {
   secs = Math.max(0, Math.round(secs));
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-}
-
-// ONE context for the app's lifetime, and one count-in at a time.
-//
-// This used to build a fresh AudioContext per tap and schedule the beats on it,
-// with nothing holding on to the previous one — so tapping the count-in twice
-// left two click trains running over each other, three taps left three, and so
-// on. A browser also caps how many contexts a page may create (Safari lowest),
-// so enough taps eventually made the click stop working altogether.
-//
-// Created lazily on the first tap, which is a user gesture: an AudioContext made
-// before one starts suspended under autoplay policy.
-let metroCtx = null;
-let metroNodes = [];
-
-function stopMetronome() {
-  for (const n of metroNodes) {
-    try { n.stop(); } catch { /* already stopped, or never started */ }
-    try { n.disconnect(); } catch { /* ignore */ }
-  }
-  metroNodes = [];
-}
-
-function playMetronome(bpm, timeSig = '4/4') {
-  if (!bpm) return;
-  if (!metroCtx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    metroCtx = new AC();
-  }
-  // A context can be suspended by the OS (a call, a route change); resuming is a
-  // no-op when it is already running.
-  if (metroCtx.state === 'suspended') metroCtx.resume().catch(() => {});
-  // A second tap RESTARTS the count-in rather than layering on it — matching
-  // the visual mode, which has always cleared its timers first.
-  stopMetronome();
-
-  const beatsPerMeasure = beatsPerBar(timeSig);
-  const totalBeats = beatsPerMeasure * 2;
-  const interval = 60 / bpm;
-  const t0 = metroCtx.currentTime;
-  for (let i = 0; i < totalBeats; i++) {
-    const isAccent = i % beatsPerMeasure === 0;
-    const osc = metroCtx.createOscillator();
-    const gain = metroCtx.createGain();
-    osc.connect(gain);
-    gain.connect(metroCtx.destination);
-    osc.frequency.value = isAccent ? 1000 : 700;
-    gain.gain.setValueAtTime(isAccent ? 1 : 0.55, t0 + i * interval);
-    gain.gain.exponentialRampToValueAtTime(0.001, t0 + i * interval + 0.05);
-    osc.start(t0 + i * interval);
-    osc.stop(t0 + i * interval + 0.05);
-    metroNodes.push(osc, gain);
-  }
 }
 
 // Render pre-parsed styled runs. Repeat markers keep the accent color; other

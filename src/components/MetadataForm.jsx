@@ -1,29 +1,10 @@
 import { useRef, useState } from 'react';
 import { KEY_NAMES } from '../utils/transpose.js';
-import { TIME_SIGNATURES, beatsPerBar } from '../utils/timeSig.js';
+import { TIME_SIGNATURES } from '../utils/timeSig.js';
+import { playMetronome } from '../utils/metronome.js';
 
 const RESET_AFTER_MS = 3000;
 const MIN_TAPS = 2;
-
-function playMetronome(bpmVal, timeSig = '4/4') {
-  if (!bpmVal) return;
-  const beatsPerMeasure = beatsPerBar(timeSig);
-  const totalBeats = beatsPerMeasure * 2;
-  const interval = 60 / bpmVal;
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  for (let i = 0; i < totalBeats; i++) {
-    const isAccent = i % beatsPerMeasure === 0;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = isAccent ? 1000 : 700;
-    gain.gain.setValueAtTime(isAccent ? 1 : 0.55, ctx.currentTime + i * interval);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * interval + 0.05);
-    osc.start(ctx.currentTime + i * interval);
-    osc.stop(ctx.currentTime + i * interval + 0.05);
-  }
-}
 
 // Shared height reference: matches DurationStepper -/+ buttons (py-2.5 text-sm border)
 const fieldCls = 'border border-gray-300 dark:border-gray-700 rounded outline-none transition-colors';
