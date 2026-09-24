@@ -1124,7 +1124,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     if (aiBusy) return;
     // On a "Try again" retry, reuse the same chord set that's already shown.
     const missing = missingOverride || missingChordNames();
-    if (missing.length === 0) { flashAi('Every chord already has a diagram.'); return; }
+    // Nothing missing is an ANSWER, not a status line. It used to go to the
+    // strip beside the AI button, where it was the longest message in a row
+    // whose width belongs to the buttons — and where it read as an aside rather
+    // than as the result of the thing just pressed. Same dialog as every other
+    // outcome of this tool, so the reply always arrives in the same place.
+    if (missing.length === 0) {
+      setChordResult({ loading: false, error: '', shapes: [], missing: [], allPresent: true });
+      return;
+    }
     const signal = beginAi('chords');
     setChordResult({ loading: true, error: '', shapes: [], missing });
     try {
@@ -1947,12 +1955,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Add missing chord shapes — review each proposed voicing as a rendered
   // diagram before it's saved to the custom library.
   const chordDialog = chordResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => closeChords()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeChords()}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Add missing chord shapes</h2>
-            <p className={`text-xs ${mutedText}`}>Undefined chords: {chordResult.missing.join(', ')}</p>
+            {chordResult.missing.length > 0 && (
+              <p className={`text-xs ${mutedText}`}>Undefined chords: {chordResult.missing.join(', ')}</p>
+            )}
           </div>
           <button onClick={() => closeChords()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
@@ -1962,6 +1972,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {!chordResult.loading && chordResult.error && (
           <p className="text-sm text-red-500">{chordResult.error}</p>
         )}
+        {/* Nothing to do — reached without calling the model at all, so it
+            appears the instant you press the button. */}
+        {chordResult.allPresent && (<>
+          <p className={`text-sm ${dark ? 'text-gray-200' : 'text-gray-800'}`}>
+            Every chord in this song already has a diagram for {chordLibraryToInstrument(instrument)}.
+            There is nothing to add.
+          </p>
+          <button
+            onClick={() => closeChords()}
+            className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+          >
+            Close
+          </button>
+        </>)}
         {/* Everything offered was taken. Says so, and says WHERE it went: these
             go to the instrument's chord library, not into the song — which is
             why Save stays grey afterwards. Without this line the only signal
