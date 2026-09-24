@@ -247,6 +247,20 @@ const GUTTER_TOP = IS_STANDALONE ? 56 : PRESENT_CONTROL_EDGE_MARGIN;
 // margin because at the smallest lyric font the title's own centre is only 36px
 // down, and clamping to 16 would lose the alignment for the sake of 2px.
 const EXIT_MIN_TOP = 8;
+// Slack left when scaling type to fit the stage, as a FRACTION of the width.
+//
+// An over-lyrics line is laid out as one box per chord column — fourteen of them
+// in the case this was measured on — and the browser rounds each box up a
+// fraction. That error accumulates with the column count, so the rendered line
+// came to 739px where summing the exact character widths predicted 732.8. A flat
+// few pixels cannot cover it: a chord-dense line has more columns per pixel and
+// so accumulates more.
+//
+// 3% covers the measured case with room to spare and costs 3% of font size,
+// which is under a third of one A−/A+ step. The floor matters only for a very
+// narrow stage.
+const FIT_SLACK_FRACTION = 0.03;
+const FIT_SLACK_MIN = 4;
 
 // Artist line height, as a multiple of fontPx. The artist sits in the lyric flow
 // (inside contentWrapRef), so this IS the amount v1 annotations must be pushed
@@ -321,6 +335,24 @@ const MONO_FONT_STACK = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 // Pixel width of a lyrics column that holds LYRIC_TARGET_CHARS monospace chars at
 // the given font size, plus the scroll padding. Measured via canvas; falls back
 // to the ~0.6em monospace advance if measurement is unavailable.
+// Width of `chars` monospace characters at `fontPx`, with no padding and no
+// rounding — the raw number the glyphs need.
+//
+// fitScale must divide by THIS, not by lyricColumnWidth(). That one ceils the
+// character count to a whole number and adds the column padding, and scaling
+// from a padded, rounded figure left the type a hair too large for the column it
+// was supposed to fit: the song still wrapped, and did so at some base sizes and
+// not others, which made it look like the cap had not been lifted at all.
+function lyricTextWidth(fontPx, chars) {
+  try {
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = `${fontPx}px ${MONO_FONT_STACK}`;
+    const advance = ctx.measureText('0').width;
+    if (advance > 0) return chars * advance;
+  } catch { /* fall through */ }
+  return chars * fontPx * 0.6;
+}
+
 function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
   const n = Math.max(1, Math.ceil(chars));
   let textW = n * fontPx * 0.6;
@@ -340,9 +372,12 @@ function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
   // whole-number font often lands exactly, while the fractional sizes that
   // fit-scaling produces (chord panel open) usually do not.
   //
-  // Plus a pixel of slack, because the browser's own text layout accumulates
-  // sub-pixel advances slightly differently from one measureText call.
-  return Math.ceil(textW + LYRIC_COL_PADDING) + 1;
+  // Plus the same proportional allowance fitScale uses. An over-lyrics line is
+  // laid out as one box per chord column and each rounds up a fraction, so the
+  // rendered line runs wider than the sum of its exact character widths — by
+  // more, the more columns it has. Without this the WIDE column came out 0.6px
+  // clear of its own content, which a chord-denser song would have overrun.
+  return Math.ceil(textW * (1 + FIT_SLACK_FRACTION) + LYRIC_COL_PADDING) + 1;
 }
 
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false, sourceLabel = null }) {
@@ -565,7 +600,14 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       title: meta.title, artist: meta.artist,
       keyBpmReserveChars: (viewKey || meta.tempo) ? KEY_BPM_RESERVE_EM / 0.602 : 0,
     });
-    return Math.min(LYRIC_TARGET_CHARS, Math.max(LYRIC_MIN_CHARS, body, header));
+    // NO upper cap. Capping at LYRIC_TARGET_CHARS was caution when this landed —
+    // "never give a song a wider column than the old fixed one" — and it broke
+    // the guarantee the feature exists for. A song needing 79 character-widths
+    // got a column built for 65 and wrapped, at EVERY font size, because the
+    // column scales with the type exactly as the text does. Neither A− nor A+
+    // could touch it. The column is now whatever the song needs; fitScale below
+    // brings the type down so that column fits the screen.
+    return Math.max(LYRIC_MIN_CHARS, body, header);
   }, [songIsPdf, song?.text, song?.previewMode, song?.chordStyle, song?.condensed, song?.embed,
       semitones, useFlats, instrument, chordLabelScale, meta.title, meta.artist, viewKey, meta.tempo]);
 
@@ -625,24 +667,23 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     // iPad in portrait dropped a 30-character song from 20 to the 14px floor to
     // protect width it was never using.
     //
-    // Whether a song wider than the STAGE is a problem depends on the layout,
-    // and this is the line that decides it.
+    // Ask for the song's FULL width, on every layout, with no cap at the stage.
     //
-    // Wide: the column is a measured width inside a row that scrolls sideways,
-    // so an over-wide song simply scrolls — capping `want` at the stage leaves
-    // that alone, which is deliberate and long-standing.
+    // The cap used to spare the wide layout, on the grounds that an over-wide
+    // column scrolls sideways there rather than wrapping. But sideways scrolling
+    // mid-performance is not a thing anyone wants either, and nobody chose it —
+    // it was just what happened. Shrinking the type until the song fits is
+    // better on both layouts: the song is always whole, and always as large as
+    // it can be.
     //
-    // Narrow: the column is flex-1, so there IS no sideways escape. An over-wide
-    // song just breaks its lines mid-phrase. Asking for the song's full width
-    // there brings the type down until it fits instead — which is what stopped
-    // "Yesterday" wrapping after "C" on an iPad. Note this now runs with the
-    // chord panel CLOSED too: the guard above used to skip the whole
-    // calculation unless the panel was open, so nothing shrank to fit without
-    // it, which is why opening and closing the panel changed nothing.
-    const want = (isNarrow ? baseColWidth : Math.min(baseColWidth, stageW)) - lyricPad;
-    const have = stageW - chordInset - lyricPad;
+    // This also runs with the chord panel CLOSED now; it used to be skipped
+    // entirely unless the panel was open, which is why opening and closing the
+    // panel changed nothing.
+    const want = lyricTextWidth(baseFontPx, targetChars);
+    const avail = stageW - chordInset - lyricPad;
+    const have = avail - Math.max(FIT_SLACK_MIN, avail * FIT_SLACK_FRACTION);
     return want > 0 && have > 0 ? Math.min(1, have / want) : 1;
-  }, [chordInset, stageW, baseColWidth, lyricPad, isNarrow]);
+  }, [chordInset, stageW, baseFontPx, targetChars, lyricPad]);
   // MIN_FONT floors it: on a phone the panel can claim half the stage, and text
   // scaled to fit that is smaller than anyone can read. Below the floor it falls
   // back to re-wrapping, which is at least legible.
