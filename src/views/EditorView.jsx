@@ -881,9 +881,25 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Clean up formatting (AI) — reformat the pasted chart in place, then re-sense
   // the format. The model is told never to change chords or lyrics.
+  // THE START OF EVERY AI ACTION. Centralised because it wasn't: only Clean up
+  // and Detect structure cleared `aiRetry`, so running any of the other four
+  // afterwards left the previous tool's "Try again" sitting beside the AI
+  // button — pointing at an action you had moved on from, and re-running THAT
+  // tool if you pressed it. Fill in song details after a clean-up was the way
+  // to see it.
+  //
+  // Every entry point goes through here now, so a new AI action cannot forget
+  // one of these four again.
+  function beginAi(kind) {
+    setAiBusy(kind);
+    setAiRetry(null);
+    setAiPct(0);
+    clearAiMsg();
+  }
+
   async function runCleanup(model) {
     if (aiBusy || text.trim() === '') return;
-    setAiBusy('clean'); setAiRetry(null); setAiPct(0); clearAiMsg();
+    beginAi('clean');
     try {
       const cleaned = await cleanUpChart(text, { symbols, model, onProgress: p => setAiPct(p * 100) });
       if (cleaned && cleaned !== text) {
@@ -909,7 +925,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // lines; existing labels are kept. No format conversion (unlike Condense).
   async function runDetectStructure(model) {
     if (aiBusy || text.trim() === '') return;
-    setAiBusy('structure'); setAiRetry(null); setAiPct(0); clearAiMsg();
+    beginAi('structure');
     try {
       const labeled = await detectStructure(text, { model, onProgress: p => setAiPct(p * 100) });
       if (labeled && labeled !== text) {
@@ -958,7 +974,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // via the user's chord-library setting.
   async function runFind() {
     if (aiBusy) return;
-    setAiBusy('find');
+    beginAi('find');
     setFindResult({ loading: true, error: '', items: [] });
     try {
       const items = await findMusicOnline({
@@ -998,7 +1014,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const use = fields || fillFields;
     if (use.length === 0) return;
     setFillFields(use);
-    setAiBusy('fill');
+    beginAi('fill');
     setFillStage(null);
     setFillResult({ loading: true, error: '', suggest: null });
     try {
@@ -1045,7 +1061,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Transposing advice (AI) — song/instrument/level-aware key + capo guidance.
   async function runAdvice(model) {
     if (aiBusy) return;
-    setAiBusy('advice');
+    beginAi('advice');
     setAdvicePct(0);
     setAdviceResult({ loading: true, error: '', data: null });
     try {
@@ -1122,7 +1138,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     // On a "Try again" retry, reuse the same chord set that's already shown.
     const missing = missingOverride || missingChordNames();
     if (missing.length === 0) { flashAi('Every chord already has a diagram.'); return; }
-    setAiBusy('chords');
+    beginAi('chords');
     setChordResult({ loading: true, error: '', shapes: [], missing });
     try {
       const shapes = await chordShapesFor(missing, {
