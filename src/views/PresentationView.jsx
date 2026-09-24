@@ -617,7 +617,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // identical; scale the whole column and it drifts.
   const baseColWidth = useMemo(() => lyricColumnWidth(baseFontPx, targetChars), [baseFontPx, targetChars]);
   const fitScale = useMemo(() => {
-    if (!chordInset || !stageW) return 1;
+    if (!stageW) return 1;
     // Ask for what the SONG needs, on every layout. This used to ask for the
     // whole stage on narrow ones, because there the column is flex-1 rather than
     // a measured width — so opening the chord panel shrank the type by the
@@ -625,13 +625,24 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     // iPad in portrait dropped a 30-character song from 20 to the 14px floor to
     // protect width it was never using.
     //
-    // Never ask for more than the stage, though: a column already too wide for
-    // the screen scrolls sideways today, and that stays true — the panel just
-    // must not make it worse.
-    const want = Math.min(baseColWidth, stageW) - lyricPad;
+    // Whether a song wider than the STAGE is a problem depends on the layout,
+    // and this is the line that decides it.
+    //
+    // Wide: the column is a measured width inside a row that scrolls sideways,
+    // so an over-wide song simply scrolls — capping `want` at the stage leaves
+    // that alone, which is deliberate and long-standing.
+    //
+    // Narrow: the column is flex-1, so there IS no sideways escape. An over-wide
+    // song just breaks its lines mid-phrase. Asking for the song's full width
+    // there brings the type down until it fits instead — which is what stopped
+    // "Yesterday" wrapping after "C" on an iPad. Note this now runs with the
+    // chord panel CLOSED too: the guard above used to skip the whole
+    // calculation unless the panel was open, so nothing shrank to fit without
+    // it, which is why opening and closing the panel changed nothing.
+    const want = (isNarrow ? baseColWidth : Math.min(baseColWidth, stageW)) - lyricPad;
     const have = stageW - chordInset - lyricPad;
     return want > 0 && have > 0 ? Math.min(1, have / want) : 1;
-  }, [chordInset, stageW, baseColWidth, lyricPad]);
+  }, [chordInset, stageW, baseColWidth, lyricPad, isNarrow]);
   // MIN_FONT floors it: on a phone the panel can claim half the stage, and text
   // scaled to fit that is smaller than anyone can read. Below the floor it falls
   // back to re-wrapping, which is at least legible.
@@ -839,7 +850,15 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const prev = useCallback(() => (advancesWithinSong ? withinSongAdvance(-1) : goTo(index - 1)), [advancesWithinSong, withinSongAdvance, goTo, index]);
   const next = useCallback(() => (advancesWithinSong ? withinSongAdvance(1)  : goTo(index + 1)), [advancesWithinSong, withinSongAdvance, goTo, index]);
 
-  const smallerAction = useCallback(() => setBaseFontPx(f => Math.max(MIN_FONT, f - FONT_STEP)), []);
+  // Step down from what is actually ON SCREEN, not from a stored size the fit
+  // limit is overriding. Rotate an iPad from landscape to portrait and the
+  // stored size can sit well above what now fits; without this, A− would look
+  // dead for several presses while that stored number came back down to meet
+  // the limit.
+  const smallerAction = useCallback(
+    () => setBaseFontPx(f => Math.max(MIN_FONT, Math.min(f, Math.round(fontPx)) - FONT_STEP)),
+    [fontPx],
+  );
   const largerAction  = useCallback(() => setBaseFontPx(f => Math.min(MAX_FONT, f + FONT_STEP)), []);
 
   // F faster, S slower — each press a ±10% proportional step, clamped to range.
@@ -1517,7 +1536,11 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         onSmaller={smallerAction}
         onLarger={largerAction}
         canSmaller={!songIsPdf && baseFontPx > MIN_FONT}
-        canLarger={!songIsPdf && baseFontPx < MAX_FONT}
+        /* A+ goes dim once the song fills the width, because past that point it
+           genuinely does nothing: the rendered size is then have/(chars x advance),
+           which does not contain baseFontPx at all. A button that silently
+           ignores you is worse than one that shows it has run out. */
+        canLarger={!songIsPdf && baseFontPx < MAX_FONT && fitScale >= 1}
         onPrev={prev}
         onNext={next}
         canPrev={advancesWithinSong || index > 0}
