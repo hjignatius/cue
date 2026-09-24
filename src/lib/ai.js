@@ -579,7 +579,12 @@ export async function condenseChart(text, { model, signal } = {}) {
 // ── Find music online ───────────────────────────────────────────────────────
 // Web-search-grounded: returns real sites, favouring the user's instrument.
 // Result: array of { name, url, note }.
-export async function findMusicOnline({ title, artist, instrument, signal }) {
+// The two budgets the progress bar divides by: two searches bought, and the
+// five sources the prompt asks for.
+const FIND_SEARCHES = 2;
+const FIND_MAX = 5;
+
+export async function findMusicOnline({ title, artist, instrument, signal, onStage }) {
   const inst = instrument
     ? instrument.charAt(0).toUpperCase() + instrument.slice(1)
     : 'Guitar';
@@ -591,15 +596,17 @@ Do at most ONE or TWO web searches — you don't need to be exhaustive, just sur
 [{"name": "site or page name", "url": "https://…", "note": "one short phrase on why it's useful (e.g. 'ukulele chords', 'accurate tab', 'video lesson')"}]
 Only include URLs you actually found via search. Order best first. If you find nothing, return [].`;
 
-  const data = await callClaude({
+  // "note" is the last field of each object, so one more of them is one more
+  // source finished — not one started.
+  const raw = await streamClaude({
     max_tokens: 1500,
     signal,
     output_config: { effort: 'low' },
     system,
-    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 2 }],
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: FIND_SEARCHES }],
     messages: [{ role: 'user', content: `Find chord/tab sources for: ${song}` }],
-  });
-  const json = extractJson(textOf(data));
+  }, ...jsonProgress(onStage, { count: countItems('note'), of: FIND_MAX, budget: FIND_SEARCHES }));
+  const json = extractJson(raw);
   const list = Array.isArray(json) ? json : [];
   return list
     .filter((r) => r && typeof r.url === 'string' && /^https?:\/\//.test(r.url))
@@ -1065,6 +1072,7 @@ For a strumming (or picking) pattern, give it as TEXT: D = downstroke, U = upstr
   return streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1000,
+    signal,
     thinking: { type: 'disabled' },
     output_config: { effort: 'low' },
     system,

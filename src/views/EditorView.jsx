@@ -35,6 +35,7 @@ import { useAiAbort } from '../hooks/useAiAbort.js';
 // Fill in song details: the wording for the shared stage mapper. See
 // utils/aiStage.js for why the weights are what they are.
 const FILL_STAGE = { writeLabel: 'Filling in the details…', unit: 'field' };
+const FIND_STAGE = { idleLabel: 'Searching the web…', writeLabel: 'Listing what it found…', unit: 'source' };
 const fillProgress = (stage, hasChart) =>
   stageProgress(stage, { ...FILL_STAGE, idleLabel: hasChart ? 'Reading the chart…' : 'Identifying the song…' });
 
@@ -612,6 +613,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     else if (k === 'structure') runDetectStructure(model);
   }
   const [findResult, setFindResult]     = useState(null); // null | { loading, error, items }
+  const [findStage, setFindStage]       = useState(null);
   const [fillResult, setFillResult]     = useState(null); // null | { loading, error, suggest }
   // Live progress for the run above. `pct` is carried ON the stage rather than
   // derived at render so it can be clamped monotonic: search events and write
@@ -958,6 +960,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   async function runFind() {
     if (aiBusy) return;
     const signal = beginAi('find');
+    setFindStage(null);
     setFindResult({ loading: true, error: '', items: [] });
     try {
       const items = await findMusicOnline({
@@ -965,6 +968,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         artist: metadata.artist,
         instrument: chordLibraryToInstrument(instrument),
         signal,
+        onStage: st => setFindStage(prev => advanceStage(prev, st, FIND_STAGE)),
       });
       setFindResult({ loading: false, error: '', items });
     } catch (e) {
@@ -1594,7 +1598,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Find music online — results dialog (web-search-grounded links).
   const findDialog = findResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => closeFind()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeFind()}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -1605,9 +1609,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </div>
           <button onClick={() => closeFind()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
-        {findResult.loading && (
-          <AiWaiting label="Searching the web…" dark={dark} onCancel={closeFind} />
-        )}
+        {findResult.loading && (() => {
+          const p = stageProgress(findStage, FIND_STAGE);
+          return <AiProgress label={p.label} detail={p.detail} percent={findStage?.pct ?? p.percent} dark={dark} onCancel={closeFind} />;
+        })()}
         {!findResult.loading && findResult.error && (
           <p className="text-sm text-red-500">{findResult.error}</p>
         )}
@@ -1643,7 +1648,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const fillAskDialog = fillAsk && (() => {
     const chosen = FILL_FIELDS.filter(f => !fillSkip[f.field]);
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setFillAsk(false)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setFillAsk(false)}>
         <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
           <div className="flex items-start justify-between gap-3">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
