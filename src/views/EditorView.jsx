@@ -30,6 +30,17 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
+// Touch target for the editor's panel-resize handles. The visible strip stays
+// 3px; this is the invisible grab area around it.
+//
+// Present's chord handle uses the full 44px MIN_TOUCH_TARGET, and it can afford
+// to: the target grows rightward INTO the panel it resizes, and Present's chord
+// panel is readonly, so there is nothing underneath for it to swallow. The
+// editor's is not — you tap those diagrams to change a voicing — and the preview
+// pane's text is selectable for styling. 22 is the compromise: nearly double the
+// old 12, and still clear of the first chord diagram's body.
+const EDITOR_HANDLE_HIT = 22;
+
 const DEFAULT_METADATA = { title: '', artist: '', key: '', tempo: '', duration: '', timeSig: DEFAULT_TIME_SIG };
 
 // The chord-library pref id ('ukulele_gcea' | 'baritone_dgbe' | 'guitar' | 'none')
@@ -2581,9 +2592,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
             {/* Handle: editor / preview (or editor / chords when preview hidden) */}
             {showPreview
-              ? <ResizeHandle handleProps={previewHandleProps} dark={dark} />
+              ? <ResizeHandle handleProps={previewHandleProps} dark={dark} grip hitWidth={EDITOR_HANDLE_HIT} />
               : chordsOn
-                ? <ResizeHandle handleProps={chordsHandleProps} dark={dark} />
+                ? <ResizeHandle handleProps={chordsHandleProps} dark={dark} grip hitWidth={EDITOR_HANDLE_HIT} />
                 : null
             }
 
@@ -2624,7 +2635,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
             {/* Handle: preview / chords */}
             {showPreview && chordsOn && (
-              <ResizeHandle handleProps={chordsHandleProps} dark={dark} />
+              <ResizeHandle handleProps={chordsHandleProps} dark={dark} grip hitWidth={EDITOR_HANDLE_HIT} />
             )}
 
             {/* Chord reference panel */}
