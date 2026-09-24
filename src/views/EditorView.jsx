@@ -881,6 +881,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   function closeAdvice() { cancelAi('advice'); setAdviceResult(null); }
   function closeChords() { cancelAi('chords'); setChordResult(null); }
   function closeFind()   { cancelAi('find');   setFindResult(null); }
+  // Ask about music streams its answer, so closing mid-reply has to stop the
+  // stream as well — the signal was threaded through submitAsk but nothing was
+  // calling it off, which left a reply writing itself into a closed dialog.
+  function closeAsk()    { cancelAi('ask');    setAskOpen(false); }
 
   async function runCleanup(model) {
     if (aiBusy || text.trim() === '') return;
@@ -1913,14 +1917,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Ask about music — question box + answer; ask as many as you like.
   const askDialog = askOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setAskOpen(false)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeAsk()}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-3 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Ask about music</h2>
             <p className={`text-xs ${mutedText}`}>Answers at {aiLevel} level, aware of this song. Playing, theory, chords, technique.</p>
           </div>
-          <button onClick={() => setAskOpen(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <button onClick={() => closeAsk()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         <textarea
           value={askQuestion}
