@@ -28,6 +28,7 @@
 import { parseChordPro, attachSectionLabels, expandSections, styleSegments } from './chordPro.js';
 import { transposeText } from './transpose.js';
 import { convertToBrackets } from './chordStyle.js';
+import { wrapUnits } from './lineWrap.js';
 
 // Section labels (VERSE, CHORUS…) are the one thing here that is not monospace:
 // bold uppercase sans at tracking-widest. Measured against one monospace advance
@@ -89,10 +90,28 @@ export function songBodyWidthChars(text, {
       // short syllable ([F#m7b5] over "I") widens a line far more than the lyrics
       // suggest. Both rows render a trailing space, and an empty one renders a
       // single space rather than nothing.
-      for (const s of segs) {
-        const chordW = (s.chord ? s.chord.length + 1 : 1) * chordEm;
-        const textW  = s.text ? runsLen(s.styledRuns) : 1;
-        w += Math.max(chordW, textW);
+      //
+      // MEASURE COLUMNS, NOT SEGMENTS. wrapUnits splits every segment again at
+      // its word boundaries and hands the chord to the FIRST piece only — so a
+      // chord is only ever as wide as the one word it actually sits over, and
+      // anything it overhangs is width the line needs on top of its lyrics.
+      // Comparing a chord against its segment's WHOLE text hides that: [Dm]
+      // above " so far away" measured 12 (the text wins and the chord vanishes
+      // into it) where the renderer draws a 2.55-wide [Dm]" " column and then
+      // "so " + "far " + "away " beside it.
+      //
+      // It under-counted by about a character and a half per line, which is
+      // small until it isn't: on a 51-character song it built a 49.55-character
+      // column, and the bit that fell off the end was the trailing [Bb] — a
+      // chord with no lyric beneath it, wrapping alone onto the next row while
+      // the verse above it sat there looking perfectly fine. Every font size
+      // wrapped identically, because the column and the text scale together.
+      for (const unit of wrapUnits(segs)) {
+        for (const col of unit) {
+          const chordW = (col.chord ? col.chord.length + 1 : 1) * chordEm;
+          const textW  = col.text ? runsLen(col.styledRuns) : 1;
+          w += Math.max(chordW, textW);
+        }
       }
     } else {
       // A lyric line with no chords. SongBody renders only the FIRST segment
