@@ -15,7 +15,7 @@ import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
-import { AiWaiting, AiCaution } from '../components/AiCaution.jsx';
+import { AiWaiting, AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
@@ -29,6 +29,43 @@ import { isChordLine } from '../utils/visualImport.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
+
+// Fill-in-details progress: turn a stage event from fillSongDetails into the
+// three things the bar needs. Module scope so it can't capture render state.
+//
+// The weights are a budget, not a guess at duration: 10% to get the request
+// away, 55% across the searches, 28% across the fields being written, and the
+// last 7% is the parse and the dialog swap. What makes each number honest is
+// that it only advances on an event that happened — a search that started, a
+// search that returned, a key that appeared in the JSON.
+//
+// A search counts as HALF when it starts and whole when its results land,
+// because the wait between those two is the longest pause in the whole run and
+// a bar that sat still through it would look stuck at exactly the wrong moment.
+//
+// The model may use fewer searches than its budget, so the bar can jump from
+// part-way to writing. That is better than the reverse: a bar sized to the
+// searches actually used can't be drawn until they're over.
+function fillProgress(stage, hasChart) {
+  if (!stage) {
+    return { percent: 6, label: hasChart ? 'Reading the chart…' : 'Identifying the song…', detail: '' };
+  }
+  if (stage.phase === 'search') {
+    const { started = 0, done = 0, budget = 2, query = '' } = stage;
+    const credit = Math.min(budget, done + (started - done) * 0.5);
+    return {
+      percent: 10 + 55 * (credit / budget),
+      label: done >= 1 ? `Searching the web — ${done} of ${budget}…` : 'Searching the web…',
+      detail: query ? `“${query}”` : '',
+    };
+  }
+  const { wrote = 0, of = 1 } = stage;
+  return {
+    percent: 70 + 28 * (of ? wrote / of : 0),
+    label: 'Filling in the details…',
+    detail: `${wrote} of ${of} ${of === 1 ? 'field' : 'fields'}`,
+  };
+}
 
 // Touch target for the editor's panel-resize handles. The visible strip stays
 // 3px; this is the invisible grab area around it.
@@ -600,6 +637,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }
   const [findResult, setFindResult]     = useState(null); // null | { loading, error, items }
   const [fillResult, setFillResult]     = useState(null); // null | { loading, error, suggest }
+  // Live progress for the run above. `pct` is carried ON the stage rather than
+  // derived at render so it can be clamped monotonic: search events and write
+  // events come from different counters, and a bar that ever goes backwards
+  // reads as a fault in the thing it is measuring.
+  const [fillStage, setFillStage]       = useState(null);
   const [adviceResult, setAdviceResult] = useState(null); // null | { loading, error, data }
   const [chordResult, setChordResult]   = useState(null); // null | { loading, error, shapes:[{name,frets}], missing:[names] }
   const [addedChords, setAddedChords]   = useState([]);   // shapes added this session, shown live in the panel
@@ -959,9 +1001,19 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     if (use.length === 0) return;
     setFillFields(use);
     setAiBusy('fill');
+    setFillStage(null);
     setFillResult({ loading: true, error: '', suggest: null });
     try {
-      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use);
+      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use, (s) => {
+        setFillStage(prev => {
+          // Write events arrive on every token. Returning the SAME object when
+          // nothing the bar shows has changed skips the re-render entirely,
+          // which matters here: this fires a few hundred times a run.
+          if (prev && prev.phase === s.phase && prev.wrote === s.wrote && prev.done === s.done && prev.started === s.started) return prev;
+          const { percent } = fillProgress(s, !!text.trim());
+          return { ...s, pct: Math.max(prev?.pct ?? 0, percent) };
+        });
+      });
       // Safe to read `metadata` from this closure: the dialog is modal for the
       // whole request, so the song can't have been edited while we waited.
       setFillBaseline({ ...metadata });
@@ -1645,9 +1697,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
           <button onClick={() => setFillResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
-        {fillResult.loading && (
-          <AiWaiting label="Reading the chart…" dark={dark} />
-        )}
+        {fillResult.loading && (() => {
+          const p = fillProgress(fillStage, !!text.trim());
+          return <AiProgress label={p.label} detail={p.detail} percent={fillStage?.pct ?? p.percent} dark={dark} />;
+        })()}
         {!fillResult.loading && fillResult.error && (
           <p className="text-sm text-red-500">{fillResult.error}</p>
         )}

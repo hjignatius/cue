@@ -3,6 +3,25 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.1 — 2026-09-24
+
+- **Fill in song details now shows you what it's doing.** It was the slowest
+  thing in Cue and the only one that searches the web, and all you got was a
+  spinner — no way to tell a thorough lookup from a hung one. There's now a
+  progress bar that names each step, counts the searches off against the number
+  it's allowed, and shows you the actual search query, so you can see whether it
+  found *your* song. Nothing about the bar is estimated: it only moves when
+  something really happened.
+- **Fixed: some songs wrapped their chords onto a second line in Present, at
+  every type size.** A chord line is split twice on its way to the screen —
+  once at each chord, then again at each word — and Present was working out the
+  column width from the first split only. That let a chord sitting on the gap
+  between two words cost nothing, when on screen it takes a column of its own.
+  Yesterday needed 52.95 characters and was given 50.55, and what fell off the
+  end was the trailing Bb, dropping to the next row on its own while the verse
+  above it looked perfectly fine. A− and A+ couldn't help, because the column
+  and the words scale with the type together.
+
 ## v1.9.0 — 2026-09-23
 
 - **Fill in song details finds the YouTube video far more often.** It had two

@@ -184,7 +184,13 @@ const REQUEST_HEADERS = (apiKey) => ({
 // returns the full text. Retries transient failures only before the stream
 // starts. Used for free-text answers (Q&A) so the reply builds live instead of
 // appearing all at once after a long wait.
-async function streamClaude(body, onText) {
+//
+// `onSearch` reports server-side web search as it happens: { started, done,
+// query }. A non-streamed call cannot see any of this — the searches run inside
+// the one request and only the finished answer comes back — which is why a
+// progress indicator has to stream even when the caller wants JSON rather than
+// live text.
+async function streamClaude(body, onText, onSearch) {
   const apiKey = getApiKey();
   if (!apiKey) {
     const err = new Error('Add your Anthropic API key in Settings to use AI features.');
@@ -225,6 +231,16 @@ async function streamClaude(body, onText) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '', acc = '';
+      // A web search announces itself in two parts: a `server_tool_use` block
+      // whose input (the query) arrives as partial JSON and is only complete at
+      // its stop event, then a `web_search_tool_result` block when the results
+      // land. Counting both is what makes the wait legible — "searching for X"
+      // and then "got it" are different moments, and the gap between them is
+      // most of the time spent.
+      // Named for the search, not shortened: `done` is already the reader's
+      // end-of-stream flag a few lines below.
+      const toolInput = new Map();   // block index -> accumulated input JSON
+      let searchesStarted = 0, searchesDone = 0, query = '';
       try {
         for (;;) {
           const { done, value } = await reader.read();
@@ -242,6 +258,21 @@ async function streamClaude(body, onText) {
             if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
               acc += evt.delta.text;
               onText?.(acc);
+            } else if (evt.type === 'content_block_start' && evt.content_block?.type === 'server_tool_use') {
+              toolInput.set(evt.index, '');
+            } else if (evt.type === 'content_block_delta' && evt.delta?.type === 'input_json_delta' && toolInput.has(evt.index)) {
+              toolInput.set(evt.index, toolInput.get(evt.index) + (evt.delta.partial_json || ''));
+            } else if (evt.type === 'content_block_stop' && toolInput.has(evt.index)) {
+              // Input JSON is only parseable once the block closes. Keep the
+              // previous query if this one is unreadable rather than blanking
+              // a label that was telling the truth a moment ago.
+              try { query = JSON.parse(toolInput.get(evt.index))?.query || query; } catch { /* partial */ }
+              toolInput.delete(evt.index);
+              searchesStarted++;
+              onSearch?.({ started: searchesStarted, done: searchesDone, query });
+            } else if (evt.type === 'content_block_start' && evt.content_block?.type === 'web_search_tool_result') {
+              searchesDone++;
+              onSearch?.({ started: searchesStarted, done: searchesDone, query });
             } else if (evt.type === 'error') {
               const err = new Error(evt.error?.message || 'The response was interrupted — try again.');
               err.code = evt.error?.type || 'stream';
@@ -696,7 +727,11 @@ const FILL_RULES = {
 // web search at all — skip the tool rather than pay for a search nobody wanted.
 const NEEDS_SEARCH = new Set(['title', 'artist', 'timeSig', 'tempo', 'duration', 'youtubeUrl']);
 
-export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL) {
+// `onStage` is optional and purely cosmetic: it reports { phase, ... } as the
+// request runs — 'search' while the web is being consulted, 'writing' as the
+// answer is produced — so the dialog can show progress instead of a spinner.
+// Nothing about the result depends on it.
+export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL, onStage) {
   const chart = (text || '').trim();
   // The user's existing title/artist always go in as CONTEXT even when they
   // weren't ticked — they're how the song gets identified at all.
@@ -720,6 +755,12 @@ export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL)
   // With no chart, `key` stops being readable off the chords and becomes another
   // fact about the recording — so it needs the web search the others do.
   const search = want.some(f => NEEDS_SEARCH.has(f)) || (!chart && want.includes('key'));
+  // Two searches covered the whole request, so a YouTube lookup competed with
+  // tempo, duration and time signature and usually lost — the field came back
+  // empty about 60% of the time on a first pass. The video needs a search of
+  // its own, so buy one when it is asked for. Named rather than inlined because
+  // the progress bar needs it as a denominator.
+  const budget = want.includes('youtubeUrl') ? 4 : 2;
   const template = `{${want.map(f => `"${f}": ""`).join(', ')}}`;
   const rule = (f) => (f === 'key' && !chart) ? FILL_RULES.keyNoChart : FILL_RULES[f];
 
@@ -734,22 +775,28 @@ Rules:
 ${want.map(rule).join('\n')}
 When unsure, prefer "". Do not include any key that is not listed above.`;
 
-  const data = await callClaude({
+  // Streamed rather than fetched whole. The answer is the same single JSON
+  // object either way — what streaming buys is the ability to SEE the wait:
+  // which searches ran and how much has been written. This is the slowest AI
+  // action in Cue and the only one that searches, so it is the one where a
+  // silent spinner is hardest to tell apart from a hang.
+  const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
     output_config: { effort: 'low' },
     system,
-    // Two searches covered the whole request, so a YouTube lookup competed with
-    // tempo, duration and time signature and usually lost — the field came back
-    // empty about 60% of the time on a first pass. The video needs a search of
-    // its own, so buy one when it is asked for.
-    ...(search ? { tools: [{ type: 'web_search_20260209', name: 'web_search',
-      max_uses: want.includes('youtubeUrl') ? 4 : 2 }] } : {}),
+    ...(search ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: budget }] } : {}),
     // With no chart there's nothing to paste, so name the song instead — the
     // Messages API still needs a user turn.
     messages: [{ role: 'user', content: chart ? chart.slice(0, 8000) : `The song is: ${known}.` }],
-  });
-  const j = extractJson(textOf(data)) || {};
+  },
+  // Write progress is counted, not estimated: the reply is a JSON object with a
+  // known set of keys, so the keys that have appeared so far are exactly how far
+  // through it is.
+  onStage ? (acc) => onStage({ phase: 'writing', wrote: want.filter(f => acc.includes(`"${f}"`)).length, of: want.length }) : undefined,
+  onStage ? (s) => onStage({ phase: 'search', ...s, budget }) : undefined);
+
+  const j = extractJson(raw) || {};
   const str = (v) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
   const tempo = str(j.tempo).match(/\d{2,3}/)?.[0] || '';       // integer BPM only
   const duration = /^\d{1,2}:\d{2}$/.test(str(j.duration)) ? str(j.duration) : '';
