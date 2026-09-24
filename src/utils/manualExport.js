@@ -162,14 +162,14 @@ function manualHTML() {
     <li class="toc-h2">Account</li>
     <li class="toc-h2">Supporting Cue</li>
     <li class="toc-h1">3. The Library</li>
-    <li class="toc-h2">Song List, Search &amp; Filter</li>
+    <li class="toc-h2">Song List &amp; Search</li>
     <li class="toc-h2">Backup &amp; Restore</li>
     <li class="toc-h2">Importing Songs</li>
-    <li class="toc-h2">Select Mode</li>
+    <li class="toc-h2">Selecting Songs</li>
     <li class="toc-h1">4. Sets &amp; Setlist</li>
     <li class="toc-h2">Creating &amp; Managing Sets</li>
     <li class="toc-h2">Adding Songs to a Set</li>
-    <li class="toc-h2">Sets Select Mode</li>
+    <li class="toc-h2">Selecting Sets</li>
     <li class="toc-h2">Searching &amp; Sorting Sets</li>
     <li class="toc-h2">The Setlist Column</li>
     <li class="toc-h1">5. The Editor</li>
@@ -177,6 +177,7 @@ function manualHTML() {
     <li class="toc-h2">Text Editor &amp; Chord Formats</li>
     <li class="toc-h2">Styling Lyrics</li>
     <li class="toc-h2">Toolbar Controls</li>
+    <li class="toc-h2">PDF Songs</li>
     <li class="toc-h2">Annotation Overlay</li>
     <li class="toc-h2">Find &amp; Replace</li>
     <li class="toc-h2">Saving &amp; Exporting</li>
@@ -191,11 +192,14 @@ function manualHTML() {
     <li class="toc-h2">Count-In</li>
     <li class="toc-h2">Auto-Scroll</li>
     <li class="toc-h2">Navigating a Set</li>
-    <li class="toc-h2">Page-Turner Pedals</li>
+    <li class="toc-h2">Page-Turner Pedals &amp; How Songs Advance</li>
+    <li class="toc-h2">Present Settings</li>
     <li class="toc-h2">Editing During Performance</li>
     <li class="toc-h1">8. AI Assistant</li>
     <li class="toc-h2">Setting Up (Your API Key)</li>
     <li class="toc-h2">In the Editor</li>
+    <li class="toc-h2">While an AI Action is Running</li>
+    <li class="toc-h2">Suggest Songs to Learn</li>
     <li class="toc-h2">In the Setlist</li>
     <li class="toc-h2">Cost &amp; Privacy</li>
     <li class="toc-h1">9. Shared Sets &amp; Cloud Sync</li>
@@ -631,7 +635,7 @@ Bb,8-10-11-10,1243</pre>
 </ol>
 <p>The key is stored <strong>only on this device</strong> — it is never sent to Cue's servers, never included in your exports or backups, and never shared with anyone you send a set to. Treat it like a password; if it ever leaks, delete it in the Console and make a new one. A <strong>Remove key</strong> button clears it from this device.</p>
 <p>The same section has a <strong>Model</strong> setting — <strong>Balanced</strong> or <strong>Best</strong> — deciding which Claude model every AI action runs on. <strong>Balanced</strong> (the default) is fast, capable and much cheaper; <strong>Best</strong> is the most capable model, slower and several times the cost per request. Since every action bills your own account, the choice is yours. Cue names these by what you want rather than by model name on purpose, so a model being retired doesn't strand the setting.</p>
-<p><strong>Try again — smarter</strong>, which appears beside an answer that looks off, re-runs that <em>one</em> answer a step above your setting. Once an answer has come back from the best model there is nothing above it, so the link is replaced by <em>Best model — nothing smarter to try</em> rather than offering a re-run that would charge you twice for the same answer. On <strong>Best</strong> the link never appears in the first place. A cheaper tier is planned for when Cue can offer a genuinely free one.</p>
+<p><strong>Try again</strong>, which appears beside an answer that looks off, re-runs that <em>one</em> answer a step above your setting. In a pop-up it reads <strong>Try again — smarter model</strong>; beside the <strong>AI</strong> button in the editor toolbar it is simply <strong>Try again?</strong>, because stepping up is the only thing a re-run could usefully do and the toolbar's spare width belongs to the buttons. Once an answer has come back from the best model there is nothing above it, so in a pop-up the link is replaced by <em>Best model — nothing smarter to try</em> rather than offering a re-run that would charge you twice for the same answer; in the toolbar it simply goes. On <strong>Best</strong> the link never appears in the first place. A cheaper tier is planned for when Cue can offer a genuinely free one.</p>
 <p>The same section has a <strong>Playing level</strong> — <strong>Beginner / Intermediate / Advanced / Pro</strong> — which tailors how AI answers are pitched (beginners get more explanation and easier options; pros get terse expert replies).</p>
 <div class="tip"><strong>Note:</strong> Until a key is saved, the <strong>AI</strong> button is greyed out. Tapping it then just points you to this setup. No AI runs, and nothing is charged, without a key.</div>
 <div class="tip"><strong>AI can get things wrong.</strong> Every answer is the model's best effort, not a checked fact — a tempo can be off, a link can point at the wrong recording, a chord shape can be awkward or plain wrong. Cue says so while it's thinking and again beside any result that states something checkable. Nothing an AI action suggests is applied until you apply it, and the in-place tools (Clean up, Detect structure) can be undone with <strong>Revert</strong> before you save — so treat the answers as a well-read friend's suggestion, not gospel.</div>
@@ -645,12 +649,18 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>Detect structure</strong></td><td>Labels the song's sections — <strong>Verse 1, Chorus, Bridge</strong>, … — by inserting header lines, <em>without changing any chord or lyric</em> and without altering your chord format. It keeps labels you already added and only fills in the gaps; a short or already-labelled song is left as is. Review and Save.</td></tr>
   <tr><td><strong>Condense (fit to page)</strong></td><td>Shrinks a long song toward one or two pages, instantly and reliably (no AI): converts to compact inline brackets, keeps a repeated chorus <em>once</em> and marks each later repeat with a one-line <code>(Chorus)</code> cue so you still know to sing it, and collapses back-to-back identical lines with an <code>(x2)</code> marker — <em>never changing a chord or word</em>. Only <em>exact</em> repeats are collapsed (sections separated by blank lines). <strong>Expand</strong> (which appears once a song is condensed) writes every cue back out in full.</td></tr>
   <tr><td><strong>Fill in song details</strong></td><td>Works in two steps. First Cue shows <strong>what the song has now</strong> — Title, Artist, Key, Time signature, Tempo, Duration and YouTube, with blanks marked <em>empty</em> — and each has a <strong>tick box</strong>, all ticked to begin with. Untick anything you'd rather keep as it is (a YouTube link you'll choose yourself, say) and Cue looks up <em>only</em> what's ticked. Then it shows what it found. Where a suggestion would <em>change</em> something the song already has, the row shows both — <code>G → Am</code> — so you can judge the change rather than having to remember what was there. A blank field just shows the suggestion, and a row that agrees with your song reads <strong>Matches</strong>. YouTube is the exception: two links either side of an arrow are unreadable, so a replacement says so in words instead. Apply the whole lot, or each row on its own. Nothing changes until you apply it. Key is read from the chords; Time signature, Tempo, Duration and the video are web-searched best guesses about the well-known recording, so check them. A time signature it isn't reasonably sure of is left blank rather than defaulting to 4/4.</td></tr>
-  <tr><td><strong>Add missing chord shapes</strong></td><td>Finds chords in the song that have no diagram for your instrument, proposes a voicing for each, and shows it as a <em>rendered diagram</em> to review before it's added to your custom chord library.</td></tr>
+  <tr><td><strong>Add missing chord shapes</strong></td><td>Finds chords in the song that have no diagram for your instrument, proposes a voicing for each, and shows it as a <em>rendered diagram</em> to review before it's added to your custom chord library. Accepted shapes are saved <em>immediately</em>, to the instrument's chord library rather than into the song — which is why <strong>Save</strong> stays grey afterwards; there is nothing about the song to save. They appear in the Chords panel at once, and can be edited or deleted there. When every chord in the song already has a diagram, the dialog says so rather than putting a message beside the AI button.</td></tr>
   <tr><td><strong>Transposing advice</strong></td><td>Suggests easier keys and capo positions for your instrument, with a one-tap <strong>Apply</strong> that sets Cue's Transpose. Capo tips are advice only.</td></tr>
   <tr><td><strong>Strumming pattern</strong></td><td>One tap suggests a strumming (or picking) pattern for the song, as text — <code>D</code> down, <code>U</code> up, <code>x</code> mute, <code>-</code> rest — matched to the song's time signature, tempo and your instrument and level. Opens in the Ask pop-up.</td></tr>
   <tr><td><strong>Ask about music…</strong></td><td>A pop-up where you type any music question (playing, theory, a chord shape, a strumming pattern) and the answer streams back. It's aware of the current song and your Playing level. Ask as many as you like. When an answer looks off, <strong>Try again — smarter model</strong> re-runs it on the more capable (slower, pricier) model.</td></tr>
 </table>
-<p><strong>Try again — smarter model:</strong> AI answers run on a fast, economical model by default. When a result looks wrong, a <strong>Try again — smarter model</strong> button re-runs it on a more capable model (slower and a bit pricier) — available on <em>Ask</em>, <em>Strumming pattern</em>, <em>Transposing advice</em>, <em>Fill in song details</em>, <em>Add missing chord shapes</em>, <em>Suggest songs to learn</em>, and the in-place tools <em>Clean up formatting</em> and <em>Detect structure</em> (the escalate link appears next to the status message after each runs). <em>Condense</em> needs no model — it runs deterministically.</p>
+<p><strong>Try again — smarter model:</strong> AI answers run on a fast, economical model by default. When a result looks wrong, this re-runs it on a more capable model (slower and a bit pricier) — available on <em>Ask</em>, <em>Strumming pattern</em>, <em>Transposing advice</em>, <em>Add missing chord shapes</em>, <em>Suggest songs to learn</em>, <em>Suggest songs for this set</em>, and the in-place tools <em>Clean up formatting</em> and <em>Detect structure</em> (where it reads <strong>Try again?</strong> and sits beside the <strong>AI</strong> button). <em>Fill in song details</em> does not offer it: its answers are field-by-field and you can re-run the whole look-up from the menu. <em>Condense</em> needs no model — it runs deterministically.</p>
+
+<h2>While an AI Action is Running</h2>
+<p>Every AI action shows a <strong>progress bar</strong>, and nothing on it is guesswork. Each bar advances only when something has actually arrived — a web search that came back, a song or a field that finished, or (for <strong>Clean up formatting</strong> and <strong>Detect structure</strong>, which hand your chart back) characters returned against characters sent. That is why a bar moves in jumps and sometimes pauses: the pause is the model working, and smoothing it over would be a fiction. <strong>Find duplicates</strong> is the one exception — its answer is however many duplicate groups happen to exist, so there is nothing to measure against and its bar sweeps rather than fills.</p>
+<p>The actions that search the web — <strong>Fill in song details</strong>, <strong>Find music online</strong> and both suggesters — also show <strong>the search they are running</strong>, in quotes under the bar. During a wait the useful question is rarely "how much longer" but "has it found <em>my</em> song", and the query answers it.</p>
+<p><strong>You can stop it.</strong> There is a <strong>Cancel</strong> under every wait, and the pop-up's close box does the same thing: it abandons the request rather than leaving it running in the background. Worth using — a web-searching action buys several searches inside its one request, and cancelling stops that spend. Nothing is applied to your song, and no error is reported; a cancel is not a failure.</p>
+<p>The in-place tools (<strong>Clean up formatting</strong>, <strong>Detect structure</strong>) show their bar beside the <strong>AI</strong> button rather than in a pop-up, since they rewrite the chart in front of you. They say nothing else when they finish: the chart has visibly changed and <strong>Save</strong> has lit up, or it has not changed and <strong>Try again?</strong> is sitting there. Failures still speak.</p>
 
 <h2>Suggest Songs to Learn</h2>
 <p>In the <strong>Library</strong> header, the <strong>AI</strong> menu's <strong>Suggest songs to learn</strong> recommends real songs to learn next, matched to your instrument, your <strong>Playing level</strong>, and your <strong>Music taste</strong> — and to the songs already in your library (it won't suggest ones you already have). Each pick shows why it fits you, a difficulty note for your level, and a <strong>Find chords</strong> link to a real source. It's discovery only — Cue never copies a chart; you go get the ones you like.</p>
@@ -666,7 +676,7 @@ Bb,8-10-11-10,1243</pre>
 </ul>
 
 <h2>Cost &amp; Privacy</h2>
-<p>Each AI action makes one request to Anthropic billed to <em>your</em> API account — typically a fraction of a cent; the web-search actions (Find, Fill) cost a little more. You control the spend, and you can set a monthly budget cap in the Anthropic Console. AI needs an internet connection; the rest of Cue works offline as always. The content you send (your chart, song titles) goes to Anthropic to produce the answer and nowhere else.</p>
+<p>Each AI action makes one request to Anthropic billed to <em>your</em> API account — typically a fraction of a cent; the web-search actions (Find, Fill, and the two suggesters) cost a little more, since each buys several searches. Cancelling a running action stops that request, and so stops what is left of its cost. You control the spend, and you can set a monthly budget cap in the Anthropic Console. AI needs an internet connection; the rest of Cue works offline as always. The content you send (your chart, song titles) goes to Anthropic to produce the answer and nowhere else.</p>
 
 <!-- 9 -->
 <h1>9. Shared Sets &amp; Cloud Sync</h1>

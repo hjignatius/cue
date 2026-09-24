@@ -3,6 +3,51 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.2 — 2026-09-24
+
+Every AI tool in Cue now tells you what it's doing, lets you stop it, and stays
+out of the way of the song you're looking at.
+
+- **Progress bars everywhere, and none of them are made up.** Clean up, Detect
+  structure, Fill in song details, Find music online, Transposing advice, Order
+  the set, Estimate set time and both song suggesters now show a bar instead of
+  a word or a spinner. Each one counts something that really arrived — searches
+  that came back, songs that finished, fields that appeared, or (for the two
+  that hand your chart back) characters returned against characters sent. So the
+  bars move in jumps and sometimes pause. The pause is real information.
+  Find duplicates is the one exception: its answer is however many duplicate
+  groups exist, so there's nothing to count against and it sweeps instead.
+- **The searching tools show you the search.** Fill in song details, Find music
+  online and the suggesters put the actual query on screen. During the wait the
+  useful question isn't "how long" but "did it find *my* song" — now you can see.
+- **Closing an AI popup stops the work.** There's a Cancel under every wait, and
+  the close box does the same thing. It aborts the request rather than leaving it
+  running, which matters: these buy up to four web searches each.
+- **Fixed: closing an AI popup didn't really close it.** The request carried on,
+  and when it finished it put the dialog back on screen — sometimes minutes
+  later, over whatever you'd moved on to. Six popups did this.
+- **Fixed: Suggest songs to learn left Cue unresponsive.** Its close box failed,
+  and because the dialog covers the screen there was no way out of it. Find
+  duplicates had the same underlying fault but stayed dismissible.
+- **Fixed: accepting AI chord shapes reported failure.** Once you'd added them
+  all, the dialog switched to "couldn't work out shapes for…" and named the very
+  chords it had just saved. It now confirms what was added, and says the shapes
+  go to your instrument's chord library rather than into the song — which is why
+  Save stays grey afterwards.
+- **Fixed: a finished tool's "Try again" followed you into the next one.** Run
+  Clean up, then Fill in song details, and the clean-up's offer was still sitting
+  beside the AI button — re-running Clean up if you pressed it.
+- **Fixed: Retry PDF upload from a library row never ran.** It had been failing
+  on its first line for some time.
+- **No more dimmed, blurred background** on any AI popup, or on the two "Save
+  Changes?" prompts. Each of those is about the song behind it, and dimming the
+  song hides the thing you're deciding about.
+- **Shorter AI messages.** "Cleaning up…" and the rest are gone — the bar says
+  it. "Try again — smarter" is now just "Try again?", since escalating is the
+  only thing a retry could do. "Every chord already has a diagram" moved out of
+  the toolbar strip into the tool's own dialog, where the rest of its answers
+  appear.
+
 ## v1.9.1 — 2026-09-24
 
 - **Fill in song details now shows you what it's doing.** It was the slowest
