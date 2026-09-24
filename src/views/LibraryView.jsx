@@ -1661,6 +1661,19 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [suggestBusy, setSuggestBusy]       = useState(false);
   const [suggestResults, setSuggestResults] = useState(null); // null | array of picks
   const [suggestStage, setSuggestStage]     = useState(null);
+  // LibraryView's OWN abort controllers. SetlistColumn has a separate set: this
+  // file holds several components, and the setlist tools live in one of them
+  // while Suggest songs to learn and Find duplicates live out here. Calling the
+  // hook once in the other component left these two referencing an identifier
+  // that does not exist in this scope — a crash the build cannot see, because an
+  // undeclared name is only an error when it is reached.
+  const { startAi, cancelAi } = useAiAbort();
+  // Also needed by handleRetryPdf below, which referenced `user` without ever
+  // obtaining it — SetsColumn has its own useAuth() and this component had
+  // none, so Retry PDF upload from a library row threw on its first line.
+  // `user?.id` does not soften that: optional chaining guards a null VALUE, not
+  // an undeclared NAME.
+  const { user } = useAuth();
   const [suggestErr, setSuggestErr]         = useState('');
   async function runSuggest(model) {
     if (!hasApiKey()) { openAiSettings(); return; }
