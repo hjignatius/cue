@@ -58,6 +58,28 @@ export function AiProgress({ label, detail, percent, dark }) {
   );
 }
 
+// A bare progress bar for the editor TOOLBAR, where the in-place tools (Clean
+// up, Detect structure) run. About half an inch long.
+//
+// No label, by request: the words that used to sit here ("Cleaning up…") were
+// the widest thing in the row, and the row is where the buttons live. A bar
+// that size says "working" as well as the words did and costs a fifth of the
+// space. Same rule as AiProgress — `percent` is counted, never invented.
+export function AiInlineProgress({ percent, dark, label = 'Working…' }) {
+  return (
+    <span
+      role="progressbar" aria-label={label}
+      aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}
+      className={`shrink-0 w-12 h-1.5 rounded-full overflow-hidden ${dark ? 'bg-gray-700' : 'bg-gray-200'}`}
+    >
+      <span
+        className="block h-full bg-indigo-500 rounded-full transition-[width] duration-300 ease-out"
+        style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+      />
+    </span>
+  );
+}
+
 // The same caution beside a result. Small and muted on purpose: present for
 // anyone weighing what's on screen, without shouting over the answer itself.
 // `children` overrides the wording where a surface needs to say something more

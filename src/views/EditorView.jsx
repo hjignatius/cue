@@ -15,7 +15,7 @@ import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
-import { AiWaiting, AiCaution, AiProgress } from '../components/AiCaution.jsx';
+import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
@@ -622,6 +622,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // applied — both just satisfy `metadata[field] === value`.
   const [fillBaseline, setFillBaseline] = useState({});
   const [aiMsg, setAiMsg]               = useState('');
+  // 0-100 for the in-place toolbar tools. A bar where the "…ing" words used to
+  // be: same information, a fifth of the width, and the toolbar is a row whose
+  // spare width belongs to the buttons.
+  const [aiPct, setAiPct]               = useState(0);
   // Which in-place tool just ran (null = nothing to escalate), so the status line
   // can offer a "Try again — smarter" that re-runs it on the stronger model.
   const [aiRetry, setAiRetry]           = useState(null); // null | 'clean' | 'structure' | 'condense'
@@ -642,7 +646,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // events come from different counters, and a bar that ever goes backwards
   // reads as a fault in the thing it is measuring.
   const [fillStage, setFillStage]       = useState(null);
-  const [adviceResult, setAdviceResult] = useState(null); // null | { loading, error, data }
+  const [adviceResult, setAdviceResult] = useState(null);
+  const [advicePct, setAdvicePct]       = useState(0); // null | { loading, error, data }
   const [chordResult, setChordResult]   = useState(null); // null | { loading, error, shapes:[{name,frets}], missing:[names] }
   const [addedChords, setAddedChords]   = useState([]);   // shapes added this session, shown live in the panel
   const [askOpen, setAskOpen]           = useState(false);
@@ -878,22 +883,19 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // the format. The model is told never to change chords or lyrics.
   async function runCleanup(model) {
     if (aiBusy || text.trim() === '') return;
-    setAiBusy('clean'); setAiRetry(null);
-    setAiMsg(model ? 'Cleaning up (smarter)…' : 'Cleaning up…');
+    setAiBusy('clean'); setAiRetry(null); setAiPct(0); clearAiMsg();
     try {
-      const cleaned = await cleanUpChart(text, { symbols, model });
+      const cleaned = await cleanUpChart(text, { symbols, model, onProgress: p => setAiPct(p * 100) });
       if (cleaned && cleaned !== text) {
         setText(cleaned);
         senseFormat(cleaned);
         setIsDirty(true);
-        // No "it worked" message: the chart visibly changed and Save has just
-        // lit up, so the words only repeat what the screen already shows — and
-        // they crowd the toolbar buttons beside them. The NON-events below still
-        // speak, because silence there is indistinguishable from a broken tool.
-        clearAiMsg();
-      } else {
-        flashAi('Already tidy.');
       }
+      // Nothing is said on EITHER outcome now. The bar ran and stopped, and
+      // "Try again?" appears beside it — which covers the no-change case too:
+      // the chart is unaltered and there is an obvious way to have another go.
+      // Errors still speak, below; silence there really would look broken.
+      clearAiMsg();
       setAiRetry('clean'); setAiRetryModel(model);
     } catch (e) {
       flashAi(e?.message || 'Clean up failed.');
@@ -907,18 +909,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // lines; existing labels are kept. No format conversion (unlike Condense).
   async function runDetectStructure(model) {
     if (aiBusy || text.trim() === '') return;
-    setAiBusy('structure'); setAiRetry(null);
-    setAiMsg(model ? 'Detecting structure (smarter)…' : 'Detecting structure…');
+    setAiBusy('structure'); setAiRetry(null); setAiPct(0); clearAiMsg();
     try {
-      const labeled = await detectStructure(text, { model });
+      const labeled = await detectStructure(text, { model, onProgress: p => setAiPct(p * 100) });
       if (labeled && labeled !== text) {
         setText(labeled);
         setIsDirty(true);
-        // Headings appeared and Save lit up — nothing to add.
-        clearAiMsg();
-      } else {
-        flashAi('No new sections found — left as is.');
       }
+      clearAiMsg();
       setAiRetry('structure'); setAiRetryModel(model);
     } catch (e) {
       flashAi(e?.message || 'Detect structure failed.');
@@ -1048,9 +1046,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   async function runAdvice(model) {
     if (aiBusy) return;
     setAiBusy('advice');
+    setAdvicePct(0);
     setAdviceResult({ loading: true, error: '', data: null });
     try {
-      const data = await transposeAdvice(songContext(), model);
+      const data = await transposeAdvice(songContext(), model, p => setAdvicePct(v => Math.max(v, p * 100)));
       setAdviceResult({ loading: false, error: '', data, model });
     } catch (e) {
       setAdviceResult({ loading: false, error: e?.message || 'Advice failed.', data: null });
@@ -1149,7 +1148,18 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       saveCustomChords(instrument, [...existing, entry]);
     }
     setAddedChords(prev => prev.some(c => c.name === entry.name && c.frets.join(',') === entry.frets.join(',')) ? prev : [...prev, entry]);
-    setChordResult(r => r ? { ...r, shapes: r.shapes.filter(s => s !== shape) } : r);
+    // Drop the name from `missing` as well as the shape from `shapes`. Those two
+    // lists are what the dialog reads to decide what it is looking at, and
+    // clearing only one of them is what made an accepted shape report itself as
+    // a failure: with `shapes` empty and `missing` still full, the dialog fell
+    // into the "couldn't work out shapes for…" branch and named the very chords
+    // it had just saved.
+    setChordResult(r => r ? {
+      ...r,
+      shapes:  r.shapes.filter(x => x !== shape),
+      missing: r.missing.filter(n => n !== shape.name),
+      added:   (r.added || 0) + 1,
+    } : r);
   }
 
   // Bake the current Transpose into the source: rewrite the chords to the
@@ -1691,7 +1701,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Fill in song details, step 2 — what it found, applied field by field.
   const fillDialog = fillResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setFillResult(null)}>
+    /* No scrim on this one or on Transposing advice: both are about the song
+       behind them, and dimming it hides the thing you are deciding about. The
+       panel's border and shadow carry the separation instead. Click-outside
+       still closes. */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setFillResult(null)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
@@ -1819,7 +1833,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 {allApplied && appliedNow ? 'Done' : 'Close'}
               </button>
             </div>
-            <AiRetryLink usedModel={fillResult.model} onRetry={m => runFill(m)} dark={dark} />
           </>);
         })()}
       </div>
@@ -1828,7 +1841,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Transposing advice — key suggestions (one-tap Apply → Transpose) + capo tips.
   const adviceDialog = adviceResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setAdviceResult(null)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setAdviceResult(null)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -1838,7 +1851,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <button onClick={() => setAdviceResult(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
         {adviceResult.loading && (
-          <AiWaiting label="Working out your options…" dark={dark} />
+          <AiProgress label="Working out your options…" percent={advicePct} dark={dark} />
         )}
         {!adviceResult.loading && adviceResult.error && (
           <p className="text-sm text-red-500">{adviceResult.error}</p>
@@ -1943,10 +1956,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {!chordResult.loading && chordResult.error && (
           <p className="text-sm text-red-500">{chordResult.error}</p>
         )}
+        {/* Everything offered was taken. Says so, and says WHERE it went: these
+            go to the instrument's chord library, not into the song — which is
+            why Save stays grey afterwards. Without this line the only signal
+            was a list that emptied itself. */}
+        {!chordResult.loading && !chordResult.error && chordResult.shapes.length === 0
+          && chordResult.missing.length === 0 && (chordResult.added || 0) > 0 && (
+          <p className="text-sm text-green-600 dark:text-green-400">
+            {chordResult.added === 1 ? 'Shape added' : `${chordResult.added} shapes added`} to your{' '}
+            {chordLibraryToInstrument(instrument)} library and saved. They're in the chord panel now —
+            edit or delete them there any time.
+          </p>
+        )}
         {/* The model returned no voicings. It previously said "All set — nothing
             left to add", which claims the chords are COVERED when they aren't —
             and sent at least one person hunting for a bug in chord detection. */}
-        {!chordResult.loading && !chordResult.error && chordResult.shapes.length === 0 && (
+        {!chordResult.loading && !chordResult.error && chordResult.shapes.length === 0
+          && chordResult.missing.length > 0 && (
           <p className={`text-sm ${mutedText}`}>
             Couldn't work out {chordResult.missing.length === 1 ? 'a shape' : 'shapes'} for{' '}
             <span className={dark ? 'text-gray-200' : 'text-gray-800'}>{chordResult.missing.join(', ')}</span>{' '}
@@ -2442,14 +2468,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             min-w-0 + truncate keeps this the item that gives way when the row is
             tight: measured, it shrinks to nothing before any control moves, so a
             long message crowds the row but never pushes a button off it. */}
+        {(aiBusy === 'clean' || aiBusy === 'structure') && (
+          <AiInlineProgress percent={aiPct} dark={dark}
+            label={aiBusy === 'clean' ? 'Cleaning up' : 'Detecting structure'} />
+        )}
         {aiMsg && <span className={`text-xs min-w-0 truncate ${mutedText}`} title={aiMsg}>{aiMsg}</span>}
         {aiRetry && !aiBusy && !compactChrome && (
           <AiRetryLink
             usedModel={aiRetryModel} onRetry={retrySmarter} dark={dark} variant="link"
-            label="Try again — smarter"
-            /* Shorter than the dialogs' wording on purpose: this sits in a
-               toolbar beside the status message, which truncates to make room. */
-            atBestLabel="Best model used"
+            /* "Try again?" rather than "Try again — smarter": that it escalates
+               is the only thing a retry could usefully do, so saying so spends
+               toolbar width on something the button already implies. It still
+               escalates — only the wording changed.
+               atBestLabel={null} drops the "nothing smarter" line here. In a
+               dialog that line is worth its space; in a row of buttons it is a
+               sentence explaining an absence. */
+            label="Try again?"
+            atBestLabel={null}
             title={`Re-run that on the ${escalatedTierLabel()} model — slower, and costs more`}
           />
         )}

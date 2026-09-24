@@ -40,7 +40,10 @@ export default function AiRetryLink({
       </button>
     );
   }
-  if (!usedModel) return null;
+  // `atBestLabel={null}` suppresses the line entirely. The toolbar asks for
+  // that: it has room for one short thing, and "Try again?" earns the space
+  // where "Best model used" does not.
+  if (!usedModel || !atBestLabel) return null;
   return (
     <span className={`self-start inline-flex items-center gap-1.5 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
       <Sparkles size={13} /> {atBestLabel}

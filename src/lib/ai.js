@@ -380,7 +380,27 @@ DO:
 
 Output ONLY the cleaned chart text. No commentary, no explanation, no Markdown code fences.`;
 
-export async function cleanUpChart(text, { symbols, model } = {}) {
+// ECHO_PROGRESS — progress for the two tools that hand the chart back.
+//
+// Clean up and Detect structure both return the SAME SONG: one retouches the
+// formatting, the other inserts "# Label" lines. Neither adds or removes
+// material. So the reply's finished length is within a few percent of the text
+// that went in, and "characters back / characters sent" is a measure of real
+// output against a real number — not a timer pretending to be progress.
+//
+// It is an approximation in one direction only: Detect structure's output is
+// slightly LONGER than its input, so the fraction is clamped below 1 until the
+// call actually returns. A bar that reaches the end and then waits is the one
+// dishonest thing it could do, and this is the case where it would happen.
+const echoProgress = (input, onProgress) => {
+  if (!onProgress) return undefined;
+  const expected = Math.max(1, (input || '').length);
+  return (acc) => onProgress(Math.min(0.99, acc.length / expected));
+};
+
+// `onProgress(fraction)` is optional. See ECHO_PROGRESS below for what makes the
+// fraction real rather than invented.
+export async function cleanUpChart(text, { symbols, model, onProgress } = {}) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to clean up — the chart is empty.');
     err.code = 'empty';
@@ -393,14 +413,13 @@ export async function cleanUpChart(text, { symbols, model } = {}) {
     ? `${CLEANUP_SYSTEM}\n\nThe user's chart may also use these characters, which are MEANINGFUL — keep every one of them exactly: ${allow}`
     : CLEANUP_SYSTEM;
 
-  const data = await callClaude({
+  const out = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
     output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: text }],
-  });
-  const out = textOf(data);
+  }, echoProgress(text, onProgress));
   const m = out.match(/^```[a-zA-Z]*\n([\s\S]*?)\n```$/);
   return (m ? m[1] : out).trim();
 }
@@ -425,20 +444,19 @@ HOW TO LABEL:
 
 Output ONLY the chart text with headers added. No commentary, no explanation, no Markdown code fences.`;
 
-export async function detectStructure(text, { model } = {}) {
+export async function detectStructure(text, { model, onProgress } = {}) {
   if (!text || !text.trim()) {
     const err = new Error('Nothing to label — the chart is empty.');
     err.code = 'empty';
     throw err;
   }
-  const data = await callClaude({
+  const out = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
     output_config: { effort: 'low' },
     system: STRUCTURE_SYSTEM,
     messages: [{ role: 'user', content: text }],
-  });
-  const out = textOf(data);
+  }, echoProgress(text, onProgress));
   const m = out.match(/^```[a-zA-Z]*\n([\s\S]*?)\n```$/);
   return (m ? m[1] : out).trim();
 }
@@ -972,7 +990,12 @@ For a strumming (or picking) pattern, give it as TEXT: D = downstroke, U = upstr
 // ── Transposing advice ──────────────────────────────────────────────────────
 // Song- and instrument-aware key/capo guidance. Returns
 // { summary, keys: [{key, why}], capo: [{fret, shapes, why}] }.
-export async function transposeAdvice(ctx = {}, model) {
+// `onProgress(fraction)` is optional. Unlike the two echo tools there is no
+// input to measure against here, so the fraction counts the three top-level keys
+// of the reply's known shape as each one appears. Coarse — three steps — but
+// each step is a thing that really arrived, and the spinner beside it carries
+// the time in between.
+export async function transposeAdvice(ctx = {}, model, onProgress) {
   const { title, artist, key, instrument, level, chart } = ctx;
   const inst = instrument || 'guitar';
 
@@ -993,14 +1016,15 @@ Rules:
     chart && `Chart:\n${chart.slice(0, 4000)}`,
   ].filter(Boolean).join('\n\n') || 'Advise on a song (no chart provided).';
 
-  const data = await callClaude({
+  const ADVICE_KEYS = ['summary', 'keys', 'capo'];
+  const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
     output_config: { effort: 'medium' },
     system,
     messages: [{ role: 'user', content: userText }],
-  });
-  const j = extractJson(textOf(data)) || {};
+  }, onProgress ? (acc) => onProgress(ADVICE_KEYS.filter(k => acc.includes(`"${k}"`)).length / ADVICE_KEYS.length) : undefined);
+  const j = extractJson(raw) || {};
   const s = (v) => (typeof v === 'string' ? v.trim() : '');
   return {
     summary: s(j.summary),
