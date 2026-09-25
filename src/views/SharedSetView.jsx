@@ -5,7 +5,7 @@ import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
-import { contentHash } from '../utils/contentHash.js';
+import { contentHash, isEditedCopy } from '../utils/contentHash.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
@@ -478,10 +478,28 @@ export default function SharedSetView() {
     if (!setData) return null;
     const bySource = new Map();
     for (const ls of localSongs) { const src = ls.copiedFrom?.songId; if (src && !bySource.has(src)) bySource.set(src, ls); }
-    const anyCopied = setData.songs.some(s => bySource.has(s.id));
+    // SECOND WAY TO RECOGNISE A SONG. Lineage is the authoritative match, but it
+    // only knows about songs that arrived THROUGH a share — so your own songs,
+    // coming back to you in a set someone built from them, matched nothing and
+    // every row read as never-copied. An identical content hash covers the rest:
+    // same words, same chords, same title, same key. Whatever its history, it is
+    // the same song, and there is nothing to copy.
+    //
+    // This match can ONLY ever produce 'uptodate', never 'update'. That is what
+    // makes it safe: a song matched this way has no baseline, so if the
+    // publisher later changes it the hashes stop agreeing, no match is found,
+    // and it becomes an 'add' — offered as a new song beside yours rather than
+    // written over the top of one Cue was never told was a copy.
+    const byHash = new Map();
+    for (const ls of localSongs) { const h = contentHash(ls); if (!byHash.has(h)) byHash.set(h, ls); }
+
     const songs = setData.songs.map(s => {
       const local = bySource.get(s.id) || null;
-      if (!local) return { shareSong: s, local: null, state: 'add' };
+      if (!local) {
+        const twin = byHash.get(contentHash(s));
+        if (twin) return { shareSong: s, local: twin, state: 'uptodate', matchedBy: 'content' };
+        return { shareSong: s, local: null, state: 'add' };
+      }
       const incoming = contentHash(s);
       const here = contentHash(local);
       const baseline = local.copiedFrom?.baseline;
@@ -490,12 +508,20 @@ export default function SharedSetView() {
       else if (incoming === baseline) state = 'uptodate';                      // publisher unchanged
       else if (here === baseline) state = 'update';                            // publisher changed, you didn't
       else state = 'conflict';                                                 // both changed
-      return { shareSong: s, local, state };
+      return { shareSong: s, local, state, matchedBy: 'lineage' };
     });
+    const anyMatched = songs.some(x => x.local);
+    // Your OWN set, opened through its own share link — something Howard does
+    // often, to show people what a share looks like. A copied set always gets a
+    // fresh id, so a local set carrying this one's id can only be the original.
+    // Without this the screen offered to Copy, and Copy on your own share is two
+    // taps from duplicating your entire library.
+    const mine = localSets.some(st => st.id === setData.set?.id);
     const localSet = localSets.find(st => st.copiedFrom?.token === token) || null;
     let setChanged = false, orderChanged = false;
     if (localSet) {
-      const expected = setData.songs.map(s => bySource.get(s.id)?.id).filter(Boolean);
+      // From the plan's own matches, so this agrees with what applyUpdate writes.
+      const expected = songs.map(x => x.local?.id).filter(Boolean);
       const copiedIds = new Set(expected);
       const currentOrder = (localSet.songIds || []).filter(id => copiedIds.has(id));
       // `orderChanged` on its own — setChanged folds in the presence of new
@@ -506,7 +532,8 @@ export default function SharedSetView() {
       setChanged = songs.some(x => x.state === 'add') || orderChanged;
     }
     const actionable = songs.some(x => x.state === 'update' || x.state === 'conflict' || x.state === 'add') || setChanged;
-    return { status: !anyCopied ? 'copy' : actionable ? 'update' : 'uptodate', songs, localSet, setChanged, orderChanged };
+    const status = mine ? 'mine' : !anyMatched ? 'copy' : actionable ? 'update' : 'uptodate';
+    return { status, songs, localSet, setChanged, orderChanged, mine };
   }, [setData, localSongs, localSets, token]);
 
   // Map share song id -> your local (edited/annotated) copy, for "Follow along
@@ -525,24 +552,13 @@ export default function SharedSetView() {
     const s = new Set();
     (updatePlan?.songs || []).forEach(x => {
       if (!x.local) return;
-      const baseline = x.local.copiedFrom?.baseline;
-      // AGAINST THE BASELINE, not against the share. "Your own version" means
-      // you changed it since you copied it — so the question is whether your
-      // copy still matches what you were given.
-      //
-      // Comparing against the SHARE answered a different question and got this
-      // backwards whenever the publisher was the one who moved: you copy a song,
-      // they edit it, and your untouched copy suddenly differs from theirs. The
-      // badge then told you it was your own version when in fact you were behind
-      // — opposite cause, same colour. The Update list beside it had it right
-      // all along, because the list consults the baseline.
-      //
-      // Copies made before baselines were recorded have nothing to compare, so
-      // they keep the old behaviour rather than silently reading as unedited.
-      const differs = baseline == null
-        ? contentHash(x.local) !== contentHash(x.shareSong)
-        : contentHash(x.local) !== baseline;
-      if (differs) s.add(x.shareSong.id);
+      // AGAINST THE BASELINE, not against the share — which is exactly what
+      // isEditedCopy does, and what LibraryView's "edited since you copied it"
+      // dot already used. Comparing against the share answered a different
+      // question and got this backwards whenever the PUBLISHER was the one who
+      // moved: your untouched copy differs from theirs, and the badge called it
+      // your own version when you were simply behind.
+      if (isEditedCopy(x.local)) s.add(x.shareSong.id);
     });
     return s;
   }, [updatePlan]);
@@ -821,6 +837,16 @@ export default function SharedSetView() {
               set has been copied, reflecting whether the share has since changed. */}
           {enriched.length > 0 && (() => {
             const st = updatePlan?.status || 'copy';
+            if (st === 'mine') {
+              return (
+                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
+                  label="This is your own set"
+                  title="You published this set. These are your songs — there is nothing to copy or update."
+                  fill={headerFill} disabled>
+                  <UserCheck size={20} />{!compactHeader && <PillLabel>Your set</PillLabel>}
+                </RoundButton>
+              );
+            }
             if (st === 'uptodate') {
               return (
                 <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
@@ -954,7 +980,7 @@ export default function SharedSetView() {
                 edited={mineDiffers.has(song.id)}
                 playMine={playMine}
                 onPresent={() => present(displayed, idx)}
-                onCopy={() => handleCopySong(song)}
+                onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
                 copying={copying}
               />
             ))
@@ -1380,16 +1406,20 @@ function SharedSongRow({ song, index, dark, muted, edited, playMine, onPresent, 
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Round-button language: neutral copy circle, indigo present circle. */}
-          <RoundButton
-            size={ROUND_SIZE_COMPACT}
-            label="Copy this song to my library"
-            title="Add just this song to your Cue library, where you can open, edit, and keep it."
-            fill={fill} disabled={copying}
-            onActivate={onCopy}
-          >
-            <Library size={16} />
-          </RoundButton>
+          {/* Round-button language: neutral copy circle, indigo present circle.
+              Absent entirely on your own set — copying a song to the library it
+              already lives in only makes a second one. */}
+          {onCopy && (
+            <RoundButton
+              size={ROUND_SIZE_COMPACT}
+              label="Copy this song to my library"
+              title="Add just this song to your Cue library, where you can open, edit, and keep it."
+              fill={fill} disabled={copying}
+              onActivate={onCopy}
+            >
+              <Library size={16} />
+            </RoundButton>
+          )}
           <RoundButton
             size={ROUND_SIZE_COMPACT}
             label={edited
