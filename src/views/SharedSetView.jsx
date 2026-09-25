@@ -1105,7 +1105,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex flex-col gap-1">
           <h2 className={`text-base font-semibold ${em}`}>Update from “{setName}”</h2>
-          <p className={`text-xs ${sub}`}>Refresh your copies with the latest from this shared set. Your own (non-copied) songs are never touched.</p>
+          <p className={`text-xs ${sub}`}>Refresh your copies with the latest from this shared set. Your own (non-copied) songs are never touched, and your ink annotations are kept — a song keeps its place in your library, only its words and chords change.</p>
         </div>
 
         {actionable.length === 0 ? (
@@ -1124,7 +1124,14 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
                       {item.state === 'uptodate' && 'Up to date'}
                       {item.state === 'update' && 'Changed in the share'}
                       {item.state === 'conflict' && 'Changed in the share — you also edited your copy'}
-                      {item.state === 'add' && 'New — not in your library'}
+                      {/* Not "New — not in your library": the list matches by
+                          LINEAGE, not by title or content, so all it knows is
+                          that this song has not arrived from this share. Saying
+                          otherwise was actively wrong for anyone looking at a
+                          share built from songs they already own — which is
+                          exactly what happens when a friend copies your set and
+                          publishes it back. */}
+                      {item.state === 'add' && 'Not copied from this share'}
                     </span>
                   </span>
                   {item.state === 'uptodate' ? (
