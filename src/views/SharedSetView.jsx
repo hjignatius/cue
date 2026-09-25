@@ -545,6 +545,25 @@ export default function SharedSetView() {
   }, [updatePlan]);
   const copiedCount = localBySource.size;
 
+  // Share song ids whose LOCAL copy is behind: the publisher changed the song,
+  // you didn't, and you haven't taken the new version yet.
+  //
+  // Only that one state gets marked on the list. A tick on every up-to-date row
+  // is noise on eight rows out of nine and points at nothing to do, and the
+  // count of never-copied songs is already in the dialog's summary. This is the
+  // only case where the list is quietly misleading — present the song and you
+  // get the old version, with nothing on screen saying so.
+  //
+  // CONFLICTS ARE DELIBERATELY LEFT OUT. Their Present button is already amber
+  // for "you have your own version", and there being behind is a choice you
+  // made rather than something you have overlooked. A second amber signal on the
+  // same row would blur the one already there.
+  const behindShare = useMemo(() => {
+    const s = new Set();
+    (updatePlan?.songs || []).forEach(x => { if (x.state === 'update') s.add(x.shareSong.id); });
+    return s;
+  }, [updatePlan]);
+
   // Share song ids where your saved copy actually differs from the publisher's
   // version — i.e. you've edited it. Drives the amber "this is your own version"
   // cue on the per-song Present buttons.
@@ -978,6 +997,7 @@ export default function SharedSetView() {
                 dark={dark}
                 muted={muted}
                 edited={mineDiffers.has(song.id)}
+                behind={behindShare.has(song.id)}
                 playMine={playMine}
                 onPresent={() => present(displayed, idx)}
                 onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
@@ -1381,7 +1401,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, playMine, onPresent, onCopy, copying }) {
+function SharedSongRow({ song, index, dark, muted, edited, behind, playMine, onPresent, onCopy, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1390,9 +1410,27 @@ function SharedSongRow({ song, index, dark, muted, edited, playMine, onPresent, 
       <div className="flex items-start gap-3">
         <span className={`text-xs pt-0.5 shrink-0 tabular-nums ${muted}`}>{index + 1}</span>
         <div className="flex-1 min-w-0">
-          <p className={`font-medium truncate ${dark ? 'text-white' : 'text-gray-900'}`}>
-            {meta.title || 'Untitled'}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className={`font-medium truncate ${dark ? 'text-white' : 'text-gray-900'}`}>
+              {meta.title || 'Untitled'}
+            </p>
+            {/* Your copy is behind this share. A glyph, not just a colour: amber
+                against green is the pair that fails first for colour-blind
+                viewers and under stage lighting, so the arrow carries the signal
+                and the colour only reinforces it. Not a button — tapping the
+                copy circle would add a SECOND copy rather than update this one,
+                and taking the new version belongs in the Update list. */}
+            {behind && (
+              <span
+                role="img"
+                aria-label="A newer version of this song is in the shared set"
+                title="The publisher has changed this song since you copied it. Use Update to take the newer version; presenting it now plays your older copy."
+                className="shrink-0 inline-flex text-amber-600 dark:text-amber-400"
+              >
+                <RefreshCw size={13} />
+              </span>
+            )}
+          </div>
           {meta.artist && (
             <p className={`text-sm mt-0.5 truncate ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{meta.artist}</p>
           )}
