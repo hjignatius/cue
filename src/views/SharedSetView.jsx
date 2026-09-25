@@ -592,6 +592,60 @@ export default function SharedSetView() {
   // Apply the Update: overwrite changed copies in place (keeping their id so set
   // references hold), add new songs, skip the rest, then reconcile the copied
   // set's order/membership to the share. Never touches non-copied local songs.
+  // Write the publisher's version of ONE song over the copy you already have.
+  //
+  // Keeps the local id, which is what makes this safe to do in place: the set
+  // that references it still resolves, and the annotation store is keyed by id
+  // so your ink stays where it is. Keeps your title too — renaming a song you
+  // have filed is not the publisher's business. Records a fresh baseline, so the
+  // next comparison knows this is what you were given.
+  //
+  // Shared by the Update list and the per-song button on a row that is behind.
+  // Extracted rather than copied: this is four side effects in a row, and two
+  // copies of it would diverge on the first one anybody forgot.
+  async function takeShareVersion(shareSong, local) {
+    const s = shareSong;
+    await saveSong({
+      ...s,
+      id: local.id,
+      metadata: { ...s.metadata, title: local.metadata?.title || s.metadata?.title },
+      createdAt: local.createdAt,
+      updatedAt: new Date().toISOString(),
+      copiedFrom: { ...(local.copiedFrom || {}), songId: s.id, baseline: contentHash(s) },
+      pdf: pdfRefForCopy(s.pdf),
+    });
+    if (s.type === 'pdf') {
+      // Make sure we write the CURRENT sheet: re-fetch the publisher's bytes
+      // (in case they changed the PDF) before copying. Fail-soft — if offline,
+      // fall back to whatever was cached when the share opened.
+      if (s.ownerId) { try { await downloadPdfBlob(s.id, s.ownerId); } catch { /* keep cached */ } }
+      const blob = await loadPdfBlob(s.id);
+      if (blob) await savePdfBlob(local.id, blob);
+    }
+    if (Array.isArray(s.customChords) && s.customChords.length) mergeCustomChords(s.customChords);
+  }
+
+  // The library button on a row marked as behind. One tap, no confirmation:
+  // 'update' means the publisher moved and YOU DID NOT, so your copy still
+  // matches the baseline and there is nothing of yours to lose. (A song you had
+  // also edited is a 'conflict', is not marked, and does not reach here — that
+  // one stays a decision in the Update list.)
+  async function updateOneSong(shareSong) {
+    const item = (updatePlan?.songs || []).find(x => x.shareSong.id === shareSong.id);
+    if (!item?.local || item.state !== 'update' || copying) return;
+    setCopying(true);
+    try {
+      await takeShareVersion(item.shareSong, item.local);
+      setHasCopied(true);
+      await refreshLocal();
+      setCopyResult({ type: 'song', title: item.local.metadata?.title || shareSong.metadata?.title, outcome: 'refreshed' });
+    } catch (err) {
+      console.error('Update one song failed:', err);
+    } finally {
+      setCopying(false);
+    }
+  }
+
   async function applyUpdate(choices) {
     if (!updatePlan || !setData || copying) return;
     setCopying(true);
@@ -606,24 +660,7 @@ export default function SharedSetView() {
         const action = choices?.[s.id] ?? defaultUpdateAction(item.state);
 
         if ((item.state === 'update' || item.state === 'conflict') && action === 'update' && item.local) {
-          await saveSong({
-            ...s,
-            id: item.local.id,
-            metadata: { ...s.metadata, title: item.local.metadata?.title || s.metadata?.title },
-            createdAt: item.local.createdAt,
-            updatedAt: now,
-            copiedFrom: { ...(item.local.copiedFrom || {}), songId: s.id, baseline: contentHash(s) },
-            pdf: pdfRefForCopy(s.pdf),
-          });
-          if (s.type === 'pdf') {
-            // Make sure we write the CURRENT sheet: re-fetch the publisher's bytes
-            // (in case they changed the PDF) before copying. Fail-soft — if offline,
-            // fall back to whatever was cached when the share opened.
-            if (s.ownerId) { try { await downloadPdfBlob(s.id, s.ownerId); } catch { /* keep cached */ } }
-            const blob = await loadPdfBlob(s.id);
-            if (blob) await savePdfBlob(item.local.id, blob);
-          }
-          if (Array.isArray(s.customChords) && s.customChords.length) mergeCustomChords(s.customChords);
+          await takeShareVersion(s, item.local);
           shareToLocalId.set(s.id, item.local.id);
           updated++;
         } else if (item.state === 'add' && action === 'add') {
@@ -1001,6 +1038,7 @@ export default function SharedSetView() {
                 playMine={playMine}
                 onPresent={() => present(displayed, idx)}
                 onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
+                onTakeNewer={behindShare.has(song.id) ? () => updateOneSong(song) : undefined}
                 copying={copying}
               />
             ))
@@ -1277,6 +1315,10 @@ function SongCopyResult({ result, dark, onDone }) {
     heading  = 'Song added as duplicate';
     body     = <>Added as <span className={em}>"{newTitle}"</span> so it stays separate from the existing version.</>;
     btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
+  } else if (outcome === 'refreshed') {
+    heading  = 'Song updated';
+    body     = <><span className={em}>"{title}"</span> now matches the publisher's version. Your ink annotations were kept.</>;
+    btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
   } else {
     heading  = 'Song skipped';
     body     = <><span className={em}>"{title}"</span> is already in your library — nothing was changed.</>;
@@ -1401,7 +1443,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, behind, playMine, onPresent, onCopy, copying }) {
+function SharedSongRow({ song, index, dark, muted, edited, behind, playMine, onPresent, onCopy, onTakeNewer, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1446,8 +1488,25 @@ function SharedSongRow({ song, index, dark, muted, edited, behind, playMine, onP
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Round-button language: neutral copy circle, indigo present circle.
               Absent entirely on your own set — copying a song to the library it
-              already lives in only makes a second one. */}
-          {onCopy && (
+              already lives in only makes a second one.
+
+              WHEN THE COPY IS BEHIND, this button takes the newer version
+              instead. Tapping it used to run the copy, which found the title
+              already present and reported "skipped" — technically true and
+              useless, because there WAS something to take. The button sits right
+              beside the marker saying so, which makes it the thing anyone would
+              press. */}
+          {onTakeNewer ? (
+            <RoundButton
+              size={ROUND_SIZE_COMPACT}
+              label="Take the newer version of this song"
+              title="The publisher has changed this song. This replaces your copy with their newer version — your ink annotations are kept."
+              fill="#d97706" disabled={copying}
+              onActivate={onTakeNewer}
+            >
+              <RefreshCw size={16} />
+            </RoundButton>
+          ) : onCopy && (
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="Copy this song to my library"
