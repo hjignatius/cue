@@ -492,12 +492,21 @@ export default function SharedSetView() {
     // written over the top of one Cue was never told was a copy.
     const byHash = new Map();
     for (const ls of localSongs) { const h = contentHash(ls); if (!byHash.has(h)) byHash.set(h, ls); }
+    // THIRD, and weakest: same title, different content. NOT the same song — a
+    // friend's arrangement of one you own is a real, different thing and Cue
+    // must not pretend otherwise. But it must not pre-tick Add for it either. A
+    // share built from 83 of Howard's own songs offered to add 72 of them, and
+    // refusing that was 72 taps.
+    const byTitle = new Map();
+    for (const ls of localSongs) { const t = normalizeTitle(ls.metadata?.title); if (t && !byTitle.has(t)) byTitle.set(t, ls); }
 
     const songs = setData.songs.map(s => {
       const local = bySource.get(s.id) || null;
       if (!local) {
         const twin = byHash.get(contentHash(s));
         if (twin) return { shareSong: s, local: twin, state: 'uptodate', matchedBy: 'content' };
+        const sameName = byTitle.get(normalizeTitle(s.metadata?.title));
+        if (sameName) return { shareSong: s, local: sameName, state: 'have', matchedBy: 'title' };
         return { shareSong: s, local: null, state: 'add' };
       }
       const incoming = contentHash(s);
@@ -531,6 +540,9 @@ export default function SharedSetView() {
       orderChanged = expected.join('|') !== currentOrder.join('|');
       setChanged = songs.some(x => x.state === 'add') || orderChanged;
     }
+    // 'have' is deliberately NOT actionable. It defaults to Skip, so a share
+    // made entirely of songs you already own has nothing waiting — rather than an
+    // Update badge over rows with nothing to do.
     const actionable = songs.some(x => x.state === 'update' || x.state === 'conflict' || x.state === 'add') || setChanged;
     const status = mine ? 'mine' : !anyMatched ? 'copy' : actionable ? 'update' : 'uptodate';
     return { status, songs, localSet, setChanged, orderChanged, mine };
@@ -663,7 +675,7 @@ export default function SharedSetView() {
           await takeShareVersion(s, item.local);
           shareToLocalId.set(s.id, item.local.id);
           updated++;
-        } else if (item.state === 'add' && action === 'add') {
+        } else if (isAddish(item.state) && action === 'add') {
           let title = s.metadata?.title || 'Untitled';
           if (allTitles.has(normalizeTitle(title))) title = makeUniqueTitle(title, allTitles);
           allTitles.add(normalizeTitle(title));
@@ -904,11 +916,17 @@ export default function SharedSetView() {
               );
             }
             if (st === 'uptodate') {
+              // NEUTRAL, BUT STILL A DOOR. Nothing here is waiting, so it does not
+              // nag in amber — but it stays tappable, because "nothing waiting"
+              // now also covers a share full of songs you own a different version
+              // of. Disabling it would have taken away the only deliberate route
+              // to the publisher's arrangement of a song you already have.
               return (
                 <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
-                  label="Your copies are up to date"
-                  title="Your saved copies match this shared set — nothing to update."
-                  fill={headerFill} disabled>
+                  label="Nothing waiting — review this set"
+                  title="Nothing here is waiting for you. Open it to look through the set anyway — anything you already have is set to leave alone."
+                  fill={headerFill} disabled={copying}
+                  onActivate={() => setUpdateDialog({ choices: {} })}>
                   <Check size={20} />{!compactHeader && <PillLabel>Up to date</PillLabel>}
                 </RoundButton>
               );
@@ -1063,6 +1081,12 @@ export default function SharedSetView() {
           dark={dark}
           busy={copying}
           onChange={(id, action) => setUpdateDialog(d => ({ choices: { ...d.choices, [id]: action } }))}
+          onSetAll={(kind) => setUpdateDialog(() => ({
+            choices: Object.fromEntries((updatePlan?.songs || []).map(x => [
+              x.shareSong.id,
+              kind === 'skip' || x.state === 'uptodate' ? 'skip' : (isAddish(x.state) ? 'add' : 'update'),
+            ])),
+          }))}
           onCancel={() => setUpdateDialog(null)}
           onApply={() => applyUpdate(updateDialog.choices)}
         />
@@ -1175,8 +1199,13 @@ function SetCopyResult({ result, dark, onDone }) {
 function defaultUpdateAction(state) {
   if (state === 'add') return 'add';
   if (state === 'update') return 'update';
-  return 'skip';   // conflict, uptodate
+  return 'skip';   // conflict, uptodate, have
 }
+
+// States whose action ADDS a song rather than replacing one. 'have' belongs
+// here: taking it brings the publisher's version in as a SEPARATE song and never
+// writes over the one of yours that happens to share its title.
+const isAddish = (state) => state === 'add' || state === 'have';
 
 function UpdateResult({ result, dark, onDone }) {
   const { updated, added, skipped } = result;
@@ -1199,7 +1228,7 @@ function UpdateResult({ result, dark, onDone }) {
 
 // The Update-from-share list: one row per song with its state and the action to
 // take (Update / Skip, or Add / Skip for songs not yet in your library).
-function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, onApply }) {
+function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onSetAll, onCancel, onApply }) {
   const em   = dark ? 'text-gray-100' : 'text-gray-900';
   const sub  = dark ? 'text-gray-400' : 'text-gray-500';
   const seg  = (on) => `px-2.5 py-1 text-xs rounded-lg border transition-colors ${on ? 'bg-indigo-600 border-indigo-600 text-white' : dark ? 'border-gray-700 text-gray-300' : 'border-gray-300 text-gray-600'}`;
@@ -1214,6 +1243,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
     n.add      && `${n.add} to copy`,
     n.update   && `${n.update} changed in the share`,
     n.conflict && `${n.conflict} you’ve also edited`,
+    n.have     && `${n.have} already in your library`,
     n.uptodate && `${n.uptodate} already up to date`,
   ].filter(Boolean).join(' · ');
   // A set can be actionable with every song untouched, when only the order
@@ -1234,6 +1264,17 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
         {summary && <p className={`text-xs font-medium ${em}`}>{summary}</p>}
         {plan.orderChanged && (
           <p className={`text-xs ${sub}`}>The set’s running order has changed.</p>
+        )}
+
+        {/* Set every row at once. The already-in-your-library dialog has had an
+            apply-to-all for ages; this list never got one, and 83 songs is where
+            that stops being a detail. */}
+        {actionable.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] ${sub}`}>All:</span>
+            <button onClick={() => onSetAll('take')} className={seg(false)}>Take everything</button>
+            <button onClick={() => onSetAll('skip')} className={seg(false)}>Skip everything</button>
+          </div>
         )}
 
         {nothingToDo ? (
@@ -1260,14 +1301,15 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
                           exactly what happens when a friend copies your set and
                           publishes it back. */}
                       {item.state === 'add' && 'Not copied from this share'}
+                      {item.state === 'have' && 'In your library — a different version of this song'}
                     </span>
                   </span>
                   {item.state === 'uptodate' ? (
                     <Check size={16} className="text-green-500 shrink-0" />
                   ) : (
                     <span className="flex gap-1 shrink-0">
-                      <button onClick={() => onChange(s.id, item.state === 'add' ? 'add' : 'update')} className={seg(choice !== 'skip')}>
-                        {item.state === 'add' ? 'Add' : 'Update'}
+                      <button onClick={() => onChange(s.id, isAddish(item.state) ? 'add' : 'update')} className={seg(choice !== 'skip')}>
+                        {isAddish(item.state) ? 'Add' : 'Update'}
                       </button>
                       <button onClick={() => onChange(s.id, 'skip')} className={seg(choice === 'skip')}>Skip</button>
                     </span>
@@ -1278,6 +1320,13 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
           </ul>
         )}
 
+        {n.have > 0 && (
+          <p className={`text-[11px] ${sub}`}>
+            A song you already have is set to <strong>Skip</strong>. Choosing <strong>Add</strong> brings the
+            publisher’s version in as a <em>separate</em> song with a numbered name — your own copy is never
+            changed or replaced.
+          </p>
+        )}
         {anyConflict && (
           <p className="text-[11px] text-amber-500">A song you’ve also edited is set to <strong>Skip</strong>, so your version is kept. Choose <strong>Update</strong> only where you’d rather have the shared one — it replaces yours. Your ink annotations are kept either way.</p>
         )}
