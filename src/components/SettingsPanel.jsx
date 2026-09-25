@@ -293,7 +293,9 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+        /* Transparent: no dim, but still the click-catcher that closes the
+           drawer when you tap outside it. */
+        <div className="fixed inset-0 z-40" onClick={onClose} />
       )}
 
       <div

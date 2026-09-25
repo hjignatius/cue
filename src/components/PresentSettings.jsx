@@ -52,7 +52,7 @@ export default function PresentSettings({ onClose }) {
   return (
     // z-50: above PresentControls (z-40) and the gutter (z-35), so nothing on the
     // stage can be tapped by accident while this is open.
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
         onClick={e => e.stopPropagation()}
         className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-5 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}

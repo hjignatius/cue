@@ -536,7 +536,7 @@ export default function App() {
 
       {/* Backup restore dialog */}
       {backupDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex flex-col gap-1">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Restore backup</h2>
@@ -570,7 +570,7 @@ export default function App() {
 
       {/* Multi-set import dialog */}
       {setsImportDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex flex-col gap-1">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{setsImportDialog.title ?? 'Import sets'}</h2>
@@ -604,7 +604,7 @@ export default function App() {
 
       {/* Import conflict dialog */}
       {conflictDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex flex-col gap-1">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Song already exists</h2>

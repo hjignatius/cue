@@ -45,7 +45,7 @@ export default function UpdateButton({ onApply, onDismiss, getDirty, onSave }) {
       </div>
 
       {confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col gap-1">
               <h2 className="text-base font-semibold text-gray-900 dark:text-white">Unsaved changes</h2>

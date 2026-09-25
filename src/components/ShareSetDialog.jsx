@@ -101,7 +101,7 @@ export default function ShareSetDialog({ set, onClose }) {
   const muted = `text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={onClose}>
       <div className={panel} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className={`flex items-center justify-between px-6 pt-5 pb-4 border-b ${dark ? 'border-gray-800' : 'border-gray-100'}`}>

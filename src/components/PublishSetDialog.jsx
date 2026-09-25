@@ -24,7 +24,7 @@ export default function PublishSetDialog({ set, songs, userId, onPublish = publi
     }
   }
 
-  const overlay = `fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm`;
+  const overlay = `fixed inset-0 z-50 flex items-center justify-center`;
   const panel   = `w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
   const h2      = `text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`;
   const sub     = `text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`;

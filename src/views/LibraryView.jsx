@@ -629,7 +629,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
       {deleteConfirm && (() => {
         const n = deleteConfirm.ids.length;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setDeleteConfirm(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setDeleteConfirm(null)}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Delete {n === 1 ? 'this set' : `${n} sets`}?</h2>
@@ -1047,7 +1047,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
         const many    = deleteBlockedDialog.ids.length > 1;
         const running = deleteBlockedDialog.phase === 'running';
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => !running && setDeleteBlockedDialog(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => !running && setDeleteBlockedDialog(null)}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Stop sharing before deleting</h2>
@@ -1109,7 +1109,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
         const panel = `w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center"
             onClick={phase !== 'running' ? () => setUnpublishDialog(null) : undefined}
           >
             <div className={panel} onClick={e => e.stopPropagation()}>
@@ -2535,7 +2535,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Add-to-Set target picker — shown when the toolbar button is used with no
           set selected. Create a new set from the selection, or add to an existing. */}
       {addToSetOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setAddToSetOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setAddToSetOpen(false)}>
           <div
             className={`w-80 max-h-[80vh] rounded-2xl shadow-2xl p-5 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}
             onClick={e => e.stopPropagation()}
@@ -2623,7 +2623,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {songDeleteConfirm && (() => {
         const n = songDeleteConfirm.ids.length;
         return (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" onClick={() => setSongDeleteConfirm(null)}>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setSongDeleteConfirm(null)}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Delete {n === 1 ? 'this song' : `${n} songs`}?</h2>

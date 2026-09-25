@@ -218,7 +218,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
   // Picker gets its own wider panel
   if (phase === 'picker') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
         <div className={wide} onClick={e => e.stopPropagation()}>
           <div className={`px-6 pt-5 pb-4 shrink-0 border-b ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
             <h2 className={h2}>Pull a set from the cloud</h2>
@@ -256,7 +256,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={dismissable ? onClose : undefined}
     >
       <div className={panel} onClick={e => e.stopPropagation()}>
