@@ -493,15 +493,20 @@ export default function SharedSetView() {
       return { shareSong: s, local, state };
     });
     const localSet = localSets.find(st => st.copiedFrom?.token === token) || null;
-    let setChanged = false;
+    let setChanged = false, orderChanged = false;
     if (localSet) {
       const expected = setData.songs.map(s => bySource.get(s.id)?.id).filter(Boolean);
       const copiedIds = new Set(expected);
       const currentOrder = (localSet.songIds || []).filter(id => copiedIds.has(id));
-      setChanged = songs.some(x => x.state === 'add') || expected.join('|') !== currentOrder.join('|');
+      // `orderChanged` on its own — setChanged folds in the presence of new
+      // songs, because either reason means the copied set needs reconciling.
+      // That conflation is fine for deciding whether to act and useless for
+      // telling someone WHY, which is what the summary line has to do.
+      orderChanged = expected.join('|') !== currentOrder.join('|');
+      setChanged = songs.some(x => x.state === 'add') || orderChanged;
     }
     const actionable = songs.some(x => x.state === 'update' || x.state === 'conflict' || x.state === 'add') || setChanged;
-    return { status: !anyCopied ? 'copy' : actionable ? 'update' : 'uptodate', songs, localSet, setChanged };
+    return { status: !anyCopied ? 'copy' : actionable ? 'update' : 'uptodate', songs, localSet, setChanged, orderChanged };
   }, [setData, localSongs, localSets, token]);
 
   // Map share song id -> your local (edited/annotated) copy, for "Follow along
@@ -1099,6 +1104,21 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
   const seg  = (on) => `px-2.5 py-1 text-xs rounded-lg border transition-colors ${on ? 'bg-indigo-600 border-indigo-600 text-white' : dark ? 'border-gray-700 text-gray-300' : 'border-gray-300 text-gray-600'}`;
   const actionable = plan.songs.filter(s => s.state !== 'uptodate');
   const anyConflict = plan.songs.some(s => s.state === 'conflict');
+  // WHAT IS IN THIS LIST, before reading a single row. "Update" has to cover
+  // four situations — songs you have never copied, songs the publisher changed,
+  // songs you BOTH changed, and a set whose running order moved — and no one
+  // word can carry that. The counts can.
+  const n = plan.songs.reduce((a, x) => ({ ...a, [x.state]: (a[x.state] || 0) + 1 }), {});
+  const summary = [
+    n.add      && `${n.add} to copy`,
+    n.update   && `${n.update} changed in the share`,
+    n.conflict && `${n.conflict} you’ve also edited`,
+    n.uptodate && `${n.uptodate} already up to date`,
+  ].filter(Boolean).join(' · ');
+  // A set can be actionable with every song untouched, when only the order
+  // moved. Without this the row said Update and the dialog said everything was
+  // up to date.
+  const nothingToDo = actionable.length === 0 && !plan.orderChanged;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={busy ? undefined : onCancel}>
@@ -1108,7 +1128,12 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
           <p className={`text-xs ${sub}`}>Refresh your copies with the latest from this shared set. Your own (non-copied) songs are never touched, and your ink annotations are kept — a song keeps its place in your library, only its words and chords change.</p>
         </div>
 
-        {actionable.length === 0 ? (
+        {summary && <p className={`text-xs font-medium ${em}`}>{summary}</p>}
+        {plan.orderChanged && (
+          <p className={`text-xs ${sub}`}>The set’s running order has changed.</p>
+        )}
+
+        {nothingToDo ? (
           <p className={`text-sm ${sub}`}>Everything is already up to date.</p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -1155,8 +1180,12 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
         )}
 
         <div className="flex gap-2">
-          <button onClick={onApply} disabled={busy || actionable.length === 0}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${busy || actionable.length === 0 ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
+          {/* nothingToDo, not actionable.length: a set whose running order moved
+              has no per-song work but still has something to apply, and this
+              button used to be dead in exactly that case. applyUpdate
+              reconciles the order whatever the rows say. */}
+          <button onClick={onApply} disabled={busy || nothingToDo}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${busy || nothingToDo ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
             {busy ? 'Updating…' : 'Update'}
           </button>
           <button onClick={onCancel} disabled={busy}
