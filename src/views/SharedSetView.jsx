@@ -524,7 +524,25 @@ export default function SharedSetView() {
   const mineDiffers = useMemo(() => {
     const s = new Set();
     (updatePlan?.songs || []).forEach(x => {
-      if (x.local && contentHash(x.local) !== contentHash(x.shareSong)) s.add(x.shareSong.id);
+      if (!x.local) return;
+      const baseline = x.local.copiedFrom?.baseline;
+      // AGAINST THE BASELINE, not against the share. "Your own version" means
+      // you changed it since you copied it — so the question is whether your
+      // copy still matches what you were given.
+      //
+      // Comparing against the SHARE answered a different question and got this
+      // backwards whenever the publisher was the one who moved: you copy a song,
+      // they edit it, and your untouched copy suddenly differs from theirs. The
+      // badge then told you it was your own version when in fact you were behind
+      // — opposite cause, same colour. The Update list beside it had it right
+      // all along, because the list consults the baseline.
+      //
+      // Copies made before baselines were recorded have nothing to compare, so
+      // they keep the old behaviour rather than silently reading as unedited.
+      const differs = baseline == null
+        ? contentHash(x.local) !== contentHash(x.shareSong)
+        : contentHash(x.local) !== baseline;
+      if (differs) s.add(x.shareSong.id);
     });
     return s;
   }, [updatePlan]);
