@@ -1072,7 +1072,7 @@ export default function SharedSetView() {
       {/* Leave prompt — shown when navigating away before saving/copying */}
       {leavePrompt && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           onClick={() => setLeavePrompt(false)}
         >
           <div
@@ -1111,7 +1111,7 @@ export default function SharedSetView() {
       {/* Copy result modal */}
       {copyResult && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center"
           onClick={() => setCopyResult(null)}
         >
           <div
@@ -1223,7 +1223,9 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
   const nothingToDo = actionable.length === 0 && !plan.orderChanged;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={busy ? undefined : onCancel}>
+    /* No scrim, as everywhere else: this screen is about the set behind it, and
+       the songs are what you are deciding about. */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={busy ? undefined : onCancel}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex flex-col gap-1">
           <h2 className={`text-base font-semibold ${em}`}>Update from “{setName}”</h2>
@@ -1364,7 +1366,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={() => onResolve(null)}
     >
       <div
