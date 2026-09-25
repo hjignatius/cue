@@ -531,12 +531,6 @@ export default function SharedSetView() {
     setPresenting({ songs: mine ? base.map(s => localBySource.get(s.id) || s) : base, startIndex, mine });
   }
 
-  function defaultUpdateAction(state) {
-    if (state === 'add') return 'add';
-    if (state === 'update' || state === 'conflict') return 'update';
-    return 'skip';
-  }
-
   // Apply the Update: overwrite changed copies in place (keeping their id so set
   // references hold), add new songs, skip the rest, then reconcile the copied
   // set's order/membership to the share. Never touches non-copied local songs.
@@ -1060,6 +1054,24 @@ function SetCopyResult({ result, dark, onDone }) {
   );
 }
 
+// What each per-song row starts on when the Update list opens.
+//
+// A CONFLICT DEFAULTS TO SKIP. Both sides changed that song, so taking the
+// publisher's version discards yours — and a pre-ticked destructive option gets
+// a reflex confirm from anyone who doesn't stop to read the amber line. Skip
+// makes the fast path the safe one and keeping the publisher's version the
+// deliberate act, which is the right way round.
+//
+// This USED to exist twice: once here for applyUpdate and once inline in
+// UpdateDialog for the segmented buttons. They agreed by luck. Two copies of a
+// default are how a dialog comes to show one thing and do another, so there is
+// now one.
+function defaultUpdateAction(state) {
+  if (state === 'add') return 'add';
+  if (state === 'update') return 'update';
+  return 'skip';   // conflict, uptodate
+}
+
 function UpdateResult({ result, dark, onDone }) {
   const { updated, added, skipped } = result;
   const parts = [];
@@ -1103,7 +1115,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
             {plan.songs.map((item, i) => {
               const s = item.shareSong;
               const title = s.metadata?.title || 'Untitled';
-              const choice = choices?.[s.id] ?? (item.state === 'add' ? 'add' : item.state === 'uptodate' ? 'skip' : 'update');
+              const choice = choices?.[s.id] ?? defaultUpdateAction(item.state);
               return (
                 <li key={i} className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <span className="flex flex-col min-w-0">
@@ -1132,7 +1144,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onCancel, 
         )}
 
         {anyConflict && (
-          <p className="text-[11px] text-amber-500">Updating a song you’ve edited replaces your version with the shared one. Choose Skip to keep yours.</p>
+          <p className="text-[11px] text-amber-500">A song you’ve also edited is set to <strong>Skip</strong>, so your version is kept. Choose <strong>Update</strong> only where you’d rather have the shared one — it replaces yours. Your ink annotations are kept either way.</p>
         )}
 
         <div className="flex gap-2">
