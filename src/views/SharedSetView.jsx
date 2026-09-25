@@ -1034,7 +1034,6 @@ export default function SharedSetView() {
                 dark={dark}
                 muted={muted}
                 edited={mineDiffers.has(song.id)}
-                behind={behindShare.has(song.id)}
                 playMine={playMine}
                 onPresent={() => present(displayed, idx)}
                 onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
@@ -1445,7 +1444,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, behind, playMine, onPresent, onCopy, onTakeNewer, copying }) {
+function SharedSongRow({ song, index, dark, muted, edited, playMine, onPresent, onCopy, onTakeNewer, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1454,27 +1453,9 @@ function SharedSongRow({ song, index, dark, muted, edited, behind, playMine, onP
       <div className="flex items-start gap-3">
         <span className={`text-xs pt-0.5 shrink-0 tabular-nums ${muted}`}>{index + 1}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <p className={`font-medium truncate ${dark ? 'text-white' : 'text-gray-900'}`}>
-              {meta.title || 'Untitled'}
-            </p>
-            {/* Your copy is behind this share. A glyph, not just a colour: amber
-                against green is the pair that fails first for colour-blind
-                viewers and under stage lighting, so the arrow carries the signal
-                and the colour only reinforces it. Not a button — tapping the
-                copy circle would add a SECOND copy rather than update this one,
-                and taking the new version belongs in the Update list. */}
-            {behind && (
-              <span
-                role="img"
-                aria-label="A newer version of this song is in the shared set"
-                title="The publisher has changed this song since you copied it. Use Update to take the newer version; presenting it now plays your older copy."
-                className="shrink-0 inline-flex text-amber-600 dark:text-amber-400"
-              >
-                <RefreshCw size={13} />
-              </span>
-            )}
-          </div>
+          <p className={`font-medium truncate ${dark ? 'text-white' : 'text-gray-900'}`}>
+            {meta.title || 'Untitled'}
+          </p>
           {meta.artist && (
             <p className={`text-sm mt-0.5 truncate ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{meta.artist}</p>
           )}
@@ -1498,15 +1479,19 @@ function SharedSongRow({ song, index, dark, muted, edited, behind, playMine, onP
               useless, because there WAS something to take. The button sits right
               beside the marker saying so, which makes it the thing anyone would
               press. */}
+          {/* Behind the share: the SAME library circle, in amber. A separate
+              13px refresh arrow beside the title was too small to read — this is
+              one control carrying both the state and the action, which is also
+              fewer things on the row. */}
           {onTakeNewer ? (
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="Take the newer version of this song"
-              title="The publisher has changed this song. This replaces your copy with their newer version — your ink annotations are kept."
+              title="The publisher has changed this song since you copied it. This replaces your copy with their newer version — your ink annotations are kept."
               fill="#d97706" disabled={copying}
               onActivate={onTakeNewer}
             >
-              <RefreshCw size={16} />
+              <Library size={16} />
             </RoundButton>
           ) : onCopy && (
             <RoundButton
