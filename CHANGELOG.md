@@ -3,7 +3,7 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
-## v2.0.0 — 2026-09-26
+## v1.9.3 — 2026-09-26
 
 Shared sets tell you the truth about your own library, the way out of a screen is
 the same everywhere, and nothing dims the thing you're deciding about.
