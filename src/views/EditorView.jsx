@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation } from 'lucide-react';
+import { Save, Search, X, ChevronLeft, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -10,7 +10,7 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import AiRetryLink from '../components/AiRetryLink.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight, GLASS } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
@@ -1346,7 +1346,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Header round-button fill. On DARK chrome the translucent night fill composites
   // to ~#4e5055 (~8:1) and reads well; on LIGHT chrome the translucent day fill
   // would be muddy (~2.9:1), so the opaque slate ROUND_FILL_DAY_CHROME is used
-  // instead. Exit keeps ROUND_FILL_ACTIVE (indigo) so it stays the anchor.
+  // instead. The way OUT is not one of these: it is glass, on the left, and
+  // deliberately not indigo — indigo means "the primary action here", and in an
+  // editor that is Save.
   const headerFill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
   // Shared JSX blocks --------------------------------------------------------
@@ -2065,11 +2067,38 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     <div className={`ios-glass-inset h-dvh ${rootBg} flex flex-col`}>
       {/* Header */}
       <header className={`px-4 py-2 border-b ${border} flex items-center gap-3 shrink-0`}>
+        {/* THE WAY OUT, on the left. Back rather than close: an X says "discard",
+            and this one raises the unsaved-changes prompt and returns you to the
+            library, which is what a chevron says. Glass rather than indigo,
+            because indigo in Cue means "the primary thing here" and the primary
+            thing in an editor is Save, not leaving. Same treatment as Present's,
+            so the way out is one thing wherever you are.
+
+            It is IN the toolbar rather than floating over the text: the editor
+            has chrome to hold it, which also keeps it clear of the macOS window
+            controls that made Present's have to push itself down. */}
+        <RoundButton
+          size={ROUND_SIZE_ACTION}
+          label="Back to Library" title="Back to Library"
+          glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
+          onActivate={() => isDirty ? setShowBackConfirm(true) : onBack()}
+        >
+          <ChevronLeft size={26} strokeWidth={2.5} />
+        </RoundButton>
+
+        {/* The title now looks like the field it is. It was a bare transparent
+            input jammed into the corner, which reads as a heading — so people did
+            not see it, and did not realise they could type in it. A quiet box and
+            a focus ring say "editable" without competing with the song below. */}
         <input
           value={metadata.title}
           onChange={e => { setMetadata(m => ({ ...m, title: e.target.value })); setIsDirty(true); }}
           placeholder="Song title"
-          className={`flex-1 bg-transparent text-lg font-bold outline-none min-w-0 ${dark ? 'text-white placeholder-gray-700' : 'text-gray-900 placeholder-gray-400'}`}
+          className={`flex-1 min-w-0 text-lg font-bold rounded-lg border px-2.5 py-1 outline-none transition-colors ${
+            dark
+              ? 'text-white placeholder-gray-600 bg-gray-800/60 border-gray-700 hover:border-gray-600 focus:border-indigo-500 focus:bg-gray-800'
+              : 'text-gray-900 placeholder-gray-400 bg-gray-50 border-gray-200 hover:border-gray-300 focus:border-indigo-500 focus:bg-white'
+          }`}
         />
 
         <div className="flex items-center gap-2 shrink-0">
@@ -2146,15 +2175,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </RoundButton>
           )}
 
-          {/* Exit — indigo anchor. isDirty guard verbatim. */}
-          <RoundButton
-            size={ROUND_SIZE_ACTION}
-            label="Back to Library" title="Back to Library"
-            fill={ROUND_FILL_ACTIVE}
-            onActivate={() => isDirty ? setShowBackConfirm(true) : onBack()}
-          >
-            <X size={24} strokeWidth={2.5} />
-          </RoundButton>
+
         </div>
       </header>
 

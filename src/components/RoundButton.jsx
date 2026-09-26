@@ -75,6 +75,21 @@ export function TriangleRight({ size = 26 }) {
  * floating panel could not be dragged from. The handler is omitted, so it stays a
  * true no-op.
  */
+// GLASS — the treatment for a control that sits OVER content rather than in a
+// coloured bar: the way out of Present, and the way out of the editor. Same
+// vocabulary as the Present control panel, defined once here so the two screens
+// cannot drift apart.
+//
+// A little more opaque than that panel (0.72 against 0.55) for two reasons: a
+// 44px circle has a fraction of a panel's area to read, and in an installed iOS
+// app the top of the screen already carries the system's own translucent band —
+// glass over glass is where a control disappears.
+export const GLASS = (dark) => ({
+  fill:   dark ? 'rgba(28,28,30,0.72)'    : 'rgba(255,255,255,0.72)',
+  border: dark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)',
+  ink:    dark ? '#f3f4f6'                : '#1f2937',
+});
+
 export default function RoundButton({
   size,
   label,
@@ -84,6 +99,11 @@ export default function RoundButton({
   disabled = false,
   active = false,
   pill = false,
+  // Glass variant: translucent, blurred, hairline border, and its own ink colour
+  // instead of the white that works on a solid fill. Pass GLASS(dark).
+  glass = false,
+  border,
+  color,
   disabledOpacity = 0.3,
   touchAction = 'none',
   // Optional popup semantics for triggers that own a menu. Purely additive —
@@ -119,15 +139,15 @@ export default function RoundButton({
           padded hit area does not scale its transparent surround. */}
       {pill ? (
         <span
-          className="flex items-center gap-2 rounded-full text-white select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90"
-          style={{ height: size, paddingLeft: 12, paddingRight: 16, background: bg, opacity }}
+          className={`flex items-center gap-2 rounded-full select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90 ${glass ? 'backdrop-blur-md border shadow-lg' : 'text-white'}`}
+          style={{ height: size, paddingLeft: 12, paddingRight: 16, background: bg, opacity, borderColor: border, color }}
         >
           {children}
         </span>
       ) : (
         <span
-          className="flex items-center justify-center rounded-full text-white select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90"
-          style={{ width: size, height: size, background: bg, opacity }}
+          className={`flex items-center justify-center rounded-full select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90 ${glass ? 'backdrop-blur-md border shadow-lg' : 'text-white'}`}
+          style={{ width: size, height: size, background: bg, opacity, borderColor: border, color }}
         >
           {children}
         </span>

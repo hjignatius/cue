@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { X, Pencil, Settings as SettingsIcon } from 'lucide-react';
+import { ChevronLeft, Pencil, Settings as SettingsIcon } from 'lucide-react';
 import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN, PRESENT_CONTROL_BUTTON_SIZE } from '../components/PresentControls.jsx';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET, GLASS } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
@@ -1556,13 +1556,18 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           transition: 'opacity 300ms ease',
         }}
       >
+        {/* Back, not close. An X says "discard"; this returns you to where you
+            came from, which is what a chevron says. Glass rather than a solid
+            fill so it reads as floating over the stage instead of competing with
+            the song — and the same treatment the editor's way out uses, so exit
+            is one thing in Cue wherever you are. */}
         <RoundButton
           size={PRESENT_ACTION_BUTTON_SIZE}
-          label="Exit Present mode"
-          fill={actionFill}
+          label="Exit Present mode" title="Back"
+          glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
           onActivate={onExit}
         >
-          <X size={22} strokeWidth={2.5} />
+          <ChevronLeft size={26} strokeWidth={2.5} />
         </RoundButton>
       </div>
 
