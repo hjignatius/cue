@@ -518,7 +518,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   );
 
   const [chordPrefs, setChordPrefs]         = useState(song?.chordPrefs ?? {});
-  const [showPreview, setShowPreview]       = useState(true);
+  // Side-by-side preview pane. No longer switchable — its toggle was removed on
+  // request — so this is now a constant.
+  //
+  // It stays ON, which is what it always defaulted to. A PDF song's sheet is
+  // drawn INSIDE this pane, so switching it off would leave a PDF song showing an
+  // empty text box and nothing else; the Ink overlay renders here too. Turning
+  // the pane off needs both of those handled first.
+  const [showPreview] = useState(true);   // eslint-disable-line no-unused-vars
   const [showChordPanel, setShowChordPanel] = useState(true);
   // Per-song "Imbed" — over-lyrics shows chord shapes (diagrams) instead of
   // names. Over-lyrics only; non-phone only. Persisted with the song.
@@ -2561,16 +2568,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {!oneAtATime && (
           <div className="flex items-center gap-2 shrink-0">
             {/* Round-button language: state-carrying pills — indigo when on,
-                neutral grey when off. */}
-            <RoundButton
-              size={ROUND_SIZE_COMPACT} pill
-              label={showPreview ? 'Preview On' : 'Preview Off'}
-              title="Toggle preview panel"
-              fill={headerFill} active={showPreview}
-              onActivate={() => setShowPreview(v => !v)}
-            >
-              <span className="text-xs font-medium leading-none whitespace-nowrap">{showPreview ? 'Preview On' : 'Preview Off'}</span>
-            </RoundButton>
+                neutral grey when off.
+                The Preview toggle used to be the first of these. Removed on
+                request — it was not being used, and the width it took is width
+                the editor wants. */}
             {chordsAvailable && (
             <RoundButton
               size={ROUND_SIZE_COMPACT} pill
