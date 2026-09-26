@@ -190,7 +190,12 @@ const REQUEST_HEADERS = (apiKey) => ({
 // the one request and only the finished answer comes back — which is why a
 // progress indicator has to stream even when the caller wants JSON rather than
 // live text.
-async function streamClaude({ signal, ...body }, onText, onSearch) {
+// `atomic` says the caller uses ONLY the returned value, never the partial text.
+// Every JSON tool is atomic, and so are the two that hand the chart back. That
+// makes a dropped connection retryable: nothing has been shown that restarting
+// would repeat. Ask about music is the exception — its answer is on screen as it
+// arrives, so a restart there would rewrite half a reply, and it stays as it was.
+async function streamClaude({ signal, atomic, ...body }, onText, onSearch) {
   const apiKey = getApiKey();
   if (!apiKey) {
     const err = new Error('Add your Anthropic API key in Settings to use AI features.');
@@ -199,7 +204,22 @@ async function streamClaude({ signal, ...body }, onText, onSearch) {
   }
 
   const MAX_ATTEMPTS = 3;
-  const TIMEOUT_MS = 90000;   // hard cap per attempt, so a stall can't spin forever
+  // IDLE, NOT TOTAL. The timeout exists to catch a connection that has stopped
+  // talking, and it used to be a 90-second cap on the whole attempt — which is a
+  // different thing, and killed requests that were working perfectly.
+  //
+  // THE BUG THIS FIXES: Fill in song details buys up to four web searches inside
+  // one request, and four searches do not fit in 90 seconds. Moving that tool
+  // onto the streaming path (so it could show progress) silently gave it a
+  // ceiling it had never had — callClaude has no timeout at all — and it started
+  // dying at about one search in, reporting a timeout or, when the abort surfaced
+  // as a body-stream error instead, a bare "network error".
+  //
+  // Reset on every chunk. The API sends events throughout, including pings while
+  // a search runs, so a request making progress can take as long as it needs
+  // while a silent one is still cut off quickly.
+  const IDLE_MS = 60000;
+  const HARD_MS = 420000;   // backstop only; max_tokens already bounds the work
   if (signal?.aborted) throw abortedError();
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     // Two things can abort an attempt: our own timeout, and the caller closing
@@ -207,7 +227,9 @@ async function streamClaude({ signal, ...body }, onText, onSearch) {
     // asking the caller's signal — the difference matters, because a timeout is
     // an error worth showing and a close is not.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    let idle = setTimeout(() => controller.abort(), IDLE_MS);
+    const bump = () => { clearTimeout(idle); idle = setTimeout(() => controller.abort(), IDLE_MS); };
+    const hard = setTimeout(() => controller.abort(), HARD_MS);
     const relay = () => controller.abort();
     signal?.addEventListener('abort', relay, { once: true });
     try {
@@ -253,6 +275,7 @@ async function streamClaude({ signal, ...body }, onText, onSearch) {
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
+          bump();   // it is still talking to us
           buf += decoder.decode(value, { stream: true });
           const lines = buf.split('\n');
           buf = lines.pop();               // keep the trailing partial line
@@ -290,11 +313,20 @@ async function streamClaude({ signal, ...body }, onText, onSearch) {
         }
       } catch (e) {
         if (e?.name === 'AbortError') throw signal?.aborted ? abortedError() : timeoutError();
-        throw e;
+        // A drop PART WAY THROUGH. Worth one more go when the caller only wants
+        // the final value: `acc` is per-attempt, so the next one starts clean.
+        // It does re-send the request, and so bills again — but the attempt that
+        // failed was already paid for and produced nothing.
+        if (atomic && attempt < MAX_ATTEMPTS && !isOffline()) {
+          console.warn(`[ai] stream dropped mid-answer (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying`, e);
+          continue;
+        }
+        throw streamDropError(e);
       }
       return acc.trim();
     } finally {
-      clearTimeout(timer);
+      clearTimeout(idle);
+      clearTimeout(hard);
       signal?.removeEventListener('abort', relay);
     }
   }
@@ -306,6 +338,18 @@ async function streamClaude({ signal, ...body }, onText, onSearch) {
 function abortedError() {
   const err = new Error('Cancelled.');
   err.code = 'aborted';
+  return err;
+}
+// A connection that died after the answer had started. Distinct from
+// networkError, which is specifically "never got a response at all" — saying that
+// here would be wrong, and leaving the raw browser wording is why this used to
+// surface as a bare "network error" with no sentence around it.
+function streamDropError(e) {
+  console.error('[ai] stream dropped while the answer was arriving', e);
+  const err = new Error(isOffline()
+    ? "You're offline — reconnect and try again."
+    : 'The connection dropped while the answer was arriving — try again.');
+  err.code = 'stream';
   return err;
 }
 function timeoutError() {
@@ -480,6 +524,7 @@ export async function cleanUpChart(text, { symbols, model, onProgress, signal } 
   const out = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
+    atomic: true,
     signal,
     output_config: { effort: 'low' },
     system,
@@ -518,6 +563,7 @@ export async function detectStructure(text, { model, onProgress, signal } = {}) 
   const out = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
+    atomic: true,
     signal,
     output_config: { effort: 'low' },
     system: STRUCTURE_SYSTEM,
@@ -600,6 +646,7 @@ Only include URLs you actually found via search. Order best first. If you find n
   // source finished — not one started.
   const raw = await streamClaude({
     max_tokens: 1500,
+    atomic: true,
     signal,
     output_config: { effort: 'low' },
     system,
@@ -695,6 +742,7 @@ Only include songs you are confident are real, and URLs you actually found via s
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 2500,
+    atomic: true,
     signal,
     output_config: { effort: 'low' },
     system,
@@ -765,6 +813,7 @@ Only include songs you are confident are real, and URLs you actually found via s
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 2500,
+    atomic: true,
     signal,
     output_config: { effort: 'low' },
     system,
@@ -884,6 +933,7 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
+    atomic: true,
     signal,
     output_config: { effort: 'low' },
     system,
@@ -968,6 +1018,7 @@ Respond with ONLY a JSON object (no prose, no code fence):
 
   const raw = await streamClaude({
     max_tokens: 800,
+    atomic: true,
     signal,
     output_config: { effort: 'medium' },
     system,
@@ -1008,6 +1059,7 @@ Respond with ONLY a JSON object (no prose, no code fence):
   const TIME_KEYS = ['songs', 'gapsLowMin', 'gapsHighMin', 'breakMin', 'topTailMin', 'notes'];
   const raw = await streamClaude({
     max_tokens: 1200,
+    atomic: true,
     signal,
     output_config: { effort: 'medium' },
     system,
@@ -1113,6 +1165,7 @@ Rules:
   const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
+    atomic: true,
     signal,
     output_config: { effort: 'medium' },
     system,
