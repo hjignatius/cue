@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 
 // One sentence, one place. Every AI surface hedges in the SAME words rather than
 // each inventing its own — so the caution reads as a property of Cue's AI, not
@@ -90,17 +90,40 @@ export function AiProgress({ label, detail, percent, dark, onCancel }) {
 // the widest thing in the row, and the row is where the buttons live. A bar
 // that size says "working" as well as the words did and costs a fifth of the
 // space. Same rule as AiProgress — `percent` is counted, never invented.
-export function AiInlineProgress({ percent, dark, label = 'Working…' }) {
+export function AiInlineProgress({ percent, dark, label = 'Working…', onCancel }) {
   return (
-    <span
-      role="progressbar" aria-label={label}
-      aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}
-      className={`shrink-0 w-12 h-1.5 rounded-full overflow-hidden ${dark ? 'bg-gray-700' : 'bg-gray-200'}`}
-    >
+    <span className="shrink-0 inline-flex items-center gap-1.5">
       <span
-        className="block h-full bg-indigo-500 rounded-full transition-[width] duration-300 ease-out"
-        style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-      />
+        role="progressbar" aria-label={label}
+        aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}
+        className={`shrink-0 w-12 h-1.5 rounded-full overflow-hidden ${dark ? 'bg-gray-700' : 'bg-gray-200'}`}
+      >
+        <span
+          className="block h-full bg-indigo-500 rounded-full transition-[width] duration-300 ease-out"
+          style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+        />
+      </span>
+      {/* Stop. The in-place tools rewrite the chart, so a wrong one caught early
+          is worth far more than the seconds it saves — and running several in a
+          row is exactly when the wrong one gets pressed.
+          Small circle by request; the hit area is padded out to 28px around a
+          14px glyph, because this is the control you reach for in a hurry and the
+          toolbar cannot spare a full 44. */}
+      {onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label={`Cancel — ${label}`}
+          title="Cancel"
+          className={`shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full border transition-colors ${
+            dark
+              ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white'
+              : 'border-gray-300 text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+          }`}
+        >
+          <X size={13} strokeWidth={2.5} />
+        </button>
+      )}
     </span>
   );
 }

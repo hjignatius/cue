@@ -888,9 +888,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   async function runCleanup(model) {
     if (aiBusy || text.trim() === '') return;
-    beginAi('clean');
+    const signal = beginAi('clean');
     try {
-      const cleaned = await cleanUpChart(text, { symbols, model, onProgress: p => setAiPct(p * 100) });
+      const cleaned = await cleanUpChart(text, { symbols, model, signal, onProgress: p => setAiPct(p * 100) });
       if (cleaned && cleaned !== text) {
         setText(cleaned);
         senseFormat(cleaned);
@@ -903,6 +903,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       clearAiMsg();
       setAiRetry('clean'); setAiRetryModel(model);
     } catch (e) {
+      // Cancelled is not a failure, and the chart is untouched.
+      if (e?.code === 'aborted') return;
       flashAi(e?.message || 'Clean up failed.');
     } finally {
       setAiBusy('');
@@ -914,9 +916,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // lines; existing labels are kept. No format conversion (unlike Condense).
   async function runDetectStructure(model) {
     if (aiBusy || text.trim() === '') return;
-    beginAi('structure');
+    const signal = beginAi('structure');
     try {
-      const labeled = await detectStructure(text, { model, onProgress: p => setAiPct(p * 100) });
+      const labeled = await detectStructure(text, { model, signal, onProgress: p => setAiPct(p * 100) });
       if (labeled && labeled !== text) {
         setText(labeled);
         setIsDirty(true);
@@ -924,6 +926,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       clearAiMsg();
       setAiRetry('structure'); setAiRetryModel(model);
     } catch (e) {
+      if (e?.code === 'aborted') return;
       flashAi(e?.message || 'Detect structure failed.');
     } finally {
       setAiBusy('');
@@ -2454,6 +2457,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   onClick={() => runFromAiMenu(runCleanup)}>
                   <Wand2 size={15} className="opacity-70" /> Clean up formatting
                 </button>
+                {/* Not isEmptyText: a pdf song with a title and no typed chords
+                    is exactly when this is most useful. */}
+                <button type="button" role="menuitem" tabIndex={-1} disabled={!canIdentifySong()}
+                  className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  onClick={() => runFromAiMenu(openFillAsk)}>
+                  <ListPlus size={15} className="opacity-70" /> Fill in song details
+                </button>
                 <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText || songType === 'pdf'}
                   className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
                   onClick={() => runFromAiMenu(runDetectStructure)}>
@@ -2471,13 +2481,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     <Maximize2 size={15} className="opacity-70" /> Expand (show in full)
                   </button>
                 )}
-                {/* Not isEmptyText: a pdf song with a title and no typed chords
-                    is exactly when this is most useful. */}
-                <button type="button" role="menuitem" tabIndex={-1} disabled={!canIdentifySong()}
-                  className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
-                  onClick={() => runFromAiMenu(openFillAsk)}>
-                  <ListPlus size={15} className="opacity-70" /> Fill in song details
-                </button>
                 {instrument !== 'none' && (
                   <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
                     className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
@@ -2528,7 +2531,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             long message crowds the row but never pushes a button off it. */}
         {(aiBusy === 'clean' || aiBusy === 'structure') && (
           <AiInlineProgress percent={aiPct} dark={dark}
-            label={aiBusy === 'clean' ? 'Cleaning up' : 'Detecting structure'} />
+            label={aiBusy === 'clean' ? 'Cleaning up' : 'Detecting structure'}
+            onCancel={() => cancelAi(aiBusy)} />
         )}
         {aiMsg && <span className={`text-xs min-w-0 truncate ${mutedText}`} title={aiMsg}>{aiMsg}</span>}
         {aiRetry && !aiBusy && !compactChrome && (
