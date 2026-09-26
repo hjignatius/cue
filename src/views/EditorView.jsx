@@ -10,7 +10,7 @@ import ResizeHandle from '../components/ResizeHandle.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import AiRetryLink from '../components/AiRetryLink.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, TriangleLeft, TriangleRight, GLASS } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, TriangleLeft, TriangleRight, GLASS } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
