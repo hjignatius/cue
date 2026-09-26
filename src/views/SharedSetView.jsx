@@ -7,8 +7,8 @@ import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cache
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { contentHash, isEditedCopy } from '../utils/contentHash.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ } from 'lucide-react';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft } from 'lucide-react';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -744,14 +744,14 @@ export default function SharedSetView() {
     return (
       <div className={`ios-glass-inset min-h-dvh flex flex-col ${bg}`}>
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
-          <button
-            onClick={() => navigate('/')}
-            title="Open Cue"
-            aria-label="Open Cue"
-            className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
+          <RoundButton
+            size={ROUND_SIZE_ACTION}
+            label="Leave this shared set" title="Leave this shared set"
+            glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
+            onActivate={() => navigate('/')}
           >
-            <CueMark size={ROUND_SIZE_ACTION} />
-          </button>
+            <ChevronLeft size={26} strokeWidth={2.5} />
+          </RoundButton>
         </header>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-3 px-6 max-w-sm">
@@ -777,14 +777,14 @@ export default function SharedSetView() {
     return (
       <div className={`ios-glass-inset min-h-dvh flex flex-col ${bg}`}>
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
-          <button
-            onClick={() => navigate('/')}
-            title="Open Cue"
-            aria-label="Open Cue"
-            className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
+          <RoundButton
+            size={ROUND_SIZE_ACTION}
+            label="Leave this shared set" title="Leave this shared set"
+            glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
+            onActivate={() => navigate('/')}
           >
-            <CueMark size={ROUND_SIZE_ACTION} />
-          </button>
+            <ChevronLeft size={26} strokeWidth={2.5} />
+          </RoundButton>
         </header>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-3 px-6 max-w-sm">
@@ -878,14 +878,23 @@ export default function SharedSetView() {
       {/* Header */}
       <header className={`px-6 py-4 border-b ${bdr} flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={handleOpenCue}
-            title="Open Cue"
-            aria-label="Open Cue"
-            className="shrink-0 rounded-[23%] transition-opacity hover:opacity-80"
+          {/* The way out, matching Present and the editor: same glass circle, same
+              corner, same chevron. NOT called "Back" — for someone who arrived
+              from a link there is nowhere to go back TO, and "Leave this shared
+              set" is true for them and for you.
+
+              It keeps handleOpenCue, which is why the chevron suits it better
+              than the Cue mark did: that handler already stops and asks when you
+              have neither bookmarked nor copied anything, exactly as the editor's
+              exit asks about unsaved changes. The logo advertised none of that. */}
+          <RoundButton
+            size={ROUND_SIZE_ACTION}
+            label="Leave this shared set" title="Leave this shared set"
+            glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
+            onActivate={handleOpenCue}
           >
-            <CueMark size={ROUND_SIZE_ACTION} />
-          </button>
+            <ChevronLeft size={26} strokeWidth={2.5} />
+          </RoundButton>
           <h1 className={`text-base font-semibold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{set.name}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
