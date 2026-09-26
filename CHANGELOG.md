@@ -3,6 +3,69 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.0 — 2026-09-26
+
+Shared sets tell you the truth about your own library, the way out of a screen is
+the same everywhere, and nothing dims the thing you're deciding about.
+
+### Shared sets
+
+- **The Update list says what's in it before you read a row.** *3 to copy · 1
+  changed in the share · 1 you've also edited · 72 already in your library.* One
+  word could never carry four situations, which is why one green tick above nine
+  Add buttons still said "Update" and read as nonsense.
+- **Songs you already own are no longer offered for adding.** A set built from 83
+  of your own songs used to pre-tick Add on every one it couldn't recognise —
+  72 taps to refuse a library you already had. They now read *"In your library —
+  a different version of this song"* and are set to Skip. You can still take the
+  publisher's version deliberately; it arrives as a separate song and never
+  replaces yours.
+- **And it warns you first.** Adding a song whose title you already have renames
+  it. Nothing told you that before you pressed Update — it just happened.
+- **Fixed: "New — not in your library" was wrong about your library.** The list
+  matches by where a song came from, so a song you wrote, published, and had a
+  friend copy and republish came back reading as new to you. It now says *"Not
+  copied from this share"*, which is what it actually knows.
+- **A song you've both edited now defaults to Skip.** It used to pre-select
+  Update — the one choice that discards your own work — with only a warning line
+  to stop you.
+- **Cue recognises your own set.** Open a share you published and it says *"Your
+  set"* rather than offering to copy it. That closes a two-tap path from your own
+  share to a duplicated library.
+- **Copy greys out when you already have everything**, instead of opening a
+  dialog whose every row says "already there, skip?".
+- **One tap takes a newer version.** When a song has changed in the share, its
+  library button turns amber — tapping it replaces your copy, keeping your ink.
+  It used to report "skipped", which was true and useless.
+- **Fixed: the amber "your own version" marker appeared when you were simply
+  behind.** It compared your copy against the publisher's current version, which
+  differs for two opposite reasons. It now asks whether *you* changed it.
+- **Take everything / Skip everything**, so a long list is never a long tap
+  sequence.
+- **Your ink is kept** through an update, and the dialog now says so.
+
+### Getting around
+
+- **The way out is a ‹ back button, top left, on both Present and the editor.**
+  An ✕ says "discard"; both of these take you back where you came from. It's
+  translucent glass rather than indigo, because indigo marks the primary action
+  and in an editor that's Save — not leaving.
+- **The song title looks like the field it is.** It was a bare transparent box in
+  the corner, so it read as a heading and people didn't realise they could type
+  in it.
+- **No dimmed, blurred background on any dialog** — seventeen of them. Every one
+  asks about the song, set or library behind it, and dimming that hides the thing
+  you're judging. The dialogs are still modal; only the dim is gone.
+
+### Fixed
+
+- **Fill in song details stopped about a quarter of the way in**, reporting a
+  timeout or a network error. It had a 90-second ceiling it was never meant to
+  have, and four web searches don't fit in 90 seconds. The limit now measures
+  *silence* rather than total time, so a request that's working can take as long
+  as it needs. A connection that drops part way through also retries by itself
+  now.
+
 ## v1.9.2 — 2026-09-24
 
 Every AI tool in Cue now tells you what it's doing, lets you stop it, and stays

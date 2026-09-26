@@ -416,7 +416,7 @@ Here comes the sun, little darlin</pre>
   <tr><td><strong>Present</strong></td><td>Launches the current song in full-screen Present mode. When you arrive here via the <strong>Edit</strong> button in Present mode, this button changes to <strong>↩ Return to Performance</strong> — see <em>Editing During Performance</em> below.</td></tr>
   <tr><td><strong>← Prev / Next →</strong></td><td>Moves to the previous or next song. Appears when the editor is opened via the <strong>✎ Edit</strong> button in the Setlist column, the <strong>Edit</strong> button in Present mode, or by double-tapping a song in the Library or Setlist panel. Navigation order follows the list you opened from (or the set you were presenting). If there are unsaved changes, a confirmation dialog appears before navigating.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Only shown when a YouTube URL is saved in the metadata bar. The button is grayed out if no URL is set.</td></tr>
-  <tr><td><strong>✕</strong></td><td>Returns to the Library. If there are unsaved changes, a confirmation dialog appears first.</td></tr>
+  <tr><td><strong>‹ (back)</strong></td><td>First item in the header, on the <em>left</em>. Returns to the Library; if there are unsaved changes, a confirmation dialog appears first. Deliberately not an ✕ — this takes you back rather than throwing anything away — and deliberately not indigo, because indigo marks the primary action and that is <strong>Save</strong>.</td></tr>
 </table>
 <div class="tip"><strong>Tip:</strong> Theme and chord color are set in the <strong>Settings</strong> panel (⚙ gear icon in the Library header) and apply globally — you do not need to change them per song.</div>
 <p><strong>On a phone,</strong> the header and toolbar buttons collapse to icons to save room — <strong>Present</strong> (TV), <strong>Find</strong> (magnifier), <strong>Save</strong> (disk) and <strong>Revert</strong> (circle-arrow) — and the <strong>Format</strong> toggle moves onto the compact toolbar as <strong>OL/B</strong>.</p>
@@ -453,8 +453,9 @@ Here comes the sun, little darlin</pre>
 <p>For example, to remove blank lines you could replace <code>\n\n</code> with <code>\n</code>.</p>
 
 <h2>Saving &amp; Exporting</h2>
+<p>The <strong>song title</strong> sits beside the back button at the top of the editor, in a bordered box — it is an editable field, not a heading, so tap it to rename the song.</p>
 <p>The <strong>Save</strong> button is grayed out until you make a change. Once any field is edited — lyrics, chords, title, artist, key, tempo, duration, or time signature — Save activates and turns indigo.</p>
-<p>To return to the Library, tap the <strong>✕ button</strong> in the top-right corner of the editor header. If there are unsaved changes, a dialog appears with three choices:</p>
+<p>To return to the Library, tap the <strong>‹ back button</strong> at the top <em>left</em> of the editor header — the same corner and the same button as the way out of Present. If there are unsaved changes, a dialog appears with three choices:</p>
 <ul>
   <li><strong>Save</strong> — saves your changes and returns to the library</li>
   <li><strong>Discard</strong> — drops changes and returns to the library</li>
@@ -510,7 +511,7 @@ Bb,8-10-11-10,1243</pre>
 <h1>7. Present Mode</h1>
 <p>Present mode is full-screen. It is designed to be mirrored to a TV or projector while you perform.</p>
 
-<p>There is no top bar. Every control lives on the one <em>floating control panel</em> described below, which you can drag wherever suits the stage — the only fixed thing is <strong>✕</strong> in the top-left corner, level with the song title, which is always the way out (<code>Escape</code> on a keyboard).</p>
+<p>There is no top bar. Every control lives on the one <em>floating control panel</em> described below, which you can drag wherever suits the stage — the only fixed thing is the <strong>‹ back button</strong> in the top-left corner, level with the song title, which is always the way out (<code>Escape</code> on a keyboard).</p>
 
 <h2>The Floating Control Panel</h2>
 <p>A panel of large round buttons floats over the song, in the lower-right corner by default. It is sized for a fingertip on stage — no hunting for small toolbar buttons mid-song.</p>
@@ -620,7 +621,7 @@ Bb,8-10-11-10,1243</pre>
 <p>Tap <strong>E</strong> on the panel's Tools tab to open the current song directly in the editor without leaving your performance session. Present mode closes and the editor opens with the song ready to edit.</p>
 <p>While in this edit session, the <strong>Present</strong> button in the editor header changes to <strong>↩ Return to Performance</strong>. Tap it to go straight back to Present mode — the song content updates immediately to reflect any changes you made, with no save required.</p>
 <p>When you edit from a set, the editor also shows <strong>← Prev / Next →</strong> buttons so you can move through the other songs in the set and edit them too, without leaving the editor. Return to Performance resumes on whichever song you are editing.</p>
-<p>If you tap <strong>✕ Library</strong> instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
+<p>If you tap <strong>‹ back</strong> to the Library instead, the performance session ends. The <strong>↩ Return to Performance</strong> button reverts to the normal <strong>Present</strong> button and you would need to restart the presentation from the Sets panel.</p>
 <div class="tip"><strong>Tip:</strong> Use this to fix a wrong chord or lyric mid-rehearsal without interrupting the flow. Edits are reflected immediately when you return — save the song separately when you are ready to make the change permanent.</div>
 
 <!-- 8 -->
