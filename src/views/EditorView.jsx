@@ -526,7 +526,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // empty text box and nothing else; the Ink overlay renders here too. Turning
   // the pane off needs both of those handled first.
   const [showPreview] = useState(true);   // eslint-disable-line no-unused-vars
-  const [showChordPanel, setShowChordPanel] = useState(true);
   // Per-song "Imbed" — over-lyrics shows chord shapes (diagrams) instead of
   // names. Over-lyrics only; non-phone only. Persisted with the song.
   const [embed, setEmbed]                   = useState(song?.embed === true);
@@ -534,7 +533,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Condense-tool result actually fits the page. Toggled off = "expand" again.
   const [condensed, setCondensed]           = useState(song?.condensed === true);
   // Effective chord-panel visibility: the user toggle AND chords being available.
-  const chordsOn = showChordPanel && chordsAvailable;
+  // The chord panel follows the INSTRUMENT and nothing else: on for ukulele,
+  // baritone or guitar, off for None. That was already the behaviour for anyone
+  // who never touched the toggle, and the toggle has now gone — so this is one
+  // fact in one place rather than a switch that could disagree with the setting
+  // behind it.
+  const chordsOn = chordsAvailable;
   const [narrowTab, setNarrowTab]           = useState('editor');
   // Phone portrait (width) or phone landscape (height) — the editor chrome
   // collapses in both. iPad and desktop are unaffected.
@@ -2558,33 +2562,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           />
         )}
 
-        {/* Spacer pushes Preview + Chords to the right */}
-        <div className="flex-1" />
+        {/* Slack, so everything above stays left-aligned and the overflow menu
+            (compact layouts only) sits at the far end.
 
-        {/* Panel controls: the Preview On / Chords On toggles, shown everywhere
-            the side-by-side layout is used. A portrait phone is the only place
-            that shows nothing here — it uses the full-width Text/Preview/Chords
-            selector row below the toolbar instead. */}
-        {!oneAtATime && (
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Round-button language: state-carrying pills — indigo when on,
-                neutral grey when off.
-                The Preview toggle used to be the first of these. Removed on
-                request — it was not being used, and the width it took is width
-                the editor wants. */}
-            {chordsAvailable && (
-            <RoundButton
-              size={ROUND_SIZE_COMPACT} pill
-              label={showChordPanel ? 'Chords On' : 'Chords Off'}
-              title="Toggle chord diagram panel"
-              fill={headerFill} active={showChordPanel}
-              onActivate={() => setShowChordPanel(v => !v)}
-            >
-              <span className="text-xs font-medium leading-none whitespace-nowrap">{showChordPanel ? 'Chords On' : 'Chords Off'}</span>
-            </RoundButton>
-            )}
-          </div>
-        )}
+            The Preview On/Off and Chords On/Off pills used to live here. Both
+            removed on request: neither was being used, and the width they took is
+            width the editor wants. The preview pane still shows; the chord panel
+            now simply follows Settings → Chord instrument, which is what it did
+            anyway for anyone who never pressed the button. */}
+        <div className="flex-1" />
 
         {/* Overflow menu — compact only, and only when it holds something:
             portrait keeps the format toggles here; the ink controls appear only
