@@ -166,11 +166,21 @@ function mergeIntoLyricLine(chordLine, lyricLine) {
 }
 
 // Convert a bare over-lyrics chord line to a bracket-only ChordPro line.
-// e.g. "B  F#  G#m7  D#m/F#" → "[B] [F#] [G#m7] [D#m/F#]"
+//
+// KEEPING THE COLUMNS IS THE WHOLE POINT. This used to join the chords with a
+// single space — "Fm7     Bb7" came out "[Fm7] [Bb7]" — which throws away the one
+// thing a chord-only line carries. On an intro or a turnaround there are no words,
+// so the spacing IS the notation: it says where in the bar each chord falls. Four
+// evenly-spaced lines came back with their gaps collapsed at random.
+//
+// Merging into an empty lyric does exactly the right thing already: it pads to
+// each chord's original column. One implementation, and a bare chord line now
+// converts identically whether it is followed by another chord line, a blank, or
+// nothing at all.
 function chordLineToBrackets(line) {
   const chords = extractChords(line);
   if (chords.length === 0) return line;
-  return chords.map(c => `[${c.chord}]`).join(' ');
+  return mergeIntoLyricLine(line, '');
 }
 
 // Returns { converted: string, wasConverted: boolean }
@@ -184,7 +194,13 @@ export function convertVisualToChordPro(raw) {
     const line = lines[i];
     const next = lines[i + 1];
 
-    if (isChordLine(line) && next !== undefined && !isChordLine(next)) {
+    // `next.trim()` matters: a BLANK line is not a lyric. Without that test a
+    // chord line followed by an empty line was merged into it and the blank was
+    // swallowed, silently closing up the gap between two sections. It also made
+    // the last chord line of a song behave differently from every other one,
+    // because a trailing newline leaves an empty final line — which is how Howard
+    // ended up with four identical lines rendering with three different gaps.
+    if (isChordLine(line) && next !== undefined && next.trim() !== '' && !isChordLine(next)) {
       // Chord line immediately before a lyric — merge chord positions into lyric.
       out.push(mergeIntoLyricLine(line, next));
       changed = true;
