@@ -99,16 +99,11 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   const bdr   = dark ? 'border-gray-700' : 'border-gray-200';
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
   const ink   = dark ? 'text-gray-100' : 'text-gray-900';
-  // Removed on the left, added on the right — one hue each, used consistently in
-  // both layouts so the colour means the same thing however it is arranged.
+  // Left and right, one hue each. Used ONLY in the details table below — a handful
+  // of rows where the tint says which side a value belongs to, since the columns
+  // carry no headings. The charts are deliberately plain.
   const gone  = dark ? 'bg-red-500/15 text-red-200'     : 'bg-red-50 text-red-900';
   const added = dark ? 'bg-green-500/15 text-green-200' : 'bg-green-50 text-green-900';
-  // A tenth of the weight. Still visible if you look for it, invisible if you are
-  // scanning for what actually changed.
-  const goneFaint  = dark ? 'bg-red-500/[0.06] text-gray-300'   : 'bg-red-50/40 text-gray-600';
-  const addedFaint = dark ? 'bg-green-500/[0.06] text-gray-300' : 'bg-green-50/40 text-gray-600';
-  const leftCls  = (r) => (r.same ? muted : r.l === null ? '' : r.minor ? goneFaint  : gone);
-  const rightCls = (r) => (r.same ? muted : r.r === null ? '' : r.minor ? addedFaint : added);
 
   // A copy's label in the pane selector. They share a title — that is why they are
   // in this list — so the distinguishing facts do the naming.
@@ -233,10 +228,22 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
             off the bottom and take the selectors and the details with them, so you
             lost sight of which two copies you were even looking at.
 
-            ONE scroller for both columns, never two — they must move together or
-            the alignment the diff exists for is gone. Horizontally too: chord lines
-            are wide, and `pre` keeps a line intact rather than wrapping it, which
-            would break the very alignment being read. */}
+            PLAIN TEXT, no highlighting. It marked every differing line, and on two
+            copies of a pub standard typed out separately that is almost every line
+            — a wall of colour that said "these are different", which you already
+            knew. Howard's answer: a column on the left, a column on the right, and
+            he will see it himself. He is right; the reader is better at this than
+            the marker was.
+
+            The alignment stays, because it costs nothing to look at and is what
+            puts the same verse opposite itself. A blank on one side is a line the
+            other side does not have.
+
+            ONE scroller for both columns, never two — they must move together —
+            and horizontally as well, with `pre` rather than `pre-wrap`, since a
+            wrapped chord line is a line whose chords no longer sit over their
+            words. That is also why there is no separate narrow layout: on a phone
+            you scroll sideways, rather than reading some other arrangement. */}
         <div className={`flex-1 min-h-0 overflow-auto border-t ${bdr}`}>
           {pdfSide ? (
             <p className={`text-xs px-5 py-4 ${muted}`}>
@@ -245,34 +252,16 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               shows its sheet.
             </p>
           ) : (
-          <div className="w-max min-w-full px-5 py-3">
-            {isNarrow ? (
-              // Unified: two columns of chords do not fit a phone, so removals and
-              // additions stack in one column instead.
-              <div className="p-2 flex flex-col">
-                {rows.map((r, i) => (
-                  r.same
-                    ? <span key={i} className={`${lineCls} ${muted}`}>{r.l || ' '}</span>
-                    : <span key={i} className="flex flex-col">
-                        {r.l !== null && <span className={`${lineCls} ${leftCls(r)}`}>− {r.l || ' '}</span>}
-                        {r.r !== null && <span className={`${lineCls} ${rightCls(r)}`}>+ {r.r || ' '}</span>}
-                      </span>
-                ))}
-              </div>
-            ) : (
+            <div className="w-max min-w-full px-5 py-3">
               <div className="grid" style={{ gridTemplateColumns: 'max-content max-content' }}>
                 {rows.map((r, i) => (
                   <div key={i} className="contents">
-                    <span className={`${lineCls} mr-4 ${leftCls(r)}`}>{r.l ?? ' '}</span>
-                    {/* The rule lives on every right-hand cell rather than on a
-                        separate element, so it runs the full height of the diff
-                        without a second pass over the rows. */}
-                    <span className={`${lineCls} pl-4 border-l ${bdr} ${rightCls(r)}`}>{r.r ?? ' '}</span>
+                    <span className={`${lineCls} mr-4 ${muted}`}>{r.l ?? ' '}</span>
+                    <span className={`${lineCls} pl-4 border-l ${bdr} ${muted}`}>{r.r ?? ' '}</span>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
           )}
         </div>
       </div>
