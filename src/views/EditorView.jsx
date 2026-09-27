@@ -480,6 +480,40 @@ function ChordGlyph({ size = 18 }) {
   );
 }
 
+// The three chord formats, drawn as the SAME PICTURE three times: a lyric line,
+// and the chord either IN it, ABOVE it, or above it as a grid. Recognition comes
+// from where the mark sits, not from detail — at the 18px the stacked segmented
+// control allows, a faithful little fretboard is four dots in a smudge.
+function FormatIcon({ kind, size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
+      {/* The lyric line, in all three. */}
+      <path d="M3 18h18" />
+      {kind === 'brackets' && (
+        /* The chord sits IN the line: brackets around a block, on the baseline. */
+        <>
+          <path d="M8 13v4M16 13v4" />
+          <rect x="10.5" y="13.5" width="3" height="3" fill="currentColor" stroke="none" />
+        </>
+      )}
+      {kind === 'over' && (
+        /* The chord's NAME above the line. */
+        <rect x="9" y="6" width="6" height="5" rx="1" fill="currentColor" stroke="none" />
+      )}
+      {kind === 'imbed' && (
+        /* A chord SHAPE above the line — deliberately crude: a nut, two strings,
+           one dot. Any more detail and it is mush at this size. */
+        <>
+          <path d="M8 5h8" strokeWidth={2.6} />
+          <path d="M10.5 5v8M13.5 5v8" strokeWidth={1.4} />
+          <circle cx="10.5" cy="10" r="1.8" fill="currentColor" stroke="none" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi }) {
   const { theme, chordColor, chordDiagramSize, accidentals, symbols, instrument, aiLevel, updatePref } = usePrefs();
   // 'none' turns chord diagrams off entirely: no panel, no toggle, no Chords tab.
@@ -544,6 +578,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // collapses in both. iPad and desktop are unaffected.
   const compactChrome = useCompactChrome();
   const phoneLandscape = usePhoneLandscape();
+  // Imbed draws diagrams, so it needs an instrument to draw them from — and the
+  // renderer ignores it on a compact layout. Where neither holds, it is not a
+  // format you can choose and the switch drops to two segments.
+  //
+  // DECLARED HERE, not up with chordsAvailable: it reads compactChrome, which is
+  // declared just above. Referencing it earlier is a temporal dead zone error
+  // that neither the build nor the linter can see — it only throws when the
+  // component renders.
+  const imbedAvailable = chordsAvailable && !compactChrome;
   // Show one panel at a time (with the full-width selector) ONLY on a portrait
   // phone, where there is no room for more. Everywhere else — phone landscape,
   // iPad (either orientation), desktop — uses the side-by-side layout with the
@@ -817,14 +860,40 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // ONE control sets both the editor text format and the preview/Present format
   // (they always match now). Converts the source text to the chosen format.
-  function toggleFormat() {
-    const newFmt = displayMode === 'over' ? 'brackets' : 'over';
-    const cur = detectChordStyle(text);
-    if (newFmt === 'over' && cur === 'brackets') setText(convertToOver(text));
-    else if (newFmt === 'brackets' && cur === 'over') setText(convertToBrackets(text));
-    setDisplayMode(newFmt);
-    setPreviewFormat(newFmt);
+  // 'brackets' | 'over' | 'imbed'. Imbed IS over-lyrics with diagrams instead of
+  // names — there are only two text formats underneath — so it is the one target
+  // that sets two things.
+  //
+  // Everything that changes format comes through here, because changing it
+  // REWRITES THE TEXT and two copies of that conversion would be two chances to
+  // get it wrong.
+  //
+  // Note that choosing Over turns Imbed off. It used to be remembered
+  // independently, so Brackets and back returned you to diagrams; now the switch
+  // shows one state and that state is the truth. One visible fact beats a hidden
+  // memory.
+  function setChordFormat(target) {
+    const newFmt = target === 'brackets' ? 'brackets' : 'over';
+    if (newFmt !== displayMode) {
+      const cur = detectChordStyle(text);
+      if (newFmt === 'over' && cur === 'brackets') setText(convertToOver(text));
+      else if (newFmt === 'brackets' && cur === 'over') setText(convertToBrackets(text));
+      setDisplayMode(newFmt);
+      setPreviewFormat(newFmt);
+    }
+    // ONLY where Imbed is on offer. On a phone the switch has two segments, so
+    // pressing Over there is not a statement about diagrams — and clearing the
+    // flag would quietly undo an Imbed set on the Mac, on a device that cannot
+    // even show it.
+    if (imbedAvailable) setEmbed(target === 'imbed');
     setIsDirty(true);
+  }
+
+  // The portrait-phone path, where the format lives in the overflow menu and a
+  // segmented control will not fit. Imbed is not offered there at all — the
+  // renderer ignores it on a compact layout — so this stays a two-way toggle.
+  function toggleFormat() {
+    setChordFormat(displayMode === 'over' ? 'brackets' : 'over');
   }
 
   // Auto-sense the chord format from pasted / first-entered content and set both
@@ -2407,32 +2476,35 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </div>
         )}
 
-        {/* Format + Imbed group — boxed together (like Transpose). Left: the OL/B
-            format toggle. Right: Imbed (per-song "chords as diagrams"), enabled
-            only in Over Lyrics — the diagram view is over-lyrics only. */}
-        <div className={`flex items-center gap-2 rounded-lg border pl-1 pr-1 ${dark ? 'border-gray-700' : 'border-gray-300'}`}>
-          <button
-            onClick={toggleFormat}
-            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white' : 'border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-900'}`}
-            title="Chord format for the text and preview — click to convert between Over Lyrics and Brackets. Pasting a song auto-senses this."
-          >
-            {isEmptyText ? 'Sense Chords' : formatName}
-          </button>
-          <button
-            onClick={() => { setEmbed(v => !v); setIsDirty(true); }}
-            disabled={previewFormat !== 'over'}
-            title="Imbed — show chord shapes above the lyrics instead of chord names (Over Lyrics only). Saved with the song."
-            className={`h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
-              previewFormat !== 'over'
-                ? dark ? 'border-gray-700 text-gray-600 cursor-not-allowed' : 'border-gray-300 text-gray-400 cursor-not-allowed'
-                : embed
-                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                  : dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Imbed
-          </button>
-        </div>
+        {/* Chord format — one three-position switch where there used to be a
+            toggle and a greyed-out companion. Ordered by how much room each one
+            gives a chord: inline, then a line of names, then a band of diagrams.
+            Left to right reads compact to roomy, the same direction Condense
+            pulls, which is what makes the order memorable rather than arbitrary.
+
+            IMBED IS OMITTED, NOT GREYED, when it cannot work — no chord
+            instrument, or a compact layout where the renderer ignores it anyway.
+            Partly because SegmentedControl has no disabled state, and partly
+            because a permanently dead third of a control looks broken. Two
+            segments then, and nothing pretending to be available.
+
+            One word each because the stacked size gives a 12px label: "Over
+            Lyrics" would wrap or truncate at that size, which is the problem this
+            is meant to solve. */}
+        <SegmentedControl
+          options={[
+            { id: 'brackets', label: 'Brackets', icon: <FormatIcon kind="brackets" /> },
+            { id: 'over',     label: 'Over',     icon: <FormatIcon kind="over" /> },
+            ...(imbedAvailable
+              ? [{ id: 'imbed', label: 'Imbed', icon: <FormatIcon kind="imbed" /> }]
+              : []),
+          ]}
+          value={embed && imbedAvailable ? 'imbed' : displayMode}
+          onChange={setChordFormat}
+          size="stack"
+          fullWidth={false}
+          ariaLabel="Chord format"
+        />
 
         </>)}
 
