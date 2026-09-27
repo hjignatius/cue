@@ -480,36 +480,33 @@ function ChordGlyph({ size = 18 }) {
   );
 }
 
-// The three chord formats, drawn as the SAME PICTURE three times: a lyric line,
-// and the chord either IN it, ABOVE it, or above it as a grid. Recognition comes
-// from where the mark sits, not from detail — at the 18px the stacked segmented
-// control allows, a faithful little fretboard is four dots in a smudge.
+// The three chord formats, each drawn as the thing itself and nothing else. The
+// first version put a lyric line under every one to show WHERE the chord sits;
+// at 18px that line ate half the box and left the chord too small to read, so it
+// is gone and each glyph gets the whole square.
+//
+// Brackets is drawn as paths rather than the characters "[]": mono text wide
+// enough to read would overflow a 24-unit box at two characters, where paths fill
+// it exactly. Imbed reuses ChordGlyph — Cue's existing mark for a chord diagram,
+// already tuned for this size — rather than inventing a second fretboard.
 function FormatIcon({ kind, size = 18 }) {
+  if (kind === 'imbed') return <ChordGlyph size={size} />;
+  if (kind === 'brackets') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10 4H6v16h4" />
+        <path d="M14 4h4v16h-4" />
+      </svg>
+    );
+  }
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
-      {/* The lyric line, in all three. */}
-      <path d="M3 18h18" />
-      {kind === 'brackets' && (
-        /* The chord sits IN the line: brackets around a block, on the baseline. */
-        <>
-          <path d="M8 13v4M16 13v4" />
-          <rect x="10.5" y="13.5" width="3" height="3" fill="currentColor" stroke="none" />
-        </>
-      )}
-      {kind === 'over' && (
-        /* The chord's NAME above the line. */
-        <rect x="9" y="6" width="6" height="5" rx="1" fill="currentColor" stroke="none" />
-      )}
-      {kind === 'imbed' && (
-        /* A chord SHAPE above the line — deliberately crude: a nut, two strings,
-           one dot. Any more detail and it is mush at this size. */
-        <>
-          <path d="M8 5h8" strokeWidth={2.6} />
-          <path d="M10.5 5v8M13.5 5v8" strokeWidth={1.4} />
-          <circle cx="10.5" cy="10" r="1.8" fill="currentColor" stroke="none" />
-        </>
-      )}
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <text
+        x="12" y="12" textAnchor="middle" dominantBaseline="central"
+        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+        fontSize="21" fontWeight="700" fill="currentColor"
+      >C</text>
     </svg>
   );
 }
