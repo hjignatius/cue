@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { X, Trash2, SquarePen } from 'lucide-react';
-import { convertToBrackets } from '../utils/chordStyle.js';
+import { convertToOver } from '../utils/chordStyle.js';
 import { diffLines, countChanges } from '../utils/lineDiff.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
@@ -14,14 +14,34 @@ import { useIsNarrow } from '../hooks/useIsNarrow.js';
 //
 // THE CATCH THIS IS BUILT AROUND: the two copies may be in different chord
 // formats. Diffing Inline against Over-lyrics raw marks every single line as
-// changed and tells you nothing, so both sides are normalised through
-// convertToBrackets first. The comparison is about what the song SAYS, not how it
-// happens to be written down.
+// changed and tells you nothing, so both sides are put in the same format first.
+// The comparison is about what the song SAYS, not how it happens to be written.
+//
+// THAT FORMAT IS OVER-LYRICS, the one you perform from. It was brackets, which was
+// a defensible choice for a diff and the wrong thing to show a person: normalising
+// is an implementation detail for alignment, and nobody should have to read
+// [C]inline[G]markup to compare two songs. Over-lyrics costs more diff rows — a
+// chord line and a lyric line each — and that is a gain, because a changed chord
+// shows up on its own row above the words it belongs to.
 
-const META_FIELDS = [
-  ['title', 'Title'], ['artist', 'Artist'], ['key', 'Key'],
-  ['tempo', 'Tempo'], ['timeSig', 'Time'], ['duration', 'Length'],
-  ['youtubeUrl', 'YouTube'],
+// Accessors rather than metadata keys, because the last three are not in metadata
+// and they matter most: they change what you HEAR. Two copies whose text matches
+// exactly can still play differently if one is transposed or shows diagrams.
+//
+// Format earns its place for a quieter reason: the charts below are shown in the
+// performed layout whatever each copy stores, so without this row a pair written
+// in different formats looks mysteriously identical.
+const FIELDS = [
+  ['Title',     (s) => s.metadata?.title],
+  ['Artist',    (s) => s.metadata?.artist],
+  ['Key',       (s) => s.metadata?.key],
+  ['Tempo',     (s) => s.metadata?.tempo],
+  ['Time',      (s) => s.metadata?.timeSig],
+  ['Length',    (s) => s.metadata?.duration],
+  ['YouTube',   (s) => s.metadata?.youtubeUrl],
+  ['Transpose', (s) => s.displayKey],
+  ['Format',    (s) => (s.chordStyle === 'brackets' ? 'Inline' : 'Over')],
+  ['Chords',    (s) => (s.embed ? 'Diagrams' : 'Names')],
 ];
 
 function when(iso) {
@@ -59,11 +79,14 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   const right = songs.find(s => s.id === rightId) || songs[1];
 
   const { rows, approximate, changes } = useMemo(() => {
-    const d = diffLines(convertToBrackets(left?.text || ''), convertToBrackets(right?.text || ''));
+    const d = diffLines(convertToOver(left?.text || ''), convertToOver(right?.text || ''));
     return { ...d, changes: countChanges(d.rows) };
   }, [left?.text, right?.text]);
 
   if (!left || !right) return null;
+  // A PDF song keeps its chart in the sheet, so there is no text to line up. Say so
+  // rather than showing two empty panes.
+  const pdfSide = left.type === 'pdf' || right.type === 'pdf';
 
   const bdr   = dark ? 'border-gray-700' : 'border-gray-200';
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
@@ -114,7 +137,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
     </span>
   );
 
-  const lineCls = 'font-mono text-[11px] leading-snug whitespace-pre-wrap break-words px-2 py-0.5 rounded';
+  const lineCls = 'font-mono text-[11px] leading-snug whitespace-pre px-2 py-0.5 rounded';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-3" onClick={onClose}>
@@ -129,14 +152,14 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               {changes === 0
                 ? 'The words and chords are identical.'
                 : `${changes} line${changes === 1 ? '' : 's'} differ.`}
-              {' '}Read-only — nothing here changes a song.
+              {' '}Shown as it will be played. The charts cannot be edited here — Rename and Delete are the only changes on offer.
               {approximate && ' Alignment is approximate on a song this long.'}
             </p>
           </div>
           <button onClick={onClose} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
         </div>
 
-        <div className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
+        <div className="shrink-0 px-5 pt-4 pb-3 flex flex-col gap-3">
           {/* Which two, when there are more than two. */}
           <div className="grid gap-3" style={{ gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr' }}>
             {[[left, right, setLeftId], [right, left, setRightId]].map(([side, other, set], i) => (
@@ -152,30 +175,47 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
           {/* Details. Divergence often lives here rather than in the chart — a key
               or a tempo — and it is far cheaper to show than a text diff. */}
           {(() => {
-            const diffs = META_FIELDS.filter(([k]) => (left.metadata?.[k] || '') !== (right.metadata?.[k] || ''));
+            const val = (get, s) => String(get(s) ?? '').trim();
+            const diffs = FIELDS.filter(([, get]) => val(get, left) !== val(get, right));
             if (diffs.length === 0) {
-              return <p className={`text-xs ${muted}`}>Title, artist, key, tempo, time signature, length and video all match.</p>;
+              return <p className={`text-xs ${muted}`}>Every detail matches too — title, artist, key, tempo, time, length, video, transpose and chord format.</p>;
             }
             return (
               <div className={`rounded-xl border ${bdr} overflow-hidden`}>
-                {diffs.map(([k, label], i) => (
+                {diffs.map(([label, get], i) => (
                   <div
-                    key={k}
+                    key={label}
                     className={`grid text-xs ${i ? `border-t ${bdr}` : ''}`}
-                    style={{ gridTemplateColumns: isNarrow ? '5rem 1fr' : '6rem 1fr 1fr' }}
+                    style={{ gridTemplateColumns: isNarrow ? '5rem 1fr 1fr' : '6rem 1fr 1fr' }}
                   >
                     <span className={`px-2 py-1.5 ${muted}`}>{label}</span>
-                    <span className={`px-2 py-1.5 truncate ${gone}`}>{left.metadata?.[k] || '—'}</span>
-                    <span className={`px-2 py-1.5 truncate ${added}`}>{right.metadata?.[k] || '—'}</span>
+                    <span className={`px-2 py-1.5 truncate ${gone}`}>{val(get, left) || '—'}</span>
+                    <span className={`px-2 py-1.5 truncate ${added}`}>{val(get, right) || '—'}</span>
                   </div>
                 ))}
               </div>
             );
           })()}
 
-          {/* The chart. Both sides normalised to bracket format first, so a copy
-              written Over-lyrics does not read as entirely different. */}
-          <div className={`rounded-xl border ${bdr} overflow-hidden`}>
+        </div>
+
+        {/* THE CHARTS SCROLL, the rest does not. Long songs used to push the panes
+            off the bottom and take the selectors and the details with them, so you
+            lost sight of which two copies you were even looking at.
+
+            ONE scroller for both columns, never two — they must move together or
+            the alignment the diff exists for is gone. Horizontally too: chord lines
+            are wide, and `pre` keeps a line intact rather than wrapping it, which
+            would break the very alignment being read. */}
+        <div className={`flex-1 min-h-0 overflow-auto border-t ${bdr}`}>
+          {pdfSide ? (
+            <p className={`text-xs px-5 py-4 ${muted}`}>
+              One of these is a PDF lead sheet, so its chords live in the sheet rather than in text —
+              there is nothing to line up. The details above still compare, and opening each song
+              shows its sheet.
+            </p>
+          ) : (
+          <div className="w-max min-w-full">
             {isNarrow ? (
               // Unified: two columns of chords do not fit a phone, so removals and
               // additions stack in one column instead.
@@ -190,7 +230,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                 ))}
               </div>
             ) : (
-              <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <div className="grid gap-x-4" style={{ gridTemplateColumns: 'max-content max-content' }}>
                 {rows.map((r, i) => (
                   <div key={i} className="contents">
                     <span className={`${lineCls} ${r.same ? muted : r.l === null ? '' : gone}`}>{r.l ?? ' '}</span>
@@ -200,6 +240,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>
