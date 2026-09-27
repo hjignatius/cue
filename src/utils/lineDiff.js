@@ -93,13 +93,38 @@ function pairChangedRuns(rows) {
     const adds = block.filter(r => r.l === null);
     const pairs = Math.max(dels.length, adds.length);
     for (let k = 0; k < pairs; k++) {
-      out.push({ l: dels[k]?.l ?? null, r: adds[k]?.r ?? null, same: false });
+      const l = dels[k]?.l ?? null;
+      const r = adds[k]?.r ?? null;
+      out.push({ l, r, same: false, minor: isSpacingOnly(l, r) });
     }
   }
   return out;
 }
 
-/** How many aligned rows differ — for "12 differences" without walking it twice. */
+// Two lines that say the same thing with different spacing.
+//
+// WHY IT MATTERS: one copy typed with generous gaps and another typed tight are
+// the same song, but an exact line comparison calls every single line changed and
+// the whole chart lights up. With everything highlighted, nothing is — and the
+// handful of lines that really did change are lost in it.
+//
+// WHITESPACE ONLY, deliberately. Not punctuation: stripping it would fold C# into
+// C and quietly call two different chords the same line, which is precisely the
+// difference someone opens this to find.
+const collapse = (t) => String(t).replace(/\s+/g, ' ').trim();
+function isSpacingOnly(l, r) {
+  return l !== null && r !== null && l !== r && collapse(l) === collapse(r);
+}
+
+/**
+ * Counts for the summary line: rows that really differ, and rows that differ only
+ * in spacing, kept apart so the headline number means something.
+ */
 export function countChanges(rows) {
-  return rows.reduce((n, r) => n + (r.same ? 0 : 1), 0);
+  let changed = 0, spacing = 0;
+  for (const r of rows) {
+    if (r.same) continue;
+    if (r.minor) spacing++; else changed++;
+  }
+  return { changed, spacing };
 }

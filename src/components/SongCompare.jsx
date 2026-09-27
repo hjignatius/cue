@@ -80,7 +80,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   const left  = songs.find(s => s.id === leftId)  || songs[0];
   const right = songs.find(s => s.id === rightId) || songs[1];
 
-  const { rows, approximate, changes } = useMemo(() => {
+  const { rows, approximate, changed, spacing } = useMemo(() => {
     // Styling markup out BEFORE the format conversion, for two reasons. It is not
     // played — "{c=#9333ea}Winchester Cathedral{/c}" reads as coloured words on
     // stage, and as noise here. And convertToOver measures columns from the lyric
@@ -88,7 +88,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
     // the words it belongs to.
     const prep = (t) => convertToOver(stripStyling(t || ''));
     const d = diffLines(prep(left?.text), prep(right?.text));
-    return { ...d, changes: countChanges(d.rows) };
+    return { ...d, ...countChanges(d.rows) };
   }, [left?.text, right?.text]);
 
   if (!left || !right) return null;
@@ -103,6 +103,12 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   // both layouts so the colour means the same thing however it is arranged.
   const gone  = dark ? 'bg-red-500/15 text-red-200'     : 'bg-red-50 text-red-900';
   const added = dark ? 'bg-green-500/15 text-green-200' : 'bg-green-50 text-green-900';
+  // A tenth of the weight. Still visible if you look for it, invisible if you are
+  // scanning for what actually changed.
+  const goneFaint  = dark ? 'bg-red-500/[0.06] text-gray-300'   : 'bg-red-50/40 text-gray-600';
+  const addedFaint = dark ? 'bg-green-500/[0.06] text-gray-300' : 'bg-green-50/40 text-gray-600';
+  const leftCls  = (r) => (r.same ? muted : r.l === null ? '' : r.minor ? goneFaint  : gone);
+  const rightCls = (r) => (r.same ? muted : r.r === null ? '' : r.minor ? addedFaint : added);
 
   // A copy's label in the pane selector. They share a title — that is why they are
   // in this list — so the distinguishing facts do the naming.
@@ -157,9 +163,11 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
           <div className="min-w-0">
             <h2 className={`text-base font-semibold ${ink}`}>Compare copies</h2>
             <p className={`text-xs ${muted}`}>
-              {changes === 0
+              {changed === 0 && spacing === 0
                 ? 'The words and chords are identical.'
-                : `${changes} line${changes === 1 ? '' : 's'} differ.`}
+                : changed === 0
+                  ? `Only spacing differs — ${spacing} line${spacing === 1 ? '' : 's'}, same words and chords.`
+                  : `${changed} line${changed === 1 ? '' : 's'} differ${spacing ? `, plus ${spacing} that differ only in spacing` : ''}.`}
               {' '}Shown as it will be played. The charts cannot be edited here — Rename and Delete are the only changes on offer.
               {approximate && ' Alignment is approximate on a song this long.'}
             </p>
@@ -246,8 +254,8 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                   r.same
                     ? <span key={i} className={`${lineCls} ${muted}`}>{r.l || ' '}</span>
                     : <span key={i} className="flex flex-col">
-                        {r.l !== null && <span className={`${lineCls} ${gone}`}>− {r.l || ' '}</span>}
-                        {r.r !== null && <span className={`${lineCls} ${added}`}>+ {r.r || ' '}</span>}
+                        {r.l !== null && <span className={`${lineCls} ${leftCls(r)}`}>− {r.l || ' '}</span>}
+                        {r.r !== null && <span className={`${lineCls} ${rightCls(r)}`}>+ {r.r || ' '}</span>}
                       </span>
                 ))}
               </div>
@@ -255,11 +263,11 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               <div className="grid" style={{ gridTemplateColumns: 'max-content max-content' }}>
                 {rows.map((r, i) => (
                   <div key={i} className="contents">
-                    <span className={`${lineCls} mr-4 ${r.same ? muted : r.l === null ? '' : gone}`}>{r.l ?? ' '}</span>
+                    <span className={`${lineCls} mr-4 ${leftCls(r)}`}>{r.l ?? ' '}</span>
                     {/* The rule lives on every right-hand cell rather than on a
                         separate element, so it runs the full height of the diff
                         without a second pass over the rows. */}
-                    <span className={`${lineCls} pl-4 border-l ${bdr} ${r.same ? muted : r.r === null ? '' : added}`}>{r.r ?? ' '}</span>
+                    <span className={`${lineCls} pl-4 border-l ${bdr} ${rightCls(r)}`}>{r.r ?? ' '}</span>
                   </div>
                 ))}
               </div>
