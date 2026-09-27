@@ -287,7 +287,7 @@ function manualHTML() {
   <li><strong>Import as duplicate</strong> — adds the imported song as a new entry alongside the existing one</li>
   <li><strong>Skip this file</strong> — discards the import and moves on to the next file</li>
 </ul>
-<div class="tip"><strong>Note:</strong> Conflict detection applies to individual song files (<code>.cho</code>, <code>.txt</code>, and single-song JSON bundles). When importing a <strong>multi-set JSON</strong> (<code>cue-sets</code> type), Cue asks whether to <strong>Skip duplicates</strong> (reuse existing songs that match by title, avoiding copies) or <strong>Allow duplicates</strong> (import all songs as new entries). Backup files prompt separately with Replace or Merge options.</div>
+<div class="tip"><strong>Note:</strong> Individual song files (<code>.cho</code>, <code>.txt</code>, single-song JSON) prompt per song. Every <em>bundle</em> — a set, several sets, or a songs-only export — asks once for the whole file instead: <strong>Skip duplicates</strong> (songs already in your library are reused, so a set still gets the right songs and no copies are made) or <strong>Allow duplicates</strong> (everything comes in as new entries). Either way Cue then tells you how many songs it added and how many it reused. Backup files prompt separately with Replace or Merge options.</div>
 
 <h2>Selecting Songs</h2>
 <p>Every song row has a <strong>checkbox</strong> at its left — always visible, with no "Select" mode to turn on. Tick any box and the action bar (just below the search row) lights up. Tapping a row's <em>body</em> (not the checkbox) still just highlights it, and its <strong>⋮</strong> menu carries the per-song actions (Edit, Present, Duplicate).</p>

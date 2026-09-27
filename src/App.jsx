@@ -158,13 +158,35 @@ export default function App() {
             lastImportedSong = { ...data.song, id };
 
           } else if (data.type === 'cue-set' && data.set && data.songs) {
-            // Set imports remap IDs — skip per-song conflict prompts
-            const idMap = {};
+            // THE ONE IMPORT PATH WITH NO DUPLICATE HANDLING AT ALL. It made a
+            // second copy of every song already in the library, without asking and
+            // without saying so afterwards — import a set of songs you already
+            // have and you silently doubled them.
+            //
+            // The old comment here ("remap IDs — skip per-song conflict prompts")
+            // was right that a per-SONG prompt is wrong for a set, which can hold
+            // dozens. The answer is the batch prompt the multi-set and songs-only
+            // bundles already use, not no prompt.
+            const mode = await askSetsImportMode('Import set');
+            if (mode === 'cancel') continue;
+            const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
+            const idMap  = {};
+            const pdfMap = {};   // created songs only — a reused song keeps its own PDF
+            let added = 0, reused = 0;
             for (const s of data.songs) {
-              const newId = await saveSong({ ...bundleSongFields(s), id: null });
-              idMap[s.id] = newId;
+              const existing = existingByTitle.get(normalizeTitle(s.metadata?.title));
+              if (mode === 'skip' && existing) {
+                // The SET points at your copy, so skipping leaves no holes in it.
+                idMap[s.id] = existing.id;
+                reused++;
+              } else {
+                const newId = await saveSong({ ...bundleSongFields(s), id: null });
+                idMap[s.id] = newId;
+                pdfMap[s.id] = newId;
+                added++;
+              }
             }
-            await restoreBundlePdfs(data.pdfs, idMap);
+            await restoreBundlePdfs(data.pdfs, pdfMap);
             await saveSet({
               id: null,
               name: data.set.name,
@@ -174,6 +196,7 @@ export default function App() {
             if (Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
+            alert(`Set imported: “${data.set.name}”.\n${added} song${added === 1 ? '' : 's'} added${reused ? `, ${reused} already in your library and reused` : ''}`);
 
           } else if (data.type === 'cue-songs' && Array.isArray(data.songs)) {
             // Songs-only bundle, written by the Library panel's Export button.
@@ -203,14 +226,17 @@ export default function App() {
             const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
             const idMap = {};
             const pdfMap = {}; // only songs this import created — a skipped duplicate keeps its own PDF
+            let added = 0, reused = 0;
             for (const s of data.songs) {
               const existing = existingByTitle.get(normalizeTitle(s.metadata?.title));
               if (mode === 'skip' && existing) {
                 idMap[s.id] = existing.id;
+                reused++;
               } else {
                 const newId = await saveSong({ ...bundleSongFields(s), id: null });
                 idMap[s.id] = newId;
                 pdfMap[s.id] = newId;
+                added++;
               }
             }
             await restoreBundlePdfs(data.pdfs, pdfMap);
@@ -225,6 +251,8 @@ export default function App() {
             if (Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
+            // This path asked what to do and then never said what it did.
+            alert(`Sets imported.\n${data.sets.length} set${data.sets.length === 1 ? '' : 's'}, ${added} song${added === 1 ? '' : 's'} added${reused ? `, ${reused} already in your library and reused` : ''}`);
 
           } else if (data.type === 'cue-backup' && data.songs && data.sets) {
             const mode = await askBackupMode();
