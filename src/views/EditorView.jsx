@@ -2507,11 +2507,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           onChange={setChordFormat}
           size="stack"
           fullWidth={false}
-          /* 14 is what every other stacked selector in Cue uses — the
-             Library/Sets/Setlist bar, the Text/Preview/Chords row, the shared
-             set's Original/A-Z. Omitting it left these segments at bare label
-             width, which is why they read as too small. */
-          segmentPadX={14}
+          /* 9, deliberately tighter than the 14 every other stacked selector uses.
+             Not an oversight — DO NOT "fix" it back. The others head a row of
+             their own and can spend the width; this one shares a toolbar with the
+             AI button, Find, Transpose and the rest. Bare label width (no pad at
+             all) read as too small, 14 was more than the row wants to give: 9 is
+             where Howard settled. */
+          segmentPadX={9}
           ariaLabel="Chord format"
         />
 
