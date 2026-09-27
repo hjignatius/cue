@@ -13,6 +13,12 @@
 // WHY NOT LINE-BY-LINE: pairing line i with line i is one insertion away from
 // useless — add a line near the top and every line after it reads as changed,
 // which is exactly the case this is for. Hence a real longest-common-subsequence.
+//
+// AND WHY THE SECOND PASS: an LCS walk emits a changed block as every removal
+// first, then every addition. Read as a list that is correct; shown in two
+// columns it is useless — the old four lines sit opposite blank space, then the
+// new two lines sit opposite blank space further down, and the two halves of one
+// change never appear on the same row. pairChangedRuns puts them back together.
 
 // Beyond this, the DP table stops being free: the cost is (n+1)*(m+1) 32-bit
 // cells, so 1200 lines each is about 5.8MB. Songs run to a hundred lines or so;
@@ -48,8 +54,9 @@ export function diffLines(leftText, rightText) {
     }
   }
 
-  const rows = [];
+  const walk = [];
   let i = 0, j = 0;
+  const rows = walk;   // named for the loop below; paired before returning
   while (i < n && j < m) {
     if (a[i] === b[j]) {
       rows.push({ l: a[i], r: b[j], same: true }); i++; j++;
@@ -63,7 +70,33 @@ export function diffLines(leftText, rightText) {
   while (i < n) rows.push({ l: a[i++], r: null, same: false });
   while (j < m) rows.push({ l: null, r: b[j++], same: false });
 
-  return { rows, approximate: false };
+  return { rows: pairChangedRuns(walk), approximate: false };
+}
+
+// Put the two halves of a change on the same row.
+//
+// Take each run of consecutive changed rows and deal its removals and additions
+// out side by side: old line 1 opposite new line 1, and so on. Where one side has
+// more lines than the other the remainder pairs against blanks, which is honest —
+// those lines really were added or removed outright.
+//
+// Order within the run does not matter, because the LCS can emit removals and
+// additions interleaved; they are split by side and re-dealt.
+function pairChangedRuns(rows) {
+  const out = [];
+  let i = 0;
+  while (i < rows.length) {
+    if (rows[i].same) { out.push(rows[i++]); continue; }
+    const block = [];
+    while (i < rows.length && !rows[i].same) block.push(rows[i++]);
+    const dels = block.filter(r => r.r === null);
+    const adds = block.filter(r => r.l === null);
+    const pairs = Math.max(dels.length, adds.length);
+    for (let k = 0; k < pairs; k++) {
+      out.push({ l: dels[k]?.l ?? null, r: adds[k]?.r ?? null, same: false });
+    }
+  }
+  return out;
 }
 
 /** How many aligned rows differ — for "12 differences" without walking it twice. */

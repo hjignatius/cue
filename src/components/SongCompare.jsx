@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { X, Trash2, SquarePen } from 'lucide-react';
 import { convertToOver } from '../utils/chordStyle.js';
+import { stripStyling } from '../utils/chordPro.js';
 import { diffLines, countChanges } from '../utils/lineDiff.js';
 import { normalizeTitle } from '../utils/contentHash.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -80,7 +81,13 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   const right = songs.find(s => s.id === rightId) || songs[1];
 
   const { rows, approximate, changes } = useMemo(() => {
-    const d = diffLines(convertToOver(left?.text || ''), convertToOver(right?.text || ''));
+    // Styling markup out BEFORE the format conversion, for two reasons. It is not
+    // played — "{c=#9333ea}Winchester Cathedral{/c}" reads as coloured words on
+    // stage, and as noise here. And convertToOver measures columns from the lyric
+    // text, so leaving the tokens in would push every chord out of position over
+    // the words it belongs to.
+    const prep = (t) => convertToOver(stripStyling(t || ''));
+    const d = diffLines(prep(left?.text), prep(right?.text));
     return { ...d, changes: countChanges(d.rows) };
   }, [left?.text, right?.text]);
 
