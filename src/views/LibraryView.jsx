@@ -1753,6 +1753,19 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   // Track which songs have local ink annotations (for pencil badge in song rows).
   // Reloaded on mount and whenever the document regains focus (e.g. after a Present session).
   const [annotatedSongIds, setAnnotatedSongIds] = useState(() => new Set());
+
+  // songId -> the sets using it. One pass, so the duplicates list can say what
+  // deleting a copy would break without rescanning every set per row.
+  const setsBySongId = useMemo(() => {
+    const m = new Map();
+    for (const st of sets) {
+      for (const id of st.songIds || []) {
+        if (!m.has(id)) m.set(id, []);
+        m.get(id).push(st.name);
+      }
+    }
+    return m;
+  }, [sets]);
   useEffect(() => {
     function reload() { loadAnnotatedSongIds().then(ids => setAnnotatedSongIds(ids)); }
     reload();
@@ -2528,10 +2541,50 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   {g.reason && <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">{g.reason}</p>}
                   <div className="flex flex-col gap-1.5">
                     {g.songs.map(s => (
-                      <div key={s.id} className="flex items-center justify-between gap-2">
+                      <div key={s.id} className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <span className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{s.metadata?.title || 'Untitled'}</span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">{[s.metadata?.artist, s.metadata?.key].filter(Boolean).join(' · ') && ` — ${[s.metadata?.artist, s.metadata?.key].filter(Boolean).join(' · ')}`}</span>
+                          {/* WHAT YOU WOULD LOSE, which the row never said. Two
+                              copies with the same title are indistinguishable
+                              otherwise, and Delete was the only thing on offer.
+
+                              Set membership first because it is the asymmetry that
+                              usually decides it: "not in any set" is the safe one.
+                              Ink next, because annotations live in their own store,
+                              are in no export or backup, and are the one thing
+                              deleting a copy destroys for good.
+
+                              Created and Edited stay SEPARATE. An import stamps
+                              today's updatedAt on content that may be months old,
+                              so "edited today" alone would point at the wrong copy
+                              — the pair is what identifies the import. */}
+                          {(() => {
+                            const inSets = setsBySongId.get(s.id) || [];
+                            const when = (iso) => {
+                              if (!iso) return null;
+                              const d = new Date(iso);
+                              return Number.isNaN(d.getTime())
+                                ? null
+                                : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+                            };
+                            const created = when(s.createdAt);
+                            const edited  = when(s.updatedAt);
+                            return (
+                              <p className="text-[11px] mt-0.5 text-gray-500 dark:text-gray-400">
+                                <span className={inSets.length === 0 ? '' : 'font-medium text-gray-700 dark:text-gray-200'}>
+                                  {inSets.length === 0
+                                    ? 'Not in any set'
+                                    : `In ${inSets.length} set${inSets.length === 1 ? '' : 's'}: ${inSets.join(', ')}`}
+                                </span>
+                                {annotatedSongIds.has(s.id) && (
+                                  <span className="text-amber-600 dark:text-amber-400 font-medium"> · Has ink</span>
+                                )}
+                                {created && <> · Created {created}</>}
+                                {edited && edited !== created && <> · Edited {edited}</>}
+                              </p>
+                            );
+                          })()}
                         </div>
                         <button
                           onClick={() => deleteFromDup(s.id)}
