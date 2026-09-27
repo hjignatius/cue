@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { X, Trash2, SquarePen } from 'lucide-react';
 import { convertToOver } from '../utils/chordStyle.js';
 import { diffLines, countChanges } from '../utils/lineDiff.js';
+import { normalizeTitle } from '../utils/contentHash.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 
 // Read-only side-by-side comparison of two copies of a song.
@@ -143,7 +144,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-3" onClick={onClose}>
       <div
         onClick={e => e.stopPropagation()}
-        className={`w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'}`}
+        className={`w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'}`}
       >
         <div className={`flex items-start justify-between gap-3 px-5 py-3 border-b ${bdr}`}>
           <div className="min-w-0">
@@ -182,17 +183,31 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
             }
             return (
               <div className={`rounded-xl border ${bdr} overflow-hidden`}>
-                {diffs.map(([label, get], i) => (
-                  <div
-                    key={label}
-                    className={`grid text-xs ${i ? `border-t ${bdr}` : ''}`}
-                    style={{ gridTemplateColumns: isNarrow ? '5rem 1fr 1fr' : '6rem 1fr 1fr' }}
-                  >
-                    <span className={`px-2 py-1.5 ${muted}`}>{label}</span>
-                    <span className={`px-2 py-1.5 truncate ${gone}`}>{val(get, left) || '—'}</span>
-                    <span className={`px-2 py-1.5 truncate ${added}`}>{val(get, right) || '—'}</span>
-                  </div>
-                ))}
+                {diffs.map(([label, get], i) => {
+                  // A row flagged as different where both values LOOK identical is
+                  // worse than no row — it reads as a bug. It is usually a curly
+                  // apostrophe against a straight one, or a double space. Say so,
+                  // because it also tells you the difference does not matter and
+                  // either copy will do.
+                  const lookalike =
+                    normalizeTitle(val(get, left)) === normalizeTitle(val(get, right));
+                  return (
+                    <div
+                      key={label}
+                      className={`grid text-xs ${i ? `border-t ${bdr}` : ''}`}
+                      style={{ gridTemplateColumns: isNarrow ? '5rem 1fr 1fr' : '6rem 1fr 1fr' }}
+                    >
+                      <span className={`px-2 py-1.5 ${muted}`}>
+                        {label}
+                        {lookalike && (
+                          <span className="block text-[10px] italic opacity-80">punctuation or spacing only</span>
+                        )}
+                      </span>
+                      <span className={`px-2 py-1.5 truncate ${gone}`}>{val(get, left) || '—'}</span>
+                      <span className={`px-2 py-1.5 truncate ${added}`}>{val(get, right) || '—'}</span>
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
@@ -215,7 +230,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               shows its sheet.
             </p>
           ) : (
-          <div className="w-max min-w-full">
+          <div className="w-max min-w-full px-5 py-3">
             {isNarrow ? (
               // Unified: two columns of chords do not fit a phone, so removals and
               // additions stack in one column instead.
@@ -230,11 +245,14 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                 ))}
               </div>
             ) : (
-              <div className="grid gap-x-4" style={{ gridTemplateColumns: 'max-content max-content' }}>
+              <div className="grid" style={{ gridTemplateColumns: 'max-content max-content' }}>
                 {rows.map((r, i) => (
                   <div key={i} className="contents">
-                    <span className={`${lineCls} ${r.same ? muted : r.l === null ? '' : gone}`}>{r.l ?? ' '}</span>
-                    <span className={`${lineCls} ${r.same ? muted : r.r === null ? '' : added}`}>{r.r ?? ' '}</span>
+                    <span className={`${lineCls} mr-4 ${r.same ? muted : r.l === null ? '' : gone}`}>{r.l ?? ' '}</span>
+                    {/* The rule lives on every right-hand cell rather than on a
+                        separate element, so it runs the full height of the diff
+                        without a second pass over the rows. */}
+                    <span className={`${lineCls} pl-4 border-l ${bdr} ${r.same ? muted : r.r === null ? '' : added}`}>{r.r ?? ' '}</span>
                   </div>
                 ))}
               </div>
