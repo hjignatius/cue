@@ -80,15 +80,20 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   const left  = songs.find(s => s.id === leftId)  || songs[0];
   const right = songs.find(s => s.id === rightId) || songs[1];
 
-  const { rows, approximate, changed, spacing } = useMemo(() => {
+  const { leftText, rightText, widest, changed, spacing } = useMemo(() => {
     // Styling markup out BEFORE the format conversion, for two reasons. It is not
     // played — "{c=#9333ea}Winchester Cathedral{/c}" reads as coloured words on
     // stage, and as noise here. And convertToOver measures columns from the lyric
     // text, so leaving the tokens in would push every chord out of position over
     // the words it belongs to.
     const prep = (t) => convertToOver(stripStyling(t || ''));
-    const d = diffLines(prep(left?.text), prep(right?.text));
-    return { ...d, ...countChanges(d.rows) };
+    const lt = prep(left?.text);
+    const rt = prep(right?.text);
+    // The diff is used ONLY for the count in the header now. Nothing about the
+    // layout depends on it, which is the point: see the panes below.
+    const d = diffLines(lt, rt);
+    const w = Math.max(20, ...[...lt.split('\n'), ...rt.split('\n')].map(x => x.length));
+    return { leftText: lt, rightText: rt, widest: w, ...countChanges(d.rows) };
   }, [left?.text, right?.text]);
 
   if (!left || !right) return null;
@@ -152,7 +157,6 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   // minimum, not a fixed width, so when the songs are narrow the columns still
   // split the window in half and line up with everything above them. `ch` is exact
   // here because the charts are monospace. +1rem covers the cell's own px-2.
-  const widest = Math.max(20, ...rows.map(r => Math.max((r.l || '').length, (r.r || '').length)));
   // The charts: equal halves, but never narrower than the longest line, so they
   // overflow into the horizontal scroll rather than clipping.
   const chartCols = { gridTemplateColumns: `repeat(2, minmax(calc(${widest}ch + 1rem), 1fr))` };
@@ -178,7 +182,6 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                   ? `Only spacing differs — ${spacing} line${spacing === 1 ? '' : 's'}, same words and chords.`
                   : `${changed} line${changed === 1 ? '' : 's'} differ${spacing ? `, plus ${spacing} that differ only in spacing` : ''}.`}
               {' '}Shown as it will be played. The charts cannot be edited here — Rename and Delete are the only changes on offer.
-              {approximate && ' Alignment is approximate on a song this long.'}
             </p>
           </div>
           <button onClick={onClose} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
@@ -265,13 +268,17 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
             </p>
           ) : (
             <div className="min-w-full w-max px-5 py-3">
+              {/* EACH SONG IS ONE BLOCK, not a row of paired cells.
+                  The rows were aligned, which meant blank lines pushed in wherever
+                  one side had something the other did not — and that reads as the
+                  comparison pointing at things, which is what Howard did not want.
+                  Worse, a grid lays out row by row, so SELECTING BOTH COLUMNS AND
+                  COPYING gave left line, right line, left line, right line, all the
+                  way down. Two blocks copy as one song then the other, which is
+                  what anyone would expect. */}
               <div className="grid gap-3" style={chartCols}>
-                {rows.map((r, i) => (
-                  <div key={i} className="contents">
-                    <span className={`${lineCls} ${muted}`}>{r.l ?? ' '}</span>
-                    <span className={`${lineCls} ${muted}`}>{r.r ?? ' '}</span>
-                  </div>
-                ))}
+                <pre className={`${lineCls} ${muted}`}>{leftText}</pre>
+                <pre className={`${lineCls} ${muted} pl-3 border-l ${bdr}`}>{rightText}</pre>
               </div>
             </div>
           )}
