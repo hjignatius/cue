@@ -147,6 +147,20 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   );
 
   const lineCls = 'font-mono text-[11px] leading-snug whitespace-pre px-2 py-0.5 rounded';
+  // Both chart columns get the width of the longest line in EITHER song, so they
+  // are equal to each other rather than each hugging its own content — and a
+  // minimum, not a fixed width, so when the songs are narrow the columns still
+  // split the window in half and line up with everything above them. `ch` is exact
+  // here because the charts are monospace. +1rem covers the cell's own px-2.
+  const widest = Math.max(20, ...rows.map(r => Math.max((r.l || '').length, (r.r || '').length)));
+  // The charts: equal halves, but never narrower than the longest line, so they
+  // overflow into the horizontal scroll rather than clipping.
+  const chartCols = { gridTemplateColumns: `repeat(2, minmax(calc(${widest}ch + 1rem), 1fr))` };
+  // Everything ABOVE the charts: plain halves. These live in the fixed part of the
+  // window, so they must never claim a chart's minimum width — a wide song would
+  // push them straight out of the panel. minmax(0,1fr) rather than 1fr so a long
+  // YouTube URL truncates inside its half instead of stretching it.
+  const headCols = { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-3" onClick={onClose}>
@@ -172,7 +186,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
 
         <div className="shrink-0 px-5 pt-4 pb-3 flex flex-col gap-3">
           {/* Which two, when there are more than two. */}
-          <div className="grid gap-3" style={{ gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr' }}>
+          <div className="grid gap-3" style={isNarrow ? { gridTemplateColumns: '1fr' } : headCols}>
             {[[left, right, setLeftId], [right, left, setRightId]].map(([side, other, set], i) => (
               <div key={i} className={`rounded-xl border p-3 flex flex-col gap-2 ${bdr}`}>
                 {songs.length > 2 && <Selector value={side.id} onChange={set} other={other.id} />}
@@ -192,7 +206,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               return <p className={`text-xs ${muted}`}>Every detail matches too — title, artist, key, tempo, time, length, video, transpose and chord format.</p>;
             }
             return (
-              <div className={`rounded-xl border ${bdr} overflow-hidden`}>
+              <div className="flex flex-col">
                 {diffs.map(([label, get], i) => {
                   // A row flagged as different where both values LOOK identical is
                   // worse than no row — it reads as a bug. It is usually a curly
@@ -201,20 +215,18 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                   // either copy will do.
                   const lookalike =
                     normalizeTitle(val(get, left)) === normalizeTitle(val(get, right));
-                  return (
-                    <div
-                      key={label}
-                      className={`grid text-xs ${i ? `border-t ${bdr}` : ''}`}
-                      style={{ gridTemplateColumns: isNarrow ? '5rem 1fr 1fr' : '6rem 1fr 1fr' }}
-                    >
-                      <span className={`px-2 py-1.5 ${muted}`}>
-                        {label}
-                        {lookalike && (
-                          <span className="block text-[10px] italic opacity-80">punctuation or spacing only</span>
-                        )}
+                  const cell = (v, tint) => (
+                    <span className={`px-2 py-1.5 min-w-0 rounded ${tint}`}>
+                      <span className={`block text-[10px] ${muted}`}>
+                        {label}{lookalike && <span className="italic"> · punctuation or spacing only</span>}
                       </span>
-                      <span className={`px-2 py-1.5 truncate ${gone}`}>{val(get, left) || '—'}</span>
-                      <span className={`px-2 py-1.5 truncate ${added}`}>{val(get, right) || '—'}</span>
+                      <span className="block truncate">{v || '—'}</span>
+                    </span>
+                  );
+                  return (
+                    <div key={label} className={`grid gap-3 text-xs ${i ? 'mt-1.5' : ''}`} style={headCols}>
+                      {cell(val(get, left), gone)}
+                      {cell(val(get, right), added)}
                     </div>
                   );
                 })}
@@ -252,12 +264,12 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               shows its sheet.
             </p>
           ) : (
-            <div className="w-max min-w-full px-5 py-3">
-              <div className="grid" style={{ gridTemplateColumns: 'max-content max-content' }}>
+            <div className="min-w-full w-max px-5 py-3">
+              <div className="grid gap-3" style={chartCols}>
                 {rows.map((r, i) => (
                   <div key={i} className="contents">
-                    <span className={`${lineCls} mr-4 ${muted}`}>{r.l ?? ' '}</span>
-                    <span className={`${lineCls} pl-4 border-l ${bdr} ${muted}`}>{r.r ?? ' '}</span>
+                    <span className={`${lineCls} ${muted}`}>{r.l ?? ' '}</span>
+                    <span className={`${lineCls} ${muted}`}>{r.r ?? ' '}</span>
                   </div>
                 ))}
               </div>
