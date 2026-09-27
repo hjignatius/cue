@@ -1741,6 +1741,43 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       setDupBusy(false);
     }
   }
+  // Rename a song from the duplicates list. The non-destructive way out: when you
+  // cannot tell which copy is better, keeping both and telling them apart is a
+  // legitimate answer, and until now the only options were delete one or be warned
+  // about it forever.
+  //
+  // Safe in a way deleting is not: the song keeps its id, so every set using it
+  // still works.
+  const [dupRenameId, setDupRenameId]     = useState(null);
+  const [dupRenameText, setDupRenameText] = useState('');
+
+  function startDupRename(song) {
+    setDupRenameId(song.id);
+    setDupRenameText(song.metadata?.title || '');
+  }
+
+  async function commitDupRename(song) {
+    const trimmed = dupRenameText.trim();
+    setDupRenameId(null);
+    if (!trimmed || trimmed === song.metadata?.title) return;
+    // Spread the whole song so nothing is dropped, and note what is NOT passed
+    // afresh: updatedAt. A rename is how you disambiguate two copies, and bumping
+    // the edit date would destroy the created/edited pair that identifies which
+    // one arrived in an import — the very evidence you renamed them to preserve.
+    await saveSong({ ...song, metadata: { ...song.metadata, title: trimmed } });
+    // Patch the row in place rather than re-running the scan. Renaming resolves
+    // the group — the title is part of the content signature, so the two are no
+    // longer identical nor same-titled — and having the group vanish under you
+    // mid-list would be disorienting. It is gone next time you scan.
+    setDupGroups(gs => (gs || []).map(g => ({
+      ...g,
+      songs: g.songs.map(x => (x.id === song.id
+        ? { ...x, metadata: { ...x.metadata, title: trimmed } }
+        : x)),
+    })));
+    onRefresh();
+  }
+
   // Delete a song from within the duplicates dialog, then drop it from the view
   // (and any group that falls below two members).
   function deleteFromDup(id) {
@@ -2543,7 +2580,21 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     {g.songs.map(s => (
                       <div key={s.id} className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
+                          {dupRenameId === s.id ? (
+                            <input
+                              autoFocus
+                              value={dupRenameText}
+                              onChange={e => setDupRenameText(e.target.value)}
+                              onBlur={() => commitDupRename(s)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter')  { e.preventDefault(); commitDupRename(s); }
+                                if (e.key === 'Escape') { e.preventDefault(); setDupRenameId(null); }
+                              }}
+                              className={`w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium py-0.5 ${dark ? 'text-white' : 'text-gray-900'}`}
+                            />
+                          ) : (
                           <span className={`text-sm font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{s.metadata?.title || 'Untitled'}</span>
+                          )}
                           <span className="text-xs text-gray-500 dark:text-gray-400">{[s.metadata?.artist, s.metadata?.key].filter(Boolean).join(' · ') && ` — ${[s.metadata?.artist, s.metadata?.key].filter(Boolean).join(' · ')}`}</span>
                           {/* WHAT YOU WOULD LOSE, which the row never said. Two
                               copies with the same title are indistinguishable
@@ -2586,12 +2637,23 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                             );
                           })()}
                         </div>
-                        <button
-                          onClick={() => deleteFromDup(s.id)}
-                          className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
-                        >
-                          <Trash2 size={13} /> Delete
-                        </button>
+                        {/* Rename before Delete, and deliberately: it is the
+                            reversible one, and the answer whenever you cannot tell
+                            the two copies apart. */}
+                        <span className="shrink-0 flex items-center gap-3">
+                          <button
+                            onClick={() => startDupRename(s)}
+                            className={`inline-flex items-center gap-1 text-xs font-medium hover:underline ${dark ? 'text-gray-300' : 'text-gray-600'}`}
+                          >
+                            <SquarePen size={13} /> Rename
+                          </button>
+                          <button
+                            onClick={() => deleteFromDup(s.id)}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400 hover:underline"
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </span>
                       </div>
                     ))}
                   </div>
