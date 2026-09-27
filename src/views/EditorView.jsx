@@ -515,6 +515,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const { theme, chordColor, chordDiagramSize, accidentals, symbols, instrument, aiLevel, updatePref } = usePrefs();
   // 'none' turns chord diagrams off entirely: no panel, no toggle, no Chords tab.
   const chordsAvailable = instrument !== 'none';
+  const imbedAvailable  = chordsAvailable;
   const dark = theme === 'dark';
   const isNarrow = useIsNarrow();
 
@@ -575,15 +576,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // collapses in both. iPad and desktop are unaffected.
   const compactChrome = useCompactChrome();
   const phoneLandscape = usePhoneLandscape();
-  // Imbed draws diagrams, so it needs an instrument to draw them from — and the
-  // renderer ignores it on a compact layout. Where neither holds, it is not a
-  // format you can choose and the switch drops to two segments.
+  // Imbed draws diagrams, so all it needs is an instrument to draw them from.
   //
-  // DECLARED HERE, not up with chordsAvailable: it reads compactChrome, which is
-  // declared just above. Referencing it earlier is a temporal dead zone error
-  // that neither the build nor the linter can see — it only throws when the
-  // component renders.
-  const imbedAvailable = chordsAvailable && !compactChrome;
+  // It is NOT excluded on a phone, which I had it doing: Present's SongBody gates
+  // diagrams on `embed && over && instrument !== 'none'` with no mention of screen
+  // size, so setting Imbed on a phone genuinely changes what you perform from.
+  // Only the EDITOR'S preview pane ignores it there, because that pane is too
+  // small to show a diagram usefully — which is a statement about the pane, not
+  // about the format.
   // Show one panel at a time (with the full-width selector) ONLY on a portrait
   // phone, where there is no room for more. Everywhere else — phone landscape,
   // iPad (either orientation), desktop — uses the side-by-side layout with the
@@ -886,11 +886,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setIsDirty(true);
   }
 
-  // The portrait-phone path, where the format lives in the overflow menu and a
-  // segmented control will not fit. Imbed is not offered there at all — the
-  // renderer ignores it on a compact layout — so this stays a two-way toggle.
-  function toggleFormat() {
-    setChordFormat(displayMode === 'over' ? 'brackets' : 'over');
+  // The PHONE's control: one button that cycles IN -> OL -> IM -> IN, because
+  // three stacked segments do not fit a phone toolbar. Same order as the switch,
+  // so the two layouts step through the formats the same way.
+  //
+  // Imbed drops out of the cycle with no instrument set, and a current value that
+  // is no longer in the cycle falls to the start rather than sticking.
+  function cycleFormat() {
+    const order = imbedAvailable ? ['brackets', 'over', 'imbed'] : ['brackets', 'over'];
+    const cur   = embed && imbedAvailable ? 'imbed' : displayMode;
+    setChordFormat(order[(order.indexOf(cur) + 1) % order.length]);
   }
 
   // Auto-sense the chord format from pasted / first-entered content and set both
@@ -1522,8 +1527,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const isEmptyText = text.trim() === '';
   // Wording matched to the format switch, so the portrait-phone menu and the
   // switch elsewhere do not name the same thing differently.
-  const formatName  = displayMode === 'over' ? 'Over Lyrics' : 'Inline';
-  const formatShort = displayMode === 'over' ? 'OL' : 'IN';
+  const formatName  = embed && imbedAvailable ? 'Imbed' : displayMode === 'over' ? 'Over Lyrics' : 'Inline';
+  // Two letters each, so the button does not resize as it cycles. "Sense" is
+  // wider, which is why the button carries a min-width below.
+  const formatShort = embed && imbedAvailable ? 'IM' : displayMode === 'over' ? 'OL' : 'IN';
   // The Transpose lens is active (non-zero) → "Transpose source" can bake it in.
   const transposeActive = !!displayKey && semitonesBetween(metadata.key, displayKey) !== 0;
 
@@ -2416,12 +2423,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           >
             <RotateCcw size={14} />
           </button>
-          {/* One Format toggle inline (landscape only) — sets editor + preview. */}
+          {/* The phone's chord format: one button cycling IN -> OL -> IM. The
+              three-segment switch does not fit here, and a fixed min-width keeps
+              the button from jumping as the two-letter label changes (or as the
+              wider "Sense" appears on an empty song). */}
           {formatsInline && (
             <button
-              onClick={toggleFormat}
-              title="Chord format for the text and preview — click to convert. Pasting a song auto-senses this."
-              className={`${toolCtl} shrink-0 ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
+              onClick={cycleFormat}
+              title={`Chord format: ${isEmptyText ? 'sensed from the song' : formatName}. Tap to cycle${imbedAvailable ? ' Inline, Over, Imbed' : ' Inline and Over'} — it converts the text and sets the preview to match.`}
+              className={`${toolCtl} shrink-0 text-center ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
+              style={{ minWidth: 58 }}
             >
               {isEmptyText ? 'Sense' : formatShort}
             </button>
@@ -2490,6 +2501,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             One word each because the stacked size gives a 12px label: "Over
             Lyrics" would wrap or truncate at that size, which is the problem this
             is meant to solve. */}
+        {!compactChrome && (
         <SegmentedControl
           options={[
             /* "Inline", not "Brackets". Segments are equal width and labels never
@@ -2516,6 +2528,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           segmentPadX={9}
           ariaLabel="Chord format"
         />
+        )}
 
         </>)}
 
@@ -2675,15 +2688,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </RoundButton>
 
             <OverflowMenu open={menuOpen} onClose={closeMenu} dark={dark}>
-              {/* One Format item lives here only in portrait; landscape shows it
-                  inline on the toolbar row. */}
-              {!formatsInline && (
-                <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} justify-between`}
-                  onClick={() => runFromMenu(toggleFormat)}>
-                  <span>Format</span>
-                  <span className={mutedText}>{isEmptyText ? 'Sense Chords' : formatName}</span>
-                </button>
-              )}
+              {/* A Format item used to live here for portrait, back when
+                  formatsInline meant landscape only. It has been unreachable ever
+                  since formatsInline became compactChrome: this whole menu renders
+                  under `compactChrome && …`, so `!formatsInline` inside it can
+                  never be true. The phone's format control is the cycling button
+                  on the toolbar row. */}
 
 
               {/* Swap the sheet on a pdf song — a rescan or a cleaner copy —
@@ -2706,8 +2716,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   so it never orphans. */}
               {hasAnnotation && (
                 <>
-                  {!formatsInline && <div className={`my-1 border-t ${border}`} role="separator" />}
-                  <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
+                      <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
                     onClick={() => runFromMenu(() => setClearInkModal(true))}>
                     <X size={14} className="opacity-60" /> Clear ink
                   </button>
