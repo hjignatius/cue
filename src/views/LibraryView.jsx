@@ -4,6 +4,7 @@ import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findD
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
 import { useAiAbort } from '../hooks/useAiAbort.js';
+import { duplicateGroups } from '../utils/contentHash.js';
 
 // Progress wording per AI tool. Only the words live here — the weights are in
 // utils/aiStage.js, so no two bars can disagree about what a search or a written
@@ -1703,15 +1704,39 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   // there is anything left above it. undefined = the current tier's model.
   const [dupModel, setDupModel]   = useState(undefined);
   const [suggestModel, setSuggestModel] = useState(undefined);
+  // TWO PASSES, and the first one is not AI.
+  //
+  // This used to hand the whole library to Claude and ask it to spot repeats,
+  // which is right for "(Live)", a typo or an alternate spelling — and wrong for
+  // two rows that are character-for-character identical. Asked to do both at once
+  // over hundreds of songs it missed the easy half: importing a set doubled a
+  // dozen songs and the scan reported nothing.
+  //
+  // So the certain duplicates are found here, locally and instantly, and the model
+  // is asked only about what is left. Its list is shorter, so its recall is better
+  // on the cases that actually need judgement.
   async function runFindDuplicates(model) {
-    if (!hasApiKey()) { openAiSettings(); return; }
     setDupOpen(true); setDupBusy(true); setDupErr(''); setDupGroups(null);
     setDupModel(model);
+
+    const { groups: certain, claimed } = duplicateGroups(songs);
+
+    // The certain pass needs no key. Show it and stop rather than sending
+    // somebody to Settings for the half that costs nothing.
+    if (!hasApiKey()) { setDupGroups(certain); setDupBusy(false); return; }
+
     try {
-      setDupGroups(await findDuplicateSongs({ songs, model, signal: startAi('dup') }));
+      const rest = songs.filter(s => !claimed.has(s.id));
+      const fuzzy = rest.length >= 2
+        ? await findDuplicateSongs({ songs: rest, model, signal: startAi('dup') })
+        : [];
+      setDupGroups([...certain, ...fuzzy]);
     } catch (e) {
       if (e?.code === 'aborted') return;
-      setDupErr(e?.message || 'Couldn’t scan for duplicates. Try again.');
+      // What the local pass found still stands. Only report a failure when there
+      // is nothing to show, since the error branch replaces the list.
+      setDupGroups(certain);
+      if (certain.length === 0) setDupErr(e?.message || 'Couldn’t scan for duplicates. Try again.');
     } finally {
       setDupBusy(false);
     }

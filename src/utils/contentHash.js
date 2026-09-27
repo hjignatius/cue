@@ -31,3 +31,68 @@ export function isEditedCopy(song) {
   const base = song?.copiedFrom?.baseline;
   return base != null && contentHash(song) !== base;
 }
+
+// ---------------------------------------------------------------------------
+// Song identity by NAME, and finding duplicates without asking a model.
+// ---------------------------------------------------------------------------
+
+// One definition. There were two: App.jsx stripped punctuation and collapsed
+// whitespace, SharedSetView only lowercased and trimmed — so "Yesterday!" and
+// "Yesterday" counted as the same song when importing and as different songs on
+// the shared-set screen. The stronger one wins; it is the one that matches how
+// people actually retype a title.
+export function normalizeTitle(str) {
+  return (str || '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Duplicates that are CERTAIN, found locally, instantly, for nothing.
+//
+// WHY THIS EXISTS: Find duplicates handed the whole library to Claude and asked
+// it to spot repeats. That is the right tool for "(Live)", a typo or an alternate
+// spelling — and the wrong tool for two rows that are character-for-character
+// identical, which is a comparison, not a judgement. Asked to do both at once
+// over hundreds of songs it missed the easy half: Howard imported a set, doubled
+// a dozen songs, and the scan reported nothing.
+//
+// So the obvious cases are settled here and the model is asked only about what is
+// left. Faster, free, complete — and it works with no API key at all.
+//
+// Returns { groups, claimed } where `claimed` is the ids already accounted for,
+// so the caller can hand the model a shorter list.
+export function duplicateGroups(songs = []) {
+  const groups  = [];
+  const claimed = new Set();
+
+  const collect = (keyOf, reason) => {
+    const buckets = new Map();
+    for (const s of songs) {
+      if (claimed.has(s.id)) continue;
+      const k = keyOf(s);
+      if (k == null) continue;
+      if (!buckets.has(k)) buckets.set(k, []);
+      buckets.get(k).push(s);
+    }
+    for (const list of buckets.values()) {
+      if (list.length < 2) continue;
+      groups.push({ reason, songs: list, certain: true });
+      for (const s of list) claimed.add(s.id);
+    }
+  };
+
+  // Identical content: same words, chords, key, tempo, everything in the
+  // signature. The same song by any measure anyone would accept.
+  collect(contentHash, 'Identical — same words, chords and details');
+
+  // Same title AND artist, but the content has since diverged. Still the same
+  // song saved twice, one of them edited. Title alone is deliberately NOT enough:
+  // two different songs can share a name, and that judgement is the model's job.
+  collect(
+    (s) => {
+      const t = normalizeTitle(s.metadata?.title);
+      return t ? `${t}\u0000${normalizeTitle(s.metadata?.artist)}` : null;
+    },
+    'Same title and artist',
+  );
+
+  return { groups, claimed };
+}

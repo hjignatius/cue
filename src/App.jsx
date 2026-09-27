@@ -4,16 +4,13 @@ import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
 import UpdateButton from './components/UpdateButton.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
+import { normalizeTitle } from './utils/contentHash.js';
 import { parseCho, mergeCustomChords, replaceCustomChords } from './utils/fileIO.js';
 import { usePrefs } from './context/PrefsContext.jsx';
 import { useSwUpdate, applyUpdate, dismissUpdate } from './swUpdate.js';
 import './index.css';
 
 // Case/punctuation-insensitive title comparison for conflict detection
-function normalizeTitle(str) {
-  return (str || '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
-}
-
 export default function App() {
   const { theme } = usePrefs();
   const dark = theme === 'dark';

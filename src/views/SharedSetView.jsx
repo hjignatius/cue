@@ -5,7 +5,7 @@ import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
-import { contentHash, isEditedCopy } from '../utils/contentHash.js';
+import { contentHash, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
@@ -57,10 +57,6 @@ function markContinued(tok) {
 }
 
 // ---- Title-based duplicate helpers -------------------------------------------
-
-function normalizeTitle(str) {
-  return (str || '').toLowerCase().trim();
-}
 
 // Returns Map<normalizedTitle, localSong> from the user's library.
 function buildTitleMap(localSongs) {
