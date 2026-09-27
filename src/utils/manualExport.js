@@ -376,11 +376,13 @@ function manualHTML() {
 <pre>G          Em         C          D
 Here comes the sun, little darlin</pre>
 
-<h3>Brackets</h3>
+<h3>Inline (brackets)</h3>
 <p>Chords are embedded inline within the lyric line:</p>
 <pre>[G]Here comes the [Em]sun, [C]little [D]darlin</pre>
 
-<p>A single <strong>Format</strong> button in the toolbar switches the whole song between the two — it converts the text and sets the preview/Present to match (on the compact phone toolbar it reads <strong>OL</strong> / <strong>B</strong>). When you <strong>paste</strong> a song into an empty editor, Cue auto-senses which format it's in and sets the button for you; an empty editor shows "<strong>Sense Chords</strong>" until there's something to detect.</p>
+<p>A three-position switch in the toolbar sets the chord format for the whole song — <strong>Inline</strong>, <strong>Over</strong>, <strong>Imbed</strong> — converting the text and setting the preview and Present to match. They are ordered by how much room each gives a chord: inline in the lyric, a line of names above it, then a band of chord diagrams.</p>
+<p><strong>Imbed</strong> is Over-lyrics with chord shapes drawn instead of names. It only appears when a chord instrument is set in <strong>Settings</strong> and you are not on a phone, since it needs diagrams to draw and the phone layout does not show them. Choosing <strong>Over</strong> turns it off.</p>
+<p>On a portrait phone the switch does not fit the toolbar, so the format lives in the <strong>⋯</strong> menu as a two-way toggle (Imbed is not offered there); in phone landscape it is a short <strong>OL</strong> / <strong>IN</strong> button. When you <strong>paste</strong> a song into an empty editor, Cue auto-senses which format it's in and sets the switch for you; an empty editor shows "<strong>Sense Chords</strong>" until there's something to detect.</p>
 
 <h3>Imbed — chords as diagrams</h3>
 <p>Boxed next to <strong>Format</strong> is an <strong>Imbed</strong> toggle (available in <strong>Over Lyrics</strong> only). Turn it on and, instead of chord <em>names</em> above the lyrics, Cue shows each chord's <em>diagram</em> — a small fingering grid — right where the chord falls, in the style of a printed uke sheet. It's a <strong>per-song</strong> setting saved with the song, and it carries into <strong>Present</strong> (where the diagrams scale up with the font) and into a <strong>single-song PDF export</strong>. It uses your instrument's library, honouring any custom shapes and the voicing you've picked for each chord in the chord panel; a chord with no shape falls back to its name. Imbed is a <strong>wide-screen</strong> feature (Mac, PC, iPad, tablets) — it's hidden on phones, where the diagrams wouldn't fit.</p>
@@ -396,12 +398,12 @@ Here comes the sun, little darlin</pre>
 <h3>Where the toolbars are</h3>
 <ul>
   <li><strong>Text pane</strong> — the toolbar in the header of the text editor. Available in <em>both</em> chord formats.</li>
-  <li><strong>Preview pane</strong> — a matching toolbar in the header of the live preview, so you can select the <em>rendered</em> lyrics and style them without touching the raw markup. It appears only when the editor is in <strong>Brackets</strong> format. (After you apply a style in the preview the selection clears, so to combine — say bold <em>and</em> a color — reselect between taps.)</li>
+  <li><strong>Preview pane</strong> — a matching toolbar in the header of the live preview, so you can select the <em>rendered</em> lyrics and style them without touching the raw markup. It appears only when the editor is in <strong>Inline</strong> format. (After you apply a style in the preview the selection clears, so to combine — say bold <em>and</em> a color — reselect between taps.)</li>
 </ul>
 <h3>How styling is stored</h3>
 <p>Styling is saved as small markers inside the lyric text itself, which is why you'll see them in the text editor:</p>
 <pre>**bold**   *italic*   {c=#dc2626}colored{/c}</pre>
-<p>Because the markers live with the words, your styling survives switching between Over-lyrics and Brackets, and renders everywhere the song appears — the preview, Present mode, exported PDFs, and shared sets. The markers are only visible in the raw text editor.</p>
+<p>Because the markers live with the words, your styling survives switching between Over-lyrics and Inline, and renders everywhere the song appears — the preview, Present mode, exported PDFs, and shared sets. The markers are only visible in the raw text editor.</p>
 <div class="tip"><strong>Note:</strong> ChordPro (<code>.cho</code>) export strips these markers so other apps see clean lyrics — the exported file keeps your chords and words but not the colors or bold/italic. Cue's own JSON and Backup exports keep the styling, since they re-import into Cue. See <em>File Formats</em>.</div>
 
 <h2>Toolbar Controls</h2>
@@ -409,7 +411,7 @@ Here comes the sun, little darlin</pre>
   <tr><th>Control</th><th>What it does</th></tr>
   <tr><td><strong>Transpose</strong></td><td>Sets a saved <em>display key</em> for the song. The preview, Present mode, and the exported set PDF all render transposed to this key, without ever changing the source text or the song's real key. The Library also treats it as the song's key — it is what the key badge shows and what search, the <em>By Key</em> sort, and the key filter use. Saved with the song; choose the top option (the song's own key) to render untransposed. (This was called "View Key".)</td></tr>
   <tr><td><strong>Transpose source</strong></td><td>Bakes the current Transpose <em>into</em> the text: it rewrites the chords to the transposed key, makes that the song's Key, and clears the Transpose lens. Enabled only when a transpose is active; recoverable via <strong>Revert</strong> until you Save.</td></tr>
-  <tr><td><strong>Format</strong> (<strong>OL/B</strong>)</td><td>Switches the song between Over-lyrics and Brackets (see above), for both the text and the preview.</td></tr>
+  <tr><td><strong>Chord format</strong></td><td>A three-position switch — <strong>Inline</strong> / <strong>Over</strong> / <strong>Imbed</strong> — setting the song's chord format for both the text and the preview (see above). Imbed is absent when no chord instrument is set, or on a phone.</td></tr>
   <tr><td><strong>✎ Ink</strong></td><td>Shows or hides ink annotations drawn in Present mode, overlaid on the preview (read-only here). Only appears when the song has saved annotations. A <strong>Clear ink</strong> button beside it deletes them — see <em>Annotation Overlay</em> below.</td></tr>
   <tr><td><strong>Present</strong></td><td>Launches the current song in full-screen Present mode. When you arrive here via the <strong>Edit</strong> button in Present mode, this button changes to <strong>↩ Return to Performance</strong> — see <em>Editing During Performance</em> below.</td></tr>
   <tr><td><strong>← Prev / Next →</strong></td><td>Moves to the previous or next song. Appears when the editor is opened via the <strong>✎ Edit</strong> button in the Setlist column, the <strong>Edit</strong> button in Present mode, or by double-tapping a song in the Library or Setlist panel. Navigation order follows the list you opened from (or the set you were presenting). If there are unsaved changes, a confirmation dialog appears before navigating.</td></tr>

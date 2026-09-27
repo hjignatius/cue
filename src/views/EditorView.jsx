@@ -1520,8 +1520,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Format control label: an empty editor invites a paste ("Sense Chords"); once
   // there is content it names the current (auto-sensed) format.
   const isEmptyText = text.trim() === '';
-  const formatName  = displayMode === 'over' ? 'Over Lyrics' : 'Brackets';
-  const formatShort = displayMode === 'over' ? 'OL' : 'B';
+  // Wording matched to the format switch, so the portrait-phone menu and the
+  // switch elsewhere do not name the same thing differently.
+  const formatName  = displayMode === 'over' ? 'Over Lyrics' : 'Inline';
+  const formatShort = displayMode === 'over' ? 'OL' : 'IN';
   // The Transpose lens is active (non-zero) → "Transpose source" can bake it in.
   const transposeActive = !!displayKey && semitonesBetween(metadata.key, displayKey) !== 0;
 
@@ -2490,7 +2492,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             is meant to solve. */}
         <SegmentedControl
           options={[
-            { id: 'brackets', label: 'Brackets', icon: <FormatIcon kind="brackets" /> },
+            /* "Inline", not "Brackets". Segments are equal width and labels never
+               wrap, so the longest one sets the width of all three — and this reads
+               as one family with the other two, because all three answer the same
+               question: where does the chord go? The id stays 'brackets', which is
+               what the song stores. */
+            { id: 'brackets', label: 'Inline', icon: <FormatIcon kind="brackets" /> },
             { id: 'over',     label: 'Over',     icon: <FormatIcon kind="over" /> },
             ...(imbedAvailable
               ? [{ id: 'imbed', label: 'Imbed', icon: <FormatIcon kind="imbed" /> }]
