@@ -36,7 +36,7 @@ function pointSegDist(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-export default function PdfAnnotationCanvas({ songId, annotating, dark, page, onHasStrokes }) {
+export default function PdfAnnotationCanvas({ songId, annotating, dark, page, onHasStrokes, onCleared }) {
   const canvasRef  = useRef(null);
   const strokesRef = useRef([]);      // persisted strokes: { id,color,width,page,capW,points:[{x,y}] }
   const currentRef = useRef(null);    // in-progress stroke
@@ -253,6 +253,9 @@ export default function PdfAnnotationCanvas({ songId, annotating, dark, page, on
     strokesRef.current = []; currentRef.current = null; activePointerRef.current = null;
     redraw(); setClearConfirm(false); setStrokeCount(0);
     if (songId) { await deleteAnnotation(songId); onHasStrokes?.(false); }
+    // Clearing is the end of the job: there is nothing left to rub out, so the
+    // toolbar stops floating over the song and finger drawing disarms itself.
+    onCleared?.();
   }
 
   return (

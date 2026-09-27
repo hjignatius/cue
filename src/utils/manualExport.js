@@ -535,7 +535,7 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>E</strong></td><td>Opens the current song in the editor — see <em>Editing During Performance</em>. Hidden on the shared-set viewer.</td></tr>
   <tr><td><strong>FP / SC</strong></td><td>Full Page or Scroll for this song. Indigo means discrete full pages that fit the screen; off means continuous scrolling.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Dimmed when the song has no URL saved.</td></tr>
-  <tr><td><strong>Ink</strong></td><td>Toggles annotation mode so you can draw over the song — see <em>Annotations</em>. An Apple Pencil always draws even when this is off. Hidden on the shared-set viewer.</td></tr>
+  <tr><td><strong>Ink</strong></td><td>Toggles annotation mode so you can draw over the song — see <em>Annotations</em>. An Apple Pencil always draws even when this is off. It switches itself off in two places: when you move to the <strong>Controls</strong> tab, since the button that armed it is no longer on screen, and when you clear every stroke, since there is nothing left to draw on. Hidden on the shared-set viewer.</td></tr>
   <tr><td><strong>Chords</strong></td><td>Shows or hides the chord diagram panel.</td></tr>
 </table>
 

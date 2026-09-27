@@ -115,6 +115,7 @@ function renderStroke(ctx, stroke, canvasWidth, legacyYOffset = 0, renderFontPx)
 export default function AnnotationCanvas({
   songId,
   annotating,   // true = finger/mouse/pen draws; false = only pen draws
+  onCleared,    // clearing every stroke ends the session — nothing left to draw on
   dark,
   readOnly = false,
   onHasStrokes, // (bool) → called when stroke count transitions empty ↔ non-empty
@@ -370,6 +371,9 @@ export default function AnnotationCanvas({
       await deleteAnnotation(songId);
       onHasStrokes?.(false);
     }
+    // Clearing is the end of the job: there is nothing left to rub out, so the
+    // toolbar stops floating over the song and finger drawing disarms itself.
+    onCleared?.();
   }
 
   // ---- render ----------------------------------------------------------------

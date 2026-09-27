@@ -443,6 +443,14 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
   const [flashState, setFlashState] = useState(null); // null | 'beat' | 'accent'
   const [annotating, setAnnotating] = useState(false);
+  // Disarm finger drawing. Two moments call for it, and neither did before:
+  //
+  //   * Switching to the Controls tab. The toggle that armed it lives on Tools, so
+  //     it was left live with no visible control and nothing saying so — the next
+  //     touch on the song drew a line while you were reaching for the tempo.
+  //   * Clearing every stroke. That is the end of the job; there is nothing left
+  //     to rub out, and the toolbar was still floating over the song.
+  const stopAnnotating = useCallback(() => setAnnotating(false), []);
   const { url: ytUrl, collapsed: ytCollapsed, openPlayer, collapsePlayer, expandPlayer } = useYouTube();
   const ytWasExpandedRef = useRef(false);
   const scrollRef      = useRef(null);
@@ -1323,7 +1331,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           (so the page tap-zones stay reachable). `page` tells it which page is on
           screen so it shows that page's strokes and hides the rest. */}
       {songIsPdf && mode === 'page' && song?.id && !disableAnnotations && (
-        <PdfAnnotationCanvas key={`pdf-${song.id}`} songId={song.id} annotating={annotating} page={pdfPage} dark={dark} />
+        <PdfAnnotationCanvas key={`pdf-${song.id}`} songId={song.id} annotating={annotating} page={pdfPage} dark={dark} onCleared={stopAnnotating} />
       )}
       {/* PDF in scroll mode: a scrollable stack of pages INSIDE the shared scroll
           container (scrollRef), so manual scroll, pedal screenful-paging, and
@@ -1336,7 +1344,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           <div className="relative">
             <PdfPageStack songId={song?.id} onReady={setPdfCount} dark={dark} />
             {song?.id && !disableAnnotations && (
-              <PdfAnnotationCanvas key={`pdf-${song.id}`} songId={song.id} annotating={annotating} dark={dark} />
+              <PdfAnnotationCanvas key={`pdf-${song.id}`} songId={song.id} annotating={annotating} dark={dark} onCleared={stopAnnotating} />
             )}
           </div>
         </div>
@@ -1421,6 +1429,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   dark={dark}
                   legacyYOffset={legacyInkOffset}
                   fontPx={fontPx}
+                  onCleared={stopAnnotating}
                 />
               )}
             </div>
@@ -1595,6 +1604,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         onSlower={slowerScroll}
         canFaster={speedMult < MAX_SPEED}
         canSlower={speedMult > MIN_SPEED}
+        onTabChange={(next) => { if (next !== 'tools') stopAnnotating(); }}
         toolsSlot={presentTools}
         toolsRows={toolRows}
         showSaveSpeed={!!onSaveDuration || hasDuration}

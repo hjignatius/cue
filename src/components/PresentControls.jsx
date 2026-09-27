@@ -282,6 +282,15 @@ export default function PresentControls(props) {
   // No tools wired (the shared viewer passes none) → no selector, no tools tab.
   const hasTools = !!props.toolsSlot;
   const showTools = hasTools && tab === 'tools';
+
+  // Leaving a tab is worth announcing: a tool armed on one tab has no visible
+  // control once you are on the other. Present uses this to disarm finger drawing
+  // when you switch away from Tools — otherwise the pen stays live behind a panel
+  // showing tempo and scroll speed, and the next touch on the song draws on it.
+  const changeTab = useCallback((next) => {
+    setTab(next);
+    props.onTabChange?.(next);
+  }, [props]);
   // Only user-initiated collapse/expand is remembered across sessions. The idle
   // auto-collapse is transient — persisting it would make every session start as
   // a pill a few seconds after the last, even when the user wanted it open.
@@ -416,7 +425,7 @@ export default function PresentControls(props) {
               type="button"
               role="tab"
               aria-label={showTools ? 'Show controls' : 'Show tools'}
-              onClick={() => pulseToggle(() => setTab(showTools ? 'controls' : 'tools'))}
+              onClick={() => pulseToggle(() => changeTab(showTools ? 'controls' : 'tools'))}
               className="self-start flex items-center justify-center shrink-0 relative bg-transparent border-0"
               style={{
                 width: TOGGLE_W, height: TOGGLE_HIT_H,
