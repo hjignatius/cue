@@ -72,6 +72,25 @@ function Facts({ song, sets, hasInk, dark }) {
   );
 }
 
+function Chart({ text, className }) {
+  return (
+    <div className={className}>
+      {text.split('\n').map((line, i) => (
+        <div
+          key={i}
+          className="whitespace-pre-wrap"
+          // Hanging indent: a line too wide for the column continues indented, so
+          // it reads as the rest of that line rather than as the next one. Same
+          // idea Present uses when a chord row wraps on stage.
+          style={{ paddingLeft: '1.5em', textIndent: '-1.5em' }}
+        >
+          {line || '\u00a0'}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, onClose, onRename, onDelete }) {
   const isNarrow = useIsNarrow();
   const [leftId,  setLeftId]  = useState(songs[0]?.id);
@@ -80,7 +99,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   const left  = songs.find(s => s.id === leftId)  || songs[0];
   const right = songs.find(s => s.id === rightId) || songs[1];
 
-  const { leftText, rightText, widest, changed, spacing } = useMemo(() => {
+  const { leftText, rightText, changed, spacing } = useMemo(() => {
     // Styling markup out BEFORE the format conversion, for two reasons. It is not
     // played — "{c=#9333ea}Winchester Cathedral{/c}" reads as coloured words on
     // stage, and as noise here. And convertToOver measures columns from the lyric
@@ -92,8 +111,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
     // The diff is used ONLY for the count in the header now. Nothing about the
     // layout depends on it, which is the point: see the panes below.
     const d = diffLines(lt, rt);
-    const w = Math.max(20, ...[...lt.split('\n'), ...rt.split('\n')].map(x => x.length));
-    return { leftText: lt, rightText: rt, widest: w, ...countChanges(d.rows) };
+    return { leftText: lt, rightText: rt, ...countChanges(d.rows) };
   }, [left?.text, right?.text]);
 
   if (!left || !right) return null;
@@ -151,20 +169,26 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
     </span>
   );
 
-  const lineCls = 'font-mono text-[11px] leading-snug whitespace-pre px-2 py-0.5 rounded';
+  const lineCls = 'font-mono text-[11px] leading-snug px-2 py-0.5 rounded';
   // Both chart columns get the width of the longest line in EITHER song, so they
   // are equal to each other rather than each hugging its own content — and a
   // minimum, not a fixed width, so when the songs are narrow the columns still
   // split the window in half and line up with everything above them. `ch` is exact
   // here because the charts are monospace. +1rem covers the cell's own px-2.
-  // The charts: equal halves, but never narrower than the longest line, so they
-  // overflow into the horizontal scroll rather than clipping.
-  const chartCols = { gridTemplateColumns: `repeat(2, minmax(calc(${widest}ch + 1rem), 1fr))` };
+  // ONE geometry for the whole window: two halves, always. The charts used to
+  // claim the width of their longest line, which pushed the pair past the panel
+  // and turned reading into sideways scrolling. Now a line too long for its half
+  // WRAPS inside it.
+  //
+  // That costs something real and it is worth naming: past the wrap point a chord
+  // no longer sits over its word. Scrolling a two-column comparison sideways costs
+  // more, and the wrapped remainder is indented so it reads as a continuation
+  // rather than as a new line of the song.
   // Everything ABOVE the charts: plain halves. These live in the fixed part of the
   // window, so they must never claim a chart's minimum width — a wide song would
   // push them straight out of the panel. minmax(0,1fr) rather than 1fr so a long
   // YouTube URL truncates inside its half instead of stretching it.
-  const headCols = { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' };
+  const cols = { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-3" onClick={onClose}>
@@ -189,7 +213,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
 
         <div className="shrink-0 px-5 pt-4 pb-3 flex flex-col gap-3">
           {/* Which two, when there are more than two. */}
-          <div className="grid gap-3" style={isNarrow ? { gridTemplateColumns: '1fr' } : headCols}>
+          <div className="grid gap-3" style={isNarrow ? { gridTemplateColumns: '1fr' } : cols}>
             {[[left, right, setLeftId], [right, left, setRightId]].map(([side, other, set], i) => (
               <div key={i} className={`rounded-xl border p-3 flex flex-col gap-2 ${bdr}`}>
                 {songs.length > 2 && <Selector value={side.id} onChange={set} other={other.id} />}
@@ -227,7 +251,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                     </span>
                   );
                   return (
-                    <div key={label} className={`grid gap-3 text-xs ${i ? 'mt-1.5' : ''}`} style={headCols}>
+                    <div key={label} className={`grid gap-3 text-xs ${i ? 'mt-1.5' : ''}`} style={cols}>
                       {cell(val(get, left), gone)}
                       {cell(val(get, right), added)}
                     </div>
@@ -259,7 +283,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
             wrapped chord line is a line whose chords no longer sit over their
             words. That is also why there is no separate narrow layout: on a phone
             you scroll sideways, rather than reading some other arrangement. */}
-        <div className={`flex-1 min-h-0 overflow-auto border-t ${bdr}`}>
+        <div className={`flex-1 min-h-0 overflow-y-auto border-t ${bdr}`}>
           {pdfSide ? (
             <p className={`text-xs px-5 py-4 ${muted}`}>
               One of these is a PDF lead sheet, so its chords live in the sheet rather than in text —
@@ -267,7 +291,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               shows its sheet.
             </p>
           ) : (
-            <div className="min-w-full w-max px-5 py-3">
+            <div className="px-5 py-3">
               {/* EACH SONG IS ONE BLOCK, not a row of paired cells.
                   The rows were aligned, which meant blank lines pushed in wherever
                   one side had something the other did not — and that reads as the
@@ -276,9 +300,9 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                   COPYING gave left line, right line, left line, right line, all the
                   way down. Two blocks copy as one song then the other, which is
                   what anyone would expect. */}
-              <div className="grid gap-3" style={chartCols}>
-                <pre className={`${lineCls} ${muted}`}>{leftText}</pre>
-                <pre className={`${lineCls} ${muted} pl-3 border-l ${bdr}`}>{rightText}</pre>
+              <div className="grid gap-3" style={cols}>
+                <Chart text={leftText} className={`${lineCls} ${muted}`} />
+                <Chart text={rightText} className={`${lineCls} ${muted} pl-3 border-l ${bdr}`} />
               </div>
             </div>
           )}
