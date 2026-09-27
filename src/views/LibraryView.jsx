@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2 } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
 import { useAiAbort } from '../hooks/useAiAbort.js';
 import { duplicateGroups } from '../utils/contentHash.js';
+import SongCompare from '../components/SongCompare.jsx';
 
 // Progress wording per AI tool. Only the words live here — the weights are in
 // utils/aiStage.js, so no two bars can disagree about what a search or a written
@@ -1750,6 +1751,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   // still works.
   const [dupRenameId, setDupRenameId]     = useState(null);
   const [dupRenameText, setDupRenameText] = useState('');
+  // The group being compared, or null. Holds the songs rather than an index, so
+  // renaming or deleting inside the comparison cannot leave it pointing at a row
+  // that has moved.
+  const [compareGroup, setCompareGroup]   = useState(null);
 
   function startDupRename(song) {
     setDupRenameId(song.id);
@@ -2526,6 +2531,22 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         </div>
       )}
 
+      {compareGroup && (
+        <SongCompare
+          songs={compareGroup}
+          dark={dark}
+          setsBySongId={setsBySongId}
+          annotatedIds={annotatedSongIds}
+          onClose={() => setCompareGroup(null)}
+          /* Both actions close the comparison and hand back to the list, which
+             already owns them: Delete raises the existing confirm (which would
+             otherwise open behind this), and Rename starts the list's inline field
+             with focus. One implementation of each, not three. */
+          onRename={(song) => { setCompareGroup(null); startDupRename(song); }}
+          onDelete={(id)   => { setCompareGroup(null); deleteFromDup(id); }}
+        />
+      )}
+
       {showTour && <OnboardingTour onDone={finishTour} />}
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsSection} />
@@ -2575,7 +2596,23 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               <AiCaution dark={dark}>AI can get things wrong — check two entries really are the same song before deleting one.</AiCaution>
               {(dupGroups || []).map((g, i) => (
                 <div key={i} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-                  {g.reason && <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">{g.reason}</p>}
+                  <div className="flex items-baseline justify-between gap-2 mb-2">
+                    {g.reason
+                      ? <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{g.reason}</p>
+                      : <span />}
+                    {/* One Compare per GROUP, whatever the count. With more than two
+                        copies the comparison itself offers the pairing, because you
+                        will want A against B and then A against C — and choosing
+                        before opening would mean closing and re-finding your place. */}
+                    {g.songs.length >= 2 && (
+                      <button
+                        onClick={() => setCompareGroup(g.songs)}
+                        className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium hover:underline ${dark ? 'text-indigo-400' : 'text-indigo-600'}`}
+                      >
+                        <Columns2 size={13} /> Compare
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-col gap-1.5">
                     {g.songs.map(s => (
                       <div key={s.id} className="flex items-start justify-between gap-2">
