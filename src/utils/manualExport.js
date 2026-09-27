@@ -339,7 +339,7 @@ function manualHTML() {
 <h2>The Setlist Column</h2>
 <p>With a set selected, the Setlist column shows its songs. From here you can:</p>
 <ul>
-  <li><strong>Drag songs</strong> to reorder them using the grip handle on the left, with touch or mouse (Custom sort mode)</li>
+  <li><strong>Drag songs</strong> to reorder them using the grip handle on the left (Custom sort mode). With a mouse, drag the handle. <strong>On a touch screen, hold the handle for a moment first</strong> — a flick is a scroll, so brushing a handle while scrolling the list can never move a song. That matters on stage, where a set you are playing from must not quietly reorder itself.</li>
   <li><strong>Sort A–Z</strong> — permanently sorts the set alphabetically</li>
   <li><strong>Tap any song row</strong> — selects that song (highlighted in indigo). Tap the same row again to deselect it.</li>
   <li><strong>Double-tap any song row</strong> — opens it directly in the editor. The setlist highlight follows Prev/Next navigation in the editor.</li>

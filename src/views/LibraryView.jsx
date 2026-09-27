@@ -21,7 +21,7 @@ import { isEditedCopy } from '../utils/contentHash.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
-import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useNavigate } from 'react-router-dom';
@@ -1202,10 +1202,15 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
           {...attributes}
           {...listeners}
           onClick={e => e.stopPropagation()}
-          aria-label="Drag to reorder"
-          title="Drag to reorder"
+          aria-label="Hold, then drag to reorder"
+          title="Hold, then drag to reorder"
           className="flex items-center justify-center min-h-[44px] pointer-fine:min-h-[36px] px-1.5 -ml-1.5 shrink-0 cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-700 group-hover:text-gray-400 dark:group-hover:text-gray-500"
-          style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+          // pan-y, NOT none. `none` handed every gesture on this 44px strip to the
+          // app, so a flick starting here could not scroll the list even in
+          // principle — the browser was told not to. It has to stay scrollable
+          // until the hold fires, and dnd-kit stops the scrolling itself once a
+          // drag actually begins.
+          style={{ touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none' }}
         >
           <GripVertical size={14} />
         </button>
@@ -1264,10 +1269,20 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
     window.addEventListener('storage', refresh);
     return () => { window.removeEventListener('cue:ai-key', refresh); window.removeEventListener('storage', refresh); };
   }, []);
+  // MOUSE AND TOUCH ARE NOT THE SAME GESTURE, and treating them as one reordered
+  // Howard's set in front of the band.
+  //
+  // One PointerSensor covered both, starting a drag after 8px of movement. On a
+  // phone a flick to scroll the setlist IS movement — so a finger that happened to
+  // land on a grip picked the song up and dropped it somewhere else in the running
+  // order. Silently, mid-gig.
+  //
+  // A mouse still drags on distance, because a mouse cannot scroll a list by
+  // pressing on it. Touch needs a HOLD: move more than a few pixels inside the
+  // delay and it was a scroll, so the drag never starts.
   const sensors = useSensors(
-    // Pointer Events cover mouse, trackpad, and touch (iOS). 8px activation
-    // distance means a short tap won't start a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
   );
   const [selectedSongId, setSelectedSongId] = useState(() => sessionStorage.getItem('cue:setlist_selected_id') || null);
   const [bufferSec, setBufferSec] = useState(() => {
