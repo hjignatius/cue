@@ -2424,15 +2424,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <RotateCcw size={14} />
           </button>
           {/* The phone's chord format: one button cycling IN -> OL -> IM. The
-              three-segment switch does not fit here, and a fixed min-width keeps
-              the button from jumping as the two-letter label changes (or as the
-              wider "Sense" appears on an empty song). */}
+              three-segment switch does not fit here.
+              No min-width: toolCtl already gives the same h-9 and px-3 as every
+              other control on this row, so two letters come out the same width as
+              a 14px icon and the button matches its neighbours. It widens once for
+              "Sense" on an empty song and settles as soon as you type, which is
+              not worth 20px of permanent padding. */}
           {formatsInline && (
             <button
               onClick={cycleFormat}
               title={`Chord format: ${isEmptyText ? 'sensed from the song' : formatName}. Tap to cycle${imbedAvailable ? ' Inline, Over, Imbed' : ' Inline and Over'} — it converts the text and sets the preview to match.`}
               className={`${toolCtl} shrink-0 text-center ${dark ? 'border-gray-700 text-gray-300 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-gray-900'}`}
-              style={{ minWidth: 58 }}
             >
               {isEmptyText ? 'Sense' : formatShort}
             </button>
@@ -2771,7 +2773,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
-                  diagramMode={embed && !compactChrome}
+                  /* No !compactChrome. Present draws diagrams on a phone, so a
+                     preview that refuses to is showing you something Present will
+                     not — which made Imbed look broken on an iPhone: the format
+                     was set and saved, and nothing on screen changed. */
+                  diagramMode={embed}
                   chordPrefs={chordPrefs}
                   condensed={condensed}
                   showMeta={false}
@@ -2836,7 +2842,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   metadata={metadata}
                   displayMode={previewFormat}
                   displayKey={effectiveDisplayKey}
-                  diagramMode={embed && !compactChrome}
+                  /* No !compactChrome. Present draws diagrams on a phone, so a
+                     preview that refuses to is showing you something Present will
+                     not — which made Imbed look broken on an iPhone: the format
+                     was set and saved, and nothing on screen changed. */
+                  diagramMode={embed}
                   chordPrefs={chordPrefs}
                   condensed={condensed}
                   showMeta={false}
