@@ -17,7 +17,7 @@ import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
-import { detectChordStyle, convertToOver, convertToBrackets } from '../utils/chordStyle.js';
+import { detectChordStyle, convertToOver, convertToBrackets, bracketSourceMap } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
 import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
@@ -1284,6 +1284,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // (In Over source the preview is parsed from a converted string, so offsets
   // wouldn't point at the raw text — that's a later phase.) Chords are inline
   // [C] tokens here, so no chord-line repad is needed.
+  // Converted-offset -> source-offset, for the mapping above. Rebuilt with the
+  // text, which is also what the Preview re-renders from, so the two never
+  // describe different versions of the song.
+  const srcMap = useMemo(() => bracketSourceMap(text), [text]);
+
   function applyStyleFromPreview(op, hex) {
     const root = previewRef.current;
     const sel = window.getSelection();
@@ -1302,6 +1307,26 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       lo = Math.min(lo, s); hi = Math.max(hi, e);
     });
     if (lo === Infinity || hi <= lo) return;
+
+    // TRANSLATE BACK TO THE SONG. lo/hi are offsets into the string the Preview
+    // RENDERED, which is convertToBrackets(text) — and in over-lyrics that is a
+    // different string from the one being edited: the chord lines are gone and
+    // [C] markers have appeared. Feeding those offsets straight to styleRange
+    // coloured a word earlier in the song, sometimes on the line above, growing
+    // worse further down. In brackets it happened to work because converting an
+    // already-bracketed song changes nothing — which is the whole reason this
+    // toolbar was gated to brackets in the first place.
+    //
+    // hi is exclusive, so it maps through the LAST included character.
+    const map = srcMap;
+    if (map) {
+      if (lo >= map.length || hi - 1 >= map.length) return;
+      hi = map[hi - 1] + 1;
+      lo = map[lo];
+      if (hi <= lo) return;
+    } else if (displayMode === 'over') {
+      return;   // CR line endings: the map would describe a string we do not hold
+    }
 
     // The SAME over flag the Text pane passes. Preview selections are coarser —
     // they round outward to whole rendered runs — so this is the path that has to

@@ -78,3 +78,10 @@ export function convertToOver(text) {
 export function convertToBrackets(text) {
   return convertVisualToChordPro(text).converted;
 }
+
+// The same conversion, plus the offset map that takes a position in the
+// CONVERTED text back to the character it came from in `text`. Null when the
+// text cannot be mapped (CR line endings) — callers must not guess.
+export function bracketSourceMap(text) {
+  return convertVisualToChordPro(text || '').map;
+}

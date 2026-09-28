@@ -185,8 +185,60 @@ function chordLineToBrackets(line) {
 
 // Returns { converted: string, wasConverted: boolean }
 export function convertVisualToChordPro(raw) {
-  const lines = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const norm = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = norm.split('\n');
   const out = [];
+  // SOURCE OFFSET PER OUTPUT CHARACTER, so a caller holding a position in the
+  // CONVERTED text can find the character it came from in the original.
+  //
+  // WHY THIS EXISTS: the editor's Preview renders from the converted text and
+  // labels each lyric run with its offset there. In brackets that offset is also
+  // the offset in the real song, because converting a bracketed song changes
+  // nothing — which is the only reason styling from the Preview ever worked. In
+  // over-lyrics the two strings are different lengths and different shapes: the
+  // chord lines are gone and [C] markers have appeared. Every offset after the
+  // first chord line pointed at an earlier character than the user picked, so
+  // selecting a word coloured something above and to the left of it.
+  //
+  // Null when the input had CR line endings: the normalisation above changes
+  // lengths, so the map would describe a string the caller does not hold. Every
+  // caller must treat null as "cannot map" rather than guessing.
+  const mappable = norm === raw;
+  const map = [];
+  const lineStart = [];
+  { let idx = 0; for (const ln of lines) { lineStart.push(idx); idx += ln.length + 1; } }
+  // Record one emitted line's worth of source offsets. Three shapes, and each
+  // needed its own rule before the map came out monotonic — which it must be,
+  // or a selection's start can map after its end.
+  //
+  //   passthrough  the line is copied verbatim, brackets and all, so the mapping
+  //                is the identity. A '[' here is a source character, not a
+  //                marker this conversion invented.
+  //   merged       chord line + lyric line become one. The lyric characters map
+  //                to themselves; an inserted [Chord] marker maps to the lyric
+  //                character it sits in FRONT of, so selecting across a chord
+  //                boundary still lands on the right letters.
+  //   chord-only   no lyrics to point at. Walks the source chord line so the
+  //                positions still climb, and nothing selects it anyway.
+  let lastEnd = -1;   // source offset of the newline that ended the last emitted line
+  const note = (emitted, kind, at, srcLen) => {
+    if (!mappable) return;
+    if (map.length) map.push(lastEnd);
+    let k = 0;
+    for (const ch of emitted) {
+      if (kind === 'merged') {
+        if (ch === '[') { inMarker = true; map.push(at + k); continue; }
+        if (inMarker) { if (ch === ']') inMarker = false; map.push(at + k); continue; }
+        map.push(at + k); k++;
+      } else if (kind === 'chord-only') {
+        map.push(at + Math.min(k, srcLen)); k++;
+      } else {
+        map.push(at + k); k++;
+      }
+    }
+    lastEnd = at + srcLen;
+  };
+  let inMarker = false;
   let changed = false;
   let i = 0;
 
@@ -202,21 +254,26 @@ export function convertVisualToChordPro(raw) {
     // ended up with four identical lines rendering with three different gaps.
     if (isChordLine(line) && next !== undefined && next.trim() !== '' && !isChordLine(next)) {
       // Chord line immediately before a lyric — merge chord positions into lyric.
-      out.push(mergeIntoLyricLine(line, next));
+      const merged = mergeIntoLyricLine(line, next);
+      out.push(merged);
+      note(merged, 'merged', lineStart[i + 1], lines[i + 1].length);
       changed = true;
       i += 2;
     } else if (isChordLine(line)) {
       // Chord-only line NOT immediately before a lyric (followed by another chord
       // line, or at end of song). Emit as a bracket-only ChordPro line so
       // parseChordPro doesn't misclassify it as lyrics.
-      out.push(chordLineToBrackets(line));
+      const only = chordLineToBrackets(line);
+      out.push(only);
+      note(only, 'chord-only', lineStart[i], line.length);
       changed = true;
       i++;
     } else {
       out.push(line);
+      note(line, 'passthrough', lineStart[i], line.length);
       i++;
     }
   }
 
-  return { converted: out.join('\n'), wasConverted: changed };
+  return { converted: out.join('\n'), wasConverted: changed, map: mappable ? map : null };
 }
