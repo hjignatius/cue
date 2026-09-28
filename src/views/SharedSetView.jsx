@@ -599,6 +599,24 @@ export default function SharedSetView() {
     return s;
   }, [updatePlan]);
 
+  // BOTH of you changed it. The publisher moved and so did you, so there is
+  // something new in the share AND something of yours to lose — the one state
+  // the rows used to say nothing about at all.
+  //
+  // It was left out on purpose while the Present button went amber for any edited
+  // copy: a second amber on the same row would have blurred the one already
+  // there. Present now colours what will PLAY rather than what you own, so amber
+  // here is free and means one thing again — there is something to look at.
+  //
+  // What it does NOT get is the one-tap take that a plain 'update' row has.
+  // Tapping this opens the choice instead, because taking the share here throws
+  // your edit away, and defaulting conflicts to Skip was the whole point.
+  const bothChanged = useMemo(() => {
+    const s = new Set();
+    (updatePlan?.songs || []).forEach(x => { if (x.state === 'conflict') s.add(x.shareSong.id); });
+    return s;
+  }, [updatePlan]);
+
   // Share song ids where your saved copy actually differs from the publisher's
   // version — i.e. you've edited it. Drives the amber "this is your own version"
   // cue on the per-song Present buttons.
@@ -647,10 +665,13 @@ export default function SharedSetView() {
     return s;
   }, [updatePlan]);
 
-  // forceMine: tapping the amber Present on a song you've edited plays YOUR
-  // version even when the master "Follow along with your copy" toggle is off.
-  function present(base, startIndex, forceMine = false) {
-    const mine = (forceMine || playMine) && copiedCount > 0;
+  // ONE switch decides what plays, and it is the header toggle — for the whole
+  // set and for a single row alike. There used to be a forceMine argument here,
+  // for a per-row override that would play your copy against the toggle; nothing
+  // ever passed it, and now nothing should. A row that plays something other than
+  // what the toggle says is a row whose colour cannot be trusted.
+  function present(base, startIndex) {
+    const mine = playMine && copiedCount > 0;
     setPresenting({ songs: mine ? base.map(s => localBySource.get(s.id) || s) : base, startIndex, mine });
   }
 
@@ -1138,6 +1159,7 @@ export default function SharedSetView() {
                 onPresent={() => present(displayed, idx)}
                 onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
                 onTakeNewer={behindShare.has(song.id) ? () => updateOneSong(song) : undefined}
+                onDecide={bothChanged.has(song.id) ? () => setUpdateDialog({ choices: {}, focus: song.id }) : undefined}
                 copying={copying}
               />
             ))
@@ -1162,8 +1184,10 @@ export default function SharedSetView() {
           setName={setData?.set?.name || ''}
           dark={dark}
           busy={copying}
-          onChange={(id, action) => setUpdateDialog(d => ({ choices: { ...d.choices, [id]: action } }))}
-          onSetAll={(kind) => setUpdateDialog(() => ({
+          focusId={updateDialog.focus}
+          onChange={(id, action) => setUpdateDialog(d => ({ ...d, choices: { ...d.choices, [id]: action } }))}
+          onSetAll={(kind) => setUpdateDialog(d => ({
+            ...d,
             choices: Object.fromEntries((updatePlan?.songs || []).map(x => [
               x.shareSong.id,
               kind === 'skip' || x.state === 'uptodate' ? 'skip' : (isAddish(x.state) ? 'add' : 'update'),
@@ -1310,7 +1334,17 @@ function UpdateResult({ result, dark, onDone }) {
 
 // The Update-from-share list: one row per song with its state and the action to
 // take (Update / Skip, or Add / Skip for songs not yet in your library).
-function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onSetAll, onCancel, onApply }) {
+function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, onSetAll, onCancel, onApply }) {
+  // Arriving from ONE row's amber button, in a list that can be 83 rows long.
+  // Without this you land somewhere in the middle of a wall of songs with
+  // nothing saying which one you came to decide about.
+  //
+  // A callback ref, not a plain one: the row it belongs to is rendered
+  // conditionally inside a map, so there is no mount for an effect to hang on
+  // and a plain ref would still be null when the effect ran.
+  const focusRow = useCallback((el) => {
+    if (el) el.scrollIntoView({ block: 'center' });
+  }, []);
   const em   = dark ? 'text-gray-100' : 'text-gray-900';
   const sub  = dark ? 'text-gray-400' : 'text-gray-500';
   const seg  = (on) => `px-2.5 py-1 text-xs rounded-lg border transition-colors ${on ? 'bg-indigo-600 border-indigo-600 text-white' : dark ? 'border-gray-700 text-gray-300' : 'border-gray-300 text-gray-600'}`;
@@ -1368,7 +1402,13 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onSetAll, 
               const title = s.metadata?.title || 'Untitled';
               const choice = choices?.[s.id] ?? defaultUpdateAction(item.state);
               return (
-                <li key={i} className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                <li
+                  key={i}
+                  ref={s.id === focusId ? focusRow : undefined}
+                  className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${
+                    s.id === focusId ? 'border-amber-500 ring-1 ring-amber-500' : dark ? 'border-gray-700' : 'border-gray-200'
+                  }`}
+                >
                   <span className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium truncate ${em}`}>{title}</span>
                     <span className={`text-[11px] ${item.state === 'conflict' ? 'text-amber-500' : sub}`}>
@@ -1575,7 +1615,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPresent, onCopy, onTakeNewer, copying }) {
+function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPresent, onCopy, onTakeNewer, onDecide, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1614,7 +1654,22 @@ function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPre
               13px refresh arrow beside the title was too small to read — this is
               one control carrying both the state and the action, which is also
               fewer things on the row. */}
-          {onTakeNewer ? (
+          {onDecide ? (
+            /* Both of you changed this one. Amber, like a plain behind-the-share
+               row, because the news is the same: there is something in the share
+               you have not got. The ACTION is not the same — this opens the
+               choice rather than taking it, since taking it here would write over
+               your own edit. */
+            <RoundButton
+              size={ROUND_SIZE_COMPACT}
+              label="You and the publisher both changed this song — decide what to do"
+              title="The publisher has changed this song, and so have you. Nothing is taken automatically: this opens the list so you can keep yours or take theirs."
+              fill="#d97706" disabled={copying}
+              onActivate={onDecide}
+            >
+              <Library size={16} />
+            </RoundButton>
+          ) : onTakeNewer ? (
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="Take the newer version of this song"
@@ -1657,15 +1712,26 @@ function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPre
           )}
           <RoundButton
             size={ROUND_SIZE_COMPACT}
+            /* AMBER MEANS "YOUR VERSION IS WHAT PLAYS" — not "you own an edited
+               copy". Those came apart whenever the toggle was off: the button
+               went amber for a song you had edited and then played the
+               publisher's version anyway, which is the one thing a colour on a
+               Play button must never do.
+
+               It costs a little: with the toggle off, a row no longer shows on
+               its own that you have edited it. The header carries that ("you've
+               edited N"), and the toggle is one tap away from showing it per row
+               again. What it buys is that the colour answers the only question
+               anyone asks of this button — which version am I about to hear. */
             label={edited
-              ? (playMine ? 'Present this song — playing your edited copy' : 'Present this song — you have an edited copy; the toggle above plays the shared version')
+              ? (playMine ? 'Present this song — playing your edited copy' : 'Present this song — playing the shared version; you also have an edited copy')
               : 'Present this song'}
             title={edited
               ? (playMine
                   ? 'You have your own edited version — this plays it full-screen for performing.'
-                  : 'You have your own edited version of this song. Switch the toggle to “Including Songs You Edited” to play it; right now the shared version plays.')
+                  : 'This plays the publisher’s version. You also have your own edited copy — switch the toggle to “Including Songs You Edited” to play that instead.')
               : 'Play just this song full-screen — big chords and lyrics for performing.'}
-            fill={edited ? '#d97706' : fill} active={!edited}
+            fill={edited && playMine ? '#d97706' : fill} active={!(edited && playMine)}
             onActivate={onPresent}
           >
             <Tv size={16} />
