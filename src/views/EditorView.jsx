@@ -263,7 +263,7 @@ function SymbolMenu({ open, onClose, symbols, onInsert, onChange, dark }) {
         <label className={`block text-[11px] mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
           Your symbols — type or paste, then click one above
         </label>
-        {/* stopPropagation on mousedown so the styleBar's selection-preserving
+        {/* stopPropagation on mousedown so the symbolBar's selection-preserving
             preventDefault doesn't block this field from taking focus. */}
         <input
           value={symbols}
@@ -1260,31 +1260,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos, pos); });
   }
 
-  // Apply a lyric-styling op to the Text pane's current selection, then re-select
-  // the styled span. No-op without a selection. (The line-by-line + over-mode
-  // repad logic lives in the shared styleRange.)
-  function applyStyle(op, hex) {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart, end = ta.selectionEnd;
-    if (start === end) { ta.focus(); return; }
-    const res = styleRange(text, op, hex, start, end, displayMode === 'over');
-    if (!res) { ta.focus(); return; }
-    setText(res.text);
-    setIsDirty(true);
-    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(res.selA, res.selB); });
-  }
-
-  // Apply a styling op to the PREVIEW's current text selection. Each rendered
-  // lyric run carries data-src = its absolute offset in the raw text (see
-  // parseStyledRuns), and offset-within-a-run == source offset, so the DOM
-  // selection maps straight to a source range. Only enabled when the editor
-  // format is Brackets: then the raw text IS bracket-format, so SongPreview's
-  // convertToBrackets(text) is identity and data-src indexes the raw text.
-  // (In Over source the preview is parsed from a converted string, so offsets
-  // wouldn't point at the raw text — that's a later phase.) Chords are inline
-  // [C] tokens here, so no chord-line repad is needed.
-  // Converted-offset -> source-offset, for the mapping above. Rebuilt with the
+  // Apply a styling op to the PREVIEW's current text selection — the only way to
+  // style lyrics now that the Text pane keeps just the symbol palette.
+  //
+  // Each rendered lyric run carries data-src: its offset in the string the
+  // Preview RENDERED, which is convertToBrackets(text). In brackets that is the
+  // raw text unchanged; in over-lyrics it is not, so the offsets are translated
+  // through srcMap below before they reach the song.
+  // Converted-offset -> source-offset, for that translation. Rebuilt with the
   // text, which is also what the Preview re-renders from, so the two never
   // describe different versions of the song.
   const srcMap = useMemo(() => bracketSourceMap(text), [text]);
@@ -1465,13 +1448,26 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // The Transpose lens is active (non-zero) → "Transpose source" can bake it in.
   const transposeActive = !!displayKey && semitonesBetween(metadata.key, displayKey) !== 0;
 
-  // Lyric-styling toolbar, shown in the Text pane header. onMouseDown-preventDefault
-  // keeps the textarea's selection alive when a button is clicked.
+  // The Text pane header keeps ONE button: the symbol palette.
+  //
+  // It used to carry a full copy of the styling toolbar — bold, italic, the
+  // colours, the eraser — working on the textarea's own selection. Howard's call
+  // once the Preview version worked in both formats: "why do we need both one in
+  // text and the other in Preview. The preview panel is so much easier to use.
+  // All I need in text is the special character selector."
+  //
+  // He is right about which is easier, and there is a reason beyond preference.
+  // Styling from the Text pane means selecting the MARKUP as well as the words —
+  // the asterisks and the {c=...} are right there in what you are dragging across
+  // — so the buttons only behaved if your selection happened to line up with
+  // them. From the Preview you select what you can see. Two ways in also meant
+  // two selection models to keep honest, and the text one is the one nobody used.
+  //
+  // Inserting a symbol stays here, because it goes in at the CARET — there is no
+  // caret in the Preview, and nothing to select.
   const styleBtn = 'w-7 h-7 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors shrink-0';
-  const styleBar = (
+  const symbolBar = (
     <div className="flex items-center gap-1 ml-auto" onMouseDown={e => e.preventDefault()}>
-      <button onClick={() => applyStyle('bold')}   title="Bold (**text**)"   className={styleBtn}><Bold size={15} /></button>
-      <button onClick={() => applyStyle('italic')} title="Italic (*text*)"   className={styleBtn}><Italic size={15} /></button>
       {/* Insert-symbol palette (Ω is the conventional special-character glyph) */}
       <span className="relative inline-flex shrink-0">
         <button
@@ -1491,30 +1487,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           dark={dark}
         />
       </span>
-      <span className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-0.5 shrink-0" />
-      {STYLE_COLORS.map(c => (
-        <button
-          key={c.hex}
-          onClick={() => applyStyle('color', c.hex)}
-          title={c.name}
-          className="w-5 h-5 rounded-full shrink-0 border border-black/10 dark:border-white/20 hover:scale-110 transition-transform"
-          style={{ backgroundColor: c.hex }}
-        />
-      ))}
-      <button onClick={() => applyStyle('clear')} title="Clear color" className={styleBtn}><Eraser size={14} /></button>
     </div>
   );
 
-  // The same toolbar, over the Preview: select rendered lyrics and style them.
+  // THE styling toolbar: select rendered lyrics and style them.
   // onMouseDown-preventDefault keeps the DOM text selection alive on click.
   //
-  // NOW IN OVER-LYRICS TOO (local trial). It was gated to Brackets because in
-  // over-lyrics a chord's column IS the syllable it is sung on, so inserting
-  // markup into a lyric drags every chord after it onto the wrong word — and a
-  // toolbar that disappears when you flip format is its own kind of puzzle.
-  // styleRange already re-pads the chord line above; what it did NOT do was keep
-  // a chord whole when the insertion landed inside one (see snapOutOfToken in
-  // utils/styleText.js). scripts/styleRoundTrip.mjs is what says this holds.
+  // Works in both chord formats, and is the only way in — the Text pane keeps
+  // the symbol palette alone. It was once gated to Brackets, on the grounds that
+  // in over-lyrics a chord's column IS the syllable it is sung on. The real
+  // obstacle turned out to be different: the Preview labels its runs with offsets
+  // into the string it RENDERED, which in over-lyrics is not the song. See
+  // applyStyleFromPreview. The styling itself is in utils/styleText.js, which
+  // works on per-character style rather than on markers, and
+  // scripts/styleRoundTrip.mjs is what says it holds.
   const previewStyleBar = (
     <div className="flex items-center gap-1" onMouseDown={e => e.preventDefault()}>
       <button onClick={() => applyStyleFromPreview('bold')}   title="Bold"   className={styleBtn}><Bold size={15} /></button>
@@ -2696,7 +2682,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <div className={`flex-col min-w-0 min-h-0 flex-1 overflow-hidden ${narrowTab === 'editor' ? 'flex' : 'hidden'}`}>
               <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center gap-2`}>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
-                {styleBar}
+                {symbolBar}
               </div>
               {frBar}
               <CharRuler textareaRef={textareaRef} text={text} target={LYRIC_TARGET_CHARS} dark={dark} />
@@ -2756,7 +2742,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <div className="flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden">
               <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center gap-2`}>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
-                {styleBar}
+                {symbolBar}
               </div>
               {frBar}
               <CharRuler textareaRef={textareaRef} text={text} target={LYRIC_TARGET_CHARS} dark={dark} />
