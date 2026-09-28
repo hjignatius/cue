@@ -9,6 +9,8 @@
 // Run: node scripts/styleRoundTrip.mjs
 import { styleRange } from '../src/utils/styleText.js';
 import { isChordLine } from '../src/utils/visualImport.js';
+import { convertToBrackets } from '../src/utils/chordStyle.js';
+import { parseChordPro, styleSegments } from '../src/utils/chordPro.js';
 
 const SONGS = {
   'plain verse': [
@@ -24,8 +26,13 @@ const SONGS = {
     'Fm7     Bb7',
     'I love you more than words',
   ].join('\n'),
+  // A song that ALREADY carries styling. Its chord line is padded past the
+  // markup, which is what the editor itself produces — re-padding the chord line
+  // by the inserted characters is the whole point of over-mode styling. A chord
+  // parked in the middle of a {c=...} marker is a broken song before anything
+  // here touches it, so it is not what this should be measuring.
   'already coloured': [
-    'G        C',
+    '           G     C',
     '{c=#dc2626}Hello{/c} darkness my old friend',
   ].join('\n'),
   'two verses': [
@@ -110,6 +117,34 @@ for (const [songName, song] of Object.entries(SONGS)) {
           undone && undone.text === song,
           undone ? `got:\n${undone.text}\nwant:\n${song}` : 'second apply returned null');
       }
+    }
+  }
+}
+
+// ---- What the renderer will actually draw -----------------------------------
+//
+// The text can be right and the screen still wrong. Over-lyrics draws one column
+// per segment, and an empty cell draws a single space so a chord with no lyric
+// under it keeps its column — so a segment that is nothing but markup becomes a
+// one-character column and shifts the line, chord row and all.
+//
+// Howard found it the way you only can by using it: "if the first character of a
+// string has a chord over it, changing the color or format moves the whole line
+// by one character."
+const columns = (text) =>
+  parseChordPro(convertToBrackets(text))
+    .filter(l => l.type === 'chords')
+    .map(l => styleSegments(l.segments).map(sg => `${sg.chord || ''}/${sg.styledRuns.map(r => r.text).join('')}`).join('|'))
+    .join(' ~ ');
+
+for (const [songName, song] of Object.entries(SONGS)) {
+  const before = columns(song);
+  for (const [a, b, what] of selections(song)) {
+    for (const op of ['bold', 'italic', 'color']) {
+      const applied = styleRange(song, op, '#2563eb', a, b, true);
+      if (!applied) continue;
+      check(`${songName} · ${op} ${what} · draws the same columns`, before === columns(applied.text),
+        `before: ${before}\nafter:  ${columns(applied.text)}\ntext:\n${applied.text}`);
     }
   }
 }

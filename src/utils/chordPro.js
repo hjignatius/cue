@@ -157,7 +157,24 @@ function parseStyledRuns(str, state, base = 0) {
  */
 export function styleSegments(segments) {
   const state = { bold: false, italic: false, color: [] };
-  return (segments || []).map(seg => ({ ...seg, styledRuns: parseStyledRuns(seg.text || '', state, seg.srcStart ?? 0) }));
+  const out = (segments || []).map(seg => ({ ...seg, styledRuns: parseStyledRuns(seg.text || '', state, seg.srcStart ?? 0) }));
+  // DROP SEGMENTS THAT ARE PURE MARKUP. Styling the first word of a line whose
+  // first character carries a chord leaves "**[G]Yesterday**", which parses as an
+  // empty segment before the chord — no chord of its own and no text once the
+  // asterisks are consumed. The over-lyrics renderers draw a single space for an
+  // empty cell (that is how a chord with no lyric under it keeps its column), so
+  // that nothing became a one-character column and shifted the whole line, chord
+  // row and all, to the right.
+  //
+  // Safe to drop AFTER parsing, not before: parseStyledRuns has already folded
+  // the markup into `state`, so the bold it switched on still reaches the
+  // segments that follow. A segment WITH a chord is never dropped, however empty
+  // its text — that is a real column.
+  //
+  // Never returns nothing: a line of pure markup keeps its first segment rather
+  // than handing the renderers an empty list.
+  const kept = out.filter(seg => seg.chord != null || seg.styledRuns.some(r => r.text));
+  return kept.length ? kept : out.slice(0, 1);
 }
 
 /**
