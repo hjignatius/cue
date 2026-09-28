@@ -25,7 +25,7 @@ import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
 import { loadCustomChords, saveCustomChords } from '../utils/chordStorage.js';
-import { isChordLine } from '../utils/visualImport.js';
+import { styleRange } from '../utils/styleText.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -73,113 +73,6 @@ const STYLE_COLORS = [
   { name: 'Blue',   hex: '#2563eb' },
   { name: 'Purple', hex: '#9333ea' },
 ];
-
-// Styling ops for the toolbar. Each toggles by checking the selection's own
-// delimiters and returns { styled, ds, de }: the replacement text, plus the
-// characters added(+)/removed(-) at the selection's START (ds) and END (de).
-// ds/de let over-mode keep the chord line above aligned. Good enough for the
-// common single-style case; combined styles may need a second tap.
-const COLOR_SPAN = /^\{c=([^}]+)\}([\s\S]*)\{\/c\}$/;
-// Each op returns { styled, edits }: the replacement for the selection, plus the
-// chord-line edits to mirror — [relCol, delta] pairs where relCol is measured
-// from the selection start and delta is spaces to insert(+)/remove(-). Applying
-// the SAME shifts to the chord line above keeps chords over their words in the
-// raw over-lyrics text (apply and clear are exact inverses).
-function opBold(sel) {
-  if (sel.startsWith('**') && sel.endsWith('**') && sel.length >= 4)
-    return { styled: sel.slice(2, -2), edits: [[0, -2], [sel.length - 2, -2]] };
-  return { styled: `**${sel}**`, edits: [[0, 2], [sel.length, 2]] };
-}
-function opItalic(sel) {
-  if (sel.startsWith('*') && sel.endsWith('*') && !sel.startsWith('**') && !sel.endsWith('**') && sel.length >= 2)
-    return { styled: sel.slice(1, -1), edits: [[0, -1], [sel.length - 1, -1]] };
-  return { styled: `*${sel}*`, edits: [[0, 1], [sel.length, 1]] };
-}
-function opColor(sel, hex) {
-  const m = COLOR_SPAN.exec(sel);
-  if (m) {
-    const oldPre = m[0].length - m[2].length - 4; // length of `{c=OLD}`
-    if (m[1].trim() === hex) return { styled: m[2], edits: [[0, -oldPre], [sel.length - 4, -4]] }; // same → clear
-    const newPre = `{c=${hex}}`.length;
-    return { styled: `{c=${hex}}${m[2]}{/c}`, edits: newPre === oldPre ? [] : [[0, newPre - oldPre]] }; // recolor
-  }
-  return { styled: `{c=${hex}}${sel}{/c}`, edits: [[0, `{c=${hex}}`.length], [sel.length, 4]] };
-}
-function opClear(sel) {
-  const m = COLOR_SPAN.exec(sel);
-  if (!m) return { styled: sel, edits: [] };
-  const oldPre = m[0].length - m[2].length - 4;
-  return { styled: m[2], edits: [[0, -oldPre], [sel.length - 4, -4]] };
-}
-
-// Insert(+)/remove(-) `delta` space columns at `col`. Removal only eats spaces,
-// never chord characters.
-function editChordCol(s, col, delta) {
-  if (delta > 0) {
-    const p = s.length < col ? s.padEnd(col, ' ') : s;
-    return p.slice(0, col) + ' '.repeat(delta) + p.slice(col);
-  }
-  if (delta < 0) {
-    let n = -delta, out = '';
-    for (let i = 0; i < s.length; i++) {
-      if (i >= col && n > 0 && s[i] === ' ') { n--; continue; }
-      out += s[i];
-    }
-    return out;
-  }
-  return s;
-}
-// Apply the chord-line edits (in original columns, offset by the selection start
-// `a`) right-to-left so earlier columns stay valid as later ones shift.
-function repadChordLine(chordLine, a, edits) {
-  let s = chordLine;
-  for (const [relCol, delta] of [...edits].sort((x, y) => y[0] - x[0])) {
-    s = editChordCol(s, a + relCol, delta);
-  }
-  return s.replace(/[ \t]+$/, '');
-}
-
-// Apply a styling op to the source range [start,end], LINE BY LINE, on `text`.
-// The parser is per-line, so markup must be balanced within each line — wrapping a
-// whole multi-line block as one span would leave `{c=}` open on the first line and
-// `{/c}` orphaned on the last, so each touched line's selected portion is styled
-// independently. In Over-Lyrics mode (`over`), chord lines are skipped and each
-// styled line's chord line above is re-padded by the same column shifts so chords
-// stay over their words. Returns { text, selA, selB } (the rebuilt text and the
-// new source range covering the styled span), or null if nothing changed.
-function styleRange(text, op, hex, start, end, over) {
-  const lines = text.split('\n');
-  const lineStart = [];
-  { let idx = 0; for (const ln of lines) { lineStart.push(idx); idx += ln.length + 1; } }
-
-  let firstLine = -1, firstA = 0, lastLine = -1, lastEnd = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const ls = lineStart[i], le = ls + lines[i].length;
-    if (le <= start || ls >= end) continue;                 // line outside selection
-    const a = Math.max(start, ls) - ls;
-    const b = Math.min(end, le) - ls;
-    if (b <= a) continue;                                    // nothing on this line
-    if (over && isChordLine(lines[i])) continue;             // never style a chord line
-    const seg = lines[i].slice(a, b);
-    if (op !== 'clear' && !seg.trim()) continue;             // skip whitespace-only bits
-    const { styled, edits } = op === 'bold'   ? opBold(seg)
-                            : op === 'italic' ? opItalic(seg)
-                            : op === 'color'  ? opColor(seg, hex)
-                            : op === 'clear'  ? opClear(seg)
-                            :                    { styled: seg, edits: [] };
-    lines[i] = lines[i].slice(0, a) + styled + lines[i].slice(b);
-    if (over && edits.length && i > 0 && isChordLine(lines[i - 1])) {
-      lines[i - 1] = repadChordLine(lines[i - 1], a, edits);
-    }
-    if (firstLine === -1) { firstLine = i; firstA = a; }
-    lastLine = i; lastEnd = a + styled.length;
-  }
-  if (firstLine === -1) return null;                         // nothing was styled
-
-  const out = lines.join('\n');
-  const newStart = []; { let idx = 0; for (const ln of lines) { newStart.push(idx); idx += ln.length + 1; } }
-  return { text: out, selA: newStart[firstLine] + firstA, selB: newStart[lastLine] + lastEnd };
-}
 
 // Visible label inside a pill button (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -1410,7 +1303,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     });
     if (lo === Infinity || hi <= lo) return;
 
-    const res = styleRange(text, op, hex, lo, hi, false);
+    // The SAME over flag the Text pane passes. Preview selections are coarser —
+    // they round outward to whole rendered runs — so this is the path that has to
+    // survive a selection wider than the one you think you made.
+    const res = styleRange(text, op, hex, lo, hi, displayMode === 'over');
     if (!res) return;
     setText(res.text);
     setIsDirty(true);
@@ -1585,9 +1481,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   );
 
   // The same toolbar, over the Preview: select rendered lyrics and style them.
-  // onMouseDown-preventDefault keeps the DOM text selection alive on click. Only
-  // rendered when the editor format is Brackets (see applyStyleFromPreview).
-  const previewStyleBar = displayMode === 'brackets' ? (
+  // onMouseDown-preventDefault keeps the DOM text selection alive on click.
+  //
+  // NOW IN OVER-LYRICS TOO (local trial). It was gated to Brackets because in
+  // over-lyrics a chord's column IS the syllable it is sung on, so inserting
+  // markup into a lyric drags every chord after it onto the wrong word — and a
+  // toolbar that disappears when you flip format is its own kind of puzzle.
+  // styleRange already re-pads the chord line above; what it did NOT do was keep
+  // a chord whole when the insertion landed inside one (see snapOutOfToken in
+  // utils/styleText.js). scripts/styleRoundTrip.mjs is what says this holds.
+  const previewStyleBar = (
     <div className="flex items-center gap-1" onMouseDown={e => e.preventDefault()}>
       <button onClick={() => applyStyleFromPreview('bold')}   title="Bold"   className={styleBtn}><Bold size={15} /></button>
       <button onClick={() => applyStyleFromPreview('italic')} title="Italic" className={styleBtn}><Italic size={15} /></button>
@@ -1603,7 +1506,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       ))}
       <button onClick={() => applyStyleFromPreview('clear')} title="Clear color" className={styleBtn}><Eraser size={14} /></button>
     </div>
-  ) : null;
+  );
 
   const chordPanel = (
     <SongChordPanel
