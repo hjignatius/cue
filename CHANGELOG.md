@@ -3,6 +3,53 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.5 — 2026-09-28
+
+Styling lyrics now works the way you'd expect it to, a shared set says more about
+what's yours, and duplicate clean-up got a one-tap answer.
+
+### Styling lyrics
+
+- **Style lyrics from the Preview in both chord formats.** The toolbar used to
+  vanish when you switched to Over Lyrics. It works in either now — select the
+  words you can see and make them bold, italic, or coloured.
+- **The Text pane keeps only the symbol palette.** Styling from there meant
+  selecting the markup along with the words, so the buttons only behaved when
+  your selection happened to line up with them. One toolbar, over the Preview,
+  and it's the easier one. Inserting a symbol stays in the Text pane, because it
+  goes in at the caret.
+- **Fixed: the eraser cleared one word at a time, or nothing at all.** Colour
+  applied over existing colour used to nest one span inside another, and clearing
+  a block could leave a stray marker behind that kept a word coloured. Styling
+  now works on the words themselves rather than on the markup around them, so a
+  single press finishes the job and the markup can't end up tangled.
+- **Fixed: a chord could be split in two.** Styling a word could push a space
+  into the middle of a chord name — `Am` became `A  m` — naming a chord that was
+  never in your song, with nothing on screen that looked wrong. Chords are now
+  placed over the same word they started over, whole.
+- **Fixed: styling the first word of a line nudged the whole line sideways** when
+  a chord sat over that first letter.
+
+### Shared sets
+
+- **A green tick on songs you already have.** A row for a song in your library
+  that matches the share used to offer to copy it again, and reported "skipped"
+  when you did. It now just says you have it.
+- **The Present button's colour tells you what will play.** It's amber only when
+  your own edited version is the one about to play — not merely because you own
+  an edited copy. Before, it could go amber and then play the publisher's
+  version.
+- **Songs you and the publisher both changed now say so.** That was the one state
+  the list stayed silent about. Tapping it opens the choice rather than taking
+  anything, because taking the share there would write over your edit.
+
+### Library
+
+- **"Remove the extras" on identical duplicates.** One tap where there's nothing
+  to decide. Cue keeps the copy your sets point at and your ink is attached to,
+  moves any set references onto it, and withholds the offer entirely if two
+  copies carry ink — that's a decision, not a tidy-up.
+
 ## v1.9.4 — 2026-09-28
 
 Duplicates you can actually resolve, a simpler editor toolbar, and a handful of
