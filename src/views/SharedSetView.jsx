@@ -953,6 +953,12 @@ export default function SharedSetView() {
               // now also covers a share full of songs you own a different version
               // of. Disabling it would have taken away the only deliberate route
               // to the publisher's arrangement of a song you already have.
+              //
+              // "Up to date" is not strictly true in that second case — nothing is
+              // pending, but 72 of 83 songs may be different versions rather than
+              // matching copies. Raised with Howard on 2026-09-30 and left alone
+              // deliberately: every shorter alternative was worse, and opening it
+              // says exactly what is in there. Leave the wording be.
               return (
                 <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
                   label="Nothing waiting — review this set"
