@@ -149,5 +149,43 @@ for (const [songName, song] of Object.entries(SONGS)) {
   }
 }
 
+// ---- Toggling the way the PREVIEW does --------------------------------------
+//
+// The checks above toggle using the range styleRange hands back, which covers the
+// markup it just inserted. The Preview cannot do that: it re-derives the range
+// from the rendered runs, and the markers are not rendered — so it asks to
+// un-style the WORD while the `**` or `{c=...}` sit just outside.
+//
+// That is how Howard met it: "the eraser is intermittent for both the text and
+// preview sides." It worked whenever the selection happened to include the
+// markers, and pressing bold twice on one word gave ****Hello**** rather than
+// plain text.
+for (const [songName, song] of Object.entries(SONGS)) {
+  for (const [a, b, what] of selections(song)) {
+    const word = song.slice(a, b);
+    if (!word.trim() || /\{|\*/.test(word)) continue;   // already-styled fixtures aside
+    for (const op of ['bold', 'italic']) {
+      const on = styleRange(song, op, null, a, b, true);
+      if (!on) continue;
+      // Find the same word again and ask to toggle it off, markers excluded.
+      const at = on.text.indexOf(word, Math.max(0, a - 12));
+      if (at < 0) { check(`${songName} · ${op} ${what} · word survives styling`, false, on.text); continue; }
+      const off = styleRange(on.text, op, null, at, at + word.length, true);
+      check(`${songName} · ${op} ${what} · toggles off from a Preview-shaped range`,
+        off && off.text === song,
+        off ? `got:\n${off.text}\nwant:\n${song}` : 'toggling off returned null');
+    }
+    // Colour, then erase.
+    const col = styleRange(song, 'color', '#2563eb', a, b, true);
+    if (!col) continue;
+    const at = col.text.indexOf(word, Math.max(0, a - 12));
+    if (at < 0) { check(`${songName} · color ${what} · word survives colouring`, false, col.text); continue; }
+    const cleared = styleRange(col.text, 'clear', null, at, at + word.length, true);
+    check(`${songName} · erase ${what} · returns the song byte-identical`,
+      cleared && cleared.text === song,
+      cleared ? `got:\n${cleared.text}\nwant:\n${song}` : 'clear returned null');
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -92,6 +92,41 @@ function repadChordLine(chordLine, a, edits) {
   return s.replace(/[ \t]+$/, '');
 }
 
+// Grow a selection outward over markup that ALREADY wraps it.
+//
+// Every op toggles by inspecting its own delimiters — opBold asks whether the
+// selection starts and ends with `**`, opClear whether it is a whole
+// `{c=...}...{/c}` span. That works from the Text pane, where the markers are
+// visible characters you can drag across. It cannot work from the Preview, which
+// renders the WORD and not the markup around it, so the range handed back covers
+// "Hello" while the markers sit just outside it.
+//
+// The result was an eraser that worked only when the selection happened to
+// include the markers — "intermittent for both the text and preview sides" — and
+// a bold button that, pressed twice on the same word, produced `****Hello****`
+// instead of toggling off.
+//
+// So before an op looks at its delimiters, hand it the delimiters. Only markup
+// DIRECTLY abutting the selection on both sides counts, so this never reaches
+// past what the selection is actually inside.
+const COLOR_OPEN_AT_END = /\{c=[^}]*\}$/;
+function growToWrappers(line, a, b, op) {
+  const before = line.slice(0, a), after = line.slice(b);
+  if (op === 'bold') {
+    if (before.endsWith('**') && after.startsWith('**')) return [a - 2, b + 2];
+  } else if (op === 'italic') {
+    // A single `*`, not one half of a `**`: bold wrapping must not be mistaken
+    // for italic wrapping, or toggling italic would eat one asterisk of each pair
+    // and leave the line malformed.
+    if (before.endsWith('*') && !before.endsWith('**') && after.startsWith('*') && !after.startsWith('**'))
+      return [a - 1, b + 1];
+  } else if (op === 'color' || op === 'clear') {
+    const m = COLOR_OPEN_AT_END.exec(before);
+    if (m && after.startsWith('{/c}')) return [a - m[0].length, b + 4];
+  }
+  return [a, b];
+}
+
 // Apply a styling op to the source range [start,end], LINE BY LINE, on `text`.
 // The parser is per-line, so markup must be balanced within each line — wrapping a
 // whole multi-line block as one span would leave `{c=}` open on the first line and
@@ -109,10 +144,11 @@ export function styleRange(text, op, hex, start, end, over) {
   for (let i = 0; i < lines.length; i++) {
     const ls = lineStart[i], le = ls + lines[i].length;
     if (le <= start || ls >= end) continue;                 // line outside selection
-    const a = Math.max(start, ls) - ls;
-    const b = Math.min(end, le) - ls;
+    let a = Math.max(start, ls) - ls;
+    let b = Math.min(end, le) - ls;
     if (b <= a) continue;                                    // nothing on this line
     if (over && isChordLine(lines[i])) continue;             // never style a chord line
+    [a, b] = growToWrappers(lines[i], a, b, op);
     const seg = lines[i].slice(a, b);
     if (op !== 'clear' && !seg.trim()) continue;             // skip whitespace-only bits
     const { styled, edits } = op === 'bold'   ? opBold(seg)
