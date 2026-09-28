@@ -279,5 +279,34 @@ for (const [songName, song] of Object.entries(SONGS)) {
   }
 }
 
+// ---- Stranded markers, and erasing a whole block ----------------------------
+//
+// Howard's file after a multi-line erase: one {c=...} at the very top, one {/c}
+// at the very bottom, and nothing in between. The clear had removed every marker
+// it could see and stranded the outer pair, because on the first line the OPEN
+// sat outside the selection while its CLOSE sat inside it. An open with no close
+// colours the rest of its own line, which is why one word stayed red.
+{
+  const B = '\\\\\\\\ \\\\ \\\\';
+  const block = ['Intro:', 'A    G  D', B, 'A    G  D', B, '', 'Chorus:', 'A              D',
+    "I can't get no   satisfaction"].join('\n');
+
+  const stranded = `{c=#dc2626}${block}{/c}`;
+  const repaired = styleRange(stranded, 'clear', null, 11, stranded.length - 4, true);
+  check('stranded markers · one erase removes every one of them',
+    repaired && !/\{c=|\{\/c\}/.test(repaired.text), repaired ? repaired.text : 'null');
+
+  // Colour the block, then erase it with a PREVIEW-shaped range: first visible
+  // character to last, markers excluded — which is all the Preview can offer.
+  const red = styleRange(block, 'color', '#dc2626', 0, block.length, true);
+  check('multi-line colour · every line balances on its own',
+    red && markupFaults(red.text).length === 0, red ? markupFaults(red.text).join('; ') + '\n' + red.text : 'null');
+  const from = red.text.search(/\S/);
+  const to = red.text.lastIndexOf('satisfaction') + 'satisfaction'.length;
+  const cleared = styleRange(red.text, 'clear', null, from + 11, to, true);
+  check('multi-line erase · returns the block byte-identical',
+    cleared && cleared.text === block, cleared ? `got:\n${cleared.text}` : 'null');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
