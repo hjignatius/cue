@@ -102,16 +102,33 @@ html, body {
 }
 
 /* Indeterminate progress (AiProgress with percent={null}): a third-width bar
-   sweeping the track, for work whose total is genuinely unknown. Respects
-   reduced-motion by standing still rather than disappearing — a bar that is
-   there but not moving still says "in progress". */
+   sweeping the track, for work whose total is genuinely unknown. */
 @keyframes ai-sweep {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(300%); }
 }
-.ai-sweep { animation: ai-sweep 1.4s ease-in-out infinite; }
+/* Width lives HERE, not as a utility on the element, so the reduced-motion rule
+   below can widen it — two classes of equal specificity, and this file comes
+   last. */
+.ai-sweep { width: 33%; animation: ai-sweep 1.4s ease-in-out infinite; }
+
+/* WITH REDUCE MOTION ON — which is why Howard's iPad showed a frozen bar where
+   his Mac swept — the old rule stopped the animation and left the block parked a
+   third of the way along. A stopped progress bar does not read as "no motion, by
+   your preference". It reads as broken, and it sat beside a spinner that kept
+   turning, because Tailwind's animate-spin ignores this query.
+   So: no travel, but still alive. The bar fills the track and breathes. Opacity
+   is not motion, and something has to say the work is still running. */
+@keyframes ai-sweep-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .ai-sweep { animation: none; transform: translateX(100%); }
+  .ai-sweep {
+    width: 100%;
+    transform: none;
+    animation: ai-sweep-pulse 1.6s ease-in-out infinite;
+  }
 }
 
 /* Pull-to-refresh spokes: each fades in turn, which reads as a ring chasing
@@ -123,6 +140,10 @@ html, body {
 }
 .pull-spoke { animation: pull-spoke 0.9s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
-  /* Still clearly "working", without the chase. */
-  .pull-spoke { animation: none; opacity: 0.55; }
+  /* Same lesson as the sweep above: a ring that simply stops reads as broken
+     rather than as a preference being honoured. No chase, but it breathes. */
+  .pull-spoke {
+    animation: ai-sweep-pulse 1.6s ease-in-out infinite;
+    opacity: 0.55;
+  }
 }

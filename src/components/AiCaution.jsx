@@ -69,7 +69,7 @@ export function AiProgress({ label, detail, percent, dark, onCancel }) {
             imply movement between them. */}
         <div
           className={indeterminate
-            ? 'h-full w-1/3 bg-indigo-500 rounded-full ai-sweep'
+            ? 'h-full bg-indigo-500 rounded-full ai-sweep'   // width comes from .ai-sweep, so reduced motion can widen it
             : 'h-full bg-indigo-500 rounded-full transition-[width] duration-500 ease-out'}
           style={indeterminate ? undefined : { width: `${Math.min(100, Math.max(0, percent))}%` }}
         />
