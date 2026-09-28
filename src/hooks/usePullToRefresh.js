@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Touch pull-to-refresh for a scrollable element. Attach the returned ref to the
 // scroll container and render an indicator sized by `pull`. When the user drags
@@ -11,7 +11,15 @@ import { useEffect, useRef, useState } from 'react';
 // and `refreshing` drive rendering. Touch-only by design — desktop refreshes via
 // focus/reload.
 export function usePullToRefresh(onRefresh, { threshold = 64, max = 90 } = {}) {
-  const ref = useRef(null);
+  // A CALLBACK REF, not a plain one, and this is the whole reason the gesture
+  // failed on the shared-set page. That view returns early while the share is
+  // loading, so its list does not exist on the first render — a plain ref was
+  // still null when the effect ran, and the effect had no reason to run again, so
+  // the listeners were never attached at all. A callback ref sets state when the
+  // node appears, which re-runs the effect and attaches then. Anywhere the
+  // scroller is present from the start, this behaves exactly as before.
+  const [node, setNode] = useState(null);
+  const ref = useCallback((el) => setNode(el), []);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const st = useRef({ startY: null });
@@ -20,7 +28,7 @@ export function usePullToRefresh(onRefresh, { threshold = 64, max = 90 } = {}) {
   onRefreshRef.current = onRefresh;
 
   useEffect(() => {
-    const el = ref.current;
+    const el = node;
     if (!el) return;
     const setP = (p) => { st.current.pull = p; setPull(p); };
 
@@ -57,7 +65,7 @@ export function usePullToRefresh(onRefresh, { threshold = 64, max = 90 } = {}) {
       el.removeEventListener('touchend', onEnd);
       el.removeEventListener('touchcancel', onEnd);
     };
-  }, [threshold, max]);
+  }, [node, threshold, max]);
 
   return { ref, pull, refreshing };
 }

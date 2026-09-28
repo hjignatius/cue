@@ -12,7 +12,7 @@
 // degrees.
 const SPOKES = 12;
 
-export default function PullSpinner({ progress = 0, spinning = false, size = 18, className = '' }) {
+export default function PullSpinner({ progress = 0, spinning = false, size = 24, className = '' }) {
   const lit = Math.min(SPOKES, Math.round(progress * SPOKES));
   return (
     <svg
@@ -22,7 +22,7 @@ export default function PullSpinner({ progress = 0, spinning = false, size = 18,
       {Array.from({ length: SPOKES }, (_, i) => (
         <rect
           key={i}
-          x="11.1" y="2.2" width="1.8" height="6" rx="0.9"
+          x="10.6" y="1.8" width="2.8" height="6.6" rx="1.4"
           transform={`rotate(${i * 30} 12 12)`}
           className={spinning ? 'pull-spoke' : undefined}
           style={spinning

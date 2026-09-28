@@ -782,7 +782,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
         {/* Pull-to-refresh indicator — height grows with the pull, re-checks cloud
             status + reloads on release past the threshold. */}
         <div
-          className="flex items-center justify-center gap-1.5 overflow-hidden text-xs text-gray-400 dark:text-gray-500 select-none"
+          className="flex items-center justify-center gap-2 overflow-hidden text-xs font-medium text-gray-500 dark:text-gray-400 select-none"
           style={{ height: ptrPull }}
         >
           {/* One drawing for all three states: the ring fills as you pull, so the

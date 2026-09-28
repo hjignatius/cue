@@ -1073,7 +1073,7 @@ export default function SharedSetView() {
       {/* Song list */}
       <div ref={ptrRef} className="flex-1 overflow-y-auto overscroll-contain">
         <div
-          className="flex items-center justify-center gap-1.5 overflow-hidden text-xs text-gray-400 dark:text-gray-500 select-none"
+          className="flex items-center justify-center gap-2 overflow-hidden text-xs font-medium text-gray-500 dark:text-gray-400 select-none"
           style={{ height: ptrPull }}
         >
           {ptrRefreshing ? (
