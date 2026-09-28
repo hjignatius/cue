@@ -113,3 +113,16 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .ai-sweep { animation: none; transform: translateX(100%); }
 }
+
+/* Pull-to-refresh spokes: each fades in turn, which reads as a ring chasing
+   round. Rotating the whole ring would visibly step instead, since twelve evenly
+   spaced spokes map onto themselves every 30 degrees. */
+@keyframes pull-spoke {
+  0%   { opacity: 1; }
+  100% { opacity: 0.15; }
+}
+.pull-spoke { animation: pull-spoke 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  /* Still clearly "working", without the chase. */
+  .pull-spoke { animation: none; opacity: 0.55; }
+}

@@ -1,5 +1,7 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
+import PullSpinner from '../components/PullSpinner.jsx';
 import { getSharedSet, describeCloudError } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -105,6 +107,22 @@ export default function SharedSetView() {
   const [setData, setSetData]       = useState(null);      // { set, songs }
   const [presenting, setPresenting] = useState(null);      // { songs, startIndex }
   const [retryCount, setRetryCount] = useState(0);
+  const reloadDone = useRef(null);
+
+  // Pull the list down to fetch the share again. Until now the only way to see a
+  // change the publisher had made was to leave the page and come back — the view
+  // loads once per token and nothing re-checked while you sat on it.
+  //
+  // Resolves when the reload settles, so the spinner reflects the request rather
+  // than a fixed delay. The timeout is a backstop: if the effect somehow does not
+  // run, a spinner that never stops is worse than one that gives up.
+  const pullRefresh = useCallback(() => new Promise((resolve) => {
+    const finish = () => { clearTimeout(t); resolve(); };
+    const t = setTimeout(finish, 15000);
+    reloadDone.current = finish;
+    setRetryCount((c) => c + 1);
+  }), []);
+  const { ref: ptrRef, pull: ptrPull, refreshing: ptrRefreshing } = usePullToRefresh(pullRefresh);
   const [viewerKeys] = useState(loadViewerKeys);
 
   // Bookmark state
@@ -222,7 +240,15 @@ export default function SharedSetView() {
         }
       }
     }
-    load();
+    // Let a caller WAIT for the reload. Pull-to-refresh needs to hold its spinner
+    // until the share has actually come back, and bumping retryCount on its own
+    // says nothing about when that happened.
+    load().finally(() => {
+      if (cancelled) return;
+      const done = reloadDone.current;
+      reloadDone.current = null;
+      done?.();
+    });
     return () => { cancelled = true; };
   }, [token, retryCount]);
 
@@ -1045,7 +1071,20 @@ export default function SharedSetView() {
       )}
 
       {/* Song list */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={ptrRef} className="flex-1 overflow-y-auto overscroll-contain">
+        <div
+          className="flex items-center justify-center gap-1.5 overflow-hidden text-xs text-gray-400 dark:text-gray-500 select-none"
+          style={{ height: ptrPull }}
+        >
+          {ptrRefreshing ? (
+            <><PullSpinner spinning /> Checking for changes…</>
+          ) : ptrPull > 0 ? (
+            <>
+              <PullSpinner progress={ptrPull / 64} />
+              {ptrPull >= 64 ? 'Release to refresh' : 'Pull to refresh'}
+            </>
+          ) : null}
+        </div>
         <div className="max-w-2xl mx-auto w-full px-4 py-4 space-y-2">
           {displayed.length === 0 ? (
             <p className={`text-sm text-center py-12 ${muted}`}>No songs in this set.</p>

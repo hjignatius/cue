@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, RefreshCw, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2 } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2 } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
 import { useAiAbort } from '../hooks/useAiAbort.js';
 import { duplicateGroups } from '../utils/contentHash.js';
 import SongCompare from '../components/SongCompare.jsx';
+import PullSpinner from '../components/PullSpinner.jsx';
 
 // Progress wording per AI tool. Only the words live here — the weights are in
 // utils/aiStage.js, so no two bars can disagree about what a search or a written
@@ -784,12 +785,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
           className="flex items-center justify-center gap-1.5 overflow-hidden text-xs text-gray-400 dark:text-gray-500 select-none"
           style={{ height: ptrPull }}
         >
+          {/* One drawing for all three states: the ring fills as you pull, so the
+              threshold is visible in the gesture rather than described in words,
+              and the same ring chases while it works. */}
           {ptrRefreshing ? (
-            <><RefreshCw size={13} className="animate-spin" /> Refreshing…</>
-          ) : ptrPull >= 64 ? (
-            <><RefreshCw size={13} /> Release to refresh</>
+            <><PullSpinner spinning /> Refreshing…</>
           ) : ptrPull > 0 ? (
-            <><RefreshCw size={13} style={{ transform: `rotate(${Math.min(180, ptrPull * 2.8)}deg)` }} /> Pull to refresh</>
+            <>
+              <PullSpinner progress={ptrPull / 64} />
+              {ptrPull >= 64 ? 'Release to refresh' : 'Pull to refresh'}
+            </>
           ) : null}
         </div>
         {sets.length === 0 && !creating && (
