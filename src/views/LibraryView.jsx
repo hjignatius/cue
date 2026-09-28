@@ -1829,6 +1829,83 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     }
     return m;
   }, [sets]);
+
+  // ---- "Remove the extras" ----------------------------------------------------
+  //
+  // One tap for an Identical group, where there is genuinely nothing to decide:
+  // the copies are character-for-character the same song, so keeping any one of
+  // them loses nothing. An import can make a dozen of these at once, and clearing
+  // them a row at a time is one Delete plus one confirm each.
+  //
+  // ONLY for the Identical groups. "Same title and artist" means the content has
+  // diverged — one of them has been edited — and picking a survivor there is a
+  // judgement, which is what Compare and the row facts are for.
+  //
+  // WHICH COPY SURVIVES, in order:
+  //   1. the one with ink. Annotations live in their own store keyed by song id,
+  //      are in no export and no backup, and are the only thing deleting a copy
+  //      destroys for good.
+  //   2. the one more sets use — fewer references to repoint.
+  //   3. the oldest. After an import the original is the one that was already
+  //      filed; the newcomer carries today's dates.
+  //
+  // INK ON TWO COPIES BLOCKS IT. Two sets of annotations cannot be merged into one
+  // song, so either choice throws some away — a decision, not a tidy-up. The
+  // button is withheld and the "Has ink" marks on the rows say why.
+  function extrasPlan(group) {
+    if (!group?.certain || !/^Identical/.test(group.reason || '')) return null;
+    const list = group.songs || [];
+    if (list.length < 2) return null;
+    const inked = list.filter(x => annotatedSongIds.has(x.id));
+    if (inked.length > 1) return { blocked: 'ink' };
+    const ranked = [...list].sort((a, b) => {
+      const ai = annotatedSongIds.has(a.id) ? 1 : 0, bi = annotatedSongIds.has(b.id) ? 1 : 0;
+      if (ai !== bi) return bi - ai;
+      const an = (setsBySongId.get(a.id) || []).length, bn = (setsBySongId.get(b.id) || []).length;
+      if (an !== bn) return bn - an;
+      return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+    });
+    const [keeper, ...extras] = ranked;
+    // Sets that point at a copy which is about to go. They are not broken by
+    // this — they are repointed at the keeper first, below.
+    const extraIds = new Set(extras.map(x => x.id));
+    const repoint = sets.filter(st => (st.songIds || []).some(id => extraIds.has(id))).map(st => st.name);
+    return { keeper, extras, repoint };
+  }
+
+  // Repoint, THEN delete — and in that order for a reason. handleDeleteSong ends
+  // with removeSongFromAllSets, so deleting first would drop the song out of every
+  // set that used it and leave a set one song shorter. Moving the references to
+  // the keeper first means the set still holds the same song, by a different id.
+  //
+  // Safe because the copies are identical: a set repointed this way plays exactly
+  // what it played before, same words, same chords, same key.
+  async function applyRemoveExtras({ keeperId, extraIds }) {
+    const extras = new Set(extraIds);
+    for (const st of sets) {
+      const ids = st.songIds || [];
+      if (!ids.some(id => extras.has(id))) continue;
+      // Collapse onto the keeper: if the set referenced the keeper AND an extra,
+      // or two extras, it must end up with ONE entry, not the same id twice —
+      // a set holding a duplicate id breaks reordering, which keys on it.
+      let seen = false;
+      const next = [];
+      for (const id of ids) {
+        const isDup = extras.has(id) || id === keeperId;
+        if (!isDup) { next.push(id); continue; }
+        if (seen) continue;
+        seen = true;
+        next.push(keeperId);
+      }
+      await saveSet({ ...st, songIds: next });
+    }
+    for (const id of extraIds) await onDeleteSong(id);
+    setDupGroups(gs => (gs || [])
+      .map(g => ({ ...g, songs: g.songs.filter(x => !extras.has(x.id)) }))
+      .filter(g => g.songs.length >= 2));
+    setSongDeleteConfirm(null);
+    onRefresh();
+  }
   useEffect(() => {
     function reload() { loadAnnotatedSongIds().then(ids => setAnnotatedSongIds(ids)); }
     reload();
@@ -1852,7 +1929,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   // suppressed in the installed iOS PWA (so the delete never ran). `source`
   // says what to tidy up afterwards: 'bulk' clears the selection, 'dup' prunes
   // the duplicates dialog.
-  const [songDeleteConfirm, setSongDeleteConfirm] = useState(null); // null | { ids, source }
+  // `plan` is set only by "Remove the extras": { keeper, repoint } drives the
+  // confirmation's wording, since that route says what SURVIVES, not just how
+  // many go.
+  const [songDeleteConfirm, setSongDeleteConfirm] = useState(null); // null | { ids, source, plan }
   const [exportDropOpen, setExportDropOpen] = useState(false);
   const [addToSetOpen, setAddToSetOpen] = useState(false); // create/select-target dialog
   const [newSetName, setNewSetName]     = useState('');
@@ -2625,14 +2705,37 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                         copies the comparison itself offers the pairing, because you
                         will want A against B and then A against C — and choosing
                         before opening would mean closing and re-finding your place. */}
-                    {g.songs.length >= 2 && (
-                      <button
-                        onClick={() => setCompareGroup(g.songs)}
-                        className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium hover:underline ${dark ? 'text-indigo-400' : 'text-indigo-600'}`}
-                      >
-                        <Columns2 size={13} /> Compare
-                      </button>
-                    )}
+                    <span className="shrink-0 flex items-center gap-3">
+                      {/* Identical copies only, and only when one clear survivor
+                          falls out of it. Sits BEFORE Compare: on this group there
+                          is nothing to compare, so the tidy-up is the answer and
+                          Compare is the second thought. */}
+                      {(() => {
+                        const plan = extrasPlan(g);
+                        if (!plan || plan.blocked || !plan.extras?.length) return null;
+                        const n = plan.extras.length;
+                        return (
+                          <button
+                            onClick={() => setSongDeleteConfirm({
+                              ids: plan.extras.map(x => x.id),
+                              source: 'dupExtras',
+                              plan: { keeperId: plan.keeper.id, keeperTitle: plan.keeper.metadata?.title || 'Untitled', repoint: plan.repoint },
+                            })}
+                            className={`inline-flex items-center gap-1 text-xs font-medium hover:underline ${dark ? 'text-gray-300' : 'text-gray-600'}`}
+                          >
+                            <Trash2 size={13} /> Remove {n === 1 ? 'the extra' : `the ${n} extras`}
+                          </button>
+                        );
+                      })()}
+                      {g.songs.length >= 2 && (
+                        <button
+                          onClick={() => setCompareGroup(g.songs)}
+                          className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium hover:underline ${dark ? 'text-indigo-400' : 'text-indigo-600'}`}
+                        >
+                          <Columns2 size={13} /> Compare
+                        </button>
+                      )}
+                    </span>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     {g.songs.map(s => (
@@ -2820,18 +2923,29 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           suppressed in the installed iOS PWA (so the delete never ran). */}
       {songDeleteConfirm && (() => {
         const n = songDeleteConfirm.ids.length;
+        const plan = songDeleteConfirm.source === 'dupExtras' ? songDeleteConfirm.plan : null;
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" {...dismissOnOutside(() => setSongDeleteConfirm(null))}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
-                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Delete {n === 1 ? 'this song' : `${n} songs`}?</h2>
+                {/* The extras route names the SURVIVOR. "Delete 3 songs?" is
+                    the wrong question on an Identical group — what anyone needs
+                    confirmed is that one copy stays and nothing else changes. */}
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+                  {plan ? `Remove ${n === 1 ? 'the extra copy' : `${n} extra copies`}?` : `Delete ${n === 1 ? 'this song' : `${n} songs`}?`}
+                </h2>
                 <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {n === 1 ? 'It will also be removed from any sets it appears in.' : 'They will be removed from your library and any sets they appear in.'}
+                  {plan
+                    ? <>Keeping <span className={dark ? 'text-gray-200 font-medium' : 'text-gray-700 font-medium'}>{plan.keeperTitle}</span>. The copies are identical, so nothing is lost{plan.repoint?.length ? <> — {plan.repoint.length === 1 ? 'the set' : 'the sets'} <span className={dark ? 'text-gray-200' : 'text-gray-700'}>{plan.repoint.join(', ')}</span> {plan.repoint.length === 1 ? 'is' : 'are'} pointed at the copy that stays</> : null}.</>
+                    : n === 1 ? 'It will also be removed from any sets it appears in.' : 'They will be removed from your library and any sets they appear in.'}
                 </p>
               </div>
               <div className="flex flex-col gap-2">
-                <button onClick={performSongDelete} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
-                  {n === 1 ? 'Delete song' : `Delete ${n} songs`}
+                <button
+                  onClick={() => (plan ? applyRemoveExtras({ keeperId: plan.keeperId, extraIds: songDeleteConfirm.ids }) : performSongDelete())}
+                  className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors"
+                >
+                  {plan ? (n === 1 ? 'Remove the extra' : `Remove ${n} extras`) : (n === 1 ? 'Delete song' : `Delete ${n} songs`)}
                 </button>
                 <button onClick={() => setSongDeleteConfirm(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
               </div>
