@@ -617,6 +617,36 @@ export default function SharedSetView() {
     return s;
   }, [updatePlan]);
 
+  // Share song ids you HAVE and have not touched: your copy matches what the
+  // publisher is showing. The row's library circle turns into a green tick.
+  //
+  // WHY IT EARNS A COLOUR OF ITS OWN. Before this, these rows showed the same
+  // neutral library circle as a song you have never seen — so the row offered to
+  // copy something already in your library, and tapping it found the title
+  // there and reported "skipped". True, and useless: the honest answer was not
+  // an offer at all, it was "you have this one". Green says that instead.
+  //
+  // It also puts these rows in the same language as the rest of Cue: the Update
+  // list already ticks its up-to-date rows in green, and the library row's link
+  // dot is already emerald while a copied song still matches what was shared and
+  // amber once you have edited it. Same fact, same colour, three screens.
+  //
+  // THREE EXCLUSIONS, each because green would be a lie:
+  //   * your own set — every row would tick, pointing at nothing. The header
+  //     already says "Your set".
+  //   * a song you have EDITED (uptodate against the baseline, changed here).
+  //     Green means "matches the share" and yours no longer does; the amber
+  //     Present button on that row is the signal that applies.
+  //   * 'have' — same title, different song. That one is still a real offer.
+  const haveIt = useMemo(() => {
+    const s = new Set();
+    if (updatePlan?.mine) return s;
+    (updatePlan?.songs || []).forEach(x => {
+      if (x.local && x.state === 'uptodate' && !isEditedCopy(x.local)) s.add(x.shareSong.id);
+    });
+    return s;
+  }, [updatePlan]);
+
   // forceMine: tapping the amber Present on a song you've edited plays YOUR
   // version even when the master "Follow along with your copy" toggle is off.
   function present(base, startIndex, forceMine = false) {
@@ -1103,6 +1133,7 @@ export default function SharedSetView() {
                 dark={dark}
                 muted={muted}
                 edited={mineDiffers.has(song.id)}
+                have={haveIt.has(song.id)}
                 playMine={playMine}
                 onPresent={() => present(displayed, idx)}
                 onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
@@ -1544,7 +1575,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, playMine, onPresent, onCopy, onTakeNewer, copying }) {
+function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPresent, onCopy, onTakeNewer, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1592,6 +1623,26 @@ function SharedSongRow({ song, index, dark, muted, edited, playMine, onPresent, 
               onActivate={onTakeNewer}
             >
               <Library size={16} />
+            </RoundButton>
+          ) : have ? (
+            /* You have it and it matches: a green tick where the copy circle
+               was. Inert, because there is nothing left to do here — but at
+               FULL opacity, not the usual disabled dimming. A dim green circle
+               reads as a control that has stopped working; this is not a
+               disabled action, it is an answer.
+
+               The tick matters as much as the colour. Green against amber is
+               the hardest pair to tell apart — colour-blind viewers, and stage
+               lighting, which is exactly when someone is looking at this. So
+               the two states differ in SHAPE as well: a tick for "you have
+               this", the library icon for "there is something to take". */
+            <RoundButton
+              size={ROUND_SIZE_COMPACT}
+              label="You already have this song"
+              title="This song is in your library and your copy matches the shared version — nothing to copy or update."
+              fill="#16a34a" disabled disabledOpacity={1}
+            >
+              <Check size={16} />
             </RoundButton>
           ) : onCopy && (
             <RoundButton
