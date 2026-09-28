@@ -387,9 +387,18 @@ function SymbolMenu({ open, onClose, symbols, onInsert, onChange, dark }) {
   );
 }
 
-// Target lyric line width in characters. Mirrors PresentationView's
-// LYRIC_TARGET_CHARS (the column count Present wraps at). Kept as a local
-// constant for now; when the Settings-driven width lands, both read that.
+// Where the ruler puts its indigo mark, in characters.
+//
+// NOT the column Present wraps at — it used to be, and the comment here said so
+// long after it stopped being true. Present has no fixed column any more: it sizes
+// each song to its OWN widest line and shrinks the type to fit, so the point where
+// that starts depends on the screen and on the size you have chosen, not on a
+// number in this file. (The Settings-driven width the old comment promised was
+// dropped; nothing is coming to replace this.)
+//
+// It is a RULE OF THUMB, and a useful one — past about here, Present starts trading
+// size for width, so the mark says "beyond this, the type on stage gets smaller".
+// That is what it is for; do not "correct" it to a wrap column that no longer exists.
 const LYRIC_TARGET_CHARS = 65;
 // Editor textarea metrics: p-4 padding (16px) and text-sm monospace (14px).
 const TA_PAD = 16;

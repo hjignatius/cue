@@ -114,7 +114,7 @@ function Glyph({ children }) {
 // reuse it as-is.
 export function ControlGrid({
   dark,
-  onSmaller, onLarger, canSmaller, canLarger,
+  onSmaller, onLarger, canSmaller, canLarger, largerHint,
   onPrev, onNext, canPrev, canNext,
   onFaster, onSlower, canFaster, canSlower,
   onCountIn, canCountIn,
@@ -188,7 +188,7 @@ export function ControlGrid({
       <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Smaller text" fill={fill} disabled={!canSmaller} active={flashKey === 'as'} onActivate={() => pulseWithReadout('as', 'font', onSmaller)}>
         <Glyph>A−</Glyph>
       </RoundButton>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Larger text" fill={fill} disabled={!canLarger} active={flashKey === 'al'} onActivate={() => pulseWithReadout('al', 'font', onLarger)}>
+      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Larger text" title={largerHint} fill={fill} disabled={!canLarger} active={flashKey === 'al'} onActivate={() => pulseWithReadout('al', 'font', onLarger)}>
         <Glyph>A+</Glyph>
       </RoundButton>
 

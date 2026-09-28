@@ -1603,6 +1603,17 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
            which does not contain baseFontPx at all. A button that silently
            ignores you is worse than one that shows it has run out. */
         canLarger={!songIsPdf && baseFontPx < MAX_FONT && fitScale >= 1}
+        /* ...but "dim" on its own looks like a fault. Say WHICH of the three
+           reasons it is, because they are not the same news: a PDF will never
+           resize, the maximum is a ceiling you chose to reach, and "already
+           scaled to fit" means Cue is doing the work for you on this song and
+           will hand the control back on the next one. */
+        largerHint={
+          songIsPdf            ? 'A PDF sheet is sized by the page, not by this control'
+          : baseFontPx >= MAX_FONT ? 'Already at the largest size'
+          : fitScale < 1       ? 'This song is already scaled to fit the width — its longest line sets the size'
+          : 'Larger text'
+        }
         onPrev={prev}
         onNext={next}
         canPrev={advancesWithinSong || index > 0}
