@@ -42,7 +42,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { Fragment, useMemo } from 'react';
-import { parseChordPro, expandSections, attachSectionLabels, styleSegments } from '../utils/chordPro.js';
+import { parseChordPro, expandSections, attachSectionLabels, styleSegments, lineHasLyrics } from '../utils/chordPro.js';
 import { transposeChord, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -106,9 +106,12 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFla
                     ? <span className="font-bold leading-tight self-end pb-0.5" style={{ color: chordColor, fontSize: chordFontSize }}>{displayed + ' '}</span>
                     : null}
               </div>
-              <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: PV }}>
-                {seg.text ? <StyledRuns runs={seg.styledRuns} /> : ' '}
-              </span>
+              {/* No words under these chords — no empty row to reserve. */}
+              {lineHasLyrics(segs) && (
+                <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: PV }}>
+                  {seg.text ? <StyledRuns runs={seg.styledRuns} /> : ' '}
+                </span>
+              )}
             </div>
           );
         })}
@@ -128,9 +131,11 @@ function OverLyricsLine({ segments, semitones, chordColor, chordFontSize, useFla
             >
               {displayed ? displayed + ' ' : ' '}
             </span>
-            <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: PV }}>
-              {seg.text ? <StyledRuns runs={seg.styledRuns} /> : ' '}
-            </span>
+            {lineHasLyrics(segs) && (
+              <span className="text-gray-900 dark:text-white leading-snug" style={{ fontSize: PV }}>
+                {seg.text ? <StyledRuns runs={seg.styledRuns} /> : ' '}
+              </span>
+            )}
           </div>
         );
       })}

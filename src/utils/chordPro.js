@@ -267,3 +267,18 @@ function trimSurroundingEmpties(lines) {
   while (end > start && lines[end - 1].type === 'empty') end--;
   return lines.slice(start, end);
 }
+
+/**
+ * Does this over-lyrics line have any words under its chords?
+ *
+ * An intro, a turnaround or a solo is chords and nothing else. Every renderer
+ * still drew the empty lyric row beneath them, so a four-line chord sequence took
+ * eight lines of height and read as double-spaced — which is what Howard saw.
+ *
+ * Shared because three renderers draw this line (Present, the editor preview and
+ * the PDF) and a fourth would make it four. A test that disagreed between them
+ * would show a chord sequence at one height on stage and another on the page.
+ */
+export function lineHasLyrics(segs) {
+  return (segs || []).some((s) => s.text && s.text.trim() !== '');
+}

@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { attachSectionLabels, styleSegments } from './chordPro.js';
+import { attachSectionLabels, styleSegments, lineHasLyrics } from './chordPro.js';
 import { wrapUnits, continuationIndent } from './lineWrap.js';
 import { transposeChord } from './transpose.js';
 import { PdfChordDiagram } from './PdfChordDiagram.jsx';
@@ -73,10 +73,15 @@ function StyledRunsPdf({ runs, styles }) {
 const PDF_DIAG_BAND = 68;
 
 function ChordLine({ segments, semitones, useFlats, styles, embed = false, shapeFor = null }) {
+  // Styled once for both branches, and asked once whether this line has any words
+  // at all — an intro or a turnaround has none, and reserving an empty row for
+  // them made a chord sequence twice as tall as it needed to be.
+  const styled = styleSegments(segments);
+  const hasLyrics = lineHasLyrics(styled);
   if (embed && shapeFor) {
     return (
       <View style={styles.lineContainer}>
-        {wrapUnits(styleSegments(segments)).map((unit, u) => (
+        {wrapUnits(styled).map((unit, u) => (
           <View key={u} style={u === 0 ? styles.wrapUnitFirst : styles.wrapUnit}>
             {unit.map((seg, i) => {
               const displayed = seg.chord ? transposeChord(seg.chord, semitones, useFlats) : null;
@@ -90,9 +95,13 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
                         ? <Text style={styles.chordText}>{displayed + ' '}</Text>
                         : null}
                   </View>
-                  <Text style={styles.lyricText}>
-                    {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
-                  </Text>
+                  {/* No words under these chords — no empty row to reserve, on
+                      the page as on the screen. */}
+                  {hasLyrics && (
+                    <Text style={styles.lyricText}>
+                      {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
+                    </Text>
+                  )}
                 </View>
               );
             })}
@@ -103,16 +112,18 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
   }
   return (
     <View style={styles.lineContainer}>
-      {wrapUnits(styleSegments(segments)).map((unit, u) => (
+      {wrapUnits(styled).map((unit, u) => (
         <View key={u} style={u === 0 ? styles.wrapUnitFirst : styles.wrapUnit}>
           {unit.map((seg, i) => (
             <View key={i} style={styles.segment}>
               <Text style={styles.chordText}>
                 {seg.chord ? (transposeChord(seg.chord, semitones, useFlats) + ' ') : ' '}
               </Text>
-              <Text style={styles.lyricText}>
-                {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
-              </Text>
+              {hasLyrics && (
+                <Text style={styles.lyricText}>
+                  {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : ' '}
+                </Text>
+              )}
             </View>
           ))}
         </View>

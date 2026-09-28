@@ -7,7 +7,7 @@ import { useResizePanel } from '../hooks/useResizePanel.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
-import { parseChordPro, attachSectionLabels, expandSections, styleSegments } from '../utils/chordPro.js';
+import { parseChordPro, attachSectionLabels, expandSections, styleSegments, lineHasLyrics } from '../utils/chordPro.js';
 import { transposeText, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
@@ -127,7 +127,8 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
                   continuation is indented — otherwise a wrapped remainder reads
                   as a new lyric line, which is easy to do mid-song. */}
               <div className="flex flex-wrap" style={{ marginBottom: fontPx * 0.2, paddingLeft: continuationIndent(fontPx) }}>
-                {wrapUnits(styleSegments(line.segments)).map((unit, u) => (
+                {(() => { const segs = styleSegments(line.segments); const hasLyrics = lineHasLyrics(segs); return (<>
+                {wrapUnits(segs).map((unit, u) => (
                 <div key={u} className="flex" style={u === 0 ? { marginLeft: -continuationIndent(fontPx) } : undefined}>
                 {unit.map((seg, j) => {
                   const frets = diagrams && seg.chord ? shapeFor(seg.chord) : null;
@@ -147,14 +148,20 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
                           {seg.chord ? seg.chord + ' ' : ' '}
                         </span>
                       )}
-                      <span className="leading-snug" style={{ fontSize: fontPx }}>
-                        {seg.text ? <StyledRuns runs={seg.styledRuns} accentColor={chordColor} /> : ' '}
-                      </span>
+                      {/* No words under these chords — an intro, a turnaround, a
+                          solo — so no empty row to reserve for them. Drawing it
+                          made a chord sequence twice as tall as it needed to be. */}
+                      {hasLyrics && (
+                        <span className="leading-snug" style={{ fontSize: fontPx }}>
+                          {seg.text ? <StyledRuns runs={seg.styledRuns} accentColor={chordColor} /> : ' '}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
                 </div>
                 ))}
+                </>); })()}
               </div>
             </div>
           );
