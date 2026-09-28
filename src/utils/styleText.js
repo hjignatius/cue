@@ -12,37 +12,102 @@ import { isChordLine } from './visualImport.js';
 // characters added(+)/removed(-) at the selection's START (ds) and END (de).
 // ds/de let over-mode keep the chord line above aligned. Good enough for the
 // common single-style case; combined styles may need a second tap.
-const COLOR_SPAN = /^\{c=([^}]+)\}([\s\S]*)\{\/c\}$/;
-// Each op returns { styled, edits }: the replacement for the selection, plus the
-// chord-line edits to mirror — [relCol, delta] pairs where relCol is measured
-// from the selection start and delta is spaces to insert(+)/remove(-). Applying
-// the SAME shifts to the chord line above keeps chords over their words in the
-// raw over-lyrics text (apply and clear are exact inverses).
-function opBold(sel) {
-  if (sel.startsWith('**') && sel.endsWith('**') && sel.length >= 4)
-    return { styled: sel.slice(2, -2), edits: [[0, -2], [sel.length - 2, -2]] };
-  return { styled: `**${sel}**`, edits: [[0, 2], [sel.length, 2]] };
-}
-function opItalic(sel) {
-  if (sel.startsWith('*') && sel.endsWith('*') && !sel.startsWith('**') && !sel.endsWith('**') && sel.length >= 2)
-    return { styled: sel.slice(1, -1), edits: [[0, -1], [sel.length - 1, -1]] };
-  return { styled: `*${sel}*`, edits: [[0, 1], [sel.length, 1]] };
-}
-function opColor(sel, hex) {
-  const m = COLOR_SPAN.exec(sel);
-  if (m) {
-    const oldPre = m[0].length - m[2].length - 4; // length of `{c=OLD}`
-    if (m[1].trim() === hex) return { styled: m[2], edits: [[0, -oldPre], [sel.length - 4, -4]] }; // same → clear
-    const newPre = `{c=${hex}}`.length;
-    return { styled: `{c=${hex}}${m[2]}{/c}`, edits: newPre === oldPre ? [] : [[0, newPre - oldPre]] }; // recolor
+// ---- The ops -----------------------------------------------------------------
+//
+// Each op takes the selected text and returns { styled, edits }: its replacement,
+// plus the chord-line edits to mirror — [relCol, delta] pairs measured from the
+// selection start, where delta is columns to insert(+) or remove(-). Applying the
+// same shifts to the chord line above is what keeps chords over their words.
+//
+// THEY NORMALISE RATHER THAN PATTERN-MATCH, and that is the whole design. The
+// first version asked whether the selection WAS exactly a `{c=...}...{/c}` span,
+// or did start and end with `**`. Anything else fell through and got wrapped
+// again, so colouring a row that already held a coloured word nested one span
+// inside another:
+//
+//   {c=#16a34a}Hello {c=#dc2626}darkness{/c} my{/c} old friend
+//
+// and the eraser then peeled one layer per press — Howard's "it started at the
+// back of the selection and erased a word at a time" — or, when the selection was
+// not a whole span, matched nothing and did nothing at all. Intermittent by
+// construction: whether it worked depended on which markers your selection
+// happened to line up with.
+//
+// So every op now STRIPS its own markup across the whole selection first, and
+// then decides once whether to re-wrap. Two consequences worth knowing: the
+// result can never nest, and one press always finishes the job.
+
+const COLOR_OPEN = /^\{c=([^}]*)\}/;
+
+// Walk a selection, removing `kind`'s markers and leaving the other kinds alone.
+// Returns the stripped text, the chord-line edits for what was removed, whether
+// EVERY visible character was already inside this style (which is what makes a
+// press a toggle-off), and the colours that were found.
+function scanMarkers(sel, kind) {
+  let out = '', i = 0, depth = 0, gap = false, seen = false;
+  const edits = [], hexes = new Set();
+  while (i < sel.length) {
+    // Bold before italic: `**` is one bold marker, never two italic ones.
+    if (sel.startsWith('**', i)) {
+      if (kind === 'bold') { edits.push([i, -2]); depth = depth ? 0 : 1; }
+      else out += '**';
+      i += 2; continue;
+    }
+    if (sel[i] === '*') {
+      if (kind === 'italic') { edits.push([i, -1]); depth = depth ? 0 : 1; }
+      else out += '*';
+      i += 1; continue;
+    }
+    if (sel[i] === '{') {
+      const m = COLOR_OPEN.exec(sel.slice(i));
+      if (m) {
+        if (kind === 'color') { edits.push([i, -m[0].length]); depth++; hexes.add(m[1].trim()); }
+        else out += m[0];
+        i += m[0].length; continue;
+      }
+      if (sel.startsWith('{/c}', i)) {
+        if (kind === 'color') { edits.push([i, -4]); depth = Math.max(0, depth - 1); }
+        else out += '{/c}';
+        i += 4; continue;
+      }
+    }
+    if (sel[i].trim()) { seen = true; if (!depth) gap = true; }
+    out += sel[i];
+    i += 1;
   }
-  return { styled: `{c=${hex}}${sel}{/c}`, edits: [[0, `{c=${hex}}`.length], [sel.length, 4]] };
+  return { stripped: out, edits, fully: seen && !gap, hexes };
 }
+
+// Strip, then wrap once — or, when the whole selection already carried the style,
+// strip and stop. That is the toggle.
+function toggle(sel, kind, open, close) {
+  const { stripped, edits, fully } = scanMarkers(sel, kind);
+  if (fully) return { styled: stripped, edits };
+  return {
+    styled: open + stripped + close,
+    edits: [...edits, [0, open.length], [sel.length, close.length]],
+  };
+}
+
+function opBold(sel)   { return toggle(sel, 'bold', '**', '**'); }
+function opItalic(sel) { return toggle(sel, 'italic', '*', '*'); }
+
+// Colour is a toggle only against ITSELF: the same colour again clears it, a
+// different colour replaces it. Replacing has to strip first too, or the old
+// span survives inside the new one.
+function opColor(sel, hex) {
+  const { stripped, edits, fully, hexes } = scanMarkers(sel, 'color');
+  const sameThroughout = fully && hexes.size === 1 && [...hexes][0] === hex;
+  if (sameThroughout) return { styled: stripped, edits };
+  const open = `{c=${hex}}`;
+  return { styled: open + stripped + '{/c}', edits: [...edits, [0, open.length], [sel.length, 4]] };
+}
+
+// The eraser. Removes every colour marker in the selection, however many spans
+// it spreads across and however they are nested, in one press.
 function opClear(sel) {
-  const m = COLOR_SPAN.exec(sel);
-  if (!m) return { styled: sel, edits: [] };
-  const oldPre = m[0].length - m[2].length - 4;
-  return { styled: m[2], edits: [[0, -oldPre], [sel.length - 4, -4]] };
+  const { stripped, edits } = scanMarkers(sel, 'color');
+  return { styled: stripped, edits };
 }
 
 // A chord name is ONE thing. If an insertion column lands strictly inside a

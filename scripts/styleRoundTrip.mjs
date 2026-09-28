@@ -32,7 +32,7 @@ const SONGS = {
   // parked in the middle of a {c=...} marker is a broken song before anything
   // here touches it, so it is not what this should be measuring.
   'already coloured': [
-    '           G     C',
+    '           G         C',
     '{c=#dc2626}Hello{/c} darkness my old friend',
   ].join('\n'),
   'two verses': [
@@ -67,6 +67,32 @@ function chordWordMap(text) {
 // than moving it: the song now names a chord that was never in it.
 function chordTokens(text) {
   return text.split('\n').filter(isChordLine).map(l => l.trim().split(/\s+/).join(',')).join(' | ');
+}
+
+// ---- Are the fixtures themselves sound? -------------------------------------
+//
+// Twice now a failure was my test data rather than the code: a chord parked in
+// the middle of a {c=...} marker, which is a broken song before anything touches
+// it. Check the fixtures first, and say so plainly, so a bad song can never be
+// read as a bad result.
+{
+  let bad = 0;
+  for (const [name, song] of Object.entries(SONGS)) {
+    const lines = song.split('\n');
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (!isChordLine(lines[i]) || isChordLine(lines[i + 1]) || !lines[i + 1].trim()) continue;
+      const lyric = lines[i + 1];
+      const spans = [...lyric.matchAll(/\{c=[^}]*\}|\{\/c\}|\*\*/g)].map(m => [m.index, m.index + m[0].length]);
+      for (const c of lines[i].matchAll(/\S+/g)) {
+        const inside = spans.find(([s0, e0]) => c.index > s0 && c.index < e0);
+        if (inside) {
+          console.log(`BAD FIXTURE  ${name}: chord "${c[0]}" at column ${c.index} sits inside the markup at ${inside[0]}-${inside[1]} of ${JSON.stringify(lyric)}`);
+          bad++;
+        }
+      }
+    }
+  }
+  if (bad) { console.log(`\n${bad} bad fixture(s) — fix the songs, not the code`); process.exit(1); }
 }
 
 let pass = 0, fail = 0;
@@ -184,6 +210,72 @@ for (const [songName, song] of Object.entries(SONGS)) {
     check(`${songName} · erase ${what} · returns the song byte-identical`,
       cleared && cleared.text === song,
       cleared ? `got:\n${cleared.text}\nwant:\n${song}` : 'clear returned null');
+  }
+}
+
+// ---- Markup stays flat and balanced ----------------------------------------
+//
+// Nesting is what made the eraser peel one layer per press. A colour applied over
+// a row that already held a coloured word used to produce
+// {c=#16a34a}Hello {c=#dc2626}darkness{/c} my{/c} old friend, and no single press
+// could clear that. So: after any op, every line's markers must be balanced and
+// must never nest, and one erase must always finish the job.
+function markupFaults(text) {
+  const bad = [];
+  text.split('\n').forEach((line, n) => {
+    let depth = 0, max = 0, i = 0, bold = 0;
+    while (i < line.length) {
+      if (line.startsWith('**', i)) { bold++; i += 2; continue; }
+      const m = /^\{c=[^}]*\}/.exec(line.slice(i));
+      if (m) { depth++; max = Math.max(max, depth); i += m[0].length; continue; }
+      if (line.startsWith('{/c}', i)) { depth--; i += 4; continue; }
+      i++;
+    }
+    if (depth !== 0) bad.push(`line ${n}: ${depth > 0 ? 'unclosed' : 'orphan'} {c=} (${depth})`);
+    if (max > 1) bad.push(`line ${n}: colour nested ${max} deep`);
+    if (bold % 2) bad.push(`line ${n}: odd number of ** (${bold})`);
+  });
+  return bad;
+}
+
+// Offsets must be recomputed after every edit: the text grows, so a range taken
+// from the ORIGINAL song points somewhere else once markup has been inserted.
+// (My first version of this check reused them and reported failures that were the
+// test's fault, not the code's.)
+const lineBoundsAround = (text, needle) => {
+  const at = text.indexOf(needle);
+  if (at < 0) return null;
+  const from = text.lastIndexOf('\n', at) + 1;
+  const to = text.indexOf('\n', at);
+  return [from, to < 0 ? text.length : to];
+};
+
+for (const [songName, song] of Object.entries(SONGS)) {
+  for (const [a, b, what] of selections(song)) {
+    const word = song.slice(a, b);
+    if (!word.trim() || /\{|\*/.test(word)) continue;
+    // Colour the word, then colour the WHOLE ROW in a second colour over the top,
+    // then erase the row once. Howard's sequence: "I changed one row to green then
+    // made some other changes and came back to erase the green."
+    const first = styleRange(song, 'color', '#dc2626', a, b, true);
+    if (!first) continue;
+    const row = lineBoundsAround(first.text, word);
+    if (!row) { check(`${songName} · ${what} · word survives colouring`, false, first.text); continue; }
+    const wide = styleRange(first.text, 'color', '#16a34a', row[0], row[1], true) || first;
+
+    const faults = markupFaults(wide.text);
+    check(`${songName} · recolour ${what} · markup stays flat and balanced`, faults.length === 0,
+      `${faults.join('; ')}\ntext:\n${wide.text}`);
+
+    const row2 = lineBoundsAround(wide.text, word);
+    const erased = row2 && styleRange(wide.text, 'clear', null, row2[0], row2[1], true);
+    const rowAfter = erased && lineBoundsAround(erased.text, word);
+    check(`${songName} · erase ${what} · one press removes every colour`,
+      erased && rowAfter && !/\{c=|\{\/c\}/.test(erased.text.slice(rowAfter[0], rowAfter[1])),
+      erased ? `still coloured:\n${erased.text}` : 'clear returned null');
+    check(`${songName} · erase ${what} · and leaves the row's own markup sound`,
+      erased ? markupFaults(erased.text).length === 0 : false,
+      erased ? `${markupFaults(erased.text).join('; ')}\n${erased.text}` : '');
   }
 }
 
