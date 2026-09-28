@@ -8,6 +8,7 @@ import { convertToBrackets } from '../utils/chordStyle.js';
 import { transposeChord } from '../utils/transpose.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveFilePicker } from '../utils/filePicker.js';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // Scale levels: index 0–4 → multiplier
 const SCALES = [0.7, 0.85, 1.0, 1.3, 1.65];
@@ -608,7 +609,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     </button>
                     {importFmtOpen && (
                       <>
-                        <div className="fixed inset-0 z-10" onClick={() => setImportFmtOpen(false)} />
+                        <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setImportFmtOpen(false))} />
                         <div className={`absolute bottom-10 right-0 z-20 w-28 rounded-lg shadow-xl overflow-hidden border ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                           <button onClick={() => { handleImportCsv(); setImportFmtOpen(false); }} className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${dark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-700'}`}>CSV</button>
                           <button onClick={() => { handleImportChords(); setImportFmtOpen(false); }} className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${dark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-700'}`}>JSON</button>

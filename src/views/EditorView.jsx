@@ -31,6 +31,7 @@ import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
 import { useAiAbort } from '../hooks/useAiAbort.js';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // Fill in song details: the wording for the shared stage mapper. See
 // utils/aiStage.js for why the weights are what they are.
@@ -1704,7 +1705,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Find music online — results dialog (web-search-grounded links).
   const findDialog = findResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeFind()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeFind())}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -1754,7 +1755,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const fillAskDialog = fillAsk && (() => {
     const chosen = FILL_FIELDS.filter(f => !fillSkip[f.field]);
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setFillAsk(false)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => setFillAsk(false))}>
         <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
           <div className="flex items-start justify-between gap-3">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
@@ -1817,7 +1818,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
        behind them, and dimming it hides the thing you are deciding about. The
        panel's border and shadow carry the separation instead. Click-outside
        still closes. */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeFill()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeFill())}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
@@ -1953,7 +1954,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Transposing advice — key suggestions (one-tap Apply → Transpose) + capo tips.
   const adviceDialog = adviceResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeAdvice()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeAdvice())}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -2011,7 +2012,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Ask about music — question box + answer; ask as many as you like.
   const askDialog = askOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeAsk()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeAsk())}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-3 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -2053,7 +2054,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Add missing chord shapes — review each proposed voicing as a rendered
   // diagram before it's saved to the custom library.
   const chordDialog = chordResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeChords()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeChords())}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -2904,7 +2905,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       </div>
 
       {clearInkModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setClearInkModal(false)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" {...dismissOnOutside(() => setClearInkModal(false))}>
           <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
             <div className="flex flex-col gap-1">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Clear ink?</h2>

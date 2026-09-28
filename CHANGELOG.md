@@ -3,6 +3,65 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.4 — 2026-09-28
+
+Duplicates you can actually resolve, a simpler editor toolbar, and a handful of
+fixes to things that quietly did the wrong thing.
+
+### Duplicates
+
+- **Find duplicates finds the obvious ones itself.** It used to hand your whole
+  library to Claude and ask it to spot repeats — the right tool for "(Live)" and
+  typos, the wrong one for two rows that are character-for-character identical.
+  Asked to do both at once it missed the easy half: importing a set doubled a
+  dozen songs and the scan reported nothing. Cue now finds the certain matches
+  instantly, at no cost and with no API key, and asks Claude only about what's
+  left.
+- **Each copy says what deleting it would cost** — which sets use it, whether it
+  carries ink, and when it was created and last edited. Those two dates are
+  separate on purpose: an import stamps today's edit date on months-old content,
+  so *created today* is what identifies the imported copy.
+- **Rename a copy instead of deleting it.** When you can't tell which is better,
+  keeping both and telling them apart is a fair answer. The song keeps its
+  identity, so every set using it still works.
+- **Compare two copies side by side** — a plain column of text each, in the
+  layout you perform from, with a table of any details that disagree. Read them
+  and decide; nothing is marked up for you.
+- **Fixed: importing a set silently duplicated songs you already had.** It was
+  the one import path that never asked. It now offers to reuse what you have,
+  and tells you how many it added and how many it reused.
+
+### The editor
+
+- **One switch for the chord format** — Inline, Over, Imbed — where there was a
+  toggle and a greyed-out companion. Ordered by how much room each gives a chord.
+- **The Preview and Chords toggles are gone.** Neither was being used, and the
+  chord panel now simply follows your chord instrument, which is what it did
+  anyway.
+- **A back button, top left, on every screen** — Present, the editor, and a
+  shared set. An ✕ says "discard"; these take you back where you came from.
+- **The song title looks like the field it is**, rather than a heading you can't
+  tell is editable.
+
+### Fixed
+
+- **Scrolling a setlist could reorder it.** A flick that brushed a drag handle
+  picked the song up and moved it — silently, mid-gig. Dragging by touch now
+  needs a brief hold; a flick is a scroll, full stop.
+- **A chord-only line lost its spacing.** On an intro or a turnaround the spacing
+  *is* the notation, and it was being collapsed — inconsistently, so identical
+  lines came back with different gaps.
+- **Finger drawing stayed armed** after you moved to the Controls tab, or cleared
+  every stroke. It puts itself down now.
+- **A video that won't embed has a way out** — a Watch on YouTube link, and Cue
+  says when the owner is the reason rather than leaving YouTube's error to
+  explain itself.
+- **Clicking inside a dialog could close it** when using a mouse on an iPad —
+  clicking the question box in Ask about music shut the window instantly. Every
+  dialog now closes only when you press and release on the backdrop itself.
+- **Fixed: Imbed did nothing on an iPhone.** The preview refused to draw diagrams
+  there, though Present always has.
+
 ## v1.9.3 — 2026-09-26
 
 Shared sets tell you the truth about your own library, the way out of a screen is

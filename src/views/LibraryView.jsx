@@ -40,6 +40,7 @@ import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedContr
 import AiRetryLink from '../components/AiRetryLink.jsx';
 import SongSuggestionsDialog from '../components/SongSuggestionsDialog.jsx';
 import RowMenu from '../components/RowMenu.jsx';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -631,7 +632,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
       {deleteConfirm && (() => {
         const n = deleteConfirm.ids.length;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setDeleteConfirm(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setDeleteConfirm(null))}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Delete {n === 1 ? 'this set' : `${n} sets`}?</h2>
@@ -673,7 +674,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
             />
             {setsExportOpen && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setSetsExportOpen(false)} />
+                <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setSetsExportOpen(false))} />
                 <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
                   <ExportMenuItem label="PDF" onSelect={() => runSetsExport('pdf')} />
                   <ExportMenuItem label="PDF + Chord Charts" onSelect={() => runSetsExport('pdf-charts')} />
@@ -1049,7 +1050,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
         const many    = deleteBlockedDialog.ids.length > 1;
         const running = deleteBlockedDialog.phase === 'running';
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => !running && setDeleteBlockedDialog(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => !running && setDeleteBlockedDialog(null))}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Stop sharing before deleting</h2>
@@ -1491,7 +1492,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
               {aiBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI
             </button>
             {aiMenuOpen && (<>
-              <div className="fixed inset-0 z-30" onClick={() => setAiMenuOpen(false)} />
+              <div className="fixed inset-0 z-30" {...dismissOnOutside(() => setAiMenuOpen(false))} />
               <div role="menu" className={`absolute right-0 top-full mt-1 z-40 min-w-[13rem] rounded-xl border shadow-xl overflow-hidden ${dark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
                 {aiReady ? (<>
                   <button role="menuitem" onClick={runSuggestOrder} disabled={displaySongs.length < 2}
@@ -1557,7 +1558,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       {orderResult && (
         /* No scrim on the AI dialogs: each is about the set or library behind
            it, and dimming that hides what you are deciding about. */
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeOrder()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeOrder())}>
           <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex items-start justify-between gap-3">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
@@ -1609,7 +1610,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           ];
         }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => closeTime()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeTime())}>
             <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className="flex items-start justify-between gap-3">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
@@ -2251,7 +2252,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 />
                 {exportDropOpen && (
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setExportDropOpen(false)} />
+                    <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setExportDropOpen(false))} />
                     <div className="absolute right-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden">
                       <ExportMenuItem px="px-4" label="PDF" onSelect={() => handleExportSelectedPdf(false)} />
                       <ExportMenuItem px="px-4" label="PDF + Chord Charts" onSelect={() => handleExportSelectedPdf(true)} />
@@ -2281,7 +2282,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 </button>
                 {aiMenuOpen && (
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setAiMenuOpen(false)} />
+                    <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setAiMenuOpen(false))} />
                     <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden py-1">
                       <button
                         onClick={() => { setAiMenuOpen(false); runSuggest(); }}
@@ -2582,7 +2583,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Find duplicates — groups of the same song saved more than once, with a
           per-song Delete so the library can be tidied in place. */}
       {dupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => !dupBusy && setDupOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => !dupBusy && setDupOpen(false))}>
           <div className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
             <div className={`flex items-center justify-between px-5 py-3 border-b ${border}`}>
               <div className="flex items-center gap-2">
@@ -2727,7 +2728,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Add-to-Set target picker — shown when the toolbar button is used with no
           set selected. Create a new set from the selection, or add to an existing. */}
       {addToSetOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setAddToSetOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setAddToSetOpen(false))}>
           <div
             className={`w-80 max-h-[80vh] rounded-2xl shadow-2xl p-5 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}
             onClick={e => e.stopPropagation()}
@@ -2815,7 +2816,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {songDeleteConfirm && (() => {
         const n = songDeleteConfirm.ids.length;
         return (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setSongDeleteConfirm(null)}>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" {...dismissOnOutside(() => setSongDeleteConfirm(null))}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Delete {n === 1 ? 'this song' : `${n} songs`}?</h2>

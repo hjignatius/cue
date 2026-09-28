@@ -4,6 +4,7 @@ import { getOrCreateShareToken, revokeShareToken } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import QrCode from './QrCode.jsx';
 import { exportQrPdf } from '../utils/qrPdf.js';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // ONE LINK PER SET. Opening Share shows the set's single link, creating it if the
 // set has none and REUSING it if it already does — it can never mint a second.
@@ -101,7 +102,7 @@ export default function ShareSetDialog({ set, onClose }) {
   const muted = `text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(onClose)}>
       <div className={panel} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className={`flex items-center justify-between px-6 pt-5 pb-4 border-b ${dark ? 'border-gray-800' : 'border-gray-100'}`}>

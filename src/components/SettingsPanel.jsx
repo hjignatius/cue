@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
 import { getApiKey, setApiKey, AI_TIERS, tierById } from '../lib/ai.js';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
@@ -295,7 +296,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
       {open && (
         /* Transparent: no dim, but still the click-catcher that closes the
            drawer when you tap outside it. */
-        <div className="fixed inset-0 z-40" onClick={onClose} />
+        <div className="fixed inset-0 z-40" {...dismissOnOutside(onClose)} />
       )}
 
       <div

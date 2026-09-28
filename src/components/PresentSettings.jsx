@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // The settings that only make sense while presenting, reachable from inside
 // Present rather than from the global Settings panel.
@@ -52,7 +53,7 @@ export default function PresentSettings({ onClose }) {
   return (
     // z-50: above PresentControls (z-40) and the gutter (z-35), so nothing on the
     // stage can be tapped by accident while this is open.
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(onClose)}>
       <div
         onClick={e => e.stopPropagation()}
         className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-5 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}

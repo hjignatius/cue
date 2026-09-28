@@ -12,6 +12,7 @@ import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -1259,7 +1260,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, onChange, onSetAll, 
   return (
     /* No scrim, as everywhere else: this screen is about the set behind it, and
        the songs are what you are deciding about. */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={busy ? undefined : onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(busy ? undefined : onCancel)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex flex-col gap-1">
           <h2 className={`text-base font-semibold ${em}`}>Update from “{setName}”</h2>

@@ -5,6 +5,7 @@ import { stripStyling } from '../utils/chordPro.js';
 import { diffLines, countChanges } from '../utils/lineDiff.js';
 import { normalizeTitle } from '../utils/contentHash.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // Read-only side-by-side comparison of two copies of a song.
 //
@@ -191,7 +192,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
   const cols = { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3" {...dismissOnOutside(onClose)}>
       <div
         onClick={e => e.stopPropagation()}
         className={`w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'}`}

@@ -4,6 +4,7 @@ import { saveSong, saveSet, newestLocalAt, hasPdfBlob } from '../utils/storage.j
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
+import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 function fmtDate(iso) {
   try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
@@ -218,7 +219,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
   // Picker gets its own wider panel
   if (phase === 'picker') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center" {...dismissOnOutside(onClose)}>
         <div className={wide} onClick={e => e.stopPropagation()}>
           <div className={`px-6 pt-5 pb-4 shrink-0 border-b ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
             <h2 className={h2}>Pull a set from the cloud</h2>
