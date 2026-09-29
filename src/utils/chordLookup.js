@@ -12,10 +12,33 @@ const builtinKey = (c) => `${c.name}:${c.frets.join(',')}`;
 export function shapesForName(name, instrument = DEFAULT_INSTRUMENT, custom, hidden) {
   const customs   = custom ?? loadCustomChords(instrument);
   const hiddenSet = hidden ?? new Set(loadHiddenChords(instrument));
-  return [
-    ...getActiveChords(instrument).filter(c => c.name === name && !hiddenSet.has(builtinKey(c))),
-    ...customs.filter(c => c.name === name),
+  const exact = (n) => [
+    ...getActiveChords(instrument).filter(c => c.name === n && !hiddenSet.has(builtinKey(c))),
+    ...customs.filter(c => c.name === n),
   ];
+
+  const hit = exact(name);
+  if (hit.length) return hit;
+
+  // SLASH CHORDS: play the chord, drop the bass.
+  //
+  // "Dm7/G" means a Dm7 with a G underneath it, and a ukulele has no string low
+  // enough to put it there — so a player plays the Dm7 and lets the bass go.
+  // Cue used to show NOTHING for these, which in "Still Got The Blues" was three
+  // of the four chords it could not draw: Dm7/G, Am/B and Am/C, where the last
+  // two are a bass walk under one unchanging Am.
+  //
+  // Safe in the strict sense: the shape sounds the notes the written chord
+  // already contains, minus one. It never adds a note the chart did not ask for,
+  // which is what separates this from SUBSTITUTING a chord.
+  //
+  // Only after an exact match fails, so a custom "Dm7/G" somebody entered by
+  // hand still wins. The result is tagged rather than renamed: the caller keeps
+  // the chart's own name and can say which bass note went missing.
+  const slash = name && name.indexOf('/') > 0 ? name.slice(0, name.indexOf('/')) : null;
+  if (!slash) return hit;
+  const bass = name.slice(name.indexOf('/') + 1);
+  return exact(slash).map(shape => ({ ...shape, slashBase: slash, droppedBass: bass }));
 }
 
 // Resolve one chord name to its selected shape for the active instrument.

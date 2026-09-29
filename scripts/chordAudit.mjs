@@ -47,7 +47,7 @@ const QUALITIES = {
 // The notes that MAKE the chord what it is — reported when absent, never failed.
 const DEFINING = {
   '6': [9], 'm6': [9], '7': [10], 'maj7': [11], 'm7': [10], 'm7b5': [6, 10],
-  'aug': [8], '7#5': [8, 10], '7b9': [1, 10], '7#9': [3, 10], '9': [2, 10],
+  'aug': [8], '7#5': [8, 10], '7b9': [1, 10], '7#9': [3, 4, 10], '9': [2, 10],
   'add9': [2], '13': [9, 10], 'sus2': [2], 'sus4': [5], '7sus4': [5, 10],
 };
 

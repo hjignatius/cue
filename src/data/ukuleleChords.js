@@ -342,6 +342,29 @@ export const UKULELE_CHORDS = [
   { name: 'Bbadd9', type: 'major',   frets: [3, 2, 1, 3] },  // A# D F C  (4 fingers)
   { name: 'Badd9',  type: 'major',   frets: [4, 3, 2, 4] },  // B D# F# C#  (4 fingers)
 
+
+  // ── 7#9 ────────────────────────────────────────────────────────────────────
+  // The Hendrix chord. The #9 sounds as a minor 3rd while the major 3rd stays,
+  // and that clash IS the sound — both are required here, so the root is the
+  // note that goes. Rootless, like the 7b9 shapes above.
+  { name: 'C7#9',   type: 'dom7',    frets: [3, 3, 0, 3] },  // A# D# E C
+  { name: 'C#7#9',  type: 'dom7',    frets: [4, 5, 0, 4] },  // B F E C#
+  { name: 'Db7#9',  type: 'dom7',    frets: [4, 5, 0, 4] },  // B F E C#
+  { name: 'D7#9',   type: 'dom7',    frets: [2, 5, 2, 3] },  // A F F# C  (3 fingers)
+  { name: 'D#7#9',  type: 'dom7',    frets: [0, 1, 2, 1] },  // G C# F# A#
+  { name: 'Eb7#9',  type: 'dom7',    frets: [0, 1, 2, 1] },  // G C# F# A#
+  { name: 'E7#9',   type: 'dom7',    frets: [0, 2, 4, 2] },  // G D G# B
+  { name: 'F7#9',   type: 'dom7',    frets: [1, 3, 1, 0] },  // G# D# F A
+  { name: 'F#7#9',  type: 'dom7',    frets: [2, 1, 0, 1] },  // A C# E A#
+  { name: 'Gb7#9',  type: 'dom7',    frets: [2, 1, 0, 1] },  // A C# E A#
+  { name: 'G7#9',   type: 'dom7',    frets: [3, 2, 1, 2] },  // A# D F B  (4 fingers)
+  { name: 'G#7#9',  type: 'dom7',    frets: [1, 0, 2, 2] },  // G# C F# B  (3 fingers)
+  { name: 'Ab7#9',  type: 'dom7',    frets: [1, 0, 2, 2] },  // G# C F# B  (3 fingers)
+  { name: 'A7#9',   type: 'dom7',    frets: [0, 0, 0, 4] },  // G C E C#
+  { name: 'A#7#9',  type: 'dom7',    frets: [3, 2, 4, 4] },  // A# D G# C#  (4 fingers)
+  { name: 'Bb7#9',  type: 'dom7',    frets: [3, 2, 4, 4] },  // A# D G# C#  (4 fingers)
+  { name: 'B7#9',   type: 'dom7',    frets: [4, 3, 5, 5] },  // B D# A D  (4 fingers)
+
 ];
 
 export const CHORD_TYPES = [

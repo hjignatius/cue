@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, X, Download, Upload, SquarePen } from 'lucide-react';
 import { getActiveChords, getActiveTuning, chordPrefKey } from '../data/chordLibraries.js';
+import { shapesForName } from '../utils/chordLookup.js';
 import { loadCustomChords, saveCustomChords, loadHiddenChords, saveHiddenChords } from '../utils/chordStorage.js';
 import ChordDiagram from './ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
@@ -174,13 +175,15 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
     return extra.length ? [...customChords, ...extra] : customChords;
   }, [customChords, extraCustomChords]);
 
+  // THROUGH shapesForName, not a second copy of it. This panel used to rebuild
+  // the same lookup inline — built-ins minus hidden, then customs — which is how
+  // the two would come to disagree, and did: the slash-chord fallback added to
+  // chordLookup reached Present, the PDF and the width measurer, and would have
+  // missed the one screen where you actually look chords up.
   const groups = useMemo(() =>
     detectedNames.map(name => ({
       name,
-      shapes: [
-        ...getActiveChords(instrument).filter(c => c.name === name && !hiddenBuiltins.has(builtinKey(c))),
-        ...displayCustoms.filter(c => c.name === name),
-      ],
+      shapes: shapesForName(name, instrument, displayCustoms, hiddenBuiltins),
     })),
     [detectedNames, displayCustoms, hiddenBuiltins, instrument]
   );
@@ -544,11 +547,28 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     }` : ''}
                     title={!readonly ? (hasAlternates ? `${shapes.length} voicings — click to pick · double-click to edit` : 'Click to manage voicings · double-click to edit') : undefined}
                   >
-                    <ChordDiagram chord={selectedShape} scale={scale} nameScale={1 + chordLabelScale / 100} theme={theme} chordColor={chordColor} tuning={tuning} />
+                    {/* The name the SONG uses, over the shape you actually play.
+                        For a slash chord those differ — Dm7/G is played as a
+                        Dm7 — and the chart's name is the one you are scanning
+                        for, so that is what goes above the grid. What went
+                        missing is said below rather than hidden. */}
+                    <ChordDiagram chord={selectedShape.droppedBass ? { ...selectedShape, name } : selectedShape} scale={scale} nameScale={1 + chordLabelScale / 100} theme={theme} chordColor={chordColor} tuning={tuning} />
                   </div>
                   {hasAlternates && (
                     <div className={`absolute bottom-1 right-1 text-[8px] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}>
                       {selectedIdx + 1}/{shapes.length}
+                    </div>
+                  )}
+                  {/* The bass note this instrument cannot reach. Worth saying
+                      out loud: the grid is the right thing to play and it is
+                      also not the whole chord, and a player deciding whether
+                      that matters needs to know which note is gone. */}
+                  {selectedShape.droppedBass && (
+                    <div
+                      className={`absolute bottom-1 left-1 text-[8px] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}
+                      title={`${name} played as ${selectedShape.slashBase} — no string reaches the ${selectedShape.droppedBass} bass`}
+                    >
+                      no {selectedShape.droppedBass} bass
                     </div>
                   )}
                   {/* No touch (pointer-coarse) reveal in the browse grid: on a

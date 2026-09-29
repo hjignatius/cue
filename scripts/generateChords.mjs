@@ -37,10 +37,18 @@ const SPEC = {
   '7#5': { notes: [0, 4, 8, 10],    need: [0, 4, 8, 10], type: 'dom7' },
   'm6':  { notes: [0, 3, 7, 9],     need: [0, 3, 9],     type: '6th'  },
   'add9':{ notes: [0, 2, 4, 7],     need: [0, 2, 4],     type: 'major'},
+  // The #9 sounds as a minor 3rd and the chord keeps its MAJOR 3rd too — that
+  // clash is the whole point of the sound, so both are required and the root is
+  // not. Four strings hold 3rd, b7, #9 and one more; the root is the one to go.
+  '7#9': { notes: [0, 3, 4, 7, 10], need: [3, 4, 10],    type: 'dom7' },
 };
 
 // The roots the library already uses, in its own order and spelling.
-const ROOTS = UKULELE_CHORDS.filter(c => c.type === 'major').map(c => c.name);
+//
+// The NAME has to be a bare root, not just type 'major': add9 chords are filed
+// as major too, so reading the type alone started generating "Cadd97#9" the
+// moment this script's own output went into the library it reads.
+const ROOTS = UKULELE_CHORDS.filter(c => /^[A-G][b#]?$/.test(c.name)).map(c => c.name);
 
 const open = TUNING.map(notePitchClass);
 
