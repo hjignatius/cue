@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, X, Download, Upload, SquarePen } from 'lucide-react';
+import { Plus, X, Download, Upload, SquarePen, Hand } from 'lucide-react';
 import { getActiveChords, getActiveTuning, chordPrefKey } from '../data/chordLibraries.js';
 import { shapesForName } from '../utils/chordLookup.js';
 import { loadCustomChords, saveCustomChords, loadHiddenChords, saveHiddenChords } from '../utils/chordStorage.js';
@@ -132,7 +132,7 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
 
 // ---- SongChordPanel --------------------------------------------------------
 
-export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [] }) {
+export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [], onEasierChords }) {
   const { theme, chordColor, instrument, chordLabelScale } = usePrefs();
   const dark = theme === 'dark';
   const tuning = getActiveTuning(instrument);
@@ -613,6 +613,17 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
                     <Plus size={18} />
                   </button>
+                  {/* Easier chords for this song. Lives HERE rather than in the
+                      AI menu because it needs no key, no model and no network —
+                      every number in it is measured from the library — and the
+                      AI menu is dark without a key. */}
+                  {onEasierChords && (
+                    <button onClick={onEasierChords}
+                      title="Easier chords for this song"
+                      className={`w-11 h-11 pointer-fine:w-9 pointer-fine:h-9 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-indigo-400 hover:bg-gray-800' : 'text-gray-400 hover:text-indigo-600 hover:bg-gray-100'}`}>
+                      <Hand size={18} />
+                    </button>
+                  )}
                   <button
                     title={selectedChordName ? `Edit ${selectedChordName}` : 'Select a chord to edit'}
                     disabled={!selectedChordName}
