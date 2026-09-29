@@ -18,6 +18,7 @@
 // its own localStorage key that nothing exports.
 
 import { timeSigOrEmpty } from '../utils/timeSig.js';
+import { notePitchClass } from '../utils/notes.js';
 
 const KEY_STORAGE = 'cue:anthropic_key';
 // ── Quality tiers ───────────────────────────────────────────────────────────
@@ -1119,22 +1120,6 @@ Give up to ${VOICING_MAX} ways to play ONE chord on this instrument. Respond wit
 // in it — the request is just a fetch. Everything here is checked rather than
 // asked for in the prompt, because the prompt already asked, and a prompt is a
 // request rather than a guarantee. Tested in scripts/voicingsCheck.mjs.
-// A note name to its pitch class, tolerant of how the answer might spell it —
-// sharps, flats, and the double accidentals a proper spelling needs (the #9 of E
-// is F##, which sounds as G). Returns null for anything that is not a note.
-const LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-export function notePitchClass(note) {
-  const m = /^([A-Ga-g])([#b♯♭x]*)$/.exec((note || '').trim());
-  if (!m) return null;
-  let pc = LETTER_PC[m[1].toUpperCase()];
-  for (const ch of m[2]) {
-    if (ch === '#' || ch === '♯') pc += 1;
-    else if (ch === 'x') pc += 2;            // the other way of writing a double sharp
-    else pc -= 1;                            // b or ♭
-  }
-  return ((pc % 12) + 12) % 12;
-}
-
 // Does this shape actually sound the notes the answer says it does?
 //
 // WHY ASK AND THEN CHECK. A model can name a chord's notes correctly and still

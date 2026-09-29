@@ -16,7 +16,7 @@ import { UKULELE_CHORDS } from '../src/data/ukuleleChords.js';
 import { BARITONE_CHORDS } from '../src/data/baritoneChords.js';
 import { GUITAR_CHORDS } from '../src/data/guitarChords.js';
 import { CHORD_LIBRARIES } from '../src/data/chordLibraries.js';
-import { notePitchClass } from '../src/lib/ai.js';
+import { notePitchClass } from '../src/utils/notes.js';
 
 // Semitones above the root that each quality is allowed to use. The 5th is
 // included everywhere it belongs even when players drop it — this is the set of

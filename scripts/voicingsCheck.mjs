@@ -6,7 +6,8 @@
 // somebody then tries to play.
 //
 // Run: node scripts/voicingsCheck.mjs
-import { sanitizeVoicings, notePitchClass } from '../src/lib/ai.js';
+import { sanitizeVoicings } from '../src/lib/ai.js';
+import { notePitchClass } from '../src/utils/notes.js';
 
 let pass = 0, fail = 0;
 const check = (name, got, want) => {

@@ -26,6 +26,7 @@ import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
 import { loadCustomChords, saveCustomChords } from '../utils/chordStorage.js';
 import { shapesForName } from '../utils/chordLookup.js';
+import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -2107,6 +2108,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 <div className="shrink-0"><ChordDiagram chord={shape} scale={1} theme={dark ? 'dark' : 'light'} chordColor={chordColor} /></div>
                 <span className="flex-1 min-w-0">
                   <span className={`text-sm font-medium font-mono ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{shape.name}</span>
+                  <span className={`block text-xs font-mono ${mutedText}`}>
+                    {shapeNotes(shape.frets, getActiveTuning(instrument)).join(' ')}
+                  </span>
                   <span className={`block text-xs ${mutedText}`}>{shape.frets.map(f => f === -1 ? '×' : f).join(' · ')}</span>
                 </span>
                 <button onClick={() => addChordShape(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
@@ -2242,6 +2246,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     <span className="flex-1 min-w-0">
                       <span className={`text-sm font-medium font-mono ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{shape.name}</span>
                       {shape.label && <span className={`block text-xs ${mutedText}`}>{shape.label}</span>}
+                      {/* THE NOTES IT ACTUALLY SOUNDS, computed here from the
+                          tuning and the frets — not taken from the answer. This
+                          is the line that settles an argument in one glance:
+                          1-2-1-2 on a GCEA ukulele reads G# D F B, which is a
+                          diminished 7th and an E7b9 without its root, whatever
+                          the chord above it is called. */}
+                      <span className={`block text-xs font-mono ${mutedText}`}>
+                        {shapeNotes(shape.frets, getActiveTuning(instrument)).join(' ')}
+                      </span>
                       <span className={`block text-xs ${mutedText}`}>{shape.frets.map(f => f === -1 ? '×' : f).join(' · ')}</span>
                     </span>
                     <button onClick={() => addVoicing(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
