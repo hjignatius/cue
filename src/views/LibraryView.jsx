@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2 } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, Check } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
@@ -259,6 +259,58 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
 
 // ---- Sets column (middle) ---------------------------------------------------
 
+// One "Shared with me" row.
+//
+// ONE COMPONENT because there are two lists — the Shared filter shows these
+// bookmarks above the published sets, and the always-present section shows them
+// below — and they were the same markup written twice. That is how the copy
+// button would have landed in one list and not the other, which is exactly what
+// happened to the chord lookup this week.
+function SharedWithMeRow({ share, dark, border, subtitle, copied, onOpen, onCopy, onRemove }) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20`}>
+      <div className="flex-1 min-w-0">
+        {/* Router navigation, not an <a href>: a full page load in a standalone
+            iOS window gets handed to Safari, dropping the user out of the
+            installed app. */}
+        <button
+          type="button"
+          onClick={onOpen}
+          className={`font-medium truncate block text-sm text-left w-full transition-colors ${dark ? 'text-gray-300 hover:text-indigo-400' : 'text-gray-700 hover:text-indigo-600'}`}
+        >
+          {share.setName || 'Shared set'}
+        </button>
+        <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">{subtitle}</p>
+      </div>
+      {/* Pass the link on. A set shared TO you has a link you may want to send
+          to someone else, and until now the only copy of it was wherever it
+          first arrived — an email, a text, a scrap of paper. Always visible
+          rather than hover-only: it does nothing destructive, and hover-only
+          controls are invisible on a touchscreen. */}
+      <button
+        onClick={onCopy}
+        title="Copy this set's share link"
+        aria-label="Copy this set's share link"
+        className={`shrink-0 p-1 rounded transition-colors ${copied
+          ? 'text-green-600 dark:text-green-400'
+          : dark ? 'text-gray-600 hover:text-indigo-400' : 'text-gray-400 hover:text-indigo-600'}`}
+      >
+        {copied ? <Check size={17} /> : <Copy size={17} />}
+      </button>
+      <ExternalLink size={12} className={`shrink-0 ${dark ? 'text-gray-700' : 'text-gray-300'} group-hover:opacity-60 transition-opacity`} />
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
+          title="Remove from Shared with me"
+        >
+          <Trash2 size={19} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenting, border }) {
   // chordColor/accidentals/instrument feed the set PDF export (render lens +
   // which chord library); without them the PDF branch throws a ReferenceError.
@@ -282,6 +334,30 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
 
   // Shared-with-me bookmarks (viewer-side, localStorage only)
   const [savedShares, setSavedShares] = useState(loadSharedWithMe);
+  // Token of the share whose link was just copied, for the tick.
+  const [copiedShare, setCopiedShare] = useState(null);
+  const [copyShareErr, setCopyShareErr] = useState('');
+
+  // Rebuild the link from the token. The bookmark stores the token rather than a
+  // URL, so the link is made against THIS origin — which is the right one for
+  // anyone you are sending it to, whatever address it originally arrived from.
+  //
+  // Clipboard access can be refused (an insecure context, a browser that asks),
+  // so a failure says so and shows the link instead of leaving a tick that lies.
+  function copyShareLink(token) {
+    const url = `${window.location.origin}/shared/${token}`;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopyShareErr('');
+      setCopiedShare(token);
+      setTimeout(() => setCopiedShare(c => (c === token ? null : c)), 2000);
+    }).catch(() => setCopyShareErr(url));
+  }
+
+  function removeShare(token) {
+    const updated = savedShares.filter(s => s.token !== token);
+    setSavedShares(updated);
+    localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(updated));
+  }
   const navigate = useNavigate();
   // "Open a shared link" — the only route into a shared set from inside an
   // installed app. iOS cannot hand a tapped URL to a Home Screen web app
@@ -923,22 +999,16 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
               </div>
             )}
             {sharedWithMeMatches.map(share => (
-              <div
+              <SharedWithMeRow
                 key={share.token}
-                className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20`}
-              >
-                <div className="flex-1 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/shared/${share.token}`)}
-                    className={`font-medium truncate block text-sm text-left w-full transition-colors ${dark ? 'text-gray-300 hover:text-indigo-400' : 'text-gray-700 hover:text-indigo-600'}`}
-                  >
-                    {share.setName || 'Shared set'}
-                  </button>
-                  <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">Shared with me</p>
-                </div>
-                <ExternalLink size={12} className={`shrink-0 ${dark ? 'text-gray-700' : 'text-gray-300'} group-hover:opacity-60 transition-opacity`} />
-              </div>
+                share={share}
+                dark={dark}
+                border={border}
+                subtitle="Shared with me"
+                copied={copiedShare === share.token}
+                onOpen={() => navigate(`/shared/${share.token}`)}
+                onCopy={() => copyShareLink(share.token)}
+              />
             ))}
           </>
         )}
@@ -960,37 +1030,33 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
               </div>
             )}
             {(sharedOnly ? [] : savedShares).map(share => (
-              <div
+              <SharedWithMeRow
                 key={share.token}
-                className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-950/20`}
-              >
-                <div className="flex-1 min-w-0">
-                  {/* Router navigation, not an <a href>: a full page load in a
-                      standalone iOS window gets handed to Safari, dropping the
-                      user out of the installed app. */}
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/shared/${share.token}`)}
-                    className={`font-medium truncate block text-sm text-left w-full transition-colors ${dark ? 'text-gray-300 hover:text-indigo-400' : 'text-gray-700 hover:text-indigo-600'}`}
-                  >
-                    {share.setName || 'Shared set'}
-                  </button>
-                  <p className="text-xs text-gray-400 dark:text-gray-600 mt-0.5">Shared link</p>
-                </div>
-                <ExternalLink size={12} className={`shrink-0 ${dark ? 'text-gray-700' : 'text-gray-300'} group-hover:opacity-60 transition-opacity`} />
-                <button
-                  onClick={() => {
-                    const updated = savedShares.filter(s => s.token !== share.token);
-                    setSavedShares(updated);
-                    localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(updated));
-                  }}
-                  className="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all"
-                  title="Remove from Shared with me"
-                >
-                  <Trash2 size={19} />
-                </button>
-              </div>
+                share={share}
+                dark={dark}
+                border={border}
+                subtitle="Shared link"
+                copied={copiedShare === share.token}
+                onOpen={() => navigate(`/shared/${share.token}`)}
+                onCopy={() => copyShareLink(share.token)}
+                onRemove={() => removeShare(share.token)}
+              />
             ))}
+
+            {/* The clipboard refused — show the link so it can still be
+                copied by hand rather than stranding the user behind a control
+                that silently did nothing. */}
+            {copyShareErr && (
+              <div className={`px-3 py-2 border-b ${border}`}>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-1">Couldn't reach the clipboard — copy this by hand:</p>
+                <input
+                  readOnly
+                  value={copyShareErr}
+                  onFocus={e => e.target.select()}
+                  className={`w-full text-xs font-mono px-2 py-1 rounded border ${dark ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-white border-gray-300 text-gray-700'}`}
+                />
+              </div>
+            )}
 
             {/* Open a shared link without leaving the app */}
             <form onSubmit={openSharedLink} className={`px-3 py-3 border-b ${border} flex flex-col gap-2`}>
