@@ -358,6 +358,21 @@ function timeoutError() {
   return err;
 }
 
+// The reply arrived and was not the shape it had to be — almost always because
+// it was cut off before the closing bracket, since thinking tokens and the reply
+// come out of the same budget.
+//
+// WORTH ITS OWN ERROR. Every JSON tool here turns an unparseable reply into an
+// empty result, and an empty result reads as "there was nothing to find". That
+// is a different sentence from "the reply was cut off", it sends you looking in
+// the wrong place, and the only clue that it was the wrong place is that trying
+// again sometimes works.
+function unreadableError(what) {
+  const err = new Error(`The answer came back incomplete — try ${what ? `${what} ` : ''}again.`);
+  err.code = 'unreadable';
+  return err;
+}
+
 // Low-level call. Returns the parsed response JSON; throws a code-tagged Error.
 // Retries transient busy/rate-limit responses (429, 529 "overloaded") a couple
 // of times with backoff before giving up — these fail before any generation, so
@@ -1037,16 +1052,36 @@ Give up to ${VOICING_MAX} DIFFERENT voicings of one chord — the same chord, pl
   // object, so one more of them is one more voicing finished rather than one
   // started. This tool never searches, so the bar's search band is not reserved
   // and writing gets the whole length.
+  // EFFORT, AND WHY THIS ONE IS NOT ON THE HOUSE `low`. Its sibling asks for the
+  // easiest shape near the nut, which is common knowledge a model already holds.
+  // This asks for voicings up the neck and in other inversions, which has to be
+  // WORKED OUT: the chord's notes, where they fall in each position on this
+  // tuning, and what one hand can hold. That is derivation, and derivation is
+  // what effort buys. Howard was escalating to the top model every single time.
+  //
+  // MAX_TOKENS IS THE OTHER HALF, and was the more dangerous half. Thinking
+  // tokens are spent from the same budget as the reply, so a 1200 ceiling could
+  // be eaten by the thinking and cut the JSON off mid-array. extractJson cannot
+  // parse a truncated array, so it returned null, which read as "no voicings
+  // came back" — the model looking weak when it was the ceiling. Streaming is
+  // already on, so a roomy ceiling costs nothing when it is not used.
   const raw = await streamClaude({
     ...(model ? { model } : {}),
-    max_tokens: 1200,
+    max_tokens: 4000,
     atomic: true,
     signal,
-    output_config: { effort: 'low' },
+    output_config: { effort: 'high' },
     system,
     messages: [{ role: 'user', content: `Chord: ${chord}` }],
   }, ...jsonProgress(onStage, { count: countItems('label'), of: VOICING_MAX }));
-  return sanitizeVoicings(extractJson(raw), { name: chord, strings: n, known });
+
+  // A reply that arrived but would not parse is NOT an empty answer, and saying
+  // so is the difference between "this chord has no other voicings" and "the
+  // reply was cut off — try again". Conflating them is what sent Howard to the
+  // stronger model, since the only visible difference was that retrying helped.
+  const parsed = extractJson(raw);
+  if (parsed == null && (raw || '').trim()) throw unreadableError('');
+  return sanitizeVoicings(parsed, { name: chord, strings: n, known });
 }
 
 // WHAT THE MODEL SAYS vs WHAT A HAND CAN DO.
