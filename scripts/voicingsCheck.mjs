@@ -6,7 +6,7 @@
 // somebody then tries to play.
 //
 // Run: node scripts/voicingsCheck.mjs
-import { sanitizeVoicings } from '../src/lib/ai.js';
+import { sanitizeVoicings, latestThought } from '../src/lib/ai.js';
 import { notePitchClass } from '../src/utils/notes.js';
 
 let pass = 0, fail = 0;
@@ -113,6 +113,26 @@ check('no claim means nothing to contradict',
 check('without a tuning the check is skipped entirely',
   frets(sanitizeVoicings([{ frets: [1, 2, 0, 2], notes: ['G#', 'D', 'G', 'B'] }], { name: 'E7#9', strings: 4 })),
   [[1, 2, 0, 2]]);
+
+// ---- The caption under the bar ----------------------------------------------
+//
+// The model's summary arrives as a growing paragraph. Showing all of it under a
+// progress bar would be a wall of text reflowing on every token, so the caption
+// is the most recent complete sentence — what it is doing NOW.
+check('the newest sentence wins',
+  latestThought('E7#9 needs five notes. Four strings will not hold them all. Dropping the root.'),
+  'Dropping the root.');
+check('a single unfinished sentence still shows',
+  latestThought('Working out where the #9 falls'), 'Working out where the #9 falls');
+check('newlines and runs of spaces collapse',
+  latestThought('Checking\n\n  the   fifth fret'), 'Checking the fifth fret');
+check('nothing yet is empty, not undefined', [latestThought(''), latestThought(null)], ['', '']);
+// The contract is a CEILING, not an exact width — asserting the exact number
+// got this wrong when the code was right, for the fifth time this week.
+check('a very long sentence is capped',
+  latestThought('x'.repeat(200)).length <= 110, String(latestThought('x'.repeat(200)).length));
+check('and says it was cut',
+  latestThought('y'.repeat(200)).endsWith('…'), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

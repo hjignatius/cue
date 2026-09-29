@@ -585,6 +585,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // chord picker is showing, and nothing has been asked of the model yet.
   const [voicings, setVoicings]         = useState(null); // null | { chord, loading, error, list, added, model }
   const [voicingStage, setVoicingStage] = useState(null);
+  // What the model says it is working out, while it is working it out.
+  const [voicingThought, setVoicingThought] = useState('');
   const [askOpen, setAskOpen]           = useState(false);
   const [askQuestion, setAskQuestion]   = useState('');
   const [askAnswer, setAskAnswer]       = useState('');
@@ -1174,10 +1176,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     if (aiBusy) return;
     const signal = beginAi('voicings');
     setVoicingStage(null);
+    setVoicingThought('');
     setVoicings({ chord, loading: true, error: '', list: [], added: 0, model });
     try {
       const list = await alternateVoicings(chord, {
         onStage: st => setVoicingStage(prev => advanceStage(prev, st, VOICING_STAGE)),
+        onThinking: setVoicingThought,
         instrument: chordLibraryToInstrument(instrument),
         tuning: getActiveTuning(instrument),
         // No aiLevel here, deliberately: how hard a chord shape should be is a
@@ -2215,7 +2219,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               // thing that reads as broken. The sweep says "working"; the
               // moment a voicing lands it becomes a real measurement.
               const counting = (voicingStage?.wrote || 0) > 0;
-              return <AiProgress label={p.label} detail={p.detail} percent={counting ? p.percent : null} dark={dark} onCancel={closeVoicings} />;
+              // While it is still thinking there is nothing to count, so the bar
+              // sweeps — and the caption carries the model's own account of what
+              // it is doing instead of a number it cannot honestly give.
+              return <AiProgress
+                label={counting ? p.label : 'Working it out…'}
+                detail={counting ? p.detail : voicingThought}
+                percent={counting ? p.percent : null}
+                dark={dark}
+                onCancel={closeVoicings}
+              />;
             })()}
             {!voicings.loading && voicings.error && <p className="text-sm text-red-500">{voicings.error}</p>}
 

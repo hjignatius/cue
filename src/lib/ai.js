@@ -206,7 +206,11 @@ const REQUEST_HEADERS = (apiKey) => ({
 // makes a dropped connection retryable: nothing has been shown that restarting
 // would repeat. Ask about music is the exception — its answer is on screen as it
 // arrives, so a restart there would rewrite half a reply, and it stays as it was.
-async function streamClaude({ signal, atomic, ...body }, onText, onSearch) {
+// `onThink` receives the model's own summary of what it is working out, as it
+// works it out. It arrives only when the request asks for it
+// (`thinking: { display: 'summarized' }`); every other call gets thinking blocks
+// with empty text and this stays silent, so passing it is always harmless.
+async function streamClaude({ signal, atomic, ...body }, onText, onSearch, onThink) {
   const apiKey = getApiKey();
   if (!apiKey) {
     const err = new Error('Add your Anthropic API key in Settings to use AI features.');
@@ -271,7 +275,7 @@ async function streamClaude({ signal, atomic, ...body }, onText, onSearch) {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buf = '', acc = '';
+      let buf = '', acc = '', think = '';
       // A web search announces itself in two parts: a `server_tool_use` block
       // whose input (the query) arrives as partial JSON and is only complete at
       // its stop event, then a `web_search_tool_result` block when the results
@@ -297,7 +301,15 @@ async function streamClaude({ signal, atomic, ...body }, onText, onSearch) {
             if (!payload || payload === '[DONE]') continue;
             let evt;
             try { evt = JSON.parse(payload); } catch { continue; }
-            if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+            if (evt.type === 'content_block_delta' && evt.delta?.type === 'thinking_delta') {
+              // THE QUIET PART, SAID OUT LOUD. A model that thinks before it
+              // writes sends nothing for as long as it thinks — 20 to 30 seconds
+              // on a chord question — and a screen with no signal in it reads as
+              // broken rather than busy. The summary costs nothing extra:
+              // thinking is billed the same whether or not it is shown.
+              think += evt.delta.thinking || '';
+              onThink?.(think);
+            } else if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
               acc += evt.delta.text;
               onText?.(acc);
             } else if (evt.type === 'content_block_start' && evt.content_block?.type === 'server_tool_use') {
@@ -1063,12 +1075,25 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
 // prompt so the model does not spend its answer re-deriving what you have, and
 // the caller filters against it again afterwards — a prompt is a request, not a
 // guarantee.
+// The last thing the model said it was doing, as one short line.
+//
+// The summary arrives as a growing paragraph, and showing all of it in a caption
+// under a progress bar would be a wall that reflows on every token. The most
+// recent complete sentence is the useful part — it is what it is doing NOW.
+export function latestThought(all) {
+  const clean = (all || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  const sentences = clean.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const last = sentences[sentences.length - 1] || clean;
+  return last.length > 110 ? `${last.slice(0, 107)}…` : last;
+}
+
 // The cap, named because the progress bar uses it as a denominator: the reply
 // is asked for at most four voicings, so four is what the bar divides by.
 const VOICING_MAX = 4;
 
 export async function alternateVoicings(name, {
-  instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], known = [], model, onStage, signal,
+  instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], known = [], model, onStage, onThinking, signal,
 } = {}) {
   const chord = (name || '').trim();
   if (!chord) return [];
@@ -1140,9 +1165,14 @@ Give up to ${VOICING_MAX} ways to play ONE chord on this instrument. Respond wit
     atomic: true,
     signal,
     output_config: { effort: 'medium' },
+    // Ask for the reasoning in readable form. This is the one tool whose thinking
+    // phase is long enough to look like a fault, and the summary is what turns
+    // half a minute of nothing into half a minute of visible work.
+    thinking: { type: 'adaptive', display: 'summarized' },
     system,
     messages: [{ role: 'user', content: `Chord: ${chord}` }],
-  }, ...jsonProgress(onStage, { count: countItems('label'), of: VOICING_MAX }));
+  }, ...jsonProgress(onStage, { count: countItems('label'), of: VOICING_MAX }),
+     onThinking ? (all) => onThinking(latestThought(all)) : undefined);
 
   // A reply that arrived but would not parse is NOT an empty answer, and saying
   // so is the difference between "this chord has no other voicings" and "the
