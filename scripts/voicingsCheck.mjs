@@ -130,7 +130,7 @@ check('nothing yet is empty, not undefined', [latestThought(''), latestThought(n
 // The contract is a CEILING, not an exact width — asserting the exact number
 // got this wrong when the code was right, for the fifth time this week.
 check('a very long sentence is capped',
-  latestThought('x'.repeat(200)).length <= 110, String(latestThought('x'.repeat(200)).length));
+  latestThought('x'.repeat(200)).length <= 110, true);
 check('and says it was cut',
   latestThought('y'.repeat(200)).endsWith('…'), true);
 
