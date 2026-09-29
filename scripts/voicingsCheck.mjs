@@ -6,7 +6,7 @@
 // somebody then tries to play.
 //
 // Run: node scripts/voicingsCheck.mjs
-import { sanitizeVoicings } from '../src/lib/ai.js';
+import { sanitizeVoicings, notePitchClass } from '../src/lib/ai.js';
 
 let pass = 0, fail = 0;
 const check = (name, got, want) => {
@@ -63,6 +63,55 @@ check('rows that are not objects', frets(run(['Am', null, 7, { frets: [2, 0, 0, 
 
 check('the name comes from the caller, never the model',
   run([{ frets: [2, 0, 0, 0], name: 'Bbmaj7' }])[0].name, 'Am');
+
+// ---- Does the shape sound what the answer says it sounds? -------------------
+//
+// A model can name a chord's notes correctly and still hand back frets that do
+// not produce them — and the frets are what gets drawn and played. The tuning
+// plus the fret numbers is arithmetic, so the claim can be tested without this
+// file knowing what any chord symbol means.
+//
+// The case that prompted it: Howard asked for E7#9 on a GCEA ukulele. The #9 of
+// E is F##, which sounds as G — so the chord wants E G# B D G. The shape 1-2-0-2
+// sounds G# D E B, which is a perfectly good E7 and contains no #9 at all.
+const GCEA = ['G', 'C', 'E', 'A'];
+const uke = (arr) => sanitizeVoicings(arr, { name: 'E7#9', strings: 4, tuning: GCEA });
+
+// 'x' is the other way of writing a double sharp, so Fx is F## is G — while Gx
+// is A. (I got that backwards writing this check, and the check caught it.)
+check('pitch classes, with every accidental spelling',
+  ['C', 'B#', 'Dbb', 'G#', 'Ab', 'F##', 'Fx', 'Gx', 'G', 'B♭', 'A♯'].map(notePitchClass),
+  [0, 0, 0, 8, 8, 7, 7, 9, 7, 10, 10]);
+
+check('not a note name', [notePitchClass('H'), notePitchClass(''), notePitchClass('G#m')], [null, null, null]);
+
+check('frets matching their notes are kept',
+  frets(uke([{ frets: [1, 2, 3, 2], notes: ['G#', 'D', 'G', 'B'] }])),
+  [[1, 2, 3, 2]]);
+
+check('the same notes spelled differently still match',
+  frets(uke([{ frets: [1, 2, 3, 2], notes: ['Ab', 'D', 'F##', 'B'] }])),
+  [[1, 2, 3, 2]]);
+
+check('frets that do not sound the claimed notes are dropped',
+  frets(uke([{ frets: [1, 2, 0, 2], notes: ['G#', 'D', 'G', 'B'] }])),   // claims the #9; sounds E
+  []);
+
+check('muted strings are skipped on both sides',
+  frets(uke([{ frets: [-1, 2, 3, 2], notes: ['D', 'G', 'B'] }])),
+  [[-1, 2, 3, 2]]);
+
+check('a claim with the wrong number of notes is dropped',
+  frets(uke([{ frets: [1, 2, 3, 2], notes: ['G#', 'D', 'G'] }])),
+  []);
+
+check('no claim means nothing to contradict',
+  frets(uke([{ frets: [1, 2, 3, 2] }])),
+  [[1, 2, 3, 2]]);
+
+check('without a tuning the check is skipped entirely',
+  frets(sanitizeVoicings([{ frets: [1, 2, 0, 2], notes: ['G#', 'D', 'G', 'B'] }], { name: 'E7#9', strings: 4 })),
+  [[1, 2, 0, 2]]);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

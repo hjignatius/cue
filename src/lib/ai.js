@@ -1056,14 +1056,16 @@ export async function alternateVoicings(name, {
   // property of the hand rather than of how much theory someone knows.
   const system = `You are a chord-library assistant for a ${instrument} app. The instrument has ${n} strings tuned ${tuning.join('-')} (that string order, low to high).
 Give up to ${VOICING_MAX} ways to play ONE chord on this instrument. Respond with ONLY a JSON array (no prose, no code fence):
-[{"frets": [${tuning.map(() => 'n').join(', ')}], "label": "<3-5 words>"}]
+[{"frets": [${tuning.map(() => 'n').join(', ')}], "label": "<3-5 words>", "notes": ["<note per sounding string>"]}]
 - "frets" has exactly ${n} integers, one per string in the tuning order above: 0 = open string, a positive number = that fret, -1 = muted/not played.
 - "label" says what it is, as a player would: "open position", "easiest shape", "barre at 5th", "moveable shape".
+- "notes" lists the note each SOUNDING string produces in this shape, in the same string order, skipping muted strings — e.g. ["G#","D","E","B"]. Work it out from the tuning and the fret numbers. This is cross-checked, so a shape whose notes do not match its frets is discarded.
 - GIVE THE SHAPES PLAYERS ACTUALLY USE — the ones printed in chord books and taught for this chord on this instrument. Do not derive novel fingerings from the intervals when a standard one exists.
 - EASIEST FIRST. Order them by how hard they are to fret, not by position on the neck. Prefer open strings, three fingers or fewer, and common grips. A barre or a stretch belongs in the list only when it is genuinely one of the standard shapes for this chord.
 - Variety comes SECOND. Different positions are welcome among voicings that a player would use, but never return an awkward shape just to make the list longer or more varied.
 - Every one must be playable by one hand: four fingers, no fret span wider than 4, no impossible stretches.
 - With ${n} strings you often have FEWER strings than an extended or altered chord has notes (7#9, 13, 7b9 and the like). That is normal and is NOT a reason to refuse: voice them as players do, dropping the least essential tones — the 5th first, then the root — while keeping what defines the chord (the 3rd, the 7th, and the named alteration).
+- A SIMPLER SUBSTITUTE IS ALLOWED, and is often what a player wants on ${n} strings — but it must say so. If the honest option is the plain 7th shape for an altered chord, give it and label it "E7 shape, #9 dropped" (naming the actual chord and what is missing). Never label a substitute as though it were the full chord.
 - Quality over count. One good shape beats four with filler in them.${haveLine}`;
 
   // Streamed for the progress bar, not for the size of the reply: four voicings
@@ -1108,7 +1110,7 @@ Give up to ${VOICING_MAX} ways to play ONE chord on this instrument. Respond wit
   // stronger model, since the only visible difference was that retrying helped.
   const parsed = extractJson(raw);
   if (parsed == null && (raw || '').trim()) throw unreadableError('');
-  return sanitizeVoicings(parsed, { name: chord, strings: n, known });
+  return sanitizeVoicings(parsed, { name: chord, strings: n, known, tuning });
 }
 
 // WHAT THE MODEL SAYS vs WHAT A HAND CAN DO.
@@ -1117,7 +1119,46 @@ Give up to ${VOICING_MAX} ways to play ONE chord on this instrument. Respond wit
 // in it — the request is just a fetch. Everything here is checked rather than
 // asked for in the prompt, because the prompt already asked, and a prompt is a
 // request rather than a guarantee. Tested in scripts/voicingsCheck.mjs.
-export function sanitizeVoicings(arr, { name, strings, known = [] } = {}) {
+// A note name to its pitch class, tolerant of how the answer might spell it —
+// sharps, flats, and the double accidentals a proper spelling needs (the #9 of E
+// is F##, which sounds as G). Returns null for anything that is not a note.
+const LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+export function notePitchClass(note) {
+  const m = /^([A-Ga-g])([#b♯♭x]*)$/.exec((note || '').trim());
+  if (!m) return null;
+  let pc = LETTER_PC[m[1].toUpperCase()];
+  for (const ch of m[2]) {
+    if (ch === '#' || ch === '♯') pc += 1;
+    else if (ch === 'x') pc += 2;            // the other way of writing a double sharp
+    else pc -= 1;                            // b or ♭
+  }
+  return ((pc % 12) + 12) % 12;
+}
+
+// Does this shape actually sound the notes the answer says it does?
+//
+// WHY ASK AND THEN CHECK. A model can name a chord's notes correctly and still
+// hand back frets that do not produce them, and the frets are what gets drawn
+// and played. Comparing the two catches exactly that, without this file needing
+// to know what any chord symbol means: the tuning plus the fret numbers is
+// arithmetic, and the answer's own note list is the claim being tested.
+//
+// Compared as PITCH CLASSES, never as spellings — G# and Ab are the same string
+// stopped at the same fret, and insisting on one spelling would throw away
+// correct shapes over notation.
+function notesMatchFrets(claimed, frets, tuning) {
+  if (!Array.isArray(claimed) || !claimed.length) return true;   // nothing claimed, nothing to contradict
+  if (!Array.isArray(tuning) || tuning.length !== frets.length) return true;
+  const actual = frets
+    .map((f, i) => (f === -1 ? null : (notePitchClass(tuning[i]) + f) % 12))
+    .filter((x) => x != null);
+  const said = claimed.map(notePitchClass).filter((x) => x != null);
+  if (said.length !== actual.length) return false;
+  const key = (xs) => [...xs].sort((a, b) => a - b).join(',');
+  return key(said) === key(actual);
+}
+
+export function sanitizeVoicings(arr, { name, strings, known = [], tuning = null } = {}) {
   if (!Array.isArray(arr)) return [];
   const haveKeys = new Set(known.map((f) => (f || []).join(',')));
   const seen = new Set();
@@ -1136,6 +1177,11 @@ export function sanitizeVoicings(arr, { name, strings, known = [] } = {}) {
     const key = frets.join(',');
     if (haveKeys.has(key) || seen.has(key)) continue;   // already yours, or already listed
     seen.add(key);
+    // The answer's own note list against what the frets really sound. A shape
+    // that fails this is one the model mis-fingered — the notes it meant are not
+    // the notes it drew — and drawing it anyway is how somebody ends up playing
+    // a different chord and blaming their ear.
+    if (tuning && !notesMatchFrets(o?.notes, frets, tuning)) continue;
     const label = typeof o?.label === 'string' ? o.label.trim().slice(0, 40) : '';
     out.push({ name, frets, label });
   }
