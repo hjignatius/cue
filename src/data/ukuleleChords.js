@@ -249,6 +249,99 @@ export const UKULELE_CHORDS = [
   { name: 'A#6', type: '6th', frets: [0, 2, 1, 1] },
   { name: 'Bb6', type: '6th', frets: [0, 2, 1, 1] },
   { name: 'B6',  type: '6th', frets: [1, 3, 2, 2] },
+
+  // ── Altered dominants and colour chords ────────────────────────────────────
+  //
+  // DERIVED, NOT RECALLED, and added because the ukulele library did not have
+  // them while baritone and guitar did: a chart writing E7-9 found no shape at
+  // all. scripts/generateChords.mjs enumerates every fingering on the neck,
+  // keeps the ones whose notes are right, and ranks what is left by how hard it
+  // is to hold — a ranking calibrated against the 170 shipped shapes it could be
+  // checked against, where its first pick agreed 134 times and was in its top
+  // five 165 times.
+  //
+  // So these are right on the NOTES by construction, which is not the same as
+  // feeling good under the hand. The comment on each line is what it sounds.
+
+  // ── 7b9 ────────────────────────────────────────────────────────────────────
+  // Rootless, as this chord is voiced everywhere on four strings: five notes do
+  // not fit, and the 3rd, b7 and b9 are what make the sound. Each is a
+  // diminished 7th shape, which is what a rootless 7b9 is.
+  { name: 'C7b9',   type: 'dom7',    frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'C#7b9',  type: 'dom7',    frets: [1, 2, 1, 2] },  // G# D F B  (3 fingers)
+  { name: 'Db7b9',  type: 'dom7',    frets: [1, 2, 1, 2] },  // G# D F B  (3 fingers)
+  { name: 'D7b9',   type: 'dom7',    frets: [2, 3, 2, 3] },  // A D# F# C  (3 fingers)
+  { name: 'D#7b9',  type: 'dom7',    frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'Eb7b9',  type: 'dom7',    frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'E7b9',   type: 'dom7',    frets: [1, 2, 1, 2] },  // G# D F B  (3 fingers)
+  { name: 'F7b9',   type: 'dom7',    frets: [2, 3, 2, 3] },  // A D# F# C  (3 fingers)
+  { name: 'F#7b9',  type: 'dom7',    frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'Gb7b9',  type: 'dom7',    frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'G7b9',   type: 'dom7',    frets: [1, 2, 1, 2] },  // G# D F B  (3 fingers)
+  { name: 'G#7b9',  type: 'dom7',    frets: [1, 0, 2, 0] },  // G# C F# A
+  { name: 'Ab7b9',  type: 'dom7',    frets: [1, 0, 2, 0] },  // G# C F# A
+  { name: 'A7b9',   type: 'dom7',    frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'A#7b9',  type: 'dom7',    frets: [1, 2, 1, 2] },  // G# D F B  (3 fingers)
+  { name: 'Bb7b9',  type: 'dom7',    frets: [1, 2, 1, 2] },  // G# D F B  (3 fingers)
+  { name: 'B7b9',   type: 'dom7',    frets: [2, 3, 2, 3] },  // A D# F# C  (3 fingers)
+
+  // ── 7#5 ────────────────────────────────────────────────────────────────────
+  { name: 'C7#5',   type: 'dom7',    frets: [1, 0, 0, 1] },  // G# C E A#
+  { name: 'C#7#5',  type: 'dom7',    frets: [2, 1, 1, 2] },  // A C# F B  (3 fingers)
+  { name: 'Db7#5',  type: 'dom7',    frets: [2, 1, 1, 2] },  // A C# F B  (3 fingers)
+  { name: 'D7#5',   type: 'dom7',    frets: [3, 2, 2, 3] },  // A# D F# C  (3 fingers)
+  { name: 'D#7#5',  type: 'dom7',    frets: [4, 3, 3, 4] },  // B D# G C#  (3 fingers)
+  { name: 'Eb7#5',  type: 'dom7',    frets: [4, 3, 3, 4] },  // B D# G C#  (3 fingers)
+  { name: 'E7#5',   type: 'dom7',    frets: [1, 2, 0, 3] },  // G# D E C  (3 fingers)
+  { name: 'F7#5',   type: 'dom7',    frets: [6, 5, 5, 6] },  // C# F A D#  (3 fingers)
+  { name: 'F#7#5',  type: 'dom7',    frets: [7, 6, 6, 7] },  // D F# A# E  (3 fingers)
+  { name: 'Gb7#5',  type: 'dom7',    frets: [7, 6, 6, 7] },  // D F# A# E  (3 fingers)
+  { name: 'G7#5',   type: 'dom7',    frets: [0, 3, 1, 2] },  // G D# F B  (3 fingers)
+  { name: 'G#7#5',  type: 'dom7',    frets: [1, 4, 2, 3] },  // G# E F# C  (4 fingers)
+  { name: 'Ab7#5',  type: 'dom7',    frets: [1, 4, 2, 3] },  // G# E F# C  (4 fingers)
+  { name: 'A7#5',   type: 'dom7',    frets: [0, 1, 1, 0] },  // G C# F A
+  { name: 'A#7#5',  type: 'dom7',    frets: [1, 2, 2, 1] },  // G# D F# A#  (3 fingers)
+  { name: 'Bb7#5',  type: 'dom7',    frets: [1, 2, 2, 1] },  // G# D F# A#  (3 fingers)
+  { name: 'B7#5',   type: 'dom7',    frets: [4, 3, 3, 0] },  // B D# G A
+
+  // ── Minor 6th ──────────────────────────────────────────────────────────────
+  { name: 'Cm6',    type: '6th',     frets: [5, 3, 3, 0] },  // C D# G A
+  { name: 'C#m6',   type: '6th',     frets: [1, 1, 0, 1] },  // G# C# E A#
+  { name: 'Dbm6',   type: '6th',     frets: [1, 1, 0, 1] },  // G# C# E A#
+  { name: 'Dm6',    type: '6th',     frets: [2, 2, 1, 2] },  // A D F B  (4 fingers)
+  { name: 'D#m6',   type: '6th',     frets: [3, 3, 2, 3] },  // A# D# F# C  (4 fingers)
+  { name: 'Ebm6',   type: '6th',     frets: [3, 3, 2, 3] },  // A# D# F# C  (4 fingers)
+  { name: 'Em6',    type: '6th',     frets: [0, 1, 0, 2] },  // G C# E B
+  { name: 'Fm6',    type: '6th',     frets: [1, 2, 1, 3] },  // G# D F C  (3 fingers)
+  { name: 'F#m6',   type: '6th',     frets: [2, 3, 2, 0] },  // A D# F# A
+  { name: 'Gbm6',   type: '6th',     frets: [2, 3, 2, 0] },  // A D# F# A
+  { name: 'Gm6',    type: '6th',     frets: [0, 2, 0, 1] },  // G D E A#
+  { name: 'G#m6',   type: '6th',     frets: [1, 3, 1, 2] },  // G# D# F B  (3 fingers)
+  { name: 'Abm6',   type: '6th',     frets: [1, 3, 1, 2] },  // G# D# F B  (3 fingers)
+  { name: 'Am6',    type: '6th',     frets: [2, 0, 2, 0] },  // A C F# A
+  { name: 'A#m6',   type: '6th',     frets: [0, 1, 1, 1] },  // G C# F A#
+  { name: 'Bbm6',   type: '6th',     frets: [0, 1, 1, 1] },  // G C# F A#
+  { name: 'Bm6',    type: '6th',     frets: [1, 2, 2, 2] },  // G# D F# B  (4 fingers)
+
+  // ── add9 ───────────────────────────────────────────────────────────────────
+  { name: 'Cadd9',  type: 'major',   frets: [0, 0, 0, 5] },  // G C E D
+  { name: 'C#add9', type: 'major',   frets: [1, 3, 1, 4] },  // G# D# F C#  (3 fingers)
+  { name: 'Dbadd9', type: 'major',   frets: [1, 3, 1, 4] },  // G# D# F C#  (3 fingers)
+  { name: 'Dadd9',  type: 'major',   frets: [7, 6, 0, 0] },  // D F# E A
+  { name: 'D#add9', type: 'major',   frets: [0, 3, 1, 1] },  // G D# F A#
+  { name: 'Ebadd9', type: 'major',   frets: [0, 3, 1, 1] },  // G D# F A#
+  { name: 'Eadd9',  type: 'major',   frets: [1, 4, 2, 2] },  // G# E F# B  (4 fingers)
+  { name: 'Fadd9',  type: 'major',   frets: [0, 0, 1, 0] },  // G C F A
+  { name: 'F#add9', type: 'major',   frets: [1, 1, 2, 1] },  // G# C# F# A#
+  { name: 'Gbadd9', type: 'major',   frets: [1, 1, 2, 1] },  // G# C# F# A#
+  { name: 'Gadd9',  type: 'major',   frets: [2, 2, 3, 2] },  // A D G B
+  { name: 'G#add9', type: 'major',   frets: [3, 3, 4, 3] },  // A# D# G# C
+  { name: 'Abadd9', type: 'major',   frets: [3, 3, 4, 3] },  // A# D# G# C
+  { name: 'Aadd9',  type: 'major',   frets: [2, 1, 0, 2] },  // A C# E B  (3 fingers)
+  { name: 'A#add9', type: 'major',   frets: [3, 2, 1, 3] },  // A# D F C  (4 fingers)
+  { name: 'Bbadd9', type: 'major',   frets: [3, 2, 1, 3] },  // A# D F C  (4 fingers)
+  { name: 'Badd9',  type: 'major',   frets: [4, 3, 2, 4] },  // B D# F# C#  (4 fingers)
+
 ];
 
 export const CHORD_TYPES = [
