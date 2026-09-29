@@ -3,6 +3,33 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.7 — 2026-09-29
+
+Ukulele chords Cue used to draw nothing for.
+
+### Chords
+
+- **85 chords added to the ukulele library** — `7b9`, `7#5`, `7#9`, `m6` and
+  `add9`, for all 17 roots. Baritone and guitar already had most of these;
+  ukulele didn't, so a chart writing `E7-9` found no shape at all.
+- **Slash chords now show a shape.** `Dm7/G`, `Am/B`, `C/E` — a ukulele has no
+  string low enough to put a bass note under anything, so Cue draws the chord and
+  notes which bass it dropped. The tile keeps the name your chart uses, with a
+  small *"no G bass"* marker.
+- **Chord diagrams in the AI tools show the notes they sound**, worked out from
+  your tuning and the frets rather than taken from the AI's answer — so you can
+  see at a glance that a shape is the chord you asked for.
+- **Find alternate chord voicings gives better answers.** It was cutting its own
+  reply short and thinking too little about a question that needs working out.
+  It now also offers a simpler substitute where four strings can't hold the whole
+  chord — labelled for what it is, never drawn as though it were the full chord.
+
+### Editing
+
+- **The eraser clears all formatting**, not just colour. Bold and italic each
+  have a button that toggles them; the eraser is the one control that puts a
+  selection back to plain text.
+
 ## v1.9.6 — 2026-09-29
 
 ### Chords
