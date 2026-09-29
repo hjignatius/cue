@@ -1057,7 +1057,14 @@ Give up to ${VOICING_MAX} DIFFERENT voicings of one chord — the same chord, pl
   // This asks for voicings up the neck and in other inversions, which has to be
   // WORKED OUT: the chord's notes, where they fall in each position on this
   // tuning, and what one hand can hold. That is derivation, and derivation is
-  // what effort buys. Howard was escalating to the top model every single time.
+  // what effort buys, and on `low` Howard was escalating to the top model every
+  // single time.
+  //
+  // `medium`, not `high` — high fixed the answers and then took long enough that
+  // the wait became the complaint. Medium is where the other derivation tools
+  // sit (set order, set time, transposing advice), which is the company this one
+  // keeps. If the answers slip back, the lever to try next is the top model for
+  // this one tool, not another notch of effort.
   //
   // MAX_TOKENS IS THE OTHER HALF, and was the more dangerous half. Thinking
   // tokens are spent from the same budget as the reply, so a 1200 ceiling could
@@ -1070,7 +1077,7 @@ Give up to ${VOICING_MAX} DIFFERENT voicings of one chord — the same chord, pl
     max_tokens: 4000,
     atomic: true,
     signal,
-    output_config: { effort: 'high' },
+    output_config: { effort: 'medium' },
     system,
     messages: [{ role: 'user', content: `Chord: ${chord}` }],
   }, ...jsonProgress(onStage, { count: countItems('label'), of: VOICING_MAX }));

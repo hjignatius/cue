@@ -2201,7 +2201,16 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           {voicings.chord && (<>
             {voicings.loading && (() => {
               const p = stageProgress(voicingStage, VOICING_STAGE);
-              return <AiProgress label={p.label} detail={p.detail} percent={p.percent} dark={dark} onCancel={closeVoicings} />;
+              // INDETERMINATE UNTIL THERE IS SOMETHING TO COUNT, which is this
+              // tool's shape rather than a preference. It never searches, so
+              // there are no early events: the model thinks the whole answer
+              // through and then writes it quickly. A bar that reports 6% for
+              // most of the wait and then races is telling the truth about its
+              // counter and a lie about the work — and a still bar is the one
+              // thing that reads as broken. The sweep says "working"; the
+              // moment a voicing lands it becomes a real measurement.
+              const counting = (voicingStage?.wrote || 0) > 0;
+              return <AiProgress label={p.label} detail={p.detail} percent={counting ? p.percent : null} dark={dark} onCancel={closeVoicings} />;
             })()}
             {!voicings.loading && voicings.error && <p className="text-sm text-red-500">{voicings.error}</p>}
 
