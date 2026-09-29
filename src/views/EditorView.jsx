@@ -38,6 +38,7 @@ import { dismissOnOutside } from '../utils/overlayDismiss.js';
 // utils/aiStage.js for why the weights are what they are.
 const FILL_STAGE = { writeLabel: 'Filling in the details…', unit: 'field' };
 const FIND_STAGE = { idleLabel: 'Searching the web…', writeLabel: 'Listing what it found…', unit: 'source' };
+const VOICING_STAGE = { idleLabel: 'Working out the fingerings…', writeLabel: 'Working out the fingerings…', unit: 'voicing' };
 const fillProgress = (stage, hasChart) =>
   stageProgress(stage, { ...FILL_STAGE, idleLabel: hasChart ? 'Reading the chart…' : 'Identifying the song…' });
 
@@ -582,6 +583,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Find alternate voicings. Two steps in one dialog: `chord` null means the
   // chord picker is showing, and nothing has been asked of the model yet.
   const [voicings, setVoicings]         = useState(null); // null | { chord, loading, error, list, added, model }
+  const [voicingStage, setVoicingStage] = useState(null);
   const [askOpen, setAskOpen]           = useState(false);
   const [askQuestion, setAskQuestion]   = useState('');
   const [askAnswer, setAskAnswer]       = useState('');
@@ -1170,9 +1172,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   async function runVoicings(chord, model) {
     if (aiBusy) return;
     const signal = beginAi('voicings');
+    setVoicingStage(null);
     setVoicings({ chord, loading: true, error: '', list: [], added: 0, model });
     try {
       const list = await alternateVoicings(chord, {
+        onStage: st => setVoicingStage(prev => advanceStage(prev, st, VOICING_STAGE)),
         instrument: chordLibraryToInstrument(instrument),
         tuning: getActiveTuning(instrument),
         level: aiLevel,
@@ -2195,7 +2199,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
           {/* STEP TWO */}
           {voicings.chord && (<>
-            {voicings.loading && <AiWaiting label={`Looking for other ways to play ${voicings.chord}…`} dark={dark} onCancel={closeVoicings} />}
+            {voicings.loading && (() => {
+              const p = stageProgress(voicingStage, VOICING_STAGE);
+              return <AiProgress label={p.label} detail={p.detail} percent={p.percent} dark={dark} onCancel={closeVoicings} />;
+            })()}
             {!voicings.loading && voicings.error && <p className="text-sm text-red-500">{voicings.error}</p>}
 
             {!voicings.loading && !voicings.error && voicings.list.length === 0 && (voicings.added || 0) > 0 && (

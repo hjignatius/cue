@@ -3,6 +3,23 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.6 — 2026-09-29
+
+### Chords
+
+- **Find alternate chord voicings.** A new AI tool in the editor, under *Add
+  missing chord shapes*. Pick any chord in the song and Cue offers other ways to
+  play it — further up the neck, as a barre, in another inversion — each with a
+  diagram and a note saying where it sits. Add the ones you want to your
+  instrument's library.
+
+  The chord list opens instantly and shows what you already have for each chord,
+  because nothing needs asking until you pick one. Shapes already in your library
+  are left out of the results, and anything that comes back unplayable — a
+  stretch wider than four frets, a shape with nothing sounding — is dropped
+  before you see it. As with every AI tool: try a shape on the instrument before
+  you rely on it.
+
 ## v1.9.5 — 2026-09-28
 
 Styling lyrics now works the way you'd expect it to, a shared set says more about

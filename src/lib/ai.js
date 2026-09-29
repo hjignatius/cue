@@ -1008,8 +1008,12 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
 // prompt so the model does not spend its answer re-deriving what you have, and
 // the caller filters against it again afterwards — a prompt is a request, not a
 // guarantee.
+// The cap, named because the progress bar uses it as a denominator: the reply
+// is asked for at most four voicings, so four is what the bar divides by.
+const VOICING_MAX = 4;
+
 export async function alternateVoicings(name, {
-  instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level, known = [], model, signal,
+  instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level, known = [], model, onStage, signal,
 } = {}) {
   const chord = (name || '').trim();
   if (!chord) return [];
@@ -1019,7 +1023,7 @@ export async function alternateVoicings(name, {
     : '';
 
   const system = `You are a chord-library assistant for a ${instrument} app. The instrument has ${n} strings tuned ${tuning.join('-')} (that string order, low to high). ${levelLine(level)}
-Give up to 4 DIFFERENT voicings of one chord — the same chord, played in other ways. Respond with ONLY a JSON array (no prose, no code fence):
+Give up to ${VOICING_MAX} DIFFERENT voicings of one chord — the same chord, played in other ways. Respond with ONLY a JSON array (no prose, no code fence):
 [{"frets": [${tuning.map(() => 'n').join(', ')}], "label": "<3-5 words>"}]
 - "frets" has exactly ${n} integers, one per string in the tuning order above: 0 = open string, a positive number = that fret, -1 = muted/not played.
 - "label" says where and what it is, as a player would: "open position", "barre at 5th", "3rd-fret inversion", "moveable shape".
@@ -1027,15 +1031,22 @@ Give up to 4 DIFFERENT voicings of one chord — the same chord, played in other
 - Every one must be genuinely playable by one hand — four fingers, no fret span wider than 4, no impossible stretches.
 - Quality over count. Two good voicings beat four with filler in them; return only what a player would actually use.${haveLine}`;
 
-  const data = await callClaude({
+  // Streamed for the progress bar, not for the size of the reply: four voicings
+  // is a short answer, but a dialog that shows nothing until it lands looks the
+  // same whether it is working or wedged. `label` is the LAST key of each
+  // object, so one more of them is one more voicing finished rather than one
+  // started. This tool never searches, so the bar's search band is not reserved
+  // and writing gets the whole length.
+  const raw = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1200,
+    atomic: true,
     signal,
     output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: `Chord: ${chord}` }],
-  });
-  return sanitizeVoicings(extractJson(textOf(data)), { name: chord, strings: n, known });
+  }, ...jsonProgress(onStage, { count: countItems('label'), of: VOICING_MAX }));
+  return sanitizeVoicings(extractJson(raw), { name: chord, strings: n, known });
 }
 
 // WHAT THE MODEL SAYS vs WHAT A HAND CAN DO.
