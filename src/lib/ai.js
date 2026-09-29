@@ -44,6 +44,16 @@ export const AI_TIERS = [
   {
     id: 'balanced',
     label: 'Balanced',
+    // TO TRY SONNET 5.5: change this to 'claude-sonnet-5-5'. Nothing else needs
+    // touching — the two breaking changes that would have bitten are already
+    // dealt with (askMusic no longer disables thinking; refusals are handled),
+    // Cue forces no tool_choice, and web_search_20260209 is supported there.
+    //
+    // It is NOT cheaper per token: $2/$10 per MTok, exactly as this one. What
+    // differs is that its effort levels are recalibrated, so the same answer
+    // often comes back at a lower effort — which is where the saving is, and it
+    // means our ten `effort: 'low'` calls are worth re-judging after a swap
+    // rather than assumed to behave the same.
     model: 'claude-sonnet-5',
     blurb: 'Fast and capable, and far fewer "busy" errors. The right balance for most of Cue\'s tools.',
     supportsEffort: true,
@@ -305,6 +315,10 @@ async function streamClaude({ signal, atomic, ...body }, onText, onSearch) {
             } else if (evt.type === 'content_block_start' && evt.content_block?.type === 'web_search_tool_result') {
               searchesDone++;
               onSearch?.({ started: searchesStarted, done: searchesDone, query });
+            } else if (evt.type === 'message_delta' && evt.delta?.stop_reason === 'refusal') {
+              // Mid-stream refusal. Whatever text arrived before it is not an
+              // answer, so this throws rather than returning a truncated one.
+              throw refusedError(evt.delta?.stop_details?.category);
             } else if (evt.type === 'error') {
               const err = new Error(evt.error?.message || 'The response was interrupted — try again.');
               err.code = evt.error?.type || 'stream';
@@ -318,6 +332,9 @@ async function streamClaude({ signal, atomic, ...body }, onText, onSearch) {
         // the final value: `acc` is per-attempt, so the next one starts clean.
         // It does re-send the request, and so bills again — but the attempt that
         // failed was already paid for and produced nothing.
+        // A refusal is a decision, not a dropped connection — retrying it just
+        // spends money to be told no again.
+        if (e?.code === 'refusal') throw e;
         if (atomic && attempt < MAX_ATTEMPTS && !isOffline()) {
           console.warn(`[ai] stream dropped mid-answer (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying`, e);
           continue;
@@ -368,6 +385,23 @@ function timeoutError() {
 // is a different sentence from "the reply was cut off", it sends you looking in
 // the wrong place, and the only clue that it was the wrong place is that trying
 // again sometimes works.
+// The model declined the request on safety grounds. NOT an HTTP error: the call
+// succeeds, returns 200, and simply has no usable content in it — so without
+// this every refusal surfaced as an empty answer, which reads as "the AI is
+// broken" rather than "the AI said no".
+//
+// The category is an open set and the wording is the API's, so this says what
+// happened and does not try to explain it. A song lyric is the likeliest thing
+// here to trip a classifier, and being told that plainly is the difference
+// between trying a different song and filing a bug.
+function refusedError(category) {
+  const err = new Error(category
+    ? `The model declined to answer this one (${category}). Try rewording, or a different song.`
+    : 'The model declined to answer this one. Try rewording, or a different song.');
+  err.code = 'refusal';
+  return err;
+}
+
 function unreadableError(what) {
   const err = new Error(`The answer came back incomplete — try ${what ? `${what} ` : ''}again.`);
   err.code = 'unreadable';
@@ -405,12 +439,17 @@ async function callClaude({ signal, ...body }) {
     if (signal?.aborted) throw abortedError();
 
     if (res.ok) {
-      try { return await res.json(); }
+      let json;
+      try { json = await res.json(); }
       catch {
         const err = new Error('Got an unreadable response — try again.');
         err.code = 'parse';
         throw err;
       }
+      // A 200 with stop_reason "refusal" carries no answer. Checked BEFORE the
+      // body is handed back, so no caller has to know this can happen.
+      if (json?.stop_reason === 'refusal') throw refusedError(json?.stop_details?.category);
+      return json;
     }
 
     let data = {};
@@ -1292,15 +1331,25 @@ For chord shapes / fingerings, answer in TEXT as fret numbers per string, one sh
 
 For a strumming (or picking) pattern, give it as TEXT: D = downstroke, U = upstroke, x = muted/chuck, - = rest, aligned under the beat counts and matched to the time signature. Example (4/4): "D - D U - U D U" over "1 & 2 & 3 & 4 &". Add one short line on the feel/tempo, and a simpler pattern if the player is a beginner. No tab art.${songBits ? `\n\nThe user is currently working on a song — use this only if the question relates to it:\n${songBits}${chart ? `\n\nChart:\n${chart.slice(0, 4000)}` : ''}` : ''}`;
 
-  // Thinking off + low effort so the first words appear fast (a chord-shape
-  // question otherwise triggers a long silent "thinking" phase). Stream so the
-  // answer builds live in the popup. `model` overrides the default (used by
-  // "Try again — smarter model").
+  // Low effort so the first words appear fast — a chord-shape question otherwise
+  // triggers a long silent "thinking" phase. Stream so the answer builds live in
+  // the popup. `model` overrides the default (used by "Try again — smarter").
+  //
+  // THINKING IS NO LONGER TURNED OFF HERE. It used to send
+  // `thinking: { type: 'disabled' }`, which Sonnet 5.5 rejects with a 400 — so
+  // the one call in Cue that did that was also the one thing standing between us
+  // and trying a newer model. Low effort is the supported way to ask for a quick
+  // answer, and on current models it is also the better-behaved one: with
+  // thinking off, a model can write a tool call into its visible text or leak
+  // <thinking> tags into the reply.
+  //
+  // If this turns out too slow to type in front of, the supported way to switch
+  // thinking off on Sonnet 5.5 is `{ type: 'between_tools' }` — effort high or
+  // below, and no other field alongside it.
   return streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 1000,
     signal,
-    thinking: { type: 'disabled' },
     output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: question.trim() }],
