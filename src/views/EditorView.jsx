@@ -1179,7 +1179,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         onStage: st => setVoicingStage(prev => advanceStage(prev, st, VOICING_STAGE)),
         instrument: chordLibraryToInstrument(instrument),
         tuning: getActiveTuning(instrument),
-        level: aiLevel,
+        // No aiLevel here, deliberately: how hard a chord shape should be is a
+        // property of the hand, not of how much theory the player knows.
         // What the library already holds, so the model is not asked to re-derive
         // it and anything it returns anyway is filtered out.
         known: shapesForName(chord, instrument).map(sh => sh.frets),

@@ -1028,23 +1028,43 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
 const VOICING_MAX = 4;
 
 export async function alternateVoicings(name, {
-  instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level, known = [], model, onStage, signal,
+  instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], known = [], model, onStage, signal,
 } = {}) {
   const chord = (name || '').trim();
   if (!chord) return [];
   const n = tuning.length;
+  // Named so the answer is not spent handing back what the library holds. Worth
+  // being careful with: if the shape already saved is the EASY one, excluding it
+  // means everything offered is harder by definition — so this asks for other
+  // standard shapes rather than for anything that merely differs.
   const haveLine = known.length
-    ? `\nAlready in the library, so do NOT return these or anything that fingers the same way: ${known.map((f) => `[${f.join(' ')}]`).join(', ')}.`
+    ? `\nThe library already has these fingerings, so offer OTHER standard shapes instead of these: ${known.map((f) => `[${f.join(' ')}]`).join(', ')}. If this chord genuinely has no other shape worth playing, return fewer — or an empty array.`
     : '';
 
-  const system = `You are a chord-library assistant for a ${instrument} app. The instrument has ${n} strings tuned ${tuning.join('-')} (that string order, low to high). ${levelLine(level)}
-Give up to ${VOICING_MAX} DIFFERENT voicings of one chord — the same chord, played in other ways. Respond with ONLY a JSON array (no prose, no code fence):
+  // WHAT THIS PROMPT ASKS FOR, and what it used to ask for by mistake. The first
+  // version led with variety — "spread them out", "different positions", "order
+  // them from the lowest position upward" — and got exactly that: four exotic
+  // inversions for E7#9 that nobody would finger, when Gemini and UkuChords both
+  // returned the shapes players actually use. Variety was the wrong thing to put
+  // first. A voicing you will not play is not an alternative to anything.
+  //
+  // So: RECALL BEFORE DERIVATION (the shapes in chord books, not shapes worked
+  // out from intervals), EASIEST FIRST, and variety only among voicings that
+  // earn their place. The level line is deliberately not in here any more: for
+  // 'advanced' and 'pro' it says to suggest richer voicings, which on this tool
+  // pushed against playability, and how hard a chord shape should be is a
+  // property of the hand rather than of how much theory someone knows.
+  const system = `You are a chord-library assistant for a ${instrument} app. The instrument has ${n} strings tuned ${tuning.join('-')} (that string order, low to high).
+Give up to ${VOICING_MAX} ways to play ONE chord on this instrument. Respond with ONLY a JSON array (no prose, no code fence):
 [{"frets": [${tuning.map(() => 'n').join(', ')}], "label": "<3-5 words>"}]
 - "frets" has exactly ${n} integers, one per string in the tuning order above: 0 = open string, a positive number = that fret, -1 = muted/not played.
-- "label" says where and what it is, as a player would: "open position", "barre at 5th", "3rd-fret inversion", "moveable shape".
-- Spread them out: different positions on the neck and different inversions, not four fingerings of the same grip. Order them from the lowest position upward.
-- Every one must be genuinely playable by one hand — four fingers, no fret span wider than 4, no impossible stretches.
-- Quality over count. Two good voicings beat four with filler in them; return only what a player would actually use.${haveLine}`;
+- "label" says what it is, as a player would: "open position", "easiest shape", "barre at 5th", "moveable shape".
+- GIVE THE SHAPES PLAYERS ACTUALLY USE — the ones printed in chord books and taught for this chord on this instrument. Do not derive novel fingerings from the intervals when a standard one exists.
+- EASIEST FIRST. Order them by how hard they are to fret, not by position on the neck. Prefer open strings, three fingers or fewer, and common grips. A barre or a stretch belongs in the list only when it is genuinely one of the standard shapes for this chord.
+- Variety comes SECOND. Different positions are welcome among voicings that a player would use, but never return an awkward shape just to make the list longer or more varied.
+- Every one must be playable by one hand: four fingers, no fret span wider than 4, no impossible stretches.
+- With ${n} strings you often have FEWER strings than an extended or altered chord has notes (7#9, 13, 7b9 and the like). That is normal and is NOT a reason to refuse: voice them as players do, dropping the least essential tones — the 5th first, then the root — while keeping what defines the chord (the 3rd, the 7th, and the named alteration).
+- Quality over count. One good shape beats four with filler in them.${haveLine}`;
 
   // Streamed for the progress bar, not for the size of the reply: four voicings
   // is a short answer, but a dialog that shows nothing until it lands looks the
