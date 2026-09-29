@@ -26,7 +26,6 @@ import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
 import { loadCustomChords, saveCustomChords } from '../utils/chordStorage.js';
 import { shapesForName } from '../utils/chordLookup.js';
-import { easierChords, swapChords } from '../utils/simplify.js';
 import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
@@ -586,8 +585,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // chord picker is showing, and nothing has been asked of the model yet.
   const [voicings, setVoicings]         = useState(null); // null | { chord, loading, error, list, added, model }
   const [voicingStage, setVoicingStage] = useState(null);
-  // Easier chords: null | { rows, picked: { [chordName]: substituteName } }
-  const [easier, setEasier] = useState(null);
   const [askOpen, setAskOpen]           = useState(false);
   const [askQuestion, setAskQuestion]   = useState('');
   const [askAnswer, setAskAnswer]       = useState('');
@@ -1165,29 +1162,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     }
   }
 
-  // Easier chords — no model, no key, no waiting. Which chords are in the song,
-  // what the library holds for each, and how hard those shapes are to hold are
-  // all known here, so this opens with the answer already in it.
-  function openEasier() {
-    setEasier({
-      rows: easierChords(songChordNames(), { instrument }),
-      picked: {},
-    });
-  }
-
-  // Swap the chosen chords through the song. The replacement rule — whole
-  // tokens, longest first, and columns preserved on chord lines so over-lyrics
-  // stays aligned — lives in utils/simplify.js, where it is tested.
-  //
-  // Rewritten in place and Save lights up, which makes Revert the way back.
-  // Nothing reaches disk until you save.
-  function applyEasier() {
-    const picks = Object.entries(easier?.picked || {}).filter(([, to]) => to);
-    const next = swapChords(text, picks);
-    if (next !== text) { setText(next); setIsDirty(true); }
-    setEasier(null);
-  }
-
   // Find alternate chord voicings (AI) — other ways to play a chord you already
   // have. The picker opens with NO model call: which chords are in the song and
   // what the library holds for each are both known locally, and asking the model
@@ -1614,7 +1588,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   const chordPanel = (
     <SongChordPanel
-      onEasierChords={openEasier}
       text={text}
       semitones={chordSemitones}
       useFlats={chordUseFlats}
@@ -2320,98 +2293,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <AiRetryLink usedModel={voicings.model} onRetry={m => runVoicings(voicings.chord, m)} dark={dark}
                 title={`Look again on the ${escalatedTierLabel()} model — slower, and costs more`} />
             )}
-          </>)}
-        </div>
-      </div>
-    );
-  })();
-
-  // Easier chords — the whole song at once, hardest first, nothing applied until
-  // you say so. No AI in here: every number is measured from the library.
-  const easierDialog = easier && (() => {
-    const inst = chordLibraryToInstrument(instrument);
-    const chosen = Object.values(easier.picked).filter(Boolean).length;
-    const pick = (from, to) => setEasier(e => ({ ...e, picked: { ...e.picked, [from]: e.picked[from] === to ? null : to } }));
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => setEasier(null))}>
-        <div onClick={e => e.stopPropagation()} className={`w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Easier chords for {inst}</h2>
-              <p className={`text-xs ${mutedText}`}>Hardest first. Nothing changes until you apply.</p>
-            </div>
-            <button onClick={() => setEasier(null)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
-          </div>
-
-          {easier.rows.length === 0 ? (
-            <p className={`text-sm ${mutedText}`}>
-              Nothing here is worth swapping — every chord in this song already has about the easiest
-              shape {inst} has for it.
-            </p>
-          ) : (<>
-            {/* SAFE AND JUDGEMENT ARE DIFFERENT NEWS and the row says which.
-                Safe means every note of the substitute is already in the written
-                chord — you have lost colour, not gained a wrong note. A
-                judgement brings in a note the chart did not ask for, which is
-                often exactly what a player wants and is never something to do
-                behind their back. */}
-            <p className={`text-[11px] ${mutedText}`}>
-              <span className="text-green-600 dark:text-green-400 font-medium">Safe</span> — the substitute&rsquo;s notes are
-              all in the written chord. <span className="text-amber-600 dark:text-amber-400 font-medium">Judgement</span> — it
-              brings in a note the chart didn&rsquo;t ask for.
-            </p>
-            <ul className="flex flex-col gap-3">
-              {easier.rows.map(row => (
-                <li key={row.name} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className={`text-sm font-semibold font-mono ${dark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span>
-                    {row.current && (
-                      <span className={`text-[11px] font-mono ${mutedText}`}>{row.current.frets.map(f => f === -1 ? '×' : f).join('-')} · {row.current.notes.join(' ')}</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {row.options.map(opt => {
-                      const on = easier.picked[row.name] === opt.name;
-                      return (
-                        <button
-                          key={opt.name}
-                          onClick={() => pick(row.name, opt.name)}
-                          className={`w-full flex items-center gap-3 p-2 rounded-lg border text-left transition-colors ${
-                            on ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
-                               : dark ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-200 hover:bg-gray-50'}`}
-                        >
-                          <span className="shrink-0"><ChordDiagram chord={{ name: opt.name, frets: opt.frets }} scale={0.75} theme={dark ? 'dark' : 'light'} chordColor={chordColor} tuning={getActiveTuning(instrument)} /></span>
-                          <span className="flex-1 min-w-0">
-                            <span className={`text-sm font-medium font-mono ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{opt.name}</span>
-                            <span className={`ml-2 text-[11px] font-medium ${opt.kind === 'safe' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                              {opt.kind === 'safe' ? 'safe' : 'judgement'}
-                            </span>
-                            <span className={`block text-[11px] font-mono ${mutedText}`}>{opt.notes.join(' ')}</span>
-                            {/* What it costs, in notes rather than adjectives.
-                                "easier chord" tells you nothing; "adds D, loses
-                                E" is the thing you are actually deciding. */}
-                            <span className={`block text-[11px] ${mutedText}`}>
-                              {[opt.adds.length && `adds ${opt.adds.join(' ')}`, opt.loses.length && `loses ${opt.loses.join(' ')}`].filter(Boolean).join(' · ') || 'same notes, easier shape'}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <div className="flex gap-2">
-              <button
-                onClick={applyEasier}
-                disabled={chosen === 0}
-                className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors"
-              >
-                {chosen === 0 ? 'Pick some first' : chosen === 1 ? 'Swap 1 chord' : `Swap ${chosen} chords`}
-              </button>
-              <button onClick={() => setEasier(null)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancel</button>
-            </div>
-            <p className={`text-[11px] ${mutedText}`}>Applying rewrites the chords in this song. Save stays yours — Revert puts it back.</p>
           </>)}
         </div>
       </div>
@@ -3179,7 +3060,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {askDialog}
         {chordDialog}
         {voicingDialog}
-        {easierDialog}
       </div>
 
       {clearInkModal && (
