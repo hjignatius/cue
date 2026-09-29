@@ -308,5 +308,43 @@ for (const [songName, song] of Object.entries(SONGS)) {
     cleared && cleared.text === block, cleared ? `got:\n${cleared.text}` : 'null');
 }
 
+// ---- The eraser takes everything off ----------------------------------------
+//
+// Howard's one-line song: "Lead: Bernadette", bold the name, press the eraser,
+// nothing happens. The eraser removed colour only — true to how it was built and
+// not to what the icon says. Bold and italic have their own buttons to toggle
+// with; the eraser is the one control that puts a selection back to plain text.
+{
+  const line = 'Lead: Bernadette';
+  const word = line.indexOf('Bernadette');
+  const styles = [
+    ['bold', (t, a) => styleRange(t, 'bold', null, a, a + 10, true)],
+    ['italic', (t, a) => styleRange(t, 'italic', null, a, a + 10, true)],
+    ['colour', (t, a) => styleRange(t, 'color', '#2563eb', a, a + 10, true)],
+  ];
+  for (const [what, apply] of styles) {
+    const on = apply(line, word);
+    const at = on.text.indexOf('Bernadette');
+    const off = styleRange(on.text, 'clear', null, at, at + 10, true);
+    check(`eraser · removes ${what}`, off && off.text === line,
+      off ? `got ${JSON.stringify(off.text)} want ${JSON.stringify(line)}` : 'the eraser did nothing');
+  }
+  // All three at once, cleared in one press.
+  let t = line;
+  for (const [, apply] of styles) t = apply(t, t.indexOf('Bernadette')).text;
+  const at = t.indexOf('Bernadette');
+  const off = styleRange(t, 'clear', null, at, at + 10, true);
+  check('eraser · removes bold, italic and colour together in one press',
+    off && off.text === line, off ? `got ${JSON.stringify(off.text)}` : 'the eraser did nothing');
+  // And a chord line above still follows the text back.
+  const withChord = 'G        C\nLead: Bernadette';
+  const w2 = withChord.indexOf('Bernadette');
+  const bolded = styleRange(withChord, 'bold', null, w2, w2 + 10, true).text;
+  const b2 = bolded.indexOf('Bernadette');
+  const cleared = styleRange(bolded, 'clear', null, b2, b2 + 10, true);
+  check('eraser · the chord line comes back with it',
+    cleared && cleared.text === withChord, cleared ? `got:\n${cleared.text}` : 'the eraser did nothing');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

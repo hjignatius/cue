@@ -1582,7 +1582,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           style={{ backgroundColor: c.hex }}
         />
       ))}
-      <button onClick={() => applyStyleFromPreview('clear')} title="Clear color" className={styleBtn}><Eraser size={14} /></button>
+      <button onClick={() => applyStyleFromPreview('clear')} title="Clear formatting — bold, italic and colour" aria-label="Clear formatting" className={styleBtn}><Eraser size={14} /></button>
     </div>
   );
 

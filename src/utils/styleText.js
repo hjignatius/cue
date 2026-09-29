@@ -88,7 +88,13 @@ function emit(cells) {
 // press turns it off, anything else means turn it on. Colour toggles only against
 // itself — the same colour clears, a different colour replaces.
 function applyOp(sel, op, hex) {
-  if (op === 'clear') { sel.forEach(c => { c.color = null; }); return; }
+  // THE ERASER TAKES EVERYTHING OFF. It used to remove only colour, which is
+  // what it was built to do and is not what an eraser means: Howard bolded a
+  // word, pressed it, and nothing happened. There is no signal in the icon that
+  // says "colour only", and bold and italic have their own buttons to toggle
+  // with — so one control that puts a selection back to plain text is both what
+  // the picture promises and the more useful of the two.
+  if (op === 'clear') { sel.forEach(c => { c.color = null; c.bold = false; c.italic = false; }); return; }
   if (op === 'color') {
     const off = sel.every(c => c.color === hex);
     sel.forEach(c => { c.color = off ? null : hex; });
