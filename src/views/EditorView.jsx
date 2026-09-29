@@ -18,13 +18,14 @@ import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets, bracketSourceMap } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, alternateVoicings, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
 import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
 import { loadCustomChords, saveCustomChords } from '../utils/chordStorage.js';
+import { shapesForName } from '../utils/chordLookup.js';
 import { styleRange } from '../utils/styleText.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -578,6 +579,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const [advicePct, setAdvicePct]       = useState(0); // null | { loading, error, data }
   const [chordResult, setChordResult]   = useState(null); // null | { loading, error, shapes:[{name,frets}], missing:[names] }
   const [addedChords, setAddedChords]   = useState([]);   // shapes added this session, shown live in the panel
+  // Find alternate voicings. Two steps in one dialog: `chord` null means the
+  // chord picker is showing, and nothing has been asked of the model yet.
+  const [voicings, setVoicings]         = useState(null); // null | { chord, loading, error, list, added, model }
   const [askOpen, setAskOpen]           = useState(false);
   const [askQuestion, setAskQuestion]   = useState('');
   const [askAnswer, setAskAnswer]       = useState('');
@@ -865,6 +869,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   function closeFill()   { cancelAi('fill');   setFillResult(null); }
   function closeAdvice() { cancelAi('advice'); setAdviceResult(null); }
   function closeChords() { cancelAi('chords'); setChordResult(null); }
+  function closeVoicings() { cancelAi('voicings'); setVoicings(null); }
   function closeFind()   { cancelAi('find');   setFindResult(null); }
   // Ask about music streams its answer, so closing mid-reply has to stop the
   // stream as well — the signal was threaded through submitAsk but nothing was
@@ -1095,19 +1100,29 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Chord names in the song that have no diagram for the current instrument —
   // mirrors how the chord panel resolves names (detect → transpose to the view
   // key), then keeps only those absent from both the built-in and custom sets.
-  function missingChordNames() {
+  // Every distinct chord in the song, in the order it first appears, named the
+  // way the panel names it — transposed to the view key and normalised. ONE walk
+  // for both chord tools: "what is missing" is this list minus what the library
+  // covers, and a second copy of the walk is how the two would come to disagree
+  // about what chord a song even contains.
+  function songChordNames() {
     if (instrument === 'none') return [];
-    const builtin = new Set(getActiveChords(instrument).map(c => c.name));
-    const custom = new Set([...loadCustomChords(instrument), ...addedChords].map(c => c.name));
     const seen = new Set();
     const out = [];
     for (const raw of detectChords(convertToBrackets(text))) {
       const name = normalizeChordName(transposeChord(raw, chordSemitones, chordUseFlats));
       if (!name || seen.has(name)) continue;
       seen.add(name);
-      if (!builtin.has(name) && !custom.has(name)) out.push(name);
+      out.push(name);
     }
     return out;
+  }
+
+  function missingChordNames() {
+    if (instrument === 'none') return [];
+    const builtin = new Set(getActiveChords(instrument).map(c => c.name));
+    const custom = new Set([...loadCustomChords(instrument), ...addedChords].map(c => c.name));
+    return songChordNames().filter(name => !builtin.has(name) && !custom.has(name));
   }
 
   // Add missing chord shapes (AI) — find undefined chords, fetch voicings, and
@@ -1144,15 +1159,61 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     }
   }
 
+  // Find alternate chord voicings (AI) — other ways to play a chord you already
+  // have. The picker opens with NO model call: which chords are in the song and
+  // what the library holds for each are both known locally, and asking the model
+  // to tell you what you already know is a bill for a pause.
+  function openVoicings() {
+    setVoicings({ chord: null, loading: false, error: '', list: [], added: 0 });
+  }
+
+  async function runVoicings(chord, model) {
+    if (aiBusy) return;
+    const signal = beginAi('voicings');
+    setVoicings({ chord, loading: true, error: '', list: [], added: 0, model });
+    try {
+      const list = await alternateVoicings(chord, {
+        instrument: chordLibraryToInstrument(instrument),
+        tuning: getActiveTuning(instrument),
+        level: aiLevel,
+        // What the library already holds, so the model is not asked to re-derive
+        // it and anything it returns anyway is filtered out.
+        known: shapesForName(chord, instrument).map(sh => sh.frets),
+        model,
+        signal,
+      });
+      setVoicings(v => v ? { ...v, loading: false, list } : v);
+    } catch (e) {
+      if (e?.code === 'aborted') return;
+      setVoicings(v => v ? { ...v, loading: false, error: e?.message || 'Could not find other voicings.' } : v);
+    } finally {
+      setAiBusy('');
+    }
+  }
+
+  // Save one, and take it off the list — the same gesture as the shapes dialog,
+  // and the same reason: a row that stays after you have accepted it reads as
+  // though the press did nothing.
+  function addVoicing(shape) {
+    saveShapeToLibrary(shape);
+    setVoicings(v => v ? { ...v, list: v.list.filter(x => x !== shape), added: (v.added || 0) + 1 } : v);
+  }
+
   // Add one reviewed shape to the instrument's custom library (persisted) and to
   // the live panel; drop it from the review list.
-  function addChordShape(shape) {
+  // The library write itself, shared by both chord tools. Idempotent on
+  // (name, frets): adding a shape you already have is a no-op rather than a
+  // second identical row in the chord panel.
+  function saveShapeToLibrary(shape) {
     const entry = { name: shape.name, type: 'custom', frets: shape.frets };
+    const same = (c) => c.name === entry.name && (c.frets || []).join(',') === entry.frets.join(',');
     const existing = loadCustomChords(instrument);
-    if (!existing.some(c => c.name === entry.name && (c.frets || []).join(',') === entry.frets.join(','))) {
-      saveCustomChords(instrument, [...existing, entry]);
-    }
-    setAddedChords(prev => prev.some(c => c.name === entry.name && c.frets.join(',') === entry.frets.join(',')) ? prev : [...prev, entry]);
+    if (!existing.some(same)) saveCustomChords(instrument, [...existing, entry]);
+    setAddedChords(prev => prev.some(same) ? prev : [...prev, entry]);
+  }
+
+  function addChordShape(shape) {
+    saveShapeToLibrary(shape);
     // Drop the name from `missing` as well as the shape from `shapes`. Those two
     // lists are what the dialog reads to decide what it is looking at, and
     // clearing only one of them is what made an accepted shape report itself as
@@ -2074,6 +2135,140 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     </div>
   );
 
+  // Find alternate chord voicings — pick a chord from the song, then review other
+  // ways to play it. Step one is local and instant; only the pick costs anything.
+  const voicingDialog = voicings && (() => {
+    const names = songChordNames();
+    const inst = chordLibraryToInstrument(instrument);
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeVoicings())}>
+        <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Find alternate chord voicings</h2>
+              <p className={`text-xs ${mutedText}`}>
+                {voicings.chord
+                  ? <>Other ways to play <span className="font-mono">{voicings.chord}</span> on {inst}</>
+                  : `Pick a chord from this song to see other ways to play it on ${inst}.`}
+              </p>
+            </div>
+            <button onClick={() => closeVoicings()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          </div>
+
+          {/* STEP ONE — the song's chords, each showing what the library already
+              holds. The count is the useful part: a chord with one shape is
+              where this tool has something to offer, and a chord with none is a
+              job for Add missing chord shapes instead, which the row says. */}
+          {!voicings.chord && (
+            names.length === 0 ? (
+              <p className={`text-sm ${mutedText}`}>No chords in this song yet.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {names.map(name => {
+                  const have = shapesForName(name, instrument);
+                  return (
+                    <li key={name}>
+                      <button
+                        onClick={() => runVoicings(name)}
+                        className={`w-full flex items-center gap-3 p-2 rounded-xl border text-left transition-colors ${dark ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        <span className="shrink-0 w-12">
+                          {have[0]
+                            ? <ChordDiagram chord={have[0]} scale={0.8} theme={dark ? 'dark' : 'light'} chordColor={chordColor} />
+                            : <span className={`text-xs ${mutedText}`}>—</span>}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className={`text-sm font-medium font-mono ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{name}</span>
+                          <span className={`block text-xs ${mutedText}`}>
+                            {have.length === 0
+                              ? 'No shape yet — use Add missing chord shapes'
+                              : have.length === 1 ? '1 shape in your library' : `${have.length} shapes in your library`}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          )}
+
+          {/* STEP TWO */}
+          {voicings.chord && (<>
+            {voicings.loading && <AiWaiting label={`Looking for other ways to play ${voicings.chord}…`} dark={dark} onCancel={closeVoicings} />}
+            {!voicings.loading && voicings.error && <p className="text-sm text-red-500">{voicings.error}</p>}
+
+            {!voicings.loading && !voicings.error && voicings.list.length === 0 && (voicings.added || 0) > 0 && (
+              <p className="text-sm text-green-600 dark:text-green-400">
+                {voicings.added === 1 ? 'Voicing added' : `${voicings.added} voicings added`} to your {inst} library
+                and saved. They're in the chord panel now — and in this song's chord picker, so you can choose
+                which one this song uses.
+              </p>
+            )}
+
+            {/* Nothing came back. Said plainly, and without implying the chord is
+                covered — the sibling tool learned that the hard way. A four-string
+                instrument genuinely has few ways to play some chords. */}
+            {!voicings.loading && !voicings.error && voicings.list.length === 0 && (voicings.added || 0) === 0 && (
+              <p className={`text-sm ${mutedText}`}>
+                No other voicings came back for <span className="font-mono">{voicings.chord}</span> that
+                you don't already have. On {inst} some chords really do have only one shape worth playing.
+              </p>
+            )}
+
+            {!voicings.loading && voicings.list.length > 0 && (<>
+              <AiCaution dark={dark}>AI can get things wrong — try a shape on the instrument before you rely on it.</AiCaution>
+              <ul className="flex flex-col gap-2">
+                {voicings.list.map((shape, i) => (
+                  <li key={i} className={`flex items-center gap-3 p-2 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <div className="shrink-0"><ChordDiagram chord={shape} scale={1} theme={dark ? 'dark' : 'light'} chordColor={chordColor} /></div>
+                    <span className="flex-1 min-w-0">
+                      <span className={`text-sm font-medium font-mono ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{shape.name}</span>
+                      {shape.label && <span className={`block text-xs ${mutedText}`}>{shape.label}</span>}
+                      <span className={`block text-xs ${mutedText}`}>{shape.frets.map(f => f === -1 ? '×' : f).join(' · ')}</span>
+                    </span>
+                    <button onClick={() => addVoicing(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => voicings.list.forEach(addVoicing)}
+                className="py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+              >
+                Add all
+              </button>
+            </>)}
+
+            {!voicings.loading && (
+              <div className="flex gap-2">
+                {/* Back, not Close: picking one chord and then wanting the next
+                    is the normal way to use this, and closing to reopen loses
+                    the list you were working down. */}
+                <button
+                  onClick={() => setVoicings({ chord: null, loading: false, error: '', list: [], added: 0 })}
+                  className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                >
+                  Another chord
+                </button>
+                <button
+                  onClick={() => closeVoicings()}
+                  className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                >
+                  Close
+                </button>
+              </div>
+            )}
+
+            {!voicings.loading && !voicings.error && voicings.list.length === 0 && (
+              <AiRetryLink usedModel={voicings.model} onRetry={m => runVoicings(voicings.chord, m)} dark={dark}
+                title={`Look again on the ${escalatedTierLabel()} model — slower, and costs more`} />
+            )}
+          </>)}
+        </div>
+      </div>
+    );
+  })();
+
   // --------------------------------------------------------------------------
 
   return (
@@ -2521,6 +2716,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     <Guitar size={15} className="opacity-70" /> Add missing chord shapes
                   </button>
                 )}
+                {/* Its sibling, and deliberately next to it: one fills the gaps,
+                    the other gives you choices for a chord you can already play. */}
+                {instrument !== 'none' && (
+                  <button type="button" role="menuitem" tabIndex={-1} disabled={isEmptyText}
+                    className={`${menuItem} disabled:opacity-40 disabled:cursor-not-allowed`}
+                    onClick={() => runFromAiMenu(openVoicings)}>
+                    <Guitar size={15} className="opacity-70" /> Find alternate chord voicings
+                  </button>
+                )}
                 {/* Its "Apply" sets a display key, and Transpose is deliberately
                     inert on a pdf (chords must match the printed sheet), so the
                     advice would be unusable rather than merely unhelpful. */}
@@ -2825,6 +3029,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         {adviceDialog}
         {askDialog}
         {chordDialog}
+        {voicingDialog}
       </div>
 
       {clearInkModal && (

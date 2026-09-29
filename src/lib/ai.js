@@ -998,6 +998,77 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
   }).filter(Boolean);
 }
 
+// ── Alternate voicings (one chord, several ways to play it) ─────────────────
+// The sibling of chordShapesFor, and deliberately its opposite: that one fills a
+// GAP with the easiest shape near the nut, this one is for a chord you can
+// already play and want to play differently — further up the neck, as a barre,
+// in another inversion.
+//
+// `known` is every shape the library already holds for this name. It goes in the
+// prompt so the model does not spend its answer re-deriving what you have, and
+// the caller filters against it again afterwards — a prompt is a request, not a
+// guarantee.
+export async function alternateVoicings(name, {
+  instrument = 'ukulele', tuning = ['G', 'C', 'E', 'A'], level, known = [], model, signal,
+} = {}) {
+  const chord = (name || '').trim();
+  if (!chord) return [];
+  const n = tuning.length;
+  const haveLine = known.length
+    ? `\nAlready in the library, so do NOT return these or anything that fingers the same way: ${known.map((f) => `[${f.join(' ')}]`).join(', ')}.`
+    : '';
+
+  const system = `You are a chord-library assistant for a ${instrument} app. The instrument has ${n} strings tuned ${tuning.join('-')} (that string order, low to high). ${levelLine(level)}
+Give up to 4 DIFFERENT voicings of one chord — the same chord, played in other ways. Respond with ONLY a JSON array (no prose, no code fence):
+[{"frets": [${tuning.map(() => 'n').join(', ')}], "label": "<3-5 words>"}]
+- "frets" has exactly ${n} integers, one per string in the tuning order above: 0 = open string, a positive number = that fret, -1 = muted/not played.
+- "label" says where and what it is, as a player would: "open position", "barre at 5th", "3rd-fret inversion", "moveable shape".
+- Spread them out: different positions on the neck and different inversions, not four fingerings of the same grip. Order them from the lowest position upward.
+- Every one must be genuinely playable by one hand — four fingers, no fret span wider than 4, no impossible stretches.
+- Quality over count. Two good voicings beat four with filler in them; return only what a player would actually use.${haveLine}`;
+
+  const data = await callClaude({
+    ...(model ? { model } : {}),
+    max_tokens: 1200,
+    signal,
+    output_config: { effort: 'low' },
+    system,
+    messages: [{ role: 'user', content: `Chord: ${chord}` }],
+  });
+  return sanitizeVoicings(extractJson(textOf(data)), { name: chord, strings: n, known });
+}
+
+// WHAT THE MODEL SAYS vs WHAT A HAND CAN DO.
+//
+// Separate from the request, and exported, because this is the part with rules
+// in it — the request is just a fetch. Everything here is checked rather than
+// asked for in the prompt, because the prompt already asked, and a prompt is a
+// request rather than a guarantee. Tested in scripts/voicingsCheck.mjs.
+export function sanitizeVoicings(arr, { name, strings, known = [] } = {}) {
+  if (!Array.isArray(arr)) return [];
+  const haveKeys = new Set(known.map((f) => (f || []).join(',')));
+  const seen = new Set();
+  const out = [];
+  for (const o of arr) {
+    const frets = Array.isArray(o?.frets) ? o.frets.map((f) => Number(f)) : null;
+    if (!frets || frets.length !== strings) continue;
+    if (frets.some((f) => !Number.isInteger(f) || f < -1 || f > 15)) continue;
+    // A shape with every string muted is not a voicing.
+    if (frets.every((f) => f === -1)) continue;
+    // Fret span, counting only STOPPED strings: open and muted strings cost the
+    // hand nothing, so a shape with an open string and a note at the 5th fret is
+    // easy, not a five-fret stretch. Four frets is the reach of four fingers.
+    const stopped = frets.filter((f) => f > 0);
+    if (stopped.length && Math.max(...stopped) - Math.min(...stopped) > 4) continue;
+    const key = frets.join(',');
+    if (haveKeys.has(key) || seen.has(key)) continue;   // already yours, or already listed
+    seen.add(key);
+    const label = typeof o?.label === 'string' ? o.label.trim().slice(0, 40) : '';
+    out.push({ name, frets, label });
+  }
+  return out.slice(0, 4);
+}
+
 // ── Setlist: suggested order ────────────────────────────────────────────────
 // items: [{ title, artist, key, tempo }] in current order. Returns
 // { order: [1-based permutation], summary }.
