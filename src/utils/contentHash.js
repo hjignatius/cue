@@ -96,3 +96,26 @@ export function duplicateGroups(songs = []) {
 
   return { groups, claimed };
 }
+
+/**
+ * Find a library song by title and artist, the way a person would.
+ *
+ * Titles are matched through normalizeTitle, so punctuation and case do not
+ * decide it. ARTISTS ONLY DISQUALIFY: when both sides name one and they differ,
+ * it is not the same song — but a suggestion with no artist, or a library song
+ * filed without one, still matches on the title alone, because a missing artist
+ * is a gap in the record rather than a statement that it is somebody else's.
+ *
+ * Returns the song, or null. First match wins; a library with the same song
+ * twice is a duplicates problem, not this function's.
+ */
+export function matchLibrarySong(songs = [], title, artist) {
+  const t = normalizeTitle(title);
+  if (!t) return null;
+  const a = normalizeTitle(artist);
+  return songs.find((s) => {
+    if (normalizeTitle(s.metadata?.title) !== t) return false;
+    const sa = normalizeTitle(s.metadata?.artist);
+    return !a || !sa || a === sa;
+  }) || null;
+}

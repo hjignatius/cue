@@ -10,7 +10,7 @@
 // Discovery only, in both cases. Cue never copies a chart — each pick links out
 // to a real source and the player imports what they like.
 
-import { Sparkles, X, ExternalLink } from 'lucide-react';
+import { Sparkles, X, ExternalLink, ListPlus, Check } from 'lucide-react';
 import { AiProgress, AiCaution } from './AiCaution.jsx';
 import { stageProgress } from '../utils/aiStage.js';
 import AiRetryLink from './AiRetryLink.jsx';
@@ -20,6 +20,10 @@ export default function SongSuggestionsDialog({
   heading, waitingLabel, emptyText, footerNote,
   busy, error, results, usedModel, onRetry, stage,
   retryLabel = 'Try again — smarter',
+  // Only the set-scoped caller passes these. Without them the card is exactly
+  // what it was, which is right for the Library-wide suggester: there is no set
+  // to add anything to from there.
+  matchInLibrary, onAddToSet, isInSet,
 }) {
   if (!open) return null;
   const has = !busy && results && results.length > 0;
@@ -66,11 +70,41 @@ export default function SongSuggestionsDialog({
                   {s.difficulty && <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">{s.difficulty}</span>}
                 </div>
                 {s.why && <p className="text-sm mt-1.5 text-gray-600 dark:text-gray-300">{s.why}</p>}
-                {s.url && (
-                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
-                    <ExternalLink size={12} /> Find chords
-                  </a>
-                )}
+                {/* A suggestion you ALREADY OWN needs no chord source — it
+                    needs to be in the set. These tools recommend songs you do
+                    not have, and tell the model so, but the de-dup list is
+                    capped and is only sent when "Personalize from my library"
+                    is on, so a song you have can and does come back. Sending
+                    someone to a chord site for a song already in their library
+                    is the wrong answer to the right suggestion. */}
+                {(() => {
+                  const mine = matchInLibrary?.(s);
+                  if (!mine) {
+                    return s.url ? (
+                      <a href={s.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
+                        <ExternalLink size={12} /> Find chords
+                      </a>
+                    ) : null;
+                  }
+                  const already = isInSet?.(mine);
+                  return (
+                    <div className="flex items-center gap-3 mt-2">
+                      {already ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+                          <Check size={13} /> Already in this set
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => onAddToSet?.(mine)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                        >
+                          <ListPlus size={13} /> Add to set
+                        </button>
+                      )}
+                      <span className="text-[11px] text-gray-400 dark:text-gray-500">In your library</span>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </>)}

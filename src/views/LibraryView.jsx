@@ -18,7 +18,7 @@ import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadS
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds } from '../utils/annotations.js';
-import { isEditedCopy } from '../utils/contentHash.js';
+import { isEditedCopy, matchLibrarySong } from '../utils/contentHash.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
@@ -1623,6 +1623,16 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
         footerNote="Suggestions — difficulty is an estimate. Links open real chord sources."
         busy={sugBusy} error={sugErr} results={sugResults} stage={sugStage}
         usedModel={sugModel} onRetry={m => runSetSuggest(m)}
+        matchInLibrary={s => matchLibrarySong(songs, s.title, s.artist)}
+        isInSet={song => (set.songIds || []).includes(song.id)}
+        // Appended, not inserted: a suggestion has no opinion about WHERE in
+        // the set it belongs, and dropping it into the middle would move songs
+        // whose order somebody chose. sortMode goes to custom for the same
+        // reason the drag handles do — an explicit order is now in play.
+        onAddToSet={song => {
+          if ((set.songIds || []).includes(song.id)) return;
+          onUpdateSet({ ...set, songIds: [...(set.songIds || []), song.id], sortMode: 'custom' });
+        }}
       />
 
       {/* Suggested order */}

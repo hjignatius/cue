@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.9 — 2026-09-30
+
+### Sets
+
+- **Add a suggested song straight to the set, if you already own it.** *Songs for
+  this set* recommends songs you don't have — but it can still turn up one that's
+  in your library, and sending you to a chord site for a song you already own is
+  the wrong answer to a good suggestion. Those now say **In your library** with an
+  **Add to set** button, or tell you it's already in the set.
+
 ## v1.9.8 — 2026-09-30
 
 ### Songs from the web
