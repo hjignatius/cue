@@ -1,3 +1,5 @@
+import { sectionLabelOf } from './visualImport.js';
+
 /**
  * ChordPro parser — converts ChordPro text into structured line objects.
  *
@@ -38,6 +40,23 @@ function parseLine(rawLine, lineOffset = 0) {
   if (line.trim() === '') {
     return { type: 'empty' };
   }
+
+  // A LINE THAT IS ONLY "[Something]" AND IS NOT A CHORD IS A SECTION LABEL.
+  //
+  // Songs downloaded from the web mark their sections as [Verse 1], [Chorus],
+  // [Instrumental], [Outro] — and square brackets are this format's chord
+  // syntax, so every one of those was read as a chord. "Chorus" reached the
+  // chord panel as an undefined chord, and Add missing chord shapes would set
+  // about working out a fingering for it. Meanwhile Detect structure was asked
+  // to find the structure of a song that already said where every section was,
+  // because Cue could not see the labels for the chords.
+  //
+  // isChordLine is the arbiter rather than a list of section words: it already
+  // knows G, Bm, Am and C/G are chords and that Chorus, Verse 1, Instrumental
+  // and Outro are not. A genuine chord-only line — "[G]" by itself — is still a
+  // chord, which is the case this must not break.
+  const sectionLabel = sectionLabelOf(line);
+  if (sectionLabel) return { type: 'comment', text: sectionLabel };
 
   // Check if the line contains chords
   const chordPattern = /\[([^\]]+)\]/;

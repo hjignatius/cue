@@ -184,6 +184,19 @@ function chordLineToBrackets(line) {
 }
 
 // Returns { converted: string, wasConverted: boolean }
+// A line that is only "[Something]" where Something is not a chord: the section
+// markers songs downloaded from the web are written with — [Verse 1], [Chorus],
+// [Instrumental], [Outro]. Returns the label, or null.
+//
+// isChordLine is the arbiter rather than a list of section words: it already
+// knows G, Bm and C/G are chords and that Chorus and Verse 1 are not. "[G]" on
+// its own stays a chord, which is the case this must not break.
+export function sectionLabelOf(line) {
+  const m = (line || '').trim().match(/^\[([^\]]+)\]$/);
+  if (!m || isChordLine(m[1])) return null;
+  return m[1].trim();
+}
+
 export function convertVisualToChordPro(raw) {
   const norm = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const lines = norm.split('\n');
@@ -252,7 +265,11 @@ export function convertVisualToChordPro(raw) {
     // the last chord line of a song behave differently from every other one,
     // because a trailing newline leaves an empty final line — which is how Howard
     // ended up with four identical lines rendering with three different gaps.
-    if (isChordLine(line) && next !== undefined && next.trim() !== '' && !isChordLine(next)) {
+    // `sectionLabelOf(next)`: a chord line followed by "[Outro]" must NOT swallow
+    // it as its lyrics. It looks like one — non-empty, not a chord line — and
+    // merging turned a section heading into the words under a chord, which is
+    // how the Outro label went missing from a song that plainly had one.
+    if (isChordLine(line) && next !== undefined && next.trim() !== '' && !isChordLine(next) && !sectionLabelOf(next)) {
       // Chord line immediately before a lyric — merge chord positions into lyric.
       const merged = mergeIntoLyricLine(line, next);
       out.push(merged);
