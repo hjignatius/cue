@@ -3,6 +3,32 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.8 — 2026-09-30
+
+### Songs from the web
+
+- **`[Verse 1]` and `[Chorus]` are read as section labels.** Songs copied from
+  chord sites mark their sections in square brackets — which is also Cue's chord
+  syntax, so Cue was reading them as chords. "Chorus" turned up in the chord panel
+  as an undefined chord, and *Detect structure* was being asked to work out the
+  structure of a song that already said where every section was. Those songs now
+  arrive with their sections understood.
+
+### Sets
+
+- **Copy the link of a set shared with you.** A copy button on each "Shared with
+  me" row, so you can pass the link on. If the set has an access code, that still
+  has to be sent separately — Cue doesn't hold it.
+
+### AI
+
+- **Find alternate chord voicings says what it's working out.** It thinks for
+  twenty or thirty seconds before writing anything, and that time used to be
+  silent. The line under the progress bar now shows the model's own account of
+  what it's doing.
+- **If the AI declines a request, Cue says so.** A refusal used to arrive as an
+  empty answer, which looked like a fault rather than an answer.
+
 ## v1.9.7 — 2026-09-29
 
 Ukulele chords Cue used to draw nothing for.
