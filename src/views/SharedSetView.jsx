@@ -1836,6 +1836,13 @@ function SharedSongRow({ song, index, dark, muted, have, yours, playingMine, onT
               <Library size={16} />
             </RoundButton>
           ) : have ? (
+            /* THE GREEN TICK YIELDS TO THE AMBER ONE. Both would be true at once
+               on a song you have edited — nothing of theirs to fetch, something
+               of yours to choose — and showing both makes a two-button row out
+               of one decision. The tick is reassurance; the amber is a control,
+               and a control outranks reassurance. One button, and it is the one
+               you can press. */
+            onToggleMine ? null : (
             /* You have it and it matches: a green tick where the copy circle
                was. Inert, because there is nothing left to do here — but at
                FULL opacity, not the usual disabled dimming. A dim green circle
@@ -1855,7 +1862,7 @@ function SharedSongRow({ song, index, dark, muted, have, yours, playingMine, onT
             >
               <Check size={16} />
             </RoundButton>
-          ) : onCopy && (
+          )) : onCopy && (
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="Copy this song to my library"
