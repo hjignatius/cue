@@ -691,16 +691,19 @@ export default function SharedSetView() {
   // dot is already emerald while a copied song still matches what was shared and
   // amber once you have edited it. Same fact, same colour, three screens.
   //
-  // THREE EXCLUSIONS, each because green would be a lie:
-  //   * your own set — every row would tick, pointing at nothing. The header
-  //     already says "Your set".
+  // TWO EXCLUSIONS, each because green would be a lie. There were three: your own
+  // set used to be left out on the grounds that every row would tick and point at
+  // nothing. That was wrong, and Howard found the case that shows it — he cleared
+  // a device, copied the songs back from his own share, and expected the ticks to
+  // confirm it had worked. Nothing appeared. "All eight of these match what is
+  // published" is not noise on a set you own; it is the answer to the question
+  // you opened the page to ask.
   //   * a song you have EDITED (uptodate against the baseline, changed here).
   //     Green means "matches the share" and yours no longer does; the amber
   //     Present button on that row is the signal that applies.
   //   * 'have' — same title, different song. That one is still a real offer.
   const haveIt = useMemo(() => {
     const s = new Set();
-    if (updatePlan?.mine) return s;
     (updatePlan?.songs || []).forEach(x => {
       if (x.local && x.state === 'uptodate' && !isEditedCopy(x.local)) s.add(x.shareSong.id);
     });
