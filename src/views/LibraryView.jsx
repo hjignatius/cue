@@ -179,7 +179,7 @@ function SelectCheckbox({ checked, indeterminate = false, onToggle, ariaLabel })
 
 // ---- Song row ---------------------------------------------------------------
 
-function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selected, onToggleCheck, onRowClick, highlighted, hasAnnotation }) {
+function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selected, onToggleCheck, onRowClick, highlighted, hasAnnotation, shared }) {
   const { title, artist, key } = song.metadata || {};
 
   return (
@@ -212,6 +212,30 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
             </span>
           );
         })()}
+        {/* SHARE DOT: this song goes out in a set you publish.
+            Green while what is published matches what is here, amber when this
+            device has changes it has not sent — the same comparison the set's
+            own row makes, one song at a time.
+
+            SAME COLOUR GRAMMAR AS THE LINK DOT ABOVE, deliberately: green means
+            in step with the share, amber means diverged, in both. What differs
+            is DIRECTION, and direction is the glyph — an arrow out for what you
+            publish, a link for what you received. A song can carry both, having
+            been copied from someone else's share and then published in yours.
+
+            Absent while signed out. The published list is a local cache nobody
+            can verify without an account, and a badge that keeps asserting
+            "this is shared" is what nearly cost Howard a published set. */}
+        {shared && (
+          <span
+            title={shared === 'behind'
+              ? 'In a set you publish — this device has changes you have not sent yet'
+              : 'In a set you publish — matches what is published'}
+            className={`flex items-center justify-center w-4 h-4 rounded-full shrink-0 ${shared === 'behind' ? 'bg-amber-500' : 'bg-emerald-500'}`}
+          >
+            <Share size={9} className="text-white" strokeWidth={2.5} />
+          </span>
+        )}
         {/* Pencil dot: this song has local ink annotations from Present mode */}
         {hasAnnotation && (
           <span
@@ -2076,6 +2100,39 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     if (!presenting) reloadAnnotated();
   }, [presenting, reloadAnnotated]);
 
+  // Which songs go out in a set you publish, and whether this device has
+  // changes it has not sent.
+  //
+  // READ, NOT OWNED. SetsColumn owns the publish/share actions and their state;
+  // this only reads the same localStorage cache to label a row, and recomputes
+  // whenever the library reloads — which is what onRefresh does after a publish.
+  // Hoisting SetsColumn's state to share it would be the wrong fix for a badge.
+  //
+  // A song can sit in two published sets and be in step with one, behind the
+  // other. One dot cannot say both, so amber means behind in AT LEAST one —
+  // the conservative read, and the one you would act on.
+  //
+  // The comparison is `updatedAt` against the set's published time, the same
+  // arithmetic the set's own row uses for SEND CHANGES. It inherits that rule's
+  // flaw too: a song changed and changed back still reads amber until the set is
+  // republished, because nothing compares content here.
+  const sharedSongs = useMemo(() => {
+    const m = new Map();
+    if (!user) return m;                      // unverifiable while signed out
+    const published = loadPublishedSets();
+    for (const set of sets) {
+      const publishedAt = published[set.id];
+      if (!publishedAt) continue;
+      for (const id of set.songIds || []) {
+        const song = songs.find(x => x.id === id);
+        if (!song) continue;
+        const behind = (song.updatedAt || '') > publishedAt;
+        if (behind || !m.has(id)) m.set(id, behind ? 'behind' : 'insync');
+      }
+    }
+    return m;
+  }, [songs, sets, user]);
+
   const [highlightedSongId, setHighlightedSongId] = useState(() => sessionStorage.getItem('cue:lib_highlighted_id') || null);
 
   const [search, setSearch]             = useState(() => sessionStorage.getItem('cue:lib_search') || '');
@@ -2692,6 +2749,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   key={song.id}
                   song={song}
                   dark={dark}
+                  shared={sharedSongs.get(song.id)}
                   onOpen={() => {
                     setSelected(new Set());
                     setHighlightedSongId(null);
