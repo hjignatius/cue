@@ -164,16 +164,38 @@ function ExportMenuItem({ label, onSelect, disabled = false, title, px = 'px-3' 
 function SelectCheckbox({ checked, indeterminate = false, onToggle, ariaLabel }) {
   const ref = useRef(null);
   useEffect(() => { if (ref.current) ref.current.indeterminate = indeterminate; }, [indeterminate]);
+  // A 16px TICK WITH A 44px HIT AREA.
+  //
+  // The tick was 16px square and nothing else in Cue is under 44 — RoundButton
+  // has had MIN_TOUCH_TARGET for that reason since it was written. On a finger
+  // that is under a seventh of the area of every other control, and a near-miss
+  // is not a no-op: the row underneath is itself tappable, so missing OPENS THE
+  // SONG. Howard: "had to poke it several times."
+  //
+  // Two things make it worse on touch than the numbers suggest. There is no
+  // hover, so the first you know of a miss is the wrong thing happening. And the
+  // list scrolls, so a tap that drifts a pixel is spent as a scroll gesture —
+  // with 16px there is no margin for a finger to settle.
+  //
+  // The padding carries the hit area and the NEGATIVE MARGIN cancels it, so the
+  // tick sits exactly where it always did and no row moves: the box is 44 wide
+  // and occupies 16. Vertically it stretches to the row rather than padding out,
+  // which keeps it inside its own row — a padded box would have overhung the
+  // rows above and below, where the identical control selects a DIFFERENT song.
   return (
-    <input
-      ref={ref}
-      type="checkbox"
-      checked={checked}
-      aria-label={ariaLabel}
+    <label
       onClick={e => e.stopPropagation()}
-      onChange={() => onToggle()}
-      className="shrink-0 w-4 h-4 accent-indigo-600 cursor-pointer"
-    />
+      className="shrink-0 -mx-3.5 px-3.5 self-stretch flex items-center cursor-pointer"
+    >
+      <input
+        ref={ref}
+        type="checkbox"
+        checked={checked}
+        aria-label={ariaLabel}
+        onChange={() => onToggle()}
+        className="w-4 h-4 accent-indigo-600 cursor-pointer"
+      />
+    </label>
   );
 }
 
