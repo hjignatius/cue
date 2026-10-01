@@ -522,6 +522,29 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
   // after which the set is deletable. null | { ids, phase, error }.
   const [deleteBlockedDialog, setDeleteBlockedDialog] = useState(null);
 
+  // Forget, on THIS DEVICE, that these sets were ever published.
+  //
+  // The published mark is a localStorage cache keyed by set id, and it is only
+  // ever corrected against the cloud while signed in. So an import that restores
+  // a set under an id this device once published leaves a mark nothing can
+  // clear: the row claims "Shared", deleting is blocked until you stop sharing,
+  // and stopping requires a sign-in. Howard reached exactly that dead end on his
+  // third device — a set that is not shared, on a device with no account,
+  // refusing to be deleted until he unshared it.
+  //
+  // This does NOT touch the cloud, and the dialog says so plainly. It is the
+  // right answer when the mark is stale and the wrong one when the set really is
+  // published, which is why it is a deliberate second choice rather than the
+  // button under your thumb.
+  function clearLocalPublishMark(ids) {
+    const updated = { ...publishedSets };
+    for (const id of ids) delete updated[id];
+    setPublishedSets(updated);
+    localStorage.setItem(PUBLISHED_SETS_KEY, JSON.stringify(updated));
+    setDeleteBlockedDialog(null);
+    onRefresh();
+  }
+
   async function runGateUnpublish() {
     const ids = deleteBlockedDialog?.ids || [];
     if (!ids.length) return;
@@ -1153,16 +1176,35 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                   </p>
                 )}
                 <p className={`text-xs mt-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>This deactivates the share link. Your songs stay in your library.</p>
+                {/* SIGNED OUT, THIS GATE HAS NO KEY. Stopping a share needs the
+                    account, so without one the only way forward is to say the
+                    mark is wrong — which it often is, because it is a local
+                    cache that only ever gets corrected while signed in. */}
+                {!user && (
+                  <p className={`text-xs mt-2 ${dark ? 'text-amber-300' : 'text-amber-700'}`}>
+                    This device is signed out, so it can&rsquo;t stop the share or even check whether
+                    there still is one. Sign in to stop sharing properly — or, if you know{' '}
+                    {many ? 'these sets are' : 'this set is'} not shared, clear the mark here and delete.
+                  </p>
+                )}
               </div>
               {deleteBlockedDialog.error && <p className="text-xs text-red-500">{deleteBlockedDialog.error}</p>}
               <div className="flex flex-col gap-2">
                 <button
                   onClick={runGateUnpublish}
-                  disabled={running}
-                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl transition-colors"
+                  disabled={running || !user}
+                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors"
                 >
                   {running ? 'Stopping…' : (many ? 'Stop sharing sets' : 'Stop sharing')}
                 </button>
+                {!user && (
+                  <button
+                    onClick={() => clearLocalPublishMark(deleteBlockedDialog.ids)}
+                    className={`w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                  >
+                    {many ? 'Clear the shared marks here' : 'Clear the shared mark here'}
+                  </button>
+                )}
                 <button
                   onClick={() => setDeleteBlockedDialog(null)}
                   disabled={running}
