@@ -387,7 +387,12 @@ function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
   return Math.ceil(textW * (1 + FIT_SLACK_FRACTION) + LYRIC_COL_PADDING) + 1;
 }
 
-export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false, sourceLabel = null }) {
+// `annotatableIds`: which songs may be inked in THIS session, by song id. Null
+// means all of them, which is every caller but one. The shared-set page passes a
+// set, because a mixed run plays your copies for some songs and the publisher's
+// for others — and ink drawn on the publisher's version would be stored under
+// THEIR song id, leaving two sets of marks for what you think of as one song.
+export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false, annotatableIds = null, sourceLabel = null }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
@@ -1120,6 +1125,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Same fill family again — one visual language across all three sizes.
   const actionFill = chordBtnFill;
 
+  // Ink off for THIS song: either the session forbids it outright, or this song
+  // is one the set is playing the publisher's version of.
+  const inkOff = disableAnnotations || (annotatableIds ? !annotatableIds.has(song?.id) : false);
+
   const hasKeyOrTempo = !!(viewKey || meta.tempo);
 
   // How far v1 annotations must move down: exactly the artist line's height,
@@ -1160,7 +1169,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // same conditions that render each button below — get these out of step and the
   // panel is sized against buttons it isn't showing.
   const toolCount = 2 + (showEdit ? 1 : 0) + (onSetFullPage ? 1 : 0)
-    + (disableAnnotations ? 0 : 1) + (chordsAvailable ? 1 : 0);
+    + (inkOff ? 0 : 1) + (chordsAvailable ? 1 : 0);
   const toolRows  = Math.ceil(toolCount / 2);
 
   const [gutterIdle, setGutterIdle] = useState(false);
@@ -1258,7 +1267,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         shouldDraw = e.pointerType === 'pen' || annotating). So "off" does NOT
         mean "no ink", and the label has to say what the toggle actually does
         even though the glyph says what the feature is. */}
-    {!disableAnnotations && (
+    {!inkOff && (
       <RoundButton
         size={PRESENT_CONTROL_BUTTON_SIZE}
         label={annotating ? 'Finger drawing on' : 'Finger drawing off'}
@@ -1337,7 +1346,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           whether or not you're drawing; it's pointer-transparent unless annotating
           (so the page tap-zones stay reachable). `page` tells it which page is on
           screen so it shows that page's strokes and hides the rest. */}
-      {songIsPdf && mode === 'page' && song?.id && !disableAnnotations && (
+      {songIsPdf && mode === 'page' && song?.id && !inkOff && (
         <PdfAnnotationCanvas key={`pdf-${song.id}`} songId={song.id} annotating={annotating} page={pdfPage} dark={dark} onCleared={stopAnnotating} />
       )}
       {/* PDF in scroll mode: a scrollable stack of pages INSIDE the shared scroll
@@ -1350,7 +1359,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         <div ref={scrollRef} className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} px-4 md:px-8 py-4`}>
           <div className="relative">
             <PdfPageStack songId={song?.id} onReady={setPdfCount} dark={dark} />
-            {song?.id && !disableAnnotations && (
+            {song?.id && !inkOff && (
               <PdfAnnotationCanvas key={`pdf-${song.id}`} songId={song.id} annotating={annotating} dark={dark} onCleared={stopAnnotating} />
             )}
           </div>
@@ -1428,7 +1437,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
               )}
               <SongBody text={song?.text || ''} semitones={semitones} useFlats={useFlats} fontPx={fontPx} dark={dark} chordColor={readableChordColor(prefsChordColor, dark)} chordLabelScale={chordLabelScale} displayMode={song?.previewMode || song?.chordStyle || 'over'} embed={song?.embed === true} instrument={instrument} chordPrefs={song?.chordPrefs || {}} condensed={song?.condensed === true} />
               {/* Ink annotation canvas — omitted entirely in shared viewer */}
-              {song?.id && !disableAnnotations && (
+              {song?.id && !inkOff && (
                 <AnnotationCanvas
                   key={song.id}
                   songId={song.id}

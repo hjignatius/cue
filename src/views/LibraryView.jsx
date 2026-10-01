@@ -18,6 +18,7 @@ import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadS
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
+import { forgetShareState } from '../utils/storage.js';
 import { isEditedCopy, matchLibrarySong } from '../utils/contentHash.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
@@ -357,6 +358,9 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
     const updated = savedShares.filter(s => s.token !== token);
     setSavedShares(updated);
     localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(updated));
+    // Its per-song play choices go with it — removing a share here and removing
+    // it from the share page itself must leave the same nothing behind.
+    forgetShareState(token);
   }
   const navigate = useNavigate();
   // "Open a shared link" — the only route into a shared set from inside an

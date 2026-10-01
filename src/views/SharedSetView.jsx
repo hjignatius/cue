@@ -5,11 +5,12 @@ import PullSpinner from '../components/PullSpinner.jsx';
 import { getSharedSet, describeCloudError } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet } from '../utils/storage.js';
+import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
+import { loadAnnotatedSongIds } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Pencil } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
@@ -151,7 +152,28 @@ export default function SharedSetView() {
   const [localSongs, setLocalSongs] = useState([]);
   const [localSets, setLocalSets]   = useState([]);
   const [updateDialog, setUpdateDialog] = useState(null); // null | { choices } — the Update list
-  const [playMine, setPlayMine] = useState(false);        // present your edited copies instead of the shared version
+  // WHICH VERSION EACH SONG PLAYS, chosen per song rather than for the set.
+  //
+  // One switch for the whole set could not say the thing people actually want —
+  // "follow the share except the two I marked up" — so it is gone. This is a map
+  // of share-song id -> true meaning "play mine". Absent means the share's.
+  //
+  // Kept against the TOKEN, because it is a fact about this share rather than
+  // about the library, and it goes when the bookmark goes.
+  const PLAY_MINE_KEY = sharePlayMineKey(token);
+  const [playMineIds, setPlayMineIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(PLAY_MINE_KEY) || '[]')); }
+    catch { return new Set(); }
+  });
+  const setPlayMinePersisted = useCallback((next) => {
+    setPlayMineIds(next);
+    try { localStorage.setItem(PLAY_MINE_KEY, JSON.stringify([...next])); } catch { /* private mode */ }
+  }, [PLAY_MINE_KEY]);
+
+  // Songs carrying ink, by LOCAL id. Ink lives in its own store keyed by song id,
+  // so this is the only way to know a copy has marks on it.
+  const [inkedIds, setInkedIds] = useState(() => new Set());
+  useEffect(() => { loadAnnotatedSongIds().then(setInkedIds).catch(() => {}); }, [token]);
   const [sortMode, setSortMode] = useState('custom');     // view-only: publisher order ('custom') vs alphabetical ('alpha')
   // Non-null when what's on screen came from the offline cache rather than the
   // cloud — carries the date it was last fetched, which the banner shows.
@@ -291,6 +313,10 @@ export default function SharedSetView() {
     const updated = loadSavedShares().filter(s => s.token !== token);
     persistSavedShares(updated);
     setSavedShares(updated);
+    // The share goes and its choices go with it — which version each song plays
+    // is a fact about this share, not about the library.
+    forgetShareState(token);
+    setPlayMineIds(new Set());
   }
 
   // Navigate to the main app. Prompt to save if not yet bookmarked/copied.
@@ -604,7 +630,6 @@ export default function SharedSetView() {
     (updatePlan?.songs || []).forEach(x => { if (x.local) m.set(x.shareSong.id, x.local); });
     return m;
   }, [updatePlan]);
-  const copiedCount = localBySource.size;
 
   // Share song ids whose LOCAL copy is behind: the publisher changed the song,
   // you didn't, and you haven't taken the new version yet.
@@ -653,29 +678,44 @@ export default function SharedSetView() {
     return s;
   }, [updatePlan]);
 
+  // GREEN OR AMBER, and the rule is Howard's: green when your copy is the share,
+  // amber when anything of yours is on it — an edit, ink, or both.
+  //
+  // What that buys is that a GREEN song needs no choice at all. Playing "theirs"
+  // and playing "yours" are the same screen, so there is nothing to decide and no
+  // control to show. The selector only has to exist where the two differ.
+  //
+  // It also removes, by construction, the one combination Cue cannot render
+  // honestly: the publisher's words with your ink over them. Ink is positioned
+  // against the text it was drawn on, so it only fits your copy — and under this
+  // rule there is no way to ask for the other thing, because having ink makes a
+  // song amber and choosing amber brings its words along.
+  const yoursById = useMemo(() => {
+    const m = new Map();
+    (updatePlan?.songs || []).forEach(x => {
+      if (!x.local) return;
+      m.set(x.shareSong.id, {
+        localId: x.local.id,
+        edited: isEditedCopy(x.local),
+        inked: inkedIds.has(x.local.id),
+      });
+    });
+    return m;
+  }, [updatePlan, inkedIds]);
+
+  // Share song ids where choosing is meaningful at all.
+  const choosable = useMemo(() => {
+    const s = new Set();
+    yoursById.forEach((v, id) => { if (v.edited || v.inked) s.add(id); });
+    return s;
+  }, [yoursById]);
+
   const bothChanged = useMemo(() => {
     const s = new Set();
     (updatePlan?.songs || []).forEach(x => { if (x.state === 'conflict') s.add(x.shareSong.id); });
     return s;
   }, [updatePlan]);
 
-  // Share song ids where your saved copy actually differs from the publisher's
-  // version — i.e. you've edited it. Drives the amber "this is your own version"
-  // cue on the per-song Present buttons.
-  const mineDiffers = useMemo(() => {
-    const s = new Set();
-    (updatePlan?.songs || []).forEach(x => {
-      if (!x.local) return;
-      // AGAINST THE BASELINE, not against the share — which is exactly what
-      // isEditedCopy does, and what LibraryView's "edited since you copied it"
-      // dot already used. Comparing against the share answered a different
-      // question and got this backwards whenever the PUBLISHER was the one who
-      // moved: your untouched copy differs from theirs, and the badge called it
-      // your own version when you were simply behind.
-      if (isEditedCopy(x.local)) s.add(x.shareSong.id);
-    });
-    return s;
-  }, [updatePlan]);
 
   // Share song ids you HAVE and have not touched: your copy matches what the
   // publisher is showing. The row's library circle turns into a green tick.
@@ -715,9 +755,22 @@ export default function SharedSetView() {
   // for a per-row override that would play your copy against the toggle; nothing
   // ever passed it, and now nothing should. A row that plays something other than
   // what the toggle says is a row whose colour cannot be trusted.
+  // Swap in your copy only for the songs you have chosen. A song you have not
+  // chosen plays the publisher's version, and a song with nothing of yours on it
+  // is the same either way.
+  //
+  // `annotatable` is the ids whose ink may be drawn and shown: your own copies,
+  // and only the ones actually playing. Present must not let you draw on the
+  // publisher's version — ink would be stored under THEIR song id, leaving two
+  // sets of marks for what you think of as one song.
   function present(base, startIndex) {
-    const mine = playMine && copiedCount > 0;
-    setPresenting({ songs: mine ? base.map(s => localBySource.get(s.id) || s) : base, startIndex, mine });
+    const annotatable = new Set();
+    const songs = base.map(s => {
+      const local = playMineIds.has(s.id) ? localBySource.get(s.id) : null;
+      if (local) { annotatable.add(local.id); return local; }
+      return s;
+    });
+    setPresenting({ songs, startIndex, annotatable });
   }
 
   // Apply the Update: overwrite changed copies in place (keeping their id so set
@@ -938,8 +991,10 @@ export default function SharedSetView() {
         startIndex={presenting.startIndex}
         onExit={() => setPresenting(null)}
         showEdit={false}
-        disableAnnotations={!presenting.mine}
-        sourceLabel={presenting.mine ? 'Playing your copy' : 'Playing shared version'}
+        annotatableIds={presenting.annotatable}
+        sourceLabel={presenting.annotatable?.size
+          ? (presenting.annotatable.size === presenting.songs.length ? 'Playing your copies' : 'Playing your copies where you chose them')
+          : 'Playing shared versions'}
       />
     );
   }
@@ -1108,26 +1163,38 @@ export default function SharedSetView() {
         </div>
       </header>
 
-      {/* Follow along with your own edited/annotated copies instead of the
-          publisher's version. Only offered once you've saved some of these. */}
-      {copiedCount > 0 && (
-        <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0 flex items-center gap-2">
-          <RoundButton
-            size={ROUND_SIZE_COMPACT} pill
-            label={playMine
-              ? 'Including songs you edited — tap to follow the shared set instead'
-              : 'Following the shared set — tap to include your edited versions'}
-            title={playMine
-              ? 'Playing your own edited & annotated versions where you have them, and the shared version everywhere else.'
-              : 'Playing the publisher’s version of every song. Tap to swap in your own edited versions where you have them.'}
-            fill={playMine ? '#d97706' : headerFill}
-            onActivate={() => setPlayMine(v => !v)}
-          >
-            <UserCheck size={16} /><PillLabel>{playMine ? 'Including Songs You Edited' : 'Following Shared Set'}</PillLabel>
-          </RoundButton>
-          <span className={`text-xs ${muted}`}>{playMine ? '— amber songs play your copy' : `— you've edited ${mineDiffers.size || copiedCount}`}</span>
-        </div>
-      )}
+      {/* ONE BULK ACTION, NOT A MODE. The whole-set toggle that used to live here
+          overrode every row, which made it a second answer to a question the rows
+          already answer. This WRITES the rows instead: after pressing it the
+          state is nothing you could not have set by hand, and any row can be
+          turned back on its own.
+
+          It can only tick songs you actually have something of — a song you have
+          not copied, or copied and not touched, has no "yours" to choose, so it
+          is left alone and the count says how many were set. */}
+      {choosable.size > 0 && (() => {
+        const allMine = [...choosable].every(id => playMineIds.has(id));
+        return (
+          <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0 flex items-center gap-2">
+            <RoundButton
+              size={ROUND_SIZE_COMPACT} pill
+              label={allMine ? 'Play the shared version of every song' : 'Play your version of every song you have changed'}
+              title={allMine
+                ? 'Switch every song back to the publisher’s version. Each song can still be set on its own.'
+                : 'Tick every song you have edited or annotated, so Present plays your copy of each. Each song can still be unticked on its own.'}
+              fill={headerFill}
+              onActivate={() => setPlayMinePersisted(allMine ? new Set() : new Set(choosable))}
+            >
+              <UserCheck size={16} /><PillLabel>{allMine ? 'Use shared for all' : 'Use mine for all'}</PillLabel>
+            </RoundButton>
+            <span className={`text-xs ${muted}`}>
+              {playMineIds.size === 0
+                ? `— ${choosable.size} ${choosable.size === 1 ? 'song has' : 'songs have'} your changes`
+                : `— playing your copy of ${playMineIds.size} of ${choosable.size}`}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Showing a cached copy. Stated plainly with its date: this is the set as
           it was, and the publisher may have changed it since. Not an error
@@ -1198,9 +1265,14 @@ export default function SharedSetView() {
                 index={idx}
                 dark={dark}
                 muted={muted}
-                edited={mineDiffers.has(song.id)}
                 have={haveIt.has(song.id)}
-                playMine={playMine}
+                yours={yoursById.get(song.id)}
+                playingMine={playMineIds.has(song.id)}
+                onToggleMine={choosable.has(song.id) ? () => {
+                  const next = new Set(playMineIds);
+                  if (next.has(song.id)) next.delete(song.id); else next.add(song.id);
+                  setPlayMinePersisted(next);
+                } : undefined}
                 onPresent={() => present(displayed, idx)}
                 onCopy={
                   // On your own set a song you STILL HAVE needs no copy button —
@@ -1670,7 +1742,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPresent, onCopy, onTakeNewer, onDecide, changed, copying }) {
+function SharedSongRow({ song, index, dark, muted, have, yours, playingMine, onToggleMine, onPresent, onCopy, onTakeNewer, onDecide, changed, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1765,28 +1837,49 @@ function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPre
               <Library size={16} />
             </RoundButton>
           )}
+          {/* WHICH VERSION THIS SONG PLAYS.
+              Green: your copy IS the share — nothing of yours on it, so the two
+              would play identically and there is nothing to choose. Shown, not
+              offered: it is an answer, not a control.
+              Amber: something of yours is on it — an edit, ink, or both — so the
+              two differ and this picks between them.
+
+              SELECTED IS LOUDER, NOT DIMMER. A tick on a filled button with a
+              ring around it, rather than the dimmed-with-a-tick we sketched: a
+              dimmed control reads as broken, which is the lesson the green
+              "you have this" tick taught the hard way a week ago. */}
+          {yours && (
+            <RoundButton
+              size={ROUND_SIZE_COMPACT}
+              label={!onToggleMine
+                ? 'Your copy matches the shared version'
+                : playingMine
+                  ? `Playing your version — ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')}. Tap to play the shared version instead.`
+                  : `You have an ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')} copy. Tap to play it instead of the shared version.`}
+              title={!onToggleMine
+                ? 'Nothing of yours on this one — your copy and the shared version are the same song.'
+                : playingMine
+                  ? 'Present will play YOUR copy of this song, with your ink.'
+                  : 'Present will play the publisher’s version. Tap to play your own instead.'}
+              fill={onToggleMine ? '#d97706' : '#16a34a'}
+              disabled={!onToggleMine} disabledOpacity={1}
+              border={playingMine ? (dark ? '#fff' : '#111827') : undefined}
+              onActivate={onToggleMine}
+            >
+              {playingMine ? <Check size={16} /> : onToggleMine ? <Pencil size={15} /> : <Check size={16} />}
+            </RoundButton>
+          )}
           <RoundButton
             size={ROUND_SIZE_COMPACT}
-            /* AMBER MEANS "YOUR VERSION IS WHAT PLAYS" — not "you own an edited
-               copy". Those came apart whenever the toggle was off: the button
-               went amber for a song you had edited and then played the
-               publisher's version anyway, which is the one thing a colour on a
-               Play button must never do.
-
-               It costs a little: with the toggle off, a row no longer shows on
-               its own that you have edited it. The header carries that ("you've
-               edited N"), and the toggle is one tap away from showing it per row
-               again. What it buys is that the colour answers the only question
-               anyone asks of this button — which version am I about to hear. */
-            label={edited
-              ? (playMine ? 'Present this song — playing your edited copy' : 'Present this song — playing the shared version; you also have an edited copy')
-              : 'Present this song'}
-            title={edited
-              ? (playMine
-                  ? 'You have your own edited version — this plays it full-screen for performing.'
-                  : 'This plays the publisher’s version. You also have your own edited copy — switch the toggle to “Including Songs You Edited” to play that instead.')
+            /* THE PRESENT BUTTON IS QUIET AGAIN. It was amber for "this will play
+               your copy" because nothing else on the row could say so. The
+               selector beside it says it now, so this is just the action — one
+               less control trying to encode two jobs in a colour. */
+            label={playingMine ? 'Present this song — playing your copy' : 'Present this song'}
+            title={playingMine
+              ? 'You have your own version of this song — this plays it full-screen for performing.'
               : 'Play just this song full-screen — big chords and lyrics for performing.'}
-            fill={edited && playMine ? '#d97706' : fill} active={!(edited && playMine)}
+            fill={fill} active
             onActivate={onPresent}
           >
             <Tv size={16} />

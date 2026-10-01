@@ -364,6 +364,18 @@ export function newestLocalAt(set, setSongs = []) {
     .at(-1) ?? '';
 }
 
+// Per-share viewer state, cleared when the share goes.
+//
+// ONE PLACE THAT KNOWS THE KEY. The shared-set page writes it and two different
+// screens remove bookmarks, so the name lived in whichever file happened to need
+// it — which is how a share gets forgotten while its choices quietly outlive it.
+export const sharePlayMineKey = (token) => `cue:share_play_mine:${token}`;
+
+export function forgetShareState(token) {
+  if (!token) return;
+  try { localStorage.removeItem(sharePlayMineKey(token)); } catch { /* private mode */ }
+}
+
 // ---- Shared-set cache ------------------------------------------------------
 //
 // A shared set used to need the network EVERY time it was opened: the bookmark
