@@ -76,5 +76,21 @@ check('draw then clear leaves no ink', !(await ids()).includes('song-f'), `got $
 await flushAllAnnotationQueues();
 check('flushing an idle queue resolves', true);
 
+// The share panel asks the same question the Library badge does, and got the
+// same answer wrong for the same reason: Present renders over the page, so a
+// one-shot load on mount is the last word it ever hears. Both now flush and
+// re-read when Present closes. The behaviour under test is identical, so the
+// check is too — clearing ink must be visible to the very next read.
+{
+  saveAnnotation('shared-copy', stroke());
+  await flushAllAnnotationQueues();
+  check('a shared copy with ink reads as inked', (await ids()).includes('shared-copy'));
+  // What Present's trash does, then what the share panel asks straight after.
+  deleteAnnotation('shared-copy');
+  await flushAllAnnotationQueues();
+  check('and reads as clean the moment the ink is cleared', !(await ids()).includes('shared-copy'),
+    `got ${JSON.stringify(await ids())}`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -8,7 +8,7 @@ import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
-import { loadAnnotatedSongIds } from '../utils/annotations.js';
+import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Pencil } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
@@ -173,7 +173,25 @@ export default function SharedSetView() {
   // Songs carrying ink, by LOCAL id. Ink lives in its own store keyed by song id,
   // so this is the only way to know a copy has marks on it.
   const [inkedIds, setInkedIds] = useState(() => new Set());
-  useEffect(() => { loadAnnotatedSongIds().then(setInkedIds).catch(() => {}); }, [token]);
+
+  // Re-read after Present, and wait for the write first.
+  //
+  // THE SAME SHAPE AS THE LIBRARY'S INK BADGE, and I did not carry the fix
+  // across. Present renders OVER this page rather than in place of it, so the
+  // view never unmounts and a one-shot load on mount is the last word it ever
+  // hears. Howard cleared a song's annotations in Present, came back, and the
+  // row still showed amber with a pencil — it only corrected itself after a trip
+  // through the Library, which is exactly the tell from last week.
+  //
+  // Flushed first because ink saves through a queue: the moment this most needs
+  // to be right is the moment the delete is still in flight.
+  const reloadInked = useCallback(() => {
+    flushAllAnnotationQueues()
+      .then(() => loadAnnotatedSongIds())
+      .then(setInkedIds)
+      .catch(() => {});
+  }, []);
+  useEffect(() => { reloadInked(); }, [token, reloadInked]);
   const [sortMode, setSortMode] = useState('custom');     // view-only: publisher order ('custom') vs alphabetical ('alpha')
   // Non-null when what's on screen came from the offline cache rather than the
   // cloud — carries the date it was last fetched, which the banner shows.
@@ -188,6 +206,12 @@ export default function SharedSetView() {
     if (days === 1) return 'yesterday';
     return `on ${then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
   };
+  // Coming back from Present: the ink may have changed while this page sat
+  // underneath it, and the local copies may have too.
+  useEffect(() => {
+    if (!presenting) reloadInked();
+  }, [presenting, reloadInked]);
+
   const refreshLocal = useCallback(async () => {
     try { setLocalSongs(await loadSongs()); setLocalSets(await loadSets()); } catch { /* offline / no db */ }
   }, []);
