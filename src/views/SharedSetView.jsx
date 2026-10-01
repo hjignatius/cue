@@ -769,7 +769,12 @@ export default function SharedSetView() {
   const haveIt = useMemo(() => {
     const s = new Set();
     (updatePlan?.songs || []).forEach(x => {
-      if (x.local && x.state === 'uptodate' && !isEditedCopy(x.local)) s.add(x.shareSong.id);
+      // NOT gated on whether you have edited it. This button answers "is there
+      // anything of the publisher's to fetch", and an edit of yours does not
+      // change that answer. Gating on it dropped edited songs through to the
+      // next branch, which OFFERED TO COPY a song already in the library — the
+      // "skipped" uselessness the tick was added to kill.
+      if (x.local && x.state === 'uptodate') s.add(x.shareSong.id);
     });
     return s;
   }, [updatePlan]);
@@ -1861,36 +1866,31 @@ function SharedSongRow({ song, index, dark, muted, have, yours, playingMine, onT
               <Library size={16} />
             </RoundButton>
           )}
-          {/* WHICH VERSION THIS SONG PLAYS.
-              Green: your copy IS the share — nothing of yours on it, so the two
-              would play identically and there is nothing to choose. Shown, not
-              offered: it is an answer, not a control.
-              Amber: something of yours is on it — an edit, ink, or both — so the
-              two differ and this picks between them.
+          {/* ONE BUTTON, AND ONLY WHEN THERE IS SOMETHING TO DECIDE.
+              It showed green when your copy matched the share — which is true
+              and was the second green tick on the row, saying the same "nothing
+              to do" the button beside it already said from the other direction.
+              Two ticks for one fact is noise, so the quiet state is now nothing
+              at all: no button means no choice to make.
 
-              SELECTED IS LOUDER, NOT DIMMER. A tick on a filled button with a
-              ring around it, rather than the dimmed-with-a-tick we sketched: a
-              dimmed control reads as broken, which is the lesson the green
-              "you have this" tick taught the hard way a week ago. */}
-          {yours && (
+              Amber means something of yours is on this song. Tapping it ticks
+              it, and the tick is the whole message — Present will use your
+              version of this one. Selected is louder, not dimmer: a dimmed
+              control reads as broken. */}
+          {onToggleMine && (
             <RoundButton
               size={ROUND_SIZE_COMPACT}
-              label={!onToggleMine
-                ? 'Your copy matches the shared version'
-                : playingMine
-                  ? `Playing your version — ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')}. Tap to play the shared version instead.`
-                  : `You have an ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')} copy. Tap to play it instead of the shared version.`}
-              title={!onToggleMine
-                ? 'Nothing of yours on this one — your copy and the shared version are the same song.'
-                : playingMine
-                  ? 'Present will play YOUR copy of this song, with your ink.'
-                  : 'Present will play the publisher’s version. Tap to play your own instead.'}
-              fill={onToggleMine ? '#d97706' : '#16a34a'}
-              disabled={!onToggleMine} disabledOpacity={1}
+              label={playingMine
+                ? `Playing your version — ${[yours?.edited && 'edited', yours?.inked && 'annotated'].filter(Boolean).join(' and ')}. Tap to play the shared version instead.`
+                : `You have an ${[yours?.edited && 'edited', yours?.inked && 'annotated'].filter(Boolean).join(' and ')} copy. Tap to play it instead of the shared version.`}
+              title={playingMine
+                ? 'Present will play YOUR copy of this song, with your ink.'
+                : 'Present will play the publisher’s version. Tap to play your own instead.'}
+              fill="#d97706"
               border={playingMine ? (dark ? '#fff' : '#111827') : undefined}
               onActivate={onToggleMine}
             >
-              {playingMine ? <Check size={16} /> : onToggleMine ? <Pencil size={15} /> : <Check size={16} />}
+              {playingMine ? <Check size={16} /> : <Pencil size={15} />}
             </RoundButton>
           )}
           <RoundButton
