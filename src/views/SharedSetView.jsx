@@ -741,43 +741,6 @@ export default function SharedSetView() {
   }, [updatePlan]);
 
 
-  // Share song ids you HAVE and have not touched: your copy matches what the
-  // publisher is showing. The row's library circle turns into a green tick.
-  //
-  // WHY IT EARNS A COLOUR OF ITS OWN. Before this, these rows showed the same
-  // neutral library circle as a song you have never seen — so the row offered to
-  // copy something already in your library, and tapping it found the title
-  // there and reported "skipped". True, and useless: the honest answer was not
-  // an offer at all, it was "you have this one". Green says that instead.
-  //
-  // It also puts these rows in the same language as the rest of Cue: the Update
-  // list already ticks its up-to-date rows in green, and the library row's link
-  // dot is already emerald while a copied song still matches what was shared and
-  // amber once you have edited it. Same fact, same colour, three screens.
-  //
-  // TWO EXCLUSIONS, each because green would be a lie. There were three: your own
-  // set used to be left out on the grounds that every row would tick and point at
-  // nothing. That was wrong, and Howard found the case that shows it — he cleared
-  // a device, copied the songs back from his own share, and expected the ticks to
-  // confirm it had worked. Nothing appeared. "All eight of these match what is
-  // published" is not noise on a set you own; it is the answer to the question
-  // you opened the page to ask.
-  //   * a song you have EDITED (uptodate against the baseline, changed here).
-  //     Green means "matches the share" and yours no longer does; the amber
-  //     Present button on that row is the signal that applies.
-  //   * 'have' — same title, different song. That one is still a real offer.
-  const haveIt = useMemo(() => {
-    const s = new Set();
-    (updatePlan?.songs || []).forEach(x => {
-      // NOT gated on whether you have edited it. This button answers "is there
-      // anything of the publisher's to fetch", and an edit of yours does not
-      // change that answer. Gating on it dropped edited songs through to the
-      // next branch, which OFFERED TO COPY a song already in the library — the
-      // "skipped" uselessness the tick was added to kill.
-      if (x.local && x.state === 'uptodate') s.add(x.shareSong.id);
-    });
-    return s;
-  }, [updatePlan]);
 
   // ONE switch decides what plays, and it is the header toggle — for the whole
   // set and for a single row alike. There used to be a forceMine argument here,
@@ -1294,7 +1257,6 @@ export default function SharedSetView() {
                 index={idx}
                 dark={dark}
                 muted={muted}
-                have={haveIt.has(song.id)}
                 yours={yoursById.get(song.id)}
                 playingMine={playMineIds.has(song.id)}
                 onToggleMine={choosable.has(song.id) ? () => {
@@ -1771,7 +1733,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, have, yours, playingMine, onToggleMine, onPresent, onCopy, onTakeNewer, onDecide, changed, copying }) {
+function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleMine, onPresent, onCopy, onTakeNewer, onDecide, changed, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1835,34 +1797,36 @@ function SharedSongRow({ song, index, dark, muted, have, yours, playingMine, onT
             >
               <Library size={16} />
             </RoundButton>
-          ) : have ? (
-            /* THE GREEN TICK YIELDS TO THE AMBER ONE. Both would be true at once
-               on a song you have edited — nothing of theirs to fetch, something
-               of yours to choose — and showing both makes a two-button row out
-               of one decision. The tick is reassurance; the amber is a control,
-               and a control outranks reassurance. One button, and it is the one
-               you can press. */
-            onToggleMine ? null : (
-            /* You have it and it matches: a green tick where the copy circle
-               was. Inert, because there is nothing left to do here — but at
-               FULL opacity, not the usual disabled dimming. A dim green circle
-               reads as a control that has stopped working; this is not a
-               disabled action, it is an answer.
+          ) : yours ? (
+            /* ONE BUTTON THAT CHANGES COLOUR, which is what Howard asked for and
+               what I kept building as two. Green while your copy is the share —
+               inert, because there is nothing to choose. The moment you edit or
+               annotate it, the SAME button turns amber and becomes a control:
+               tap it and the tick says Present uses your version of this song.
 
-               The tick matters as much as the colour. Green against amber is
-               the hardest pair to tell apart — colour-blind viewers, and stage
-               lighting, which is exactly when someone is looking at this. So
-               the two states differ in SHAPE as well: a tick for "you have
-               this", the library icon for "there is something to take". */
+               A separate green and a separate amber made a row where a button
+               vanished and a different one took its place, which reads as two
+               things happening when only one did. */
             <RoundButton
               size={ROUND_SIZE_COMPACT}
-              label="You already have this song"
-              title="This song is in your library and your copy matches the shared version — nothing to copy or update."
-              fill="#16a34a" disabled disabledOpacity={1}
+              label={!onToggleMine
+                ? 'Your copy matches the shared version'
+                : playingMine
+                  ? `Playing your version — ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')}. Tap to play the shared version instead.`
+                  : `You have an ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')} copy. Tap to play it instead of the shared version.`}
+              title={!onToggleMine
+                ? 'This song is in your library and matches the shared version — nothing to choose.'
+                : playingMine
+                  ? 'Present will play YOUR copy of this song, with your ink.'
+                  : 'Present will play the publisher’s version. Tap to play your own instead.'}
+              fill={onToggleMine ? '#d97706' : '#16a34a'}
+              disabled={!onToggleMine} disabledOpacity={1}
+              border={playingMine ? (dark ? '#fff' : '#111827') : undefined}
+              onActivate={onToggleMine}
             >
-              <Check size={16} />
+              {onToggleMine && !playingMine ? <Pencil size={15} /> : <Check size={16} />}
             </RoundButton>
-          )) : onCopy && (
+          ) : onCopy && (
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="Copy this song to my library"
@@ -1871,33 +1835,6 @@ function SharedSongRow({ song, index, dark, muted, have, yours, playingMine, onT
               onActivate={onCopy}
             >
               <Library size={16} />
-            </RoundButton>
-          )}
-          {/* ONE BUTTON, AND ONLY WHEN THERE IS SOMETHING TO DECIDE.
-              It showed green when your copy matched the share — which is true
-              and was the second green tick on the row, saying the same "nothing
-              to do" the button beside it already said from the other direction.
-              Two ticks for one fact is noise, so the quiet state is now nothing
-              at all: no button means no choice to make.
-
-              Amber means something of yours is on this song. Tapping it ticks
-              it, and the tick is the whole message — Present will use your
-              version of this one. Selected is louder, not dimmer: a dimmed
-              control reads as broken. */}
-          {onToggleMine && (
-            <RoundButton
-              size={ROUND_SIZE_COMPACT}
-              label={playingMine
-                ? `Playing your version — ${[yours?.edited && 'edited', yours?.inked && 'annotated'].filter(Boolean).join(' and ')}. Tap to play the shared version instead.`
-                : `You have an ${[yours?.edited && 'edited', yours?.inked && 'annotated'].filter(Boolean).join(' and ')} copy. Tap to play it instead of the shared version.`}
-              title={playingMine
-                ? 'Present will play YOUR copy of this song, with your ink.'
-                : 'Present will play the publisher’s version. Tap to play your own instead.'}
-              fill="#d97706"
-              border={playingMine ? (dark ? '#fff' : '#111827') : undefined}
-              onActivate={onToggleMine}
-            >
-              {playingMine ? <Check size={16} /> : <Pencil size={15} />}
             </RoundButton>
           )}
           <RoundButton
