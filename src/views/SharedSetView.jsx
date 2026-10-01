@@ -576,7 +576,24 @@ export default function SharedSetView() {
     // made entirely of songs you already own has nothing waiting — rather than an
     // Update badge over rows with nothing to do.
     const actionable = songs.some(x => x.state === 'update' || x.state === 'conflict' || x.state === 'add') || setChanged;
-    const status = mine ? 'mine' : !anyMatched ? 'copy' : actionable ? 'update' : 'uptodate';
+    // "YOUR SET" ONLY WHEN THERE IS NOTHING TO FETCH. Owning the set is a reason
+    // not to COPY it — copying your own share duplicates your library — and it
+    // was being read as a reason to offer nothing at all.
+    //
+    // Howard hit the far end of that: he cleared the songs off a device, opened
+    // the set's own share link to get them back, and the page said "Your set"
+    // and gave him no way to download anything. The set was his, the songs were
+    // gone, and the one place holding them refused to hand them over on the
+    // grounds that they were already his.
+    //
+    // So ownership still suppresses Copy, but not Update: when songs from this
+    // share are missing here, the Update list can put them back into the set
+    // that already exists — which is the right tool for it anyway, since it adds
+    // to that set rather than making a second one.
+    const status = mine && !actionable ? 'mine'
+                 : !anyMatched ? 'copy'
+                 : actionable ? 'update'
+                 : 'uptodate';
     return { status, songs, localSet, setChanged, orderChanged, mine };
   }, [setData, localSongs, localSets, token]);
 
@@ -626,6 +643,14 @@ export default function SharedSetView() {
     const m = new Map();
     (updatePlan?.songs || []).forEach(x => { if (x.changed?.length) m.set(x.shareSong.id, x.changed); });
     return m;
+  }, [updatePlan]);
+
+  // Share songs with nothing local behind them — never copied, or copied and
+  // since deleted.
+  const missingHere = useMemo(() => {
+    const s = new Set();
+    (updatePlan?.songs || []).forEach(x => { if (!x.local) s.add(x.shareSong.id); });
+    return s;
   }, [updatePlan]);
 
   const bothChanged = useMemo(() => {
@@ -1174,7 +1199,14 @@ export default function SharedSetView() {
                 have={haveIt.has(song.id)}
                 playMine={playMine}
                 onPresent={() => present(displayed, idx)}
-                onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
+                onCopy={
+                  // On your own set a song you STILL HAVE needs no copy button —
+                  // that is the duplication this guard exists to prevent. One
+                  // that has gone missing is a different matter, and refusing it
+                  // is how a set you own becomes the one place you cannot get
+                  // your own songs back from.
+                  updatePlan?.mine && !missingHere.has(song.id) ? undefined : () => handleCopySong(song)
+                }
                 onTakeNewer={behindShare.has(song.id) ? () => updateOneSong(song) : undefined}
                 changed={diffBySong.get(song.id)}
                 onDecide={bothChanged.has(song.id) ? () => setUpdateDialog({ choices: {}, focus: song.id }) : undefined}
