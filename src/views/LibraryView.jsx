@@ -2223,9 +2223,17 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   const artistFiltered = artistFilter !== null ? filtered.filter(s => (s.metadata?.artist || '') === artistFilter) : filtered;
   const keyFiltered    = keyFilter ? artistFiltered.filter(s => effectiveKey(s) === keyFilter) : artistFiltered;
-  // 'shared' narrows rather than reorders, exactly like the Sets panel: only
-  // songs copied in from a shared set (which carry copiedFrom) are shown.
-  const sharedFiltered = sortBy === 'shared' ? keyFiltered.filter(s => !!s.copiedFrom) : keyFiltered;
+  // 'shared' narrows rather than reorders, exactly like the Sets panel — and it
+  // narrows to songs with a share relationship in EITHER DIRECTION: copied in
+  // from someone's shared set, or going out in a set you publish.
+  //
+  // It used to mean only the first. That was the whole of sharing when it was
+  // written, and it quietly became half of it once publishing existed — so the
+  // one filter named after sharing could not find the songs you share. The two
+  // dots on a row are the two halves; this is the filter that matches them.
+  const sharedFiltered = sortBy === 'shared'
+    ? keyFiltered.filter(s => !!s.copiedFrom || sharedSongs.has(s.id))
+    : keyFiltered;
 
   const sorted = [...sharedFiltered].sort((a, b) => {
     // 'checked' floats selected rows to the top LIVE (recomputes as `selected`
@@ -2740,7 +2748,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               {songs.length > 0 && sorted.length === 0 && (
                 <p className="px-4 py-6 text-sm text-gray-400 dark:text-gray-600 text-center">
                   {sortBy === 'shared'
-                    ? (search.trim() ? 'No shared songs match your search.' : 'No shared songs yet. Copy a song from a set someone shared with you.')
+                    ? (search.trim()
+                        ? 'No shared songs match your search.'
+                        : 'No shared songs yet. Copy a song from a set someone shared with you, or publish a set of your own.')
                     : 'No songs match your search.'}
                 </p>
               )}
