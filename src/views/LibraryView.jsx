@@ -953,9 +953,26 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                           is someone else's work that may overwrite yours. */}
                       <p className="text-xs text-gray-400 dark:text-gray-600">
                         {count} {count === 1 ? 'song' : 'songs'}
-                        {isPublished && <span className="text-indigo-500 dark:text-indigo-400"> · Shared</span>}
-                        {isStale     && <span className="font-bold uppercase tracking-wide text-gray-900 dark:text-white"> · Send changes</span>}
-                        {cloudAhead  && <span className="font-bold uppercase tracking-wide text-red-600 dark:text-red-400"> · Get newer</span>}
+                        {/* SIGNED OUT, THESE SAY DIFFERENT THINGS.
+                            "Shared" is a FACT this device can cache honestly —
+                            the set really is published, and signing out does not
+                            unpublish it. It stays, dimmed, because nothing here
+                            can act on it.
+                            "Send changes" and "Get newer" are COMPARISONS
+                            against the cloud, and reconcilePublished returns
+                            immediately without a user — so signed out they are
+                            frozen at whatever was last known and keep telling you
+                            to act on a check nobody has run since. Howard emptied
+                            a set while signed out, watched it say SEND CHANGES,
+                            and was right to be afraid of it: publishing then
+                            would have emptied the shared set. A call to action
+                            this device cannot verify is not shown as one. */}
+                        {isPublished && (
+                          <span className={user ? 'text-indigo-500 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-600'}
+                                title={user ? undefined : 'Published — sign in to send or get changes'}> · Shared</span>
+                        )}
+                        {user && isStale    && <span className="font-bold uppercase tracking-wide text-gray-900 dark:text-white"> · Send changes</span>}
+                        {user && cloudAhead && <span className="font-bold uppercase tracking-wide text-red-600 dark:text-red-400"> · Get newer</span>}
                       </p>
                     </div>
                     {/* Right-pointing arrow, to the LEFT of the actions menu. */}

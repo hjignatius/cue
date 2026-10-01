@@ -45,8 +45,36 @@ export default function PublishSetDialog({ set, songs, userId, onPublish = publi
                 ({songs.length} {songs.length === 1 ? 'song' : 'songs'}) will be uploaded so it can be shared.
               </p>
             </div>
+            {/* AN EMPTY SET EMPTIES THE SHARED ONE, and nothing used to say so.
+                publishSet deletes every set_songs row and only re-inserts when
+                there are songs, so republishing a set you have emptied leaves a
+                live share link pointing at nothing. Howard cleared his library
+                while testing, saw the set ask to SEND CHANGES, and stopped
+                because he was not sure — he was right, and he should not have
+                had to be suspicious of a button to find that out.
+
+                The songs themselves are not deleted from the cloud and the link
+                keeps working, which is said here too: it is a recoverable
+                mistake, and knowing that is part of deciding. */}
+            {songs.length === 0 && (
+              <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-amber-500/40 bg-amber-950/30' : 'border-amber-300 bg-amber-50'}`}>
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">This set has no songs.</p>
+                <p className={`text-xs mt-0.5 ${dark ? 'text-amber-200/80' : 'text-amber-800'}`}>
+                  Publishing now removes every song from the shared version — anyone with the link
+                  would see an empty set. The link and the songs themselves stay, so publishing
+                  again with the songs back puts it right.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
-              <button onClick={run} className={btnPrimary}>Publish</button>
+              <button
+                onClick={run}
+                className={songs.length === 0
+                  ? 'w-full py-2.5 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-xl transition-colors'
+                  : btnPrimary}
+              >
+                {songs.length === 0 ? 'Publish an empty set' : 'Publish'}
+              </button>
               <button onClick={onClose} className={btnGhost}>Cancel</button>
             </div>
           </>
