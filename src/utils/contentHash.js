@@ -24,6 +24,37 @@ export function hashStr(s) {
 
 export function contentHash(song) { return hashStr(contentSig(song)); }
 
+// WHICH fields differ between two versions of a song, in words.
+//
+// A hash can only say "not the same", and that is the whole of what an amber row
+// has ever been able to tell anyone. When a shared song goes amber for no reason
+// its owner can see, the useful question is not whether it changed but WHAT
+// changed — and that is answerable, because the signature is a fixed set of
+// named fields rather than an opaque blob.
+//
+// Reads the same fields contentSig hashes, in the same order, from the same
+// place. If a field is added there and not here, this says less than it could;
+// it can never say something untrue.
+const SIG_FIELDS = [
+  ['the words and chords', (s) => s?.text || ''],
+  ['the title',            (s) => s?.metadata?.title || ''],
+  ['the artist',           (s) => s?.metadata?.artist || ''],
+  ['the key',              (s) => s?.metadata?.key || ''],
+  ['the tempo',            (s) => s?.metadata?.tempo || ''],
+  ['the duration',         (s) => s?.metadata?.duration || ''],
+  ['the time signature',   (s) => s?.metadata?.timeSig || ''],
+  ['the YouTube link',     (s) => s?.metadata?.youtubeUrl || ''],
+  ['the chord format',     (s) => s?.chordStyle || ''],
+  ['the preview format',   (s) => s?.previewMode || ''],
+  ['the full-page setting',(s) => String(!!s?.fullPage)],
+  ['the chord diagrams',   (s) => String(!!s?.embed)],
+  ['the song type',        (s) => s?.type || 'text'],
+];
+
+export function contentDiffFields(a, b) {
+  return SIG_FIELDS.filter(([, read]) => read(a) !== read(b)).map(([label]) => label);
+}
+
 // True when a copied-from-share song has been edited since it was copied, i.e.
 // its current content no longer matches the baseline captured at copy time.
 // Legacy copies without a baseline can't be judged, so they read as unedited.

@@ -7,7 +7,7 @@ import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet } from '../utils/storage.js';
 import { mergeCustomChords } from '../utils/fileIO.js';
-import { contentHash, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
+import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
@@ -540,7 +540,16 @@ export default function SharedSetView() {
       else if (incoming === baseline) state = 'uptodate';                      // publisher unchanged
       else if (here === baseline) state = 'update';                            // publisher changed, you didn't
       else state = 'conflict';                                                 // both changed
-      return { shareSong: s, local, state, matchedBy: 'lineage' };
+      // WHAT differs, not just that something does. A row going amber with no
+      // edit anyone remembers making is unanswerable from a hash — it can only
+      // say "not the same". The signature is a fixed set of named fields, so the
+      // difference can be named, and then the next time this happens it is
+      // evidence instead of a mystery.
+      //
+      // Carried on the plan rather than computed in the dialog so both the row's
+      // tooltip and the Update list read the same answer.
+      const changed = contentDiffFields(local, s);
+      return { shareSong: s, local, state, matchedBy: 'lineage', changed };
     });
     const anyMatched = songs.some(x => x.local);
     // Your OWN set, opened through its own share link — something Howard does
@@ -611,6 +620,14 @@ export default function SharedSetView() {
   // What it does NOT get is the one-tap take that a plain 'update' row has.
   // Tapping this opens the choice instead, because taking the share here throws
   // your edit away, and defaulting conflicts to Skip was the whole point.
+  // Share song id -> the named fields that differ from your copy, for whichever
+  // control ends up amber on that row.
+  const diffBySong = useMemo(() => {
+    const m = new Map();
+    (updatePlan?.songs || []).forEach(x => { if (x.changed?.length) m.set(x.shareSong.id, x.changed); });
+    return m;
+  }, [updatePlan]);
+
   const bothChanged = useMemo(() => {
     const s = new Set();
     (updatePlan?.songs || []).forEach(x => { if (x.state === 'conflict') s.add(x.shareSong.id); });
@@ -1159,6 +1176,7 @@ export default function SharedSetView() {
                 onPresent={() => present(displayed, idx)}
                 onCopy={updatePlan?.mine ? undefined : () => handleCopySong(song)}
                 onTakeNewer={behindShare.has(song.id) ? () => updateOneSong(song) : undefined}
+                changed={diffBySong.get(song.id)}
                 onDecide={bothChanged.has(song.id) ? () => setUpdateDialog({ choices: {}, focus: song.id }) : undefined}
                 copying={copying}
               />
@@ -1413,7 +1431,9 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
                     <span className={`text-sm font-medium truncate ${em}`}>{title}</span>
                     <span className={`text-[11px] ${item.state === 'conflict' ? 'text-amber-500' : sub}`}>
                       {item.state === 'uptodate' && 'Up to date'}
-                      {item.state === 'update' && 'Changed in the share'}
+                      {item.state === 'update' && (item.changed?.length
+                        ? `Changed in the share — ${item.changed.join(', ')}`
+                        : 'Changed in the share')}
                       {item.state === 'conflict' && 'Changed in the share — you also edited your copy'}
                       {/* Not "New — not in your library": the list matches by
                           LINEAGE, not by title or content, so all it knows is
@@ -1615,7 +1635,7 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPresent, onCopy, onTakeNewer, onDecide, copying }) {
+function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPresent, onCopy, onTakeNewer, onDecide, changed, copying }) {
   const meta = song.metadata || {};
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
 
@@ -1663,7 +1683,7 @@ function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPre
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="You and the publisher both changed this song — decide what to do"
-              title="The publisher has changed this song, and so have you. Nothing is taken automatically: this opens the list so you can keep yours or take theirs."
+              title={`The publisher has changed this song, and so have you${changed?.length ? ` — ${changed.join(', ')}` : ''}. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`}
               fill="#d97706" disabled={copying}
               onActivate={onDecide}
             >
@@ -1673,7 +1693,7 @@ function SharedSongRow({ song, index, dark, muted, edited, have, playMine, onPre
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="Take the newer version of this song"
-              title="The publisher has changed this song since you copied it. This replaces your copy with their newer version — your ink annotations are kept."
+              title={`The publisher has changed this song since you copied it${changed?.length ? ` — ${changed.join(', ')}` : ''}. This replaces your copy with their newer version — your ink annotations are kept.`}
               fill="#d97706" disabled={copying}
               onActivate={onTakeNewer}
             >
