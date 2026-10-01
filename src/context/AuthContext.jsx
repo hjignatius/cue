@@ -58,9 +58,19 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   }
 
+  // SIGN OUT THIS DEVICE, NOT EVERY DEVICE.
+  //
+  // supabase-js defaults signOut() to scope 'global', which revokes the refresh
+  // token for every session the account has open — so signing out on the Mac
+  // silently signed Howard out on the iPad and the iPhone too, minutes or hours
+  // later, with nothing on screen to connect the two events. Cue signs out one
+  // device at a time; there is no "sign out everywhere" in the app, so there is
+  // no reason for the only sign-out there is to mean that.
+  //
+  // 'local' clears this device's stored session and leaves the others alone.
   async function signOut() {
     if (!supabase) return;
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
     if (error) throw error;
   }
 
