@@ -718,9 +718,30 @@ export default function SharedSetView() {
     const m = new Map();
     (updatePlan?.songs || []).forEach(x => {
       if (!x.local) return;
+      // "DIFFERS", NOT "EDITED" — because for half these songs Cue cannot know
+      // who changed them, and the button does not need to know.
+      //
+      // isEditedCopy compares against the baseline saved when a song was copied
+      // THROUGH this share. A song that got here another way — restored from a
+      // backup, or already in the library and matched to the share by content —
+      // has no baseline, so isEditedCopy answers false forever. Howard has two
+      // devices with identical libraries: on the read-only one the songs were
+      // never copied through the share, so editing one left the button green
+      // however much he changed it.
+      //
+      // Without a baseline the honest comparison is the local copy against the
+      // share itself. That cannot attribute the difference — the publisher may
+      // have moved instead — but attribution is not what this button is for. It
+      // asks whether the two versions differ enough to be worth choosing
+      // between, and a hash says that much on its own.
+      const base = x.local.copiedFrom?.baseline;
+      const differs = base != null
+        ? isEditedCopy(x.local)
+        : contentHash(x.local) !== contentHash(x.shareSong);
       m.set(x.shareSong.id, {
         localId: x.local.id,
-        edited: isEditedCopy(x.local),
+        edited: differs,
+        attributable: base != null,
         inked: inkedIds.has(x.local.id),
       });
     });
@@ -1812,13 +1833,15 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
               label={!onToggleMine
                 ? 'Your copy matches the shared version'
                 : playingMine
-                  ? `Playing your version — ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')}. Tap to play the shared version instead.`
-                  : `You have an ${[yours.edited && 'edited', yours.inked && 'annotated'].filter(Boolean).join(' and ')} copy. Tap to play it instead of the shared version.`}
+                  ? 'Playing your version of this song. Tap to play the shared version instead.'
+                  : 'Your version of this song differs from the shared one. Tap to play yours instead.'}
               title={!onToggleMine
                 ? 'This song is in your library and matches the shared version — nothing to choose.'
                 : playingMine
                   ? 'Present will play YOUR copy of this song, with your ink.'
-                  : 'Present will play the publisher’s version. Tap to play your own instead.'}
+                  : (yours.attributable
+                      ? 'You have changed this copy. Present will play the publisher’s version — tap to play yours instead.'
+                      : 'This copy and the shared version differ. Present will play the publisher’s — tap to play yours instead.')}
               fill={onToggleMine ? '#d97706' : '#16a34a'}
               disabled={!onToggleMine} disabledOpacity={1}
               border={playingMine ? (dark ? '#fff' : '#111827') : undefined}
