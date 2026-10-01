@@ -80,6 +80,17 @@ export function flushAnnotationQueue(songId) {
   return writeQueues.get(songId) ?? Promise.resolve();
 }
 
+// Every song's queue at once, for a reader that must not see a stale answer.
+//
+// WHY A READER NEEDS THIS. Ink is written through a queue, so drawing a stroke
+// and asking "which songs have ink?" a moment later can race: the canvas has
+// unmounted and started its write, and the query runs before it lands. The
+// Library's ink badge is exactly that reader — it refreshes when you come back
+// from Present, which is the instant the last write is still in flight.
+export function flushAllAnnotationQueues() {
+  return Promise.allSettled([...writeQueues.values()]);
+}
+
 // Load the annotation record for a song. Returns null if none exists.
 export async function loadAnnotation(songId) {
   if (!songId) return null;

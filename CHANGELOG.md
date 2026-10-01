@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.10 — 2026-10-01
+
+### Fixes
+
+- **The ink mark on a song now keeps up with Present.** Annotating a song
+  straight from the Library left no mark on its row, and clearing the ink in
+  Present left the mark behind — both only corrected themselves after a trip
+  through the editor. Present opens over the Library rather than in place of it,
+  so the Library never noticed it had been away. It now re-checks when Present
+  closes, and waits for the last stroke to finish saving before it does.
+
 ## v1.9.9 — 2026-09-30
 
 ### Sets

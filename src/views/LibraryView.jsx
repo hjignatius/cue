@@ -17,7 +17,7 @@ const SUGGEST_STAGE = { idleLabel: 'Finding songs…',           writeLabel: 'Pi
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
-import { loadAnnotatedSongIds } from '../utils/annotations.js';
+import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import { isEditedCopy, matchLibrarySong } from '../utils/contentHash.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
@@ -1982,16 +1982,36 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     setSongDeleteConfirm(null);
     onRefresh();
   }
-  useEffect(() => {
-    function reload() { loadAnnotatedSongIds().then(ids => setAnnotatedSongIds(ids)); }
-    reload();
-    document.addEventListener('visibilitychange', reload);
-    window.addEventListener('focus', reload);
-    return () => {
-      document.removeEventListener('visibilitychange', reload);
-      window.removeEventListener('focus', reload);
-    };
+  // Which songs carry ink, for the pencil badge on a row.
+  //
+  // Waits for pending writes first. Ink is saved through a queue, so the moment
+  // this most needs to be right — just back from Present, where the last stroke
+  // or a Clear is still in flight — is exactly when an unflushed read gives the
+  // previous answer.
+  const reloadAnnotated = useCallback(() => {
+    flushAllAnnotationQueues().then(() => loadAnnotatedSongIds()).then(setAnnotatedSongIds);
   }, []);
+
+  useEffect(() => {
+    reloadAnnotated();
+    document.addEventListener('visibilitychange', reloadAnnotated);
+    window.addEventListener('focus', reloadAnnotated);
+    return () => {
+      document.removeEventListener('visibilitychange', reloadAnnotated);
+      window.removeEventListener('focus', reloadAnnotated);
+    };
+  }, [reloadAnnotated]);
+
+  // COMING BACK FROM PRESENT. Present is rendered over the Library rather than
+  // in place of it, so this view never unmounts and nothing above fires: no
+  // focus, no visibility change, no remount. The badge was therefore whatever it
+  // had been when the Library last loaded — which is why annotating straight
+  // from the Library left no badge, while going via the editor (which DOES
+  // unmount this view) worked. Same reason a Clear in Present left the badge
+  // behind until the editor was visited.
+  useEffect(() => {
+    if (!presenting) reloadAnnotated();
+  }, [presenting, reloadAnnotated]);
 
   const [highlightedSongId, setHighlightedSongId] = useState(() => sessionStorage.getItem('cue:lib_highlighted_id') || null);
 
