@@ -35,9 +35,14 @@ export function shapesForName(name, instrument = DEFAULT_INSTRUMENT, custom, hid
   // Only after an exact match fails, so a custom "Dm7/G" somebody entered by
   // hand still wins. The result is tagged rather than renamed: the caller keeps
   // the chart's own name and can say which bass note went missing.
-  const slash = name && name.indexOf('/') > 0 ? name.slice(0, name.indexOf('/')) : null;
+  const cut = name ? name.indexOf('/') : -1;
+  const slash = cut > 0 ? name.slice(0, cut) : null;
   if (!slash) return hit;
-  const bass = name.slice(name.indexOf('/') + 1);
+  const bass = name.slice(cut + 1);
+  // The bass has to BE a note. normalizeChordName already drops beat slashes
+  // ("F////" -> "F"), but a name can reach here by other routes, and without
+  // this guard the marker read "no /// bass" — which is what Howard saw.
+  if (!/^[A-G][b#]?$/.test(bass)) return hit;
   return exact(slash).map(shape => ({ ...shape, slashBase: slash, droppedBass: bass }));
 }
 

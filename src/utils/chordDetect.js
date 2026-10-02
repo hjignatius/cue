@@ -22,6 +22,19 @@ const MAJOR_M = /^([A-G][b#]?)M(\d+)/;
 export function normalizeChordName(name) {
   if (!name) return name;
   return name
+    // BEAT SLASHES. Musicians write "F////" to say how many beats a chord gets,
+    // inline, over lyrics, or on a line of its own. STRUM_SUFFIX strips trailing
+    // decoration but deliberately keeps "/", because a slash chord needs it —
+    // strip it there and F/A loses its bass.
+    //
+    // A TRAILING run of slashes is safe to drop, because no real chord ends in
+    // one: a slash chord always names a bass note after it. So F//// and F/
+    // become F, C/G/ becomes C/G, and F/A is untouched.
+    //
+    // Without this, "F////" stayed a chord NAME: the panel labelled a tile with
+    // it, the slash-chord fallback reported dropping a "///" bass, and Add
+    // missing chord shapes sent it to the model as an undefined chord.
+    .replace(/\/+$/, '')
     .replace(MAJOR_M, '$1maj$2')
     .replace(/\(([^)]*)\)/g, '$1')    // strip parens around alterations
     .replace(/(\d)-(\d)/g, '$1b$2')   // 7-5 → 7b5  (dash only between digits)
