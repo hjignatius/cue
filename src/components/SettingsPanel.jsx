@@ -6,7 +6,6 @@ import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExp
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
 import { getApiKey, setApiKey, AI_TIERS, tierById } from '../lib/ai.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
-import { setsWithUnsentChanges } from '../utils/storage.js';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
@@ -116,22 +115,12 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
   const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, aiTier, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
   const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
   const dark = theme === 'dark';
-  const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut, endedElsewhere, clearEndedElsewhere } = useAuth();
+  const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
 
   // One section open at a time — the point is to keep the panel short, and
   // multi-open would let it grow back to the wall of controls this replaced.
   // All shut on open: the summaries carry the state, so nothing is hidden that
   // you need a tap to learn.
-  // Sign-out guard: null, or the names of published sets this device has not
-  // sent yet. Signing out is how you hand the baton to another device, and the
-  // one thing that must not be left behind is work the cloud has never seen.
-  const [unsent, setUnsent] = useState(null);
-  async function handleSignOut() {
-    const names = await setsWithUnsentChanges().catch(() => []);
-    if (names.length) { setUnsent(names); return; }
-    signOut();
-  }
-
   const [openSection, setOpenSection] = useState(initialSection);
   const toggleSection = (id) => setOpenSection(cur => (cur === id ? null : id));
   // Re-applied on every open, so arriving from "Set up AI…" lands on the AI
@@ -641,66 +630,15 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
               {isConfigured && !hideAccount && (<>
                 {canPickFolder && <div className={`border-t ${border} -mx-3`} role="separator" />}
 
-              {/* THE LOSING DEVICE'S SIDE OF IT. A session that ends without
-                  this device asking used to be silent — you were simply signed
-                  out one day, mid-use. Said as a POSSIBILITY, because the client
-                  genuinely cannot tell a sign-in elsewhere from an expired or
-                  revoked token; claiming the first would be a guess dressed as a
-                  fact. */}
-              {!user && endedElsewhere && (
-                <div className={`rounded-xl border px-3 py-2 mb-3 ${dark ? 'border-amber-500/40 bg-amber-950/30' : 'border-amber-300 bg-amber-50'}`}>
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">You were signed out</p>
-                  <p className={`text-xs mt-0.5 ${dark ? 'text-amber-200/80' : 'text-amber-800'}`}>
-                    This usually means you signed in on another device — Cue keeps one signed in at a
-                    time. Your songs and sets are untouched. Sign in again to publish from here.
-                  </p>
-                  <button
-                    onClick={clearEndedElsewhere}
-                    className={`mt-1 text-xs ${dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              )}
               {user ? (
                 <div className="flex flex-col gap-3">
                   <p className={`text-sm break-all ${label}`}>{user.email}</p>
                   <button
-                    onClick={handleSignOut}
+                    onClick={() => signOut()}
                     className={`h-11 pointer-fine:h-9 text-sm rounded-lg border transition-colors ${btnBorder}`}
                   >
                     Sign out
                   </button>
-                  {/* NOT A BLOCK — a question. Signing out with unsent work is
-                      sometimes exactly right (you are leaving a test device, or
-                      you do not want those changes published at all), so this
-                      says what would be left behind and lets you go anyway. What
-                      it must not do is let the baton pass silently. */}
-                  {unsent && (
-                    <div className={`rounded-xl border px-3 py-2 flex flex-col gap-2 ${dark ? 'border-amber-500/40 bg-amber-950/30' : 'border-amber-300 bg-amber-50'}`}>
-                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                        {unsent.length === 1 ? 'One set has changes the cloud hasn’t got' : `${unsent.length} sets have changes the cloud hasn’t got`}
-                      </p>
-                      <p className={`text-xs ${dark ? 'text-amber-200/80' : 'text-amber-800'}`}>
-                        {unsent.map(n => `“${n}”`).join(', ')} — publish {unsent.length === 1 ? 'it' : 'them'} before signing out,
-                        or another device that pulls from the cloud will get the older version and offer to replace this work.
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setUnsent(null)}
-                          className="flex-1 h-10 pointer-fine:h-8 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
-                        >
-                          Stay signed in
-                        </button>
-                        <button
-                          onClick={() => { setUnsent(null); signOut(); }}
-                          className={`flex-1 h-10 pointer-fine:h-8 text-sm rounded-lg border transition-colors ${btnBorder}`}
-                        >
-                          Sign out anyway
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : step === 'code' ? (
                 <form
@@ -710,14 +648,6 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   <p className={`text-xs ${muted}`}>
                     Enter the code sent to{' '}
                     <span className={`font-medium ${label}`}>{email}</span>
-                  </p>
-                  {/* SAID BEFORE IT HAPPENS, not after. Signing in here ends
-                      every other session on the account, and the devices that
-                      lose theirs find out late and quietly — so the one moment
-                      to mention it is while the person is choosing to do it. */}
-                  <p className={`text-xs ${dark ? 'text-amber-300' : 'text-amber-700'}`}>
-                    Signing in here will sign out your other devices. Cue keeps one device
-                    signed in at a time, so only one can publish.
                   </p>
                   {/* One field, not six boxes: six boxes break paste and are
                       fiddly on mobile. autoComplete="one-time-code" is what

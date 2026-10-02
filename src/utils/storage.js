@@ -364,32 +364,6 @@ export function newestLocalAt(set, setSongs = []) {
     .at(-1) ?? '';
 }
 
-// Published sets whose local copy has changes the cloud has not got.
-//
-// WHY IT LIVES HERE. Sign-out is in Settings, which knows nothing about sets —
-// and the one moment this matters is the moment you hand the baton to another
-// device. Reads the same published cache and the same newestLocalAt comparison
-// the set rows use, so it can never disagree with the SEND CHANGES they show.
-//
-// Returns the set names, newest first by nothing in particular — a short list to
-// put in a sentence, not a report.
-export async function setsWithUnsentChanges() {
-  let published = {};
-  try { published = JSON.parse(localStorage.getItem('cue:published_sets') || '{}'); } catch { return []; }
-  const ids = Object.keys(published);
-  if (!ids.length) return [];
-  const [sets, songs] = await Promise.all([loadSets(), loadSongs()]);
-  const byId = new Map(songs.map((s) => [s.id, s]));
-  return sets
-    .filter((set) => {
-      const publishedAt = published[set.id];
-      if (!publishedAt) return false;
-      const members = (set.songIds || []).map((id) => byId.get(id)).filter(Boolean);
-      return newestLocalAt(set, members) > publishedAt;
-    })
-    .map((set) => set.name);
-}
-
 // Per-share viewer state, cleared when the share goes.
 //
 // ONE PLACE THAT KNOWS THE KEY. The shared-set page writes it and two different
