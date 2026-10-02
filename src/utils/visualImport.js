@@ -67,9 +67,29 @@ function splitCompound(t) {
   return parts.length ? parts : [t];
 }
 
+// A line of guitar/bass tablature: a string name, a bar line, and a run of
+// dashes. Tab is MONOSPACE ART — the columns are the timing — and nothing in it
+// is a chord to be found, transposed or re-spaced.
+//
+// It fools the chord test in a way that is worse than failing outright, because
+// it only fools it SOMETIMES. "A|--------|" strips to a bare "A" once the
+// trailing dashes and pipe go, so that line reads as a chord; "D|-----2---|"
+// keeps a digit in the middle and does not. So a six-line tab block had two of
+// its strings turned into chord lines and four left as text, which is both a
+// pair of phantom chords in the song and a block rendered in two different
+// styles down its own height.
+//
+// Four dashes is the test, not one: it has to catch real tab without catching a
+// chord someone wrote as "A -" or "D - - -".
+const TAB_LINE = /^\s*[A-Ga-g][#b]?\s*[|:]/;
+export function isTabLine(line) {
+  return TAB_LINE.test(line || '') && /-{4,}/.test(line);
+}
+
 export function isChordLine(line) {
   const trimmed = line.trim();
   if (!trimmed) return false;
+  if (isTabLine(trimmed)) return false;
   const tokens = trimmed.split(/\s+/);
   // Every token must be a chord, strum marker, annotation, or bare asterisk —
   // AND at least one real chord name must be present. This prevents standalone
