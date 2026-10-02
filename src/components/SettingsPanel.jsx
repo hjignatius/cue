@@ -116,7 +116,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
   const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, aiTier, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
   const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
   const dark = theme === 'dark';
-  const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut } = useAuth();
+  const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut, endedElsewhere, clearEndedElsewhere } = useAuth();
 
   // One section open at a time — the point is to keep the panel short, and
   // multi-open would let it grow back to the wall of controls this replaced.
@@ -641,6 +641,27 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
               {isConfigured && !hideAccount && (<>
                 {canPickFolder && <div className={`border-t ${border} -mx-3`} role="separator" />}
 
+              {/* THE LOSING DEVICE'S SIDE OF IT. A session that ends without
+                  this device asking used to be silent — you were simply signed
+                  out one day, mid-use. Said as a POSSIBILITY, because the client
+                  genuinely cannot tell a sign-in elsewhere from an expired or
+                  revoked token; claiming the first would be a guess dressed as a
+                  fact. */}
+              {!user && endedElsewhere && (
+                <div className={`rounded-xl border px-3 py-2 mb-3 ${dark ? 'border-amber-500/40 bg-amber-950/30' : 'border-amber-300 bg-amber-50'}`}>
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">You were signed out</p>
+                  <p className={`text-xs mt-0.5 ${dark ? 'text-amber-200/80' : 'text-amber-800'}`}>
+                    This usually means you signed in on another device — Cue keeps one signed in at a
+                    time. Your songs and sets are untouched. Sign in again to publish from here.
+                  </p>
+                  <button
+                    onClick={clearEndedElsewhere}
+                    className={`mt-1 text-xs ${dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
               {user ? (
                 <div className="flex flex-col gap-3">
                   <p className={`text-sm break-all ${label}`}>{user.email}</p>
@@ -689,6 +710,14 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   <p className={`text-xs ${muted}`}>
                     Enter the code sent to{' '}
                     <span className={`font-medium ${label}`}>{email}</span>
+                  </p>
+                  {/* SAID BEFORE IT HAPPENS, not after. Signing in here ends
+                      every other session on the account, and the devices that
+                      lose theirs find out late and quietly — so the one moment
+                      to mention it is while the person is choosing to do it. */}
+                  <p className={`text-xs ${dark ? 'text-amber-300' : 'text-amber-700'}`}>
+                    Signing in here will sign out your other devices. Cue keeps one device
+                    signed in at a time, so only one can publish.
                   </p>
                   {/* One field, not six boxes: six boxes break paste and are
                       fiddly on mobile. autoComplete="one-time-code" is what
