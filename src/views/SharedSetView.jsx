@@ -9,7 +9,6 @@ import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cache
 import { mergeCustomChords } from '../utils/fileIO.js';
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
-import { scopedKey } from '../utils/library.js';
 import PresentationView from './PresentationView.jsx';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Pencil } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
@@ -45,7 +44,7 @@ function loadViewerKeys() {
 }
 
 // Shared-with-me bookmarks: { token, setName, savedAt, lastLoadedAt }[]
-export const SHARED_WITH_ME_KEY = scopedKey('cue:shared_with_me');
+export const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
 function loadSavedShares() {
   try { return JSON.parse(localStorage.getItem(SHARED_WITH_ME_KEY) || '[]'); } catch { return []; }
 }

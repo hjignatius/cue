@@ -18,7 +18,6 @@ import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadS
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
-import { scopedKey, isMainLibrary, activeLibrary } from '../utils/library.js';
 import { forgetShareState } from '../utils/storage.js';
 import { isEditedCopy, matchLibrarySong } from '../utils/contentHash.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
@@ -70,9 +69,7 @@ function HeaderPill({ dark, icon: Icon, label, title, active = false, disabled =
   return dataOnboard ? <span data-onboard={dataOnboard} className="inline-flex">{btn}</span> : btn;
 }
 
-// Scoped per library: publish marks are about the sets in THIS library, and a
-// test library inheriting them is the stale-mark trap in a new coat.
-const PUBLISHED_SETS_KEY = scopedKey('cue:published_sets');
+const PUBLISHED_SETS_KEY = 'cue:published_sets';
 function loadPublishedSets() {
   try { return JSON.parse(localStorage.getItem(PUBLISHED_SETS_KEY) || '{}'); } catch { return {}; }
 }
@@ -99,7 +96,7 @@ const PILL_BOTTOM = 24;
 // tappable. Derived from PILL_BOTTOM so the two can never drift apart.
 const PILL_CLEARANCE = `calc(${SEGMENTED_HEIGHT.lg}px + ${PILL_BOTTOM + 12}px + env(safe-area-inset-bottom))`;
 
-const SHARED_WITH_ME_KEY = scopedKey('cue:shared_with_me');
+const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
 function loadSharedWithMe() {
   try { return JSON.parse(localStorage.getItem(SHARED_WITH_ME_KEY) || '[]'); } catch { return []; }
 }
@@ -2527,21 +2524,6 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           <span className="mt-1 text-[10px] leading-none font-mono text-gray-400 dark:text-gray-600 tabular-nums">
             v{import.meta.env.VITE_APP_VERSION}
           </span>
-          {/* WHICH LIBRARY, when it is not the real one.
-              This is a testing tool whose worst failure is forgetting which side
-              of it you are on — editing real songs believing they are a sandbox,
-              or the reverse. So it is loud, permanent while it applies, and
-              absent entirely in Main: a device that never makes a second library
-              sees nothing here, which is also why nothing had to change for
-              anyone else. */}
-          {!isMainLibrary() && (
-            <span
-              title={`You are working in the “${activeLibrary()}” library, not your real songs. Switch back in Settings → Data & Account.`}
-              className="mt-1 px-1.5 py-0.5 rounded text-[10px] leading-none font-semibold uppercase tracking-wide bg-amber-500 text-white"
-            >
-              {activeLibrary()}
-            </span>
-          )}
         </div>
         {/* Round-button language, matching the editor header: ? and Settings are
             icon-only circles; Import and Backup are icon+label pills. Neutral fill

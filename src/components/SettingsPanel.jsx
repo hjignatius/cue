@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, ChevronRight, Trash2 } from 'lucide-react';
+import { X, ChevronRight} from 'lucide-react';
 import { usePrefs, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
@@ -7,7 +7,6 @@ import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
 import { getApiKey, setApiKey, AI_TIERS, tierById } from '../lib/ai.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import { setsWithUnsentChanges } from '../utils/storage.js';
-import { listLibraries, activeLibrary, createLibrary, deleteLibrary, switchLibrary, MAIN_LIBRARY } from '../utils/library.js';
 
 const CHORD_SCALE_STEPS = [-30, -20, -10, 0, 10, 20, 30];
 
@@ -126,17 +125,6 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
   // Sign-out guard: null, or the names of published sets this device has not
   // sent yet. Signing out is how you hand the baton to another device, and the
   // one thing that must not be left behind is work the cloud has never seen.
-  const [libraries, setLibraries] = useState(listLibraries);
-  const [library] = useState(activeLibrary);
-  const [newLib, setNewLib] = useState('');
-  const [confirmDeleteLib, setConfirmDeleteLib] = useState(null);
-  function addLibrary() {
-    const name = createLibrary(newLib);
-    if (!name) return;
-    setNewLib('');
-    setLibraries(listLibraries());
-  }
-
   const [unsent, setUnsent] = useState(null);
   async function handleSignOut() {
     const names = await setsWithUnsentChanges().catch(() => []);
@@ -622,90 +610,6 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
           {(canPickFolder || (isConfigured && !hideAccount)) && (
             <Section title="Data & Account" summary={dataSummary} dark={dark}
               open={openSection === 'data'} onToggle={() => toggleSection('data')}>
-              {/* LIBRARIES — a testing tool, and it says so.
-                  Each library is its own database, so songs, sets and ink in one
-                  cannot be seen from another. Main is the original database under
-                  its original name, so this ships inert: a device that never
-                  touches it cannot tell the feature exists.
-                  Switching reloads, because the database handle is a singleton
-                  and every view holds songs in state. A reload cannot be
-                  half-right, which matters more here than smoothness. */}
-              <div className="flex flex-col gap-2">
-                <span className={`text-sm ${label}`}>Libraries</span>
-                <p className={`text-[11px] ${muted}`}>
-                  Separate song libraries on this device, for trying things out. Each one is
-                  completely separate — songs, sets and ink. Switching reloads Cue.
-                </p>
-                <div className="flex flex-col gap-1">
-                  {libraries.map(name => {
-                    const current = name === library;
-                    return (
-                      <div key={name} className="flex items-center gap-2">
-                        <button
-                          onClick={() => !current && switchLibrary(name)}
-                          disabled={current}
-                          className={`flex-1 h-11 pointer-fine:h-9 px-3 text-sm rounded-lg border text-left transition-colors ${
-                            current
-                              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-300 font-medium'
-                              : btnBorder
-                          }`}
-                        >
-                          {name}{current ? ' — in use' : ''}
-                          {name === MAIN_LIBRARY && <span className={`ml-1 text-[11px] ${muted}`}>(your real songs)</span>}
-                        </button>
-                        {name !== MAIN_LIBRARY && (
-                          <button
-                            onClick={() => setConfirmDeleteLib(name)}
-                            title={`Delete the ${name} library`}
-                            className={`h-11 w-11 pointer-fine:h-9 pointer-fine:w-9 flex items-center justify-center rounded-lg border transition-colors ${btnBorder}`}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Deleting throws a whole database away, so it asks — and names
-                    what goes, because "Test" tells you nothing about what is in it. */}
-                {confirmDeleteLib && (
-                  <div className={`rounded-xl border px-3 py-2 flex flex-col gap-2 ${dark ? 'border-red-500/40 bg-red-950/30' : 'border-red-300 bg-red-50'}`}>
-                    <p className="text-sm font-medium text-red-700 dark:text-red-300">Delete “{confirmDeleteLib}”?</p>
-                    <p className={`text-xs ${dark ? 'text-red-200/80' : 'text-red-800'}`}>
-                      Every song, set and annotation in that library goes, and it cannot be undone.
-                      Your {MAIN_LIBRARY} library is untouched.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={async () => { const n = confirmDeleteLib; setConfirmDeleteLib(null); await deleteLibrary(n); setLibraries(listLibraries()); }}
-                        className="flex-1 h-10 pointer-fine:h-8 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors"
-                      >
-                        Delete it
-                      </button>
-                      <button onClick={() => setConfirmDeleteLib(null)} className={`flex-1 h-10 pointer-fine:h-8 text-sm rounded-lg border transition-colors ${btnBorder}`}>Cancel</button>
-                    </div>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    value={newLib}
-                    onChange={e => setNewLib(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') addLibrary(); }}
-                    placeholder="New library name"
-                    aria-label="New library name"
-                    className={`flex-1 h-11 pointer-fine:h-9 px-3 text-sm rounded-lg border bg-transparent ${btnBorder}`}
-                  />
-                  <button
-                    onClick={addLibrary}
-                    disabled={!newLib.trim()}
-                    className={`h-11 pointer-fine:h-9 px-3 text-sm rounded-lg border transition-colors disabled:opacity-40 ${btnBorder}`}
-                  >
-                    Create
-                  </button>
-                </div>
-              </div>
-              <div className={`border-t ${border} -mx-3`} role="separator" />
-
               {canPickFolder && (
               <div className="flex flex-col gap-2">
                 <span className={`text-sm ${label}`}>Save location</span>

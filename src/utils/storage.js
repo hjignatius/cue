@@ -1,8 +1,6 @@
 import { openDB } from 'idb';
-import { dbNameFor, scopedKey } from './library.js';
 
-// Main keeps 'cue-db'; any other library gets its own database. One name is why
-// separate libraries cost a line here instead of a filter on every query.
+const DB_NAME    = 'cue-db';
 const DB_VERSION = 4;
 // The EXPORT format's version, written into backups — deliberately NOT bumped
 // with DB_VERSION here. v4 only adds a local cache store; nothing about what a
@@ -17,7 +15,7 @@ let _db = null;
 // connection rather than opening a competing one at a different version.
 export async function getDB() {
   if (!_db) {
-    _db = await openDB(dbNameFor(), DB_VERSION, {
+    _db = await openDB(DB_NAME, DB_VERSION, {
       upgrade(database) {
         if (!database.objectStoreNames.contains('songs')) {
           database.createObjectStore('songs', { keyPath: 'id' });
@@ -377,7 +375,7 @@ export function newestLocalAt(set, setSongs = []) {
 // put in a sentence, not a report.
 export async function setsWithUnsentChanges() {
   let published = {};
-  try { published = JSON.parse(localStorage.getItem(scopedKey('cue:published_sets')) || '{}'); } catch { return []; }
+  try { published = JSON.parse(localStorage.getItem('cue:published_sets') || '{}'); } catch { return []; }
   const ids = Object.keys(published);
   if (!ids.length) return [];
   const [sets, songs] = await Promise.all([loadSets(), loadSongs()]);
@@ -397,7 +395,7 @@ export async function setsWithUnsentChanges() {
 // ONE PLACE THAT KNOWS THE KEY. The shared-set page writes it and two different
 // screens remove bookmarks, so the name lived in whichever file happened to need
 // it — which is how a share gets forgotten while its choices quietly outlive it.
-export const sharePlayMineKey = (token) => scopedKey(`cue:share_play_mine:${token}`);
+export const sharePlayMineKey = (token) => `cue:share_play_mine:${token}`;
 
 export function forgetShareState(token) {
   if (!token) return;
@@ -498,8 +496,7 @@ export async function removeSongFromAllSets(songId) {
 
 // ---- Draft (stays in localStorage — tiny, written on every keystroke) -------
 
-// Scoped: a draft belongs to the songs in front of you, not to the device.
-const DRAFT_KEY = scopedKey('cue:draft');
+const DRAFT_KEY = 'cue:draft';
 
 export function loadDraft() {
   try { return JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch { return null; }
