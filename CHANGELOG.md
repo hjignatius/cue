@@ -3,6 +3,34 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.11 — 2026-10-07
+
+### Fixes
+
+- **A chord you add from the AI tools now stays added.** Adding a shape through
+  *Find alternate chord voicings* or *Find missing chord shapes* put it in the
+  chord panel, where it looked saved — but the next edit you made in that panel
+  wrote over it, and the chord was gone. It had been showing from the editor's
+  own copy rather than from the library, so nothing on screen said anything was
+  wrong until a backup turned up without it. The panel and the AI tools now both
+  write through the stored library instead of over each other. Editing a shape
+  that came from the AI tools also corrects it in place now, rather than leaving
+  a second copy beside it.
+
+- **"F////" is an F held for four beats, not a chord named F////.** Beat slashes
+  written after a chord were read as part of its name, so the chord panel
+  labelled a tile *F////* and *Find missing chord shapes* went looking for a
+  fingering for a chord that doesn't exist. A trailing run of slashes is now
+  always read as beats — *F////* and *F/* are F, *C/G/* is C/G — while genuine
+  slash chords like *F/A* are untouched. Backslash beats (`F\\\\`) already
+  worked; that difference was the bug.
+
+- **Tablature is left as tablature.** In a block of guitar or ukulele tab, lines
+  like *A|--------|* were read as chord lines while *D|-----2---|* was not, so a
+  six-string tab came out with two phantom chords in the song and its own lines
+  rendered in two different styles. Tab lines are now recognised and left alone,
+  whatever the instrument's string count or tuning.
+
 ## v1.9.10 — 2026-10-01
 
 ### Fixes
