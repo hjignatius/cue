@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, X, Download, Upload, SquarePen } from 'lucide-react';
 import { getActiveChords, getActiveTuning, chordPrefKey } from '../data/chordLibraries.js';
 import { shapesForName } from '../utils/chordLookup.js';
-import { loadCustomChords, saveCustomChords, loadHiddenChords, saveHiddenChords } from '../utils/chordStorage.js';
+import { loadCustomChords, loadHiddenChords, mutateCustomChords, mutateHiddenChords } from '../utils/chordStorage.js';
 import ChordDiagram from './ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
@@ -211,24 +211,27 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
     setExpandedChord(null);
   }
 
+  // Every write below goes through mutate*Chords, which re-reads the stored
+  // library first. `customChords` is a render snapshot, not the truth: the AI
+  // chord tools in the editor write while this panel is mounted, and persisting
+  // the snapshot instead would drop whatever they added.
   function handleSaveCustom(chord) {
-    const updated = [...customChords, chord];
-    setCustomChords(updated);
-    saveCustomChords(instrument, updated);
+    setCustomChords(mutateCustomChords(instrument, cur => [...cur, chord]));
     setAddingCustom(null);
   }
 
   function handleSaveEdited(chord) {
-    const updated = [...customChords];
-    if (editingChord?.isCustom) {
-      const origKey = editingChord.originalFrets.join(',');
-      const idx = updated.findIndex(c => c.name === editingChord.originalName && c.frets.join(',') === origKey);
-      if (idx !== -1) updated[idx] = chord; else updated.push(chord);
-    } else {
-      updated.push(chord);
-    }
-    setCustomChords(updated);
-    saveCustomChords(instrument, updated);
+    setCustomChords(mutateCustomChords(instrument, cur => {
+      const updated = [...cur];
+      if (editingChord?.isCustom) {
+        const origKey = editingChord.originalFrets.join(',');
+        const idx = updated.findIndex(c => c.name === editingChord.originalName && c.frets.join(',') === origKey);
+        if (idx !== -1) updated[idx] = chord; else updated.push(chord);
+      } else {
+        updated.push(chord);
+      }
+      return updated;
+    }));
     setEditingChord(null);
   }
 
@@ -280,17 +283,14 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
   }
 
   function handleDeleteBuiltin(chord) {
-    const updated = new Set(hiddenBuiltins);
-    updated.add(builtinKey(chord));
-    setHiddenBuiltins(updated);
-    saveHiddenChords(instrument, [...updated]);
+    const key = builtinKey(chord);
+    setHiddenBuiltins(new Set(mutateHiddenChords(instrument, cur => cur.includes(key) ? cur : [...cur, key])));
   }
 
   function handleDeleteCustom(name, frets) {
     const key = frets.join(',');
-    const updated = customChords.filter(c => !(c.name === name && c.frets.join(',') === key));
-    setCustomChords(updated);
-    saveCustomChords(instrument, updated);
+    setCustomChords(mutateCustomChords(instrument, cur =>
+      cur.filter(c => !(c.name === name && c.frets.join(',') === key))));
     const next = { ...chordPrefs };
     delete next[chordPrefKey(instrument, name)];
     onChordPrefsChange?.(next);
@@ -307,7 +307,9 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
       const file = input.files?.[0];
       if (!file) return;
       const lines = (await file.text()).split(/\r?\n/);
-      const existing = [...customChords];
+      // Fresh read, then one write of the same array: an import must not drop a
+      // shape saved since this panel rendered (see mutateCustomChords).
+      const existing = loadCustomChords(instrument);
       let added = 0, skipped = 0, invalid = 0;
 
       for (const line of lines) {
@@ -337,8 +339,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         added++;
       }
 
-      setCustomChords(existing);
-      saveCustomChords(instrument, existing);
+      setCustomChords(mutateCustomChords(instrument, () => existing)); // `existing` is already the fresh library
 
       const summary = [`${added} shape${added !== 1 ? 's' : ''} added`];
       if (skipped) summary.push(`${skipped} skipped (already present)`);
@@ -364,7 +365,9 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         alert('This file is not a Cue chord library export.');
         return;
       }
-      const existing = [...customChords];
+      // Fresh read, then one write of the same array: an import must not drop a
+      // shape saved since this panel rendered (see mutateCustomChords).
+      const existing = loadCustomChords(instrument);
       let added = 0, skipped = 0;
       for (const chord of data.chords) {
         const isDupe = existing.some(c => c.name === chord.name && c.frets.join(',') === chord.frets.join(','));
@@ -372,8 +375,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         existing.push(chord);
         added++;
       }
-      setCustomChords(existing);
-      saveCustomChords(instrument, existing);
+      setCustomChords(mutateCustomChords(instrument, () => existing)); // `existing` is already the fresh library
       alert(`Import complete: ${added} chord shape${added !== 1 ? 's' : ''} added, ${skipped} skipped (already present).`);
     };
     input.click();

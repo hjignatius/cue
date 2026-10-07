@@ -46,6 +46,21 @@ export function saveCustomChords(instrument, chords) {
   localStorage.setItem(customKey(instrument), JSON.stringify(chords));
 }
 
+// THE write path for custom shapes. Read-modify-write against localStorage, and
+// return what was actually stored so a caller can set its state from the truth.
+//
+// Why this exists: the chord panel used to hold the custom array in React state
+// from mount and persist that snapshot whole on every edit, so any shape written
+// between mount and that edit was silently dropped — in particular a shape added
+// by the AI chord tools while the panel was open. The panel still showed it (it
+// merges those in for display), so the loss only surfaced later, in a backup
+// missing a chord the screen said was there.
+export function mutateCustomChords(instrument, fn) {
+  const next = fn(loadCustomChords(instrument));
+  saveCustomChords(instrument, next);
+  return next;
+}
+
 // ---- Hidden built-ins (array of builtinKey strings) -------------------------
 
 export function loadHiddenChords(instrument = DEFAULT_INSTRUMENT) {
@@ -57,6 +72,13 @@ export function loadHiddenChords(instrument = DEFAULT_INSTRUMENT) {
 
 export function saveHiddenChords(instrument, hidden) {
   localStorage.setItem(hiddenKey(instrument), JSON.stringify(hidden));
+}
+
+// Same contract as mutateCustomChords, for the hidden-built-ins list.
+export function mutateHiddenChords(instrument, fn) {
+  const next = fn(loadHiddenChords(instrument));
+  saveHiddenChords(instrument, next);
+  return next;
 }
 
 // ---- One-time migration -----------------------------------------------------

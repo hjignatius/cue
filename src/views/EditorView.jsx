@@ -24,7 +24,7 @@ import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
-import { loadCustomChords, saveCustomChords } from '../utils/chordStorage.js';
+import { loadCustomChords, mutateCustomChords } from '../utils/chordStorage.js';
 import { shapesForName } from '../utils/chordLookup.js';
 import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
@@ -1217,8 +1217,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   function saveShapeToLibrary(shape) {
     const entry = { name: shape.name, type: 'custom', frets: shape.frets };
     const same = (c) => c.name === entry.name && (c.frets || []).join(',') === entry.frets.join(',');
-    const existing = loadCustomChords(instrument);
-    if (!existing.some(same)) saveCustomChords(instrument, [...existing, entry]);
+    mutateCustomChords(instrument, cur => cur.some(same) ? cur : [...cur, entry]);
     setAddedChords(prev => prev.some(same) ? prev : [...prev, entry]);
   }
 
