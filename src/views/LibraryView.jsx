@@ -509,7 +509,9 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
   async function publishWithRemediation(set, setSongs, userId) {
     // Embed each song's custom chord shapes in its published content so another
     // device can render them after pulling (the custom-chord library is local).
-    const enrich = (list) => list.map(s => ({ ...s, customChords: customChordsForSong(s, instrument) }));
+    // Tagged with the instrument they are FOR: a puller on another instrument
+    // must not be handed these fingerings as if they were its own.
+    const enrich = (list) => list.map(s => ({ ...s, customChords: customChordsForSong(s, instrument), customChordsInstrument: instrument }));
     try {
       return await publishSet(set, enrich(setSongs), userId);
     } catch (err) {

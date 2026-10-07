@@ -5,7 +5,8 @@ import PresentationView from './views/PresentationView.jsx';
 import UpdateButton from './components/UpdateButton.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
-import { parseCho, mergeCustomChords, replaceCustomChords } from './utils/fileIO.js';
+import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
+import { CHORD_LIBRARIES } from './data/chordLibraries.js';
 import { usePrefs } from './context/PrefsContext.jsx';
 import { useSwUpdate, applyUpdate, dismissUpdate } from './swUpdate.js';
 import './index.css';
@@ -190,7 +191,10 @@ export default function App() {
               songIds: data.set.songIds.map(id => idMap[id]).filter(Boolean),
               sortMode: data.set.sortMode || 'custom',
             });
-            if (Array.isArray(data.customChords) && data.customChords.length > 0) {
+            // Tagged block when the file has one (every instrument's shapes and
+            // hidden built-ins); the flat ukulele-only array otherwise, which is
+            // what every file written before this carries.
+            if (!restoreChordLibraries(data) && Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
             alert(`Set imported: “${data.set.name}”.\n${added} song${added === 1 ? '' : 's'} added${reused ? `, ${reused} already in your library and reused` : ''}`);
@@ -211,7 +215,10 @@ export default function App() {
               added++;
             }
             await restoreBundlePdfs(data.pdfs, idMap);
-            if (Array.isArray(data.customChords) && data.customChords.length > 0) {
+            // Tagged block when the file has one (every instrument's shapes and
+            // hidden built-ins); the flat ukulele-only array otherwise, which is
+            // what every file written before this carries.
+            if (!restoreChordLibraries(data) && Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
             alert(`Songs imported.\n${added} added${skipped ? `, ${skipped} skipped (already in library)` : ''}`);
@@ -245,7 +252,10 @@ export default function App() {
                 sortMode: set.sortMode || 'custom',
               });
             }
-            if (Array.isArray(data.customChords) && data.customChords.length > 0) {
+            // Tagged block when the file has one (every instrument's shapes and
+            // hidden built-ins); the flat ukulele-only array otherwise, which is
+            // what every file written before this carries.
+            if (!restoreChordLibraries(data) && Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
             // This path asked what to do and then never said what it did.
@@ -340,9 +350,20 @@ export default function App() {
               alert(`Backup merged.\n${parts.join('\n')}`);
             }
 
-            if (Array.isArray(data.customChords) && data.customChords.length > 0) {
+            const chordsRestored = restoreChordLibraries(data, mode === 'replace' ? 'replace' : 'merge');
+            if (!chordsRestored && Array.isArray(data.customChords) && data.customChords.length > 0) {
               if (mode === 'replace') replaceCustomChords(data.customChords);
               else mergeCustomChords(data.customChords);
+            }
+            // Say so when shapes arrived for an instrument other than ukulele.
+            // Those used to travel nowhere at all, so their arrival is the one
+            // part of this a restore has never been able to report. Ukulele stays
+            // silent, as it always was.
+            if (chordsRestored) {
+              const note = Object.entries(chordsRestored.customs)
+                .filter(([inst, n]) => inst !== 'ukulele_gcea' && n > 0)
+                .map(([inst, n]) => `${CHORD_LIBRARIES[inst]?.name || inst}: ${n} chord shape${n === 1 ? '' : 's'}`);
+              if (note.length) alert(`Chord shapes restored.\n${note.join('\n')}`);
             }
 
           } else {

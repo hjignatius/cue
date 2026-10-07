@@ -6,7 +6,7 @@ import { getSharedSet, describeCloudError } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState } from '../utils/storage.js';
-import { mergeCustomChords } from '../utils/fileIO.js';
+import { mergeTaggedSongCustoms } from '../utils/fileIO.js';
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
@@ -424,8 +424,9 @@ export default function SharedSetView() {
         if (blob) await savePdfBlob(newId, blob);
       }
 
-      // Bring any custom chord shapes this song carries into the local library.
-      if (Array.isArray(song.customChords) && song.customChords.length) mergeCustomChords(song.customChords);
+      // Bring any custom chord shapes this song carries into the local library,
+      // under the instrument they were published for.
+      mergeTaggedSongCustoms([song]);
 
       setHasCopied(true);
       setCopyResult({ type: 'song', title, outcome, newTitle: outcome === 'duplicate' ? newTitle : undefined });
@@ -529,9 +530,9 @@ export default function SharedSetView() {
       // re-copy updates it in place rather than making a second set.
       const priorSet = (await loadSets()).find(st => st.copiedFrom?.token === token);
       await saveSet({ id: priorSet?.id || null, name: set.name, songIds: newSongIds, sortMode: 'custom', copiedFrom: { token, setName: set.name } });
-      // Bring any custom chord shapes the set's songs carry into the local library.
-      const customs = songs.flatMap(s => Array.isArray(s.customChords) ? s.customChords : []);
-      if (customs.length) mergeCustomChords(customs);
+      // Bring the set's songs' custom chord shapes into the local library, each
+      // under the instrument it was published for.
+      mergeTaggedSongCustoms(songs);
       if (copied + duplicated > 0) setHasCopied(true);
       setCopyResult({ type: 'set', setName: set.name, copied, duplicated, skipped });
     } catch (err) {
@@ -819,7 +820,7 @@ export default function SharedSetView() {
       const blob = await loadPdfBlob(s.id);
       if (blob) await savePdfBlob(local.id, blob);
     }
-    if (Array.isArray(s.customChords) && s.customChords.length) mergeCustomChords(s.customChords);
+    mergeTaggedSongCustoms([s]);
   }
 
   // The library button on a row marked as behind. One tap, no confirmation:
@@ -872,7 +873,7 @@ export default function SharedSetView() {
             pdf: pdfRefForCopy(s.pdf),
           });
           if (s.type === 'pdf') { const blob = await loadPdfBlob(s.id); if (blob) await savePdfBlob(newId, blob); }
-          if (Array.isArray(s.customChords) && s.customChords.length) mergeCustomChords(s.customChords);
+          mergeTaggedSongCustoms([s]);
           shareToLocalId.set(s.id, newId);
           added++;
         } else if (item.local) {

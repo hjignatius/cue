@@ -19,22 +19,31 @@ import { detectChords } from './chordDetect.js';
 // So these default to the ukulele scope; only customChordsForSong takes the
 // active instrument (the publish embed, point 7).
 
-import { loadCustomChords as loadScopedCustom, saveCustomChords as saveScopedCustom } from './chordStorage.js';
-import { DEFAULT_INSTRUMENT } from '../data/chordLibraries.js';
+import {
+  loadCustomChords as loadScopedCustom,
+  saveCustomChords as saveScopedCustom,
+  mutateCustomChords,
+  loadHiddenChords as loadScopedHidden,
+  saveHiddenChords as saveScopedHidden,
+  mutateHiddenChords,
+} from './chordStorage.js';
+import { DEFAULT_INSTRUMENT, CHORD_LIBRARIES } from '../data/chordLibraries.js';
 
 export function loadCustomChords(instrument = DEFAULT_INSTRUMENT) {
   return loadScopedCustom(instrument);
 }
 
 export function mergeCustomChords(incoming = [], instrument = DEFAULT_INSTRUMENT) {
-  const existing = loadScopedCustom(instrument);
   let added = 0;
-  for (const chord of incoming) {
-    if (!Array.isArray(chord.frets)) continue;
-    const isDupe = existing.some(c => c.name === chord.name && c.frets.join(',') === chord.frets.join(','));
-    if (!isDupe) { existing.push(chord); added++; }
-  }
-  saveScopedCustom(instrument, existing);
+  mutateCustomChords(instrument, existing => {
+    const next = [...existing];
+    for (const chord of incoming) {
+      if (!Array.isArray(chord.frets)) continue;
+      const isDupe = next.some(c => c.name === chord.name && c.frets.join(',') === chord.frets.join(','));
+      if (!isDupe) { next.push(chord); added++; }
+    }
+    return next;
+  });
   return added;
 }
 
@@ -55,6 +64,120 @@ export function replaceCustomChords(chords = [], instrument = DEFAULT_INSTRUMENT
 export function customChordsForSong(song, instrument = DEFAULT_INSTRUMENT) {
   const names = new Set(detectChords(convertToBrackets(song?.text || '')));
   return loadScopedCustom(instrument).filter(c => names.has(c.name));
+}
+
+// ---- Tagged chord libraries (all instruments) -------------------------------
+//
+// The flat array above is ukulele-only in both directions, which was fine while
+// ukulele was the only library anyone had. It is not fine now that Settings
+// offers Baritone and Guitar: a shape added on guitar lived on one device and
+// appeared in no backup, with nothing on screen to say so — the same silent loss
+// as a chord erased by a stale panel write, but structural. And hidden built-ins
+// travelled nowhere at all, on any instrument, so a restore quietly brought back
+// every built-in shape you had deleted.
+//
+// Exports therefore carry a TAGGED block as well, keyed by instrument id. The
+// flat `customChords` array stays byte-for-byte as it was, so a new file still
+// restores into an older Cue, and a restore that finds no tagged block falls
+// through to the old ukulele-pinned path unchanged. That is what keeps every
+// backup already on his disk working.
+
+// 'none' is excluded: it is "diagrams off", not an instrument with a library.
+export const TRANSFER_INSTRUMENTS = Object.keys(CHORD_LIBRARIES).filter(id => id !== 'none');
+
+// Snapshot of every instrument's library, for an export. Empty scopes are left
+// out rather than written as empty objects, so a ukulele-only device's backup
+// does not grow keys describing instruments it has never used.
+export function chordLibrarySnapshot() {
+  const customs = {};
+  const hidden  = {};
+  for (const inst of TRANSFER_INSTRUMENTS) {
+    const c = loadScopedCustom(inst);
+    if (Array.isArray(c) && c.length) customs[inst] = c;
+    const h = loadScopedHidden(inst);
+    if (Array.isArray(h) && h.length) hidden[inst] = h;
+  }
+  return {
+    ...(Object.keys(customs).length ? { customChordsByInstrument: customs } : {}),
+    ...(Object.keys(hidden).length  ? { hiddenChordsByInstrument: hidden }  : {}),
+  };
+}
+
+// Merge the shapes a pulled song or set carried, each into the scope it was
+// published FOR rather than into the puller's default. A guitar publisher's
+// fingerings used to land in the puller's ukulele library and render as wrong
+// shapes for the wrong instrument; now they land in the guitar scope, where a
+// ukulele player simply does not see them — which is the right answer.
+//
+// Content published before this carries no tag and is treated as ukulele, exactly
+// as it was. Returns the number of shapes actually added.
+export function mergeTaggedSongCustoms(songs = []) {
+  const byInstrument = new Map();
+  for (const s of songs) {
+    const chords = s?.customChords;
+    if (!Array.isArray(chords) || !chords.length) continue;
+    const tag  = s.customChordsInstrument;
+    const inst = typeof tag === 'string' && TRANSFER_INSTRUMENTS.includes(tag) ? tag : DEFAULT_INSTRUMENT;
+    if (!byInstrument.has(inst)) byInstrument.set(inst, []);
+    byInstrument.get(inst).push(...chords);
+  }
+  let added = 0;
+  for (const [inst, chords] of byInstrument) added += mergeCustomChords(chords, inst);
+  return added;
+}
+
+function plainObject(v) {
+  return v != null && typeof v === 'object' && !Array.isArray(v);
+}
+
+// True when a bundle carries the tagged block, i.e. when the caller should use
+// restoreChordLibraries instead of the flat `customChords` array.
+export function hasTaggedChordLibraries(data) {
+  return plainObject(data?.customChordsByInstrument) || plainObject(data?.hiddenChordsByInstrument);
+}
+
+// Restore side. `mode` is 'merge' or 'replace', matching the backup dialog.
+// Returns { customs: {inst: addedCount}, hidden: {inst: addedCount} } or null
+// when there is no tagged block to read.
+//
+// Only scopes PRESENT in the file are touched, including under 'replace'. An
+// instrument missing from the block means the exporting device had nothing for
+// it, which is not the same statement as "delete what you have" — and a restore
+// is the wrong place to guess at the difference.
+export function restoreChordLibraries(data, mode = 'merge') {
+  if (!hasTaggedChordLibraries(data)) return null;
+  const customs = data.customChordsByInstrument;
+  const hidden  = data.hiddenChordsByInstrument;
+  const result  = { customs: {}, hidden: {} };
+
+  for (const inst of TRANSFER_INSTRUMENTS) {
+    const inCustoms = plainObject(customs) && Array.isArray(customs[inst]) ? customs[inst] : null;
+    if (inCustoms) {
+      const valid = inCustoms.filter(c => c && typeof c.name === 'string' && Array.isArray(c.frets));
+      if (mode === 'replace') {
+        replaceCustomChords(valid, inst);
+        result.customs[inst] = valid.length;
+      } else {
+        result.customs[inst] = mergeCustomChords(valid, inst);
+      }
+    }
+
+    const inHidden = plainObject(hidden) && Array.isArray(hidden[inst])
+      ? hidden[inst].filter(k => typeof k === 'string')
+      : null;
+    if (inHidden) {
+      if (mode === 'replace') {
+        const next = [...new Set(inHidden)];
+        saveScopedHidden(inst, next);
+        result.hidden[inst] = next.length;
+      } else {
+        const before = loadScopedHidden(inst).length;
+        const after  = mutateHiddenChords(inst, cur => [...new Set([...cur, ...inHidden])]).length;
+        result.hidden[inst] = after - before;
+      }
+    }
+  }
+  return result;
 }
 
 // -----------------------------------------------------------------------------
@@ -178,7 +301,7 @@ export async function exportSetsJson(sets, allSongs) {
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
   const pdfs = await collectPdfBackups(songs);
-  const payload = JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
   download(`cue-sets-${date}.json`, payload, 'application/json');
 }
 
@@ -263,9 +386,10 @@ export async function shareSetsJson(sets, allSongs) {
   const pdfs = await collectPdfBackups(songs);
   const one = sets.length === 1 ? sets[0] : null;
   const date = new Date().toISOString().slice(0, 10);
+  const tagged = chordLibrarySnapshot();
   const payload = one
-    ? JSON.stringify({ type: 'cue-set', version: 2, set: one, songs, customChords, pdfs }, null, 2)
-    : JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, pdfs }, null, 2);
+    ? JSON.stringify({ type: 'cue-set', version: 2, set: one, songs, customChords, ...tagged, pdfs }, null, 2)
+    : JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, ...tagged, pdfs }, null, 2);
   const filename = one ? `${sanitizeFilename(one.name)}.json` : `cue-sets-${date}.json`;
   const title = one ? `Cue set: ${one.name}` : `Cue sets (${sets.length})`;
   const text  = `${one ? `"${one.name}"` : `${sets.length} sets`} from Cue. Open in Cue: Import → pick this .json file.`;
@@ -287,7 +411,7 @@ export async function exportSetJson(set, allSongs) {
   const songs = set.songIds.map(id => songMap.get(id) || allSongs.find(s => s.id === id)).filter(Boolean);
   const customChords = loadCustomChords();
   const pdfs = await collectPdfBackups(songs);
-  const payload = JSON.stringify({ type: 'cue-set', version: 2, set, songs, customChords, pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-set', version: 2, set, songs, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
   download(`${sanitizeFilename(set.name)}.json`, payload, 'application/json');
 }
 
@@ -312,7 +436,7 @@ export async function exportBackup() {
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
   const pdfs = await collectPdfBackups(songs); // { songId: base64 }
-  const payload = JSON.stringify({ type: 'cue-backup', version: 3, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, customChords, pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-backup', version: 3, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
   return download(`cue-backup-${date}.json`, payload, 'application/json');
 }
 

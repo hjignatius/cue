@@ -3,6 +3,31 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.12 — 2026-10-07
+
+### Backup and transfer
+
+- **Your chord shapes for every instrument now travel in a backup.** A backup
+  carried Ukulele shapes and nothing else, so a custom chord added on Guitar or
+  Baritone lived on the one device that made it and appeared in no backup —
+  with nothing on screen to say so. Backups and set bundles now carry every
+  instrument's shapes, tagged so a guitar fingering is never read as a ukulele
+  one.
+
+- **Built-in shapes you deleted stay deleted after a restore.** Deleted
+  built-ins travelled nowhere at all, on any instrument, so restoring a backup
+  quietly brought every one of them back. They now travel with the shapes.
+
+- **Older backups restore exactly as they did before.** A file without the
+  tagged chord block is read as Ukulele, which is what it always was, so every
+  backup already on your disk still works. Restoring one *into* an older copy of
+  Cue works too — the old flat list is still written alongside the new one.
+
+- **A shared set no longer hands your friend the wrong instrument's
+  fingerings.** Shapes embedded in a published song are tagged with the
+  instrument they were drawn for, so a guitar player's voicings go to the
+  guitar library rather than appearing as ukulele shapes that don't play.
+
 ## v1.9.11 — 2026-10-07
 
 ### Fixes

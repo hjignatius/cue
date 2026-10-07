@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { listCloudSets, pullSet, toIsoTs, describeCloudError } from '../lib/cloud.js';
 import { saveSong, saveSet, newestLocalAt, hasPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
-import { mergeCustomChords } from '../utils/fileIO.js';
+import { mergeTaggedSongCustoms } from '../utils/fileIO.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
@@ -80,11 +80,11 @@ export async function applyPulledSet({ set, songs }, localSongIds, userId) {
   let added = 0, overwritten = 0;
   const pdfDownloadFailures = [];
   const songIds = [];
-  const incomingCustoms = [];
+  const incomingCustoms = [];   // one entry per song, so each keeps its instrument tag
 
   for (const row of songs) {
     const c = row.content ?? {};
-    if (Array.isArray(c.customChords)) incomingCustoms.push(...c.customChords);
+    if (Array.isArray(c.customChords)) incomingCustoms.push(c);
     await saveSong({
       id: row.id,
       metadata: c.metadata,
@@ -120,7 +120,7 @@ export async function applyPulledSet({ set, songs }, localSongIds, userId) {
 
   // Merge any custom chord shapes the published songs carried, so this device can
   // render them (dedupes against the local library by name+frets).
-  if (incomingCustoms.length) mergeCustomChords(incomingCustoms);
+  if (incomingCustoms.length) mergeTaggedSongCustoms(incomingCustoms);
 
   // preserveTimestamps keeps the cloud's updated_at rather than stamping now(),
   // so the pulled copy reads as in-sync instead of instantly stale.

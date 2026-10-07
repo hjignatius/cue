@@ -122,5 +122,91 @@ check('hidden snapshot was stale too', hiddenSnapshot, ['C|0,0,0,3']);
 mutateHiddenChords(UKE, cur => (cur.includes('G7|0,2,1,2') ? cur : [...cur, 'G7|0,2,1,2']));
 check('hiding the same built-in twice is a no-op', loadHiddenChords(UKE).length, 3);
 
+
+// ---- 9. tagged transfer: every instrument's library travels -----------------
+//
+// Before this, exports called loadCustomChords() with no argument, i.e. ukulele
+// and only ukulele. A shape added on guitar was in no backup at all, and hidden
+// built-ins travelled nowhere on any instrument.
+
+const {
+  chordLibrarySnapshot, hasTaggedChordLibraries, restoreChordLibraries,
+  mergeTaggedSongCustoms, mergeCustomChords,
+} = await import('../src/utils/fileIO.js');
+
+const GTR = 'guitar';
+const BAR = 'baritone_dgbe';
+const gtrShape = (name, frets) => ({ name, type: 'custom', frets });
+
+// A device with ukulele AND guitar customs, plus a hidden ukulele built-in.
+store.clear();
+saveCustomChords(UKE, [shape('Cdim7', [2, 3, 2, 3])]);
+saveCustomChords(GTR, [gtrShape('Cdim7', [-1, 3, 4, 2, 4, 2])]);
+saveHiddenChords(UKE, ['E7#9|1,2,1,2']);
+const snap = chordLibrarySnapshot();
+
+check('snapshot carries both instruments', Object.keys(snap.customChordsByInstrument).sort(), [GTR, UKE].sort());
+check('snapshot carries hidden built-ins', snap.hiddenChordsByInstrument, { [UKE]: ['E7#9|1,2,1,2'] });
+check('an unused instrument is left out', BAR in snap.customChordsByInstrument, false);
+check('the tagged block is detected', hasTaggedChordLibraries(snap), true);
+
+// THE HEADLINE: restore onto a bare device and the guitar shape is there.
+store.clear();
+const restored = restoreChordLibraries(snap, 'merge');
+check('guitar custom survives a backup/restore', loadCustomChords(GTR).map(c => c.frets.length), [6]);
+check('ukulele custom survives too', names(loadCustomChords(UKE)), ['Cdim7']);
+check('hidden built-in survives', loadHiddenChords(UKE), ['E7#9|1,2,1,2']);
+check('restore reports what it added', restored.customs, { [UKE]: 1, [GTR]: 1 });
+
+// Merging the same file twice adds nothing a second time.
+const again = restoreChordLibraries(snap, 'merge');
+check('a second restore is a no-op', again.customs, { [UKE]: 0, [GTR]: 0 });
+check('no duplicate guitar rows', loadCustomChords(GTR).length, 1);
+check('no duplicate hidden entries', loadHiddenChords(UKE).length, 1);
+
+// ---- 10. old untagged files restore exactly as they did ---------------------
+const legacyBackup = { type: 'cue-backup', version: 3, customChords: [shape('C', [0, 0, 0, 3])] };
+check('an untagged backup has no tagged block', hasTaggedChordLibraries(legacyBackup), false);
+store.clear();
+check('restoreChordLibraries declines it', restoreChordLibraries(legacyBackup, 'merge'), null);
+check('...and touches nothing, so the caller can fall back', loadCustomChords(UKE), []);
+mergeCustomChords(legacyBackup.customChords);          // the fallback path
+check('the flat path still lands in ukulele', names(loadCustomChords(UKE)), ['C']);
+check('and nowhere else', loadCustomChords(GTR), []);
+
+// ---- 11. replace mode touches only the scopes the file carries -------------
+store.clear();
+saveCustomChords(UKE, [shape('C', [0, 0, 0, 3])]);
+saveCustomChords(GTR, [gtrShape('G', [3, 2, 0, 0, 0, 3])]);
+restoreChordLibraries({ customChordsByInstrument: { [UKE]: [shape('Am', [2, 0, 0, 0])] } }, 'replace');
+check('replace overwrites the scope in the file', names(loadCustomChords(UKE)), ['Am']);
+check('a scope absent from the file is left alone', names(loadCustomChords(GTR)), ['G']);
+
+// ---- 12. a malformed block is ignored, not thrown --------------------------
+store.clear();
+restoreChordLibraries({
+  customChordsByInstrument: { [UKE]: [{ name: 'X' }, { frets: [0, 0, 0, 0] }, shape('F', [2, 0, 1, 0])], [GTR]: 'nope' },
+  hiddenChordsByInstrument: { [UKE]: [null, 7, 'F|2,0,1,0'] },
+}, 'merge');
+check('entries missing a name or frets are dropped', names(loadCustomChords(UKE)), ['F']);
+check('a non-array scope is ignored', loadCustomChords(GTR), []);
+check('non-string hidden keys are dropped', loadHiddenChords(UKE), ['F|2,0,1,0']);
+check('an unknown instrument id is ignored', restoreChordLibraries({ customChordsByInstrument: { kazoo: [shape('C', [0])] } }, 'merge').customs, {});
+
+// ---- 13. pulled songs land in the instrument they were published for -------
+store.clear();
+mergeTaggedSongCustoms([
+  { customChords: [gtrShape('Cdim7', [-1, 3, 4, 2, 4, 2])], customChordsInstrument: GTR },
+  { customChords: [shape('Cdim7', [2, 3, 2, 3])], customChordsInstrument: UKE },
+  { customChords: [shape('Am', [2, 0, 0, 0])] },                      // untagged = ukulele, as before
+  { customChords: [shape('F', [2, 0, 1, 0])], customChordsInstrument: 'kazoo' }, // unknown = ukulele
+]);
+check('a guitar publisher fills the guitar scope', loadCustomChords(GTR).map(c => c.frets.length), [6]);
+check('ukulele gets its own, plus untagged and unknown', names(loadCustomChords(UKE)), ['Cdim7', 'Am', 'F']);
+check('nothing leaks into baritone', loadCustomChords(BAR), []);
+store.clear();
+check('songs carrying no shapes add nothing', mergeTaggedSongCustoms([{}, { customChords: [] }]), 0);
+
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

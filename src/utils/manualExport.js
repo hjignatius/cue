@@ -262,7 +262,7 @@ function manualHTML() {
 <p><strong>Which key the Library shows:</strong> the key beside each song title — and the key used for search, the <em>By Key</em> sort, and the key filter — is the song's <strong>View Key</strong> (the key you actually perform it in). If a song has no View Key set, its written key is used instead. So a song written in C but set to play in G shows, sorts, and is found as <strong>G</strong>. Hover the key to see the original written key when the two differ.</p>
 
 <h2>Backup &amp; Restore</h2>
-<p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file — including the bytes of any <strong>PDF</strong> lead sheets, so a restore brings the PDFs back too.</p>
+<p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file — including the bytes of any <strong>PDF</strong> lead sheets, so a restore brings the PDFs back too. It also carries your <strong>custom chord shapes for every instrument</strong> — Ukulele, Baritone and Guitar — and the built-in shapes you have deleted, so a restored device looks up chords the same way this one does.</p>
 <p>To restore, tap <strong>Import</strong> and select a backup file. Cue asks how to handle the import:</p>
 <ul>
   <li><strong>Replace library</strong> — clears all current songs and sets, then loads the backup exactly as it was. Use this when moving to a new device or doing a clean restore.</li>
@@ -493,7 +493,7 @@ Here comes the sun, little darlin</pre>
 <p>Tap <strong>Save</strong> to add the shape. To edit an existing custom shape, <strong>double-click</strong> its diagram in the Chords panel — the form opens pre-filled with that chord's data. To delete a custom shape, hover over its diagram and tap the <strong>×</strong> badge in the top-right corner.</p>
 
 <h2>Exporting &amp; Importing Custom Chords</h2>
-<p>Custom chord shapes are stored locally on the device. Use the buttons in the Chords panel footer to move them between devices or share them.</p>
+<p>Custom chord shapes are stored on the device rather than in the cloud. A <strong>Backup</strong> carries them — every instrument's, plus the built-ins you have deleted — so restoring a backup on another device brings your chord library with it. The buttons in the Chords panel footer move or share <em>one</em> instrument's shapes on their own, which is what you want for sending a few shapes to someone else rather than copying a whole library.</p>
 <ul>
   <li><strong>Import ▾</strong> — opens a format picker. Choose <strong>CSV</strong> to import from a spreadsheet-friendly file, or <strong>JSON</strong> to import from a previously exported Cue chord library. Cue merges incoming shapes into your existing library — exact duplicates are silently skipped. A summary confirms how many shapes were added.</li>
   <li><strong>Export ▾</strong> — opens a format picker. Choose <strong>JSON</strong> to save your chord library as <code>cue-chords-YYYY-MM-DD.json</code>, or <strong>CSV</strong> to save as a comma-separated file. The Export button is grayed out when no custom shapes are defined.</li>
@@ -769,7 +769,11 @@ Pulling will discard them. Continue?</pre>
 
 <h2>Backup File (.json)</h2>
 <p>A full library export created by the <strong>Backup</strong> button:</p>
-<pre>{ "type": "cue-backup", "version": 1, "exportedAt": "...", "songs": [ ... ], "sets": [ ... ] }</pre>
+<pre>{ "type": "cue-backup", "version": 3, "exportedAt": "...", "songs": [ ... ], "sets": [ ... ],
+  "customChordsByInstrument": { "ukulele_gcea": [ ... ], "guitar": [ ... ] },
+  "hiddenChordsByInstrument": { "ukulele_gcea": [ ... ] },
+  "pdfs": { "songId": "base64..." } }</pre>
+<p>Chord shapes are tagged by instrument so a guitar shape is never read as a ukulele one. Older backups carry a single untagged <code>customChords</code> list instead; those are treated as Ukulele, exactly as they always were, and still restore correctly.</p>
 <p>Import a backup file via <strong>Import</strong> to restore all songs and sets in one step.</p>
 
 <h2>Chord Library Export (.json / .csv)</h2>
@@ -805,7 +809,7 @@ Pulling will discard them. Continue?</pre>
   <li><strong>Set PDF with chord charts</strong> — select the set in the Sets panel, then tap <strong>Export ▾ → PDF + Chord Charts</strong> in the Setlist column. Every song becomes a page, and a single chord reference page listing all unique chords across the set is added at the end — useful as a printed reference for rehearsals.</li>
   <li><strong>Exporting a full set as JSON</strong> — select the set, tap <strong>Export ▾ → JSON bundle</strong> in the Setlist column. This creates one file containing the set order plus all the songs, which you can import on another device or keep as a backup.</li>
   <li><strong>Exporting multiple sets</strong> — use Select mode in the Sets panel, check the sets you want, and tap <strong>Export</strong>. All selected sets and their songs are bundled into a single JSON file.</li>
-  <li><strong>Custom chord shapes</strong> — define the shape once, and it is available any time that chord name appears in any song. Custom shapes appear at the top of the voicing options. Use <strong>Export</strong> and <strong>Import</strong> in the Chords panel footer to move your shapes to another device.</li>
+  <li><strong>Custom chord shapes</strong> — define the shape once, and it is available any time that chord name appears in any song. Custom shapes appear at the top of the voicing options. They travel in a <strong>Backup</strong>; <strong>Export</strong> and <strong>Import</strong> in the Chords panel footer move one instrument's shapes on their own.</li>
 </ul>
 
 </body>
