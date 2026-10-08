@@ -20,6 +20,7 @@ import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import { forgetShareState } from '../utils/storage.js';
 import { isEditedCopy, matchLibrarySong } from '../utils/contentHash.js';
+import { loadSavedShares, persistSavedShares } from '../utils/sharedBookmarks.js';
 import { exportCho, exportSongJson, exportSongsZip, exportSongsJson, exportSetsJson, exportSetJson, exportSetText, exportBackup, customChordsForSong, shareSongsJson, shareSetsJson, canShareFiles } from '../utils/fileIO.js';
 import { exportSetToPdf, exportSetsToPdf, exportToPdf } from '../utils/pdfExport.js';
 import { openManualPDF } from '../utils/manualExport.js';
@@ -96,10 +97,6 @@ const PILL_BOTTOM = 24;
 // tappable. Derived from PILL_BOTTOM so the two can never drift apart.
 const PILL_CLEARANCE = `calc(${SEGMENTED_HEIGHT.lg}px + ${PILL_BOTTOM + 12}px + env(safe-area-inset-bottom))`;
 
-const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
-function loadSharedWithMe() {
-  try { return JSON.parse(localStorage.getItem(SHARED_WITH_ME_KEY) || '[]'); } catch { return []; }
-}
 
 // Normalize text for search so smart quotes match straight ones. iOS keyboards
 // insert a curly apostrophe (U+2019) for "Can't", while a Mac types a straight
@@ -380,7 +377,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
   const [shareDialogSet, setShareDialogSet] = useState(null);
 
   // Shared-with-me bookmarks (viewer-side, localStorage only)
-  const [savedShares, setSavedShares] = useState(loadSharedWithMe);
+  const [savedShares, setSavedShares] = useState(loadSavedShares);
   // Token of the share whose link was just copied, for the tick.
   const [copiedShare, setCopiedShare] = useState(null);
   const [copyShareErr, setCopyShareErr] = useState('');
@@ -403,7 +400,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
   function removeShare(token) {
     const updated = savedShares.filter(s => s.token !== token);
     setSavedShares(updated);
-    localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(updated));
+    persistSavedShares(updated);
     // Its per-song play choices go with it — removing a share here and removing
     // it from the share page itself must leave the same nothing behind.
     forgetShareState(token);

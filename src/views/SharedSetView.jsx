@@ -7,6 +7,7 @@ import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState } from '../utils/storage.js';
 import { mergeTaggedSongCustoms } from '../utils/fileIO.js';
+import { loadSavedShares, persistSavedShares, syncBookmark } from '../utils/sharedBookmarks.js';
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
@@ -43,12 +44,8 @@ function loadViewerKeys() {
   try { return JSON.parse(localStorage.getItem(VIEWER_KEYS_KEY) || '{}'); } catch { return {}; }
 }
 
-// Shared-with-me bookmarks: { token, setName, savedAt, lastLoadedAt }[]
-export const SHARED_WITH_ME_KEY = 'cue:shared_with_me';
-function loadSavedShares() {
-  try { return JSON.parse(localStorage.getItem(SHARED_WITH_ME_KEY) || '[]'); } catch { return []; }
-}
-function persistSavedShares(arr) { localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(arr)); }
+// Shared-with-me bookmarks live in utils/sharedBookmarks.js — one copy, read
+// by this view and by the Library list that shows the same rows.
 
 // Tokens whose landing gate the viewer has already passed on this device, so a
 // repeat visit (or a bookmarked set) goes straight to the songs instead of the
@@ -298,19 +295,20 @@ export default function SharedSetView() {
     return () => { cancelled = true; };
   }, [token, retryCount]);
 
-  // When set loads OK, update lastLoadedAt if this token is bookmarked
+  // When the set loads OK, bring this token's bookmark up to date.
+  //
+  // The NAME matters as much as the timestamp. A publisher can rename a set and
+  // republish to the same link, and the row in Sets -> Shared with me kept the
+  // name captured the day it was bookmarked — so opening the link showed the new
+  // name while the list that sent you there still showed the old one.
   useEffect(() => {
-    // `cachedAt` means nothing was fetched — leave lastLoadedAt where it was, or
-    // a bookmark would claim to be fresher than it is.
-    if (status !== 'ok' || cachedAt) return;
+    if (status !== 'ok') return;
     const shares = loadSavedShares();
-    const idx = shares.findIndex(s => s.token === token);
-    if (idx === -1) return;
-    const now = new Date().toISOString();
-    shares[idx] = { ...shares[idx], lastLoadedAt: now };
-    persistSavedShares(shares);
-    setSavedShares([...shares]);
-  }, [status, token, cachedAt]);
+    const next = syncBookmark(shares, token, { liveName: setData?.set?.name || '', cachedAt });
+    if (!next) return;
+    persistSavedShares(next);
+    setSavedShares(next);
+  }, [status, token, cachedAt, setData]);
 
   // Auto-bookmark when opened from the "Paste a share link" box (catalog intent),
   // so the set shows up under Sets → Shared with me without a manual bookmark tap.
