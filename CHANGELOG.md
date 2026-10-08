@@ -3,6 +3,28 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.13 — 2026-10-08
+
+### Fixes
+
+- **Renaming a published set now renames it in everyone's Shared with me
+  list.** Rename a set and republish to the same link, and the link showed the
+  new name while the row that sent you there kept the old one — and reopening
+  never corrected it. The row stored the name the day it was bookmarked and
+  never looked again. It now updates whenever you open that share. (A set
+  renamed while you never open it still shows the old name until you do.)
+
+### Songs
+
+- **A chord line can carry a note in parentheses.** Write a performance
+  instruction at the end of a chord line — *(Trill for 5 beats)*, *(let it
+  ring)*, *(hold 2 bars)* — and the line is still read as chords, with the note
+  sitting where you put it. It never gets a diagram and never appears in the
+  Chords panel. The parentheses are what mark it: plain words still turn the
+  line back into lyrics, because a great many lyrics open with a word that is
+  also a chord name (*A long time ago*), and nothing about the spacing tells
+  those apart.
+
 ## v1.9.12 — 2026-10-07
 
 ### Backup and transfer
