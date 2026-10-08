@@ -1863,6 +1863,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           // with the song doesn't count, or a run that changed nothing would
           // still announce "All applied" / "Done".
           const appliedNow = rows.some(r => metadata[r.field] === r.value && fillBaseline[r.field] !== r.value);
+          // The moment you apply ONE row by hand, picking is what you came to do
+          // and "Apply all" is no longer what you are heading for — taking the
+          // rest is a decision you have just declined for each row you skipped.
+          // So it steps back to a plain outline (still usable, nothing is taken
+          // away) and Close takes the blue. Previously the swap waited for every
+          // row to be applied, which left the loudest button in the dialog
+          // pointing at the one thing you had chosen not to do.
+          const picking = appliedNow || allApplied;
           return (<>
             <p className={`text-xs ${mutedText}`}>Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.</p>
             <ul className="flex flex-col gap-2">
@@ -1923,7 +1931,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
                   allApplied
                     ? `border ${dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                    : picking
+                      ? `border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
                 }`}
               >
                 {allApplied ? (appliedNow ? 'All applied' : 'Nothing to change') : 'Apply all'}
@@ -1931,12 +1941,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <button
                 onClick={() => closeFill()}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
-                  allApplied
+                  picking
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                     : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
-                {allApplied && appliedNow ? 'Done' : 'Close'}
+                {appliedNow ? 'Done' : 'Close'}
               </button>
             </div>
           </>);
