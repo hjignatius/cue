@@ -58,6 +58,13 @@ export function detectChords(text) {
   for (const line of lines) {
     if (line.type !== 'chords') continue;
     for (const seg of line.segments) {
+      // A parenthesised performance note — "(Trill for 5 beats)" — rides in the
+      // chord row but is not a chord. It has to be judged BEFORE
+      // normalizeChordName, which strips parentheses to fold alterations and
+      // would otherwise turn "(Fast)" into a chord named F and send the panel
+      // looking for a fingering for it. "Am7(b5)" is unaffected: it opens with a
+      // note letter, not a bracket.
+      if (typeof seg.chord === 'string' && seg.chord.trimStart().startsWith('(')) continue;
       // Canonicalize first (folds parens/dash/plus alterations), THEN strip any
       // trailing strum glyph — so "Am7(b5)"'s ")" isn't stripped before the
       // parens are folded away.

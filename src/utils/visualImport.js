@@ -86,10 +86,26 @@ export function isTabLine(line) {
   return TAB_LINE.test(line || '') && /-{4,}/.test(line);
 }
 
+// A performance note written at the end of a chord line, in parentheses:
+//   Dm↓                Am \\\\   (Trill for 5 beats)
+// Space before the '(' is required, which is what keeps "G(4x)" a single chord
+// token rather than a chord plus a note.
+const TRAILING_NOTE = /^(.*?\S)\s+\([^()]*\)$/;
+
 export function isChordLine(line) {
   const trimmed = line.trim();
   if (!trimmed) return false;
   if (isTabLine(trimmed)) return false;
+
+  // The note is judged by its parentheses, not by its words, and the line counts
+  // as chords only if everything BEFORE the note already did. Bare prose still
+  // demotes the line: that is what keeps a lyric like "A    long time ago" —
+  // which opens with a perfectly good chord name — out of the chord row. There is
+  // no spacing rule that separates those two cases, so the marking has to be
+  // explicit.
+  const note = trimmed.match(TRAILING_NOTE);
+  if (note) return isChordLine(note[1]);
+
   const tokens = trimmed.split(/\s+/);
   // Every token must be a chord, strum marker, annotation, or bare asterisk —
   // AND at least one real chord name must be present. This prevents standalone
@@ -122,7 +138,19 @@ export function isChordLine(line) {
 
 function extractChords(chordLine) {
   const chords = [];
-  for (const m of chordLine.matchAll(/\S+/g)) {
+
+  // Lift a trailing parenthesised note out before tokenising, so it stays one
+  // thing at one column instead of becoming "(Trill" "for" "5" "beats)". Same
+  // space-before-'(' rule as isChordLine, so the two always agree.
+  let body = chordLine;
+  let trailingNote = null;
+  const nm = chordLine.match(/\([^()]*\)\s*$/);
+  if (nm && nm.index > 0 && /\s/.test(chordLine[nm.index - 1]) && /\S/.test(chordLine.slice(0, nm.index))) {
+    trailingNote = { chord: nm[0].trim(), pos: nm.index };
+    body = chordLine.slice(0, nm.index);
+  }
+
+  for (const m of body.matchAll(/\S+/g)) {
     const clean = m[0].replace(/\*/g, '');
     if (!clean) continue; // bare * — skip
     // A whole no-chord / performance marker (N.C., NC, (nc), pause, tacet, x4…)
@@ -167,6 +195,7 @@ function extractChords(chordLine) {
       }
     }
   }
+  if (trailingNote) chords.push(trailingNote);
   return chords;
 }
 
