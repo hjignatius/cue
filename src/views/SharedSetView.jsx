@@ -1506,7 +1506,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
   return (
     /* No scrim, as everywhere else: this screen is about the set behind it, and
        the songs are what you are deciding about. */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(busy ? undefined : onCancel)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(onCancel, !busy)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex flex-col gap-1">
           <h2 className={`text-base font-semibold ${em}`}>Update from “{setName}”</h2>

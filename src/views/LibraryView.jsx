@@ -1210,7 +1210,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
         const many    = deleteBlockedDialog.ids.length > 1;
         const running = deleteBlockedDialog.phase === 'running';
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => !running && setDeleteBlockedDialog(null))}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setDeleteBlockedDialog(null), !running)}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Stop sharing before deleting</h2>
@@ -1747,7 +1747,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       {orderResult && (
         /* No scrim on the AI dialogs: each is about the set or library behind
            it, and dimming that hides what you are deciding about. */
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeOrder())}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeOrder(), !orderResult.loading)}>
           <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex items-start justify-between gap-3">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
@@ -1799,7 +1799,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           ];
         }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeTime())}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeTime(), !timeResult.loading)}>
             <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className="flex items-start justify-between gap-3">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
@@ -2916,7 +2916,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {/* Find duplicates — groups of the same song saved more than once, with a
           per-song Delete so the library can be tidied in place. */}
       {dupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => !dupBusy && setDupOpen(false))}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => setDupOpen(false), !dupBusy)}>
           <div className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
             <div className={`flex items-center justify-between px-5 py-3 border-b ${border}`}>
               <div className="flex items-center gap-2">

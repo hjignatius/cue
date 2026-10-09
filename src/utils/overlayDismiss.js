@@ -23,7 +23,17 @@
 // can receive a pointerdown at a time, so one flag is enough.
 let pressedBackdrop = false;
 
-export function dismissOnOutside(onDismiss) {
+// `enabled` turns the behaviour off without the caller having to restructure
+// its JSX. Pass false while something is running that a stray tap must not
+// abandon — an AI request in flight, say, where dismissing cancels the call and
+// the work is gone with it. The dialog's own Cancel and X still close it; this
+// only removes the one route that nobody chose deliberately.
+export function dismissOnOutside(onDismiss, enabled = true) {
+  // Still clear the flag while disabled. Otherwise: press and hold the backdrop
+  // during a run, the run finishes and re-enables dismissal, you let go — and
+  // the click lands with `pressedBackdrop` left true by some earlier overlay,
+  // dismissing the thing you were waiting for.
+  if (!enabled) return { onPointerDown: () => { pressedBackdrop = false; } };
   return {
     onPointerDown: (e) => { pressedBackdrop = e.target === e.currentTarget; },
     onClick: (e) => {
