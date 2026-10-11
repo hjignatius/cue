@@ -26,6 +26,7 @@ import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { isPdfSong } from '../utils/songType.js';
 import { songBodyWidthChars, songHeaderWidthChars } from '../utils/songWidth.js';
+import { mmss } from '../utils/duration.js';
 
 // Parse "3:30" or "210" → seconds
 function parseDuration(dur) {
@@ -40,10 +41,6 @@ function parseDuration(dur) {
 
 // Seconds → "M:SS" (mirrors the editor's DurationStepper formatting) so a speed
 // baked into the song reads as a normal duration everywhere else.
-function formatDuration(secs) {
-  secs = Math.max(0, Math.round(secs));
-  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-}
 
 // Render pre-parsed styled runs. Repeat markers keep the accent color; other
 // runs apply the user's bold/italic/color. Chords render separately (unchanged).
@@ -933,7 +930,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   const saveSpeed = useCallback(() => {
     if (!onSaveDuration || !song?.id) return;
     const base = parseDuration(song?.metadata?.duration) || DEFAULT_DURATION_SEC;
-    onSaveDuration(song.id, formatDuration(base / speedMult));
+    onSaveDuration(song.id, mmss(base / speedMult));
     setSpeedMult(DEFAULT_SPEED);
   }, [onSaveDuration, song?.id, song?.metadata?.duration, speedMult]);
 
@@ -1152,7 +1149,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // own song it's a "Save M:SS" button; otherwise — nothing to save, or a shared
   // song you can't edit — it's just the time. "Save" is short enough to keep the
   // value on the button (the old "Duration …" label pushed it off).
-  const effectiveDuration = formatDuration(baseDurationSec / speedMult);
+  const effectiveDuration = mmss(baseDurationSec / speedMult);
   const saveSpeedLabel = canSaveSpeed ? `Save ${effectiveDuration}` : effectiveDuration;
 
   // Fixed lyrics-column width for the wide layout. Recomputes only on font-size

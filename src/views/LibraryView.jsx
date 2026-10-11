@@ -44,6 +44,7 @@ import AiRetryLink from '../components/AiRetryLink.jsx';
 import SongSuggestionsDialog from '../components/SongSuggestionsDialog.jsx';
 import RowMenu from '../components/RowMenu.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
+import { shortDuration } from '../utils/duration.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
 // sub-headers (Library, Sets, Setlist). Neutral grey fill (opaque slate on light
@@ -1605,7 +1606,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   const hasDurations  = displaySongs.some(s => parseDuration(s.metadata?.duration) > 0);
   const gapCount      = Math.max(0, displaySongs.length - 1);
   const estimatedSec  = totalSec + gapCount * bufferSec;
-  const bufferLabel   = bufferSec === 0 ? '0s' : bufferSec < 60 ? `${bufferSec}s` : `${Math.floor(bufferSec / 60)}:${String(bufferSec % 60).padStart(2, '0')}`;
+  const bufferLabel   = shortDuration(bufferSec);
 
   return (
     <div className="flex flex-col h-full">

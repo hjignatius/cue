@@ -3,6 +3,34 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.14 — 2026-10-11
+
+### AI
+
+- **An AI run now shows how long it has been going.** *Fill in song details*
+  buys up to four web searches inside one request, and the gap between asking
+  and the results landing can run past a minute with nothing to report — so the
+  progress bar sat still while the thing was working, which looks exactly like a
+  hang. A quiet elapsed count now sits beside the label after five seconds. It
+  says the wait is real and how long it has been; it still doesn't pretend to
+  know how much is left. (Leaving the **YouTube link** unticked halves the
+  search budget and is the single biggest thing you can do to speed that tool
+  up.)
+
+- **A tap outside no longer throws away a running AI call.** Clicking the
+  backdrop cancelled the request mid-flight. While anything is running the
+  backdrop does nothing; **Cancel** and the **X** still stop it. Applies to
+  every AI dialog — find music, fill in details, ask about music, transposing
+  advice, chord shapes, alternate voicings, suggested set order and estimated
+  set time.
+
+- **Fill in song details: "Apply all" steps back once you start picking.** Take
+  one suggestion of three and the loudest button in the dialog still pointed at
+  *Apply all* — the one thing you had just decided against. It now drops to a
+  plain outline the moment you apply anything, and **Close** takes the blue and
+  reads *Done*. Apply all stays clickable; it only greys out when there is
+  genuinely nothing left to apply.
+
 ## v1.9.13 — 2026-10-08
 
 ### Fixes

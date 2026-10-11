@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { KEY_NAMES } from '../utils/transpose.js';
 import { TIME_SIGNATURES } from '../utils/timeSig.js';
 import { playMetronome } from '../utils/metronome.js';
+import { mmss } from '../utils/duration.js';
 
 const RESET_AFTER_MS = 3000;
 const MIN_TAPS = 2;
@@ -84,15 +85,10 @@ function DurationStepper({ value, onChange }) {
     return parseInt(str, 10) || 0;
   }
 
-  function formatDuration(secs) {
-    secs = Math.max(0, Math.round(secs));
-    return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-  }
-
   function doStep(dir) {
     const held = Date.now() - startTimeRef.current;
     const inc  = held > 4000 ? 10 : held > 2000 ? 5 : 1;
-    onChange(formatDuration(parseDuration(valueRef.current) + dir * inc));
+    onChange(mmss(parseDuration(valueRef.current) + dir * inc));
   }
 
   function startHold(e, dir) {

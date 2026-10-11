@@ -19,6 +19,7 @@
 
 import { timeSigOrEmpty } from '../utils/timeSig.js';
 import { notePitchClass } from '../utils/notes.js';
+import { mmss } from '../utils/duration.js';
 
 const KEY_STORAGE = 'cue:anthropic_key';
 // ── Quality tiers ───────────────────────────────────────────────────────────
@@ -1284,7 +1285,7 @@ export async function estimateSetTime(items, onStage, signal) {
   const n = (items || []).length;
   if (n === 0) return null;
   const list = items.map((s) => {
-    const dur = s.seconds > 0 ? `${Math.floor(s.seconds / 60)}:${String(s.seconds % 60).padStart(2, '0')}` : '?';
+    const dur = s.seconds > 0 ? mmss(s.seconds) : '?';
     return `${s.n}. ${s.title || 'Untitled'}${s.artist ? ` — ${s.artist}` : ''} [${dur}]`;
   }).join('\n');
 

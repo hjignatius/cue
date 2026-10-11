@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
+import { shortDuration } from '../utils/duration.js';
 
 // One sentence, one place. Every AI surface hedges in the SAME words rather than
 // each inventing its own — so the caution reads as a property of Cue's AI, not
@@ -56,12 +58,42 @@ function CancelLink({ onCancel, dark }) {
 // a list of however many groups exist — a numerator with nothing to divide by.
 // A sweeping bar is the one honest way to draw that; a filling one would have to
 // invent the total.
+// How long this has been running, as seconds then mm:ss, counted from when the
+// progress window appeared.
+//
+// WHY: Fill in song details buys up to four web searches inside one request,
+// and the gap between asking and the results landing can run to a minute with
+// nothing to report — so the bar sits still while the thing is working, which
+// is indistinguishable from a hang. The elapsed count is the one honest signal
+// available during that gap. It says the wait is real and how long it has been,
+// without pretending to know how much is left, which is the same rule the bar
+// itself follows.
+//
+// It appears only after APPEAR_AFTER_S: before that nobody is wondering, and a
+// counter ticking up from "1s" is noise on an action that was about to finish.
+const APPEAR_AFTER_S = 5;
+
+function Elapsed({ dark }) {
+  const [secs, setSecs] = useState(0);
+  // Wall clock, not a tick count. A backgrounded tab throttles timers, and a
+  // counter that drifts behind the real wait is worse than no counter.
+  const startedAt = useRef(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setSecs(Math.floor((Date.now() - startedAt.current) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
+  if (secs < APPEAR_AFTER_S) return null;
+  // No aria-live: this changes every second, and announcing it would talk over
+  // everything else in the dialog.
+  return <span className={`tabular-nums ${dark ? 'text-gray-600' : 'text-gray-400'}`} aria-hidden="true">{shortDuration(secs)}</span>;
+}
+
 export function AiProgress({ label, detail, percent, dark, onCancel }) {
   const indeterminate = percent == null;
   return (
     <div className="flex flex-col items-center gap-2 py-6 w-full">
       <div className={`flex items-center gap-2 text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-        <Loader2 size={16} className="animate-spin" /> {label}
+        <Loader2 size={16} className="animate-spin" /> {label} <Elapsed dark={dark} />
       </div>
       <div className={`w-full h-1.5 rounded-full overflow-hidden ${dark ? 'bg-gray-800' : 'bg-gray-200'}`}>
         {/* Transition the width only. The bar is driven by discrete events, so
