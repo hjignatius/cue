@@ -1698,7 +1698,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Find music online — results dialog (web-search-grounded links).
   const findDialog = findResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeFind(), !findResult.loading)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeFind(), false)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -1809,11 +1809,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const fillDialog = fillResult && (
     /* No scrim on this one or on Transposing advice: both are about the song
        behind them, and dimming it hides the thing you are deciding about. The
-       panel's border and shadow carry the separation instead. Click-outside
-       closes it — but NOT while the search is running, since that cancels the
-       call, and losing a paid request to a stray tap is nobody's intention.
-       Cancel and the X still stop it. */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeFill(), !fillResult.loading)}>
+       panel's border and shadow carry the separation instead. The backdrop does
+       NOT dismiss, at any stage: while the search runs a stray tap would cancel
+       the call, and once the suggestions are up they are the thing the call was
+       paid for — throwing either away is nobody's intention. Cancel and the X
+       are the way out. */
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeFill(), false)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
@@ -1891,9 +1892,24 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       const current = (metadata[r.field] || '').trim();
                       const replacing = current && current !== r.value && r.field !== 'youtubeUrl';
                       return (
-                        <span className={`text-sm truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>
-                          {replacing && <><span className={mutedText}>{current}</span><span className={`mx-1.5 ${mutedText}`}>→</span></>}
-                          {r.value}
+                        // The row used to be ONE truncating line, so a long title
+                        // ran out of width mid-sentence and what got cut was the
+                        // END — the suggestion itself. You were being asked to
+                        // accept something you could not read. Only the CURRENT
+                        // value truncates now: it is your own song's, you already
+                        // know it, and it is there to mark the row as a change
+                        // rather than to be read. The suggestion wraps and is
+                        // shown whole, however long it is. The full pair is on
+                        // the tooltip for anything that still needs checking.
+                        <span
+                          className={`text-sm min-w-0 ${dark ? 'text-gray-100' : 'text-gray-900'}`}
+                          title={replacing ? `${current} → ${r.value}` : r.value}
+                        >
+                          {replacing && (<>
+                            <span className={`inline-block max-w-[8rem] align-bottom truncate ${mutedText}`}>{current}</span>
+                            <span className={`mx-1.5 ${mutedText}`}>→</span>
+                          </>)}
+                          <span className="break-words">{r.value}</span>
                         </span>
                       );
                     })()}
@@ -1959,7 +1975,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Transposing advice — key suggestions (one-tap Apply → Transpose) + capo tips.
   const adviceDialog = adviceResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeAdvice(), !adviceResult.loading)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeAdvice(), false)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -2017,7 +2033,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Ask about music — question box + answer; ask as many as you like.
   const askDialog = askOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeAsk(), !asking)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeAsk(), false)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-3 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -2059,7 +2075,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Add missing chord shapes — review each proposed voicing as a rendered
   // diagram before it's saved to the custom library.
   const chordDialog = chordResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeChords(), !chordResult.loading)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeChords(), false)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -2165,7 +2181,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const names = songChordNames();
     const inst = chordLibraryToInstrument(instrument);
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeVoicings(), !voicings.loading)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeVoicings(), false)}>
         <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">

@@ -1748,7 +1748,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       {orderResult && (
         /* No scrim on the AI dialogs: each is about the set or library behind
            it, and dimming that hides what you are deciding about. */
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeOrder(), !orderResult.loading)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeOrder(), false)}>
           <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex items-start justify-between gap-3">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
@@ -1800,7 +1800,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           ];
         }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeTime(), !timeResult.loading)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeTime(), false)}>
             <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className="flex items-start justify-between gap-3">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
