@@ -620,6 +620,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const pastedRef     = useRef(false); // set by onPaste so the next change auto-senses format
   const previewRef    = useRef(null); // wraps SongPreview; scoped [data-src] lookup for Preview styling
   const findInputRef  = useRef(null);
+  const replaceInputRef = useRef(null);
+  // Which field the symbol palette (Ω) types into: whichever of the three was
+  // focused last. It has to be REMEMBERED rather than read when the glyph is
+  // clicked, because opening the palette takes focus off the field you were in.
+  const insertTargetRef = useRef('text');   // 'text' | 'find' | 'replace'
   // Revert baseline = the last-saved editor state (the entry state until the first
   // save this session). Revert restores it. Captured on songId change and reset
   // after each successful Save. Annotations are a separate store — not included.
@@ -1264,6 +1269,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   function closeFR() {
     setShowFR(false);
+    insertTargetRef.current = 'text';
     textareaRef.current?.focus();
   }
 
@@ -1318,7 +1324,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // the caret after it. The textarea keeps its selection even while blurred (e.g.
   // when the symbol field had focus), so this is correct whether or not the
   // textarea is focused when a palette glyph is clicked.
+  // Insert at the cursor of whatever the palette is pointing at. It used to
+  // write to the textarea unconditionally, so picking a glyph while the cursor
+  // was in Find or Replace dropped it into the SONG — the one place you were not
+  // typing — and you could not search for a character you could not type.
   function insertText(str) {
+    const target = showFR ? insertTargetRef.current : 'text';
+    if (target === 'find' || target === 'replace') {
+      const el     = target === 'find' ? findInputRef.current : replaceInputRef.current;
+      const cur    = target === 'find' ? findText : replaceText;
+      const setter = target === 'find' ? setFindText : setReplaceText;
+      const start  = el?.selectionStart ?? cur.length;
+      const end    = el?.selectionEnd   ?? cur.length;
+      setter(cur.slice(0, start) + str + cur.slice(end));
+      const pos = start + str.length;
+      requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(pos, pos); });
+      return;
+    }
     const ta = textareaRef.current;
     if (!ta) return;
     const start = ta.selectionStart ?? text.length;
@@ -1424,24 +1446,31 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   const frBar = showFR && (
     <div className={`flex items-center gap-2 px-3 py-2 border-b ${border} ${dark ? 'bg-gray-900' : 'bg-gray-100'} shrink-0 flex-wrap`}>
+      {/* The two fields SHRINK, the buttons do not. They cap a little under
+          where they used to sit fixed, and give their width up as the row gets
+          tight — so "Replace all" stops being pushed onto a line of its own by
+          two boxes holding a word each. */}
       <input
         ref={findInputRef}
         value={findText}
+        onFocus={() => { insertTargetRef.current = 'find'; }}
         onChange={e => setFindText(e.target.value)}
         onKeyDown={e => { if (e.key === 'Escape') closeFR(); if (e.key === 'Enter') handleFindNext(); }}
         placeholder="Find"
-        className={`border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 w-36 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+        className={`border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 flex-1 min-w-0 basis-20 max-w-[8rem] ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
       />
       <input
+        ref={replaceInputRef}
         value={replaceText}
+        onFocus={() => { insertTargetRef.current = 'replace'; }}
         onChange={e => setReplaceText(e.target.value)}
         onKeyDown={e => { if (e.key === 'Escape') closeFR(); if (e.key === 'Enter') handleReplaceOne(); }}
         placeholder="Replace"
-        className={`border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 w-36 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+        className={`border rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 flex-1 min-w-0 basis-20 max-w-[8rem] ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
       />
-      <button onClick={handleFindNext}  className={`px-2 py-1 text-xs rounded transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Find next</button>
-      <button onClick={handleReplaceOne} className={`px-2 py-1 text-xs rounded transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Replace</button>
-      <button onClick={handleReplaceAll} className="px-2 py-1 text-xs bg-indigo-700 hover:bg-indigo-600 text-white rounded transition-colors">Replace all</button>
+      <button onClick={handleFindNext}  className={`shrink-0 whitespace-nowrap px-2 py-1 text-xs rounded transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Find next</button>
+      <button onClick={handleReplaceOne} className={`shrink-0 whitespace-nowrap px-2 py-1 text-xs rounded transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Replace</button>
+      <button onClick={handleReplaceAll} className="shrink-0 whitespace-nowrap px-2 py-1 text-xs bg-indigo-700 hover:bg-indigo-600 text-white rounded transition-colors">Replace all</button>
       {findText && (
         <span className={`text-xs ${mutedText}`}>{matchCount} {matchCount === 1 ? 'match' : 'matches'}</span>
       )}
@@ -1468,6 +1497,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         if (pastedRef.current || (wasEmpty && next.trim() !== '')) { senseFormat(next); pastedRef.current = false; }
       }}
       onPaste={() => { pastedRef.current = true; }}
+      onFocus={() => { insertTargetRef.current = 'text'; }}
       onKeyDown={e => { if (e.key === 'Escape' && showFR) closeFR(); }}
       spellCheck={false}
       wrap="off"
