@@ -1,4 +1,5 @@
 import { openDB } from 'idb';
+import { sanitizeMetadata } from './songMetadata.js';
 
 const DB_NAME    = 'cue-db';
 const DB_VERSION = 4;
@@ -182,7 +183,11 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   const entry = {
     ...preserved,
     id: songId,
-    metadata,
+    // Here rather than at each importer: this is the one door every song goes
+    // through — the editor, .json and backup imports, a share copy, a cloud
+    // pull. It also means a song carrying a bad value from before this existed
+    // is corrected the next time it is saved.
+    metadata: sanitizeMetadata(metadata),
     text,
     createdAt: existing?.createdAt ?? givenCreatedAt ?? now,
     updatedAt: givenUpdatedAt ?? now,

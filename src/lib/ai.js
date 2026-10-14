@@ -20,6 +20,7 @@
 import { timeSigOrEmpty } from '../utils/timeSig.js';
 import { notePitchClass } from '../utils/notes.js';
 import { mmss } from '../utils/duration.js';
+import { DURATION_RE, YOUTUBE_RE } from '../utils/songMetadata.js';
 
 const KEY_STORAGE = 'cue:anthropic_key';
 // ── Quality tiers ───────────────────────────────────────────────────────────
@@ -908,7 +909,9 @@ Only include songs you are confident are real, and URLs you actually found via s
 // it can't be established. key comes from the chords; tempo/duration/youtube are
 // web-search-grounded best guesses for the known recording (the YouTube URL is
 // only kept if it's a real link the model found, never a hallucinated video id).
-const YT_RE = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|music\.youtube\.com\/watch\?v=)/i;
+// The link and length patterns live with the metadata gate, so the answer the
+// model gives and the value a song is allowed to store are checked alike.
+const YT_RE = YOUTUBE_RE;
 
 // The fields this tool can fill, in the order they're offered. Exported so the
 // editor's pick-what-to-check dialog and the prompt below are built from ONE
@@ -1018,7 +1021,7 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
   const j = extractJson(raw) || {};
   const str = (v) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
   const tempo = str(j.tempo).match(/\d{2,3}/)?.[0] || '';       // integer BPM only
-  const duration = /^\d{1,2}:\d{2}$/.test(str(j.duration)) ? str(j.duration) : '';
+  const duration = DURATION_RE.test(str(j.duration)) ? str(j.duration) : '';
   const youtubeUrl = YT_RE.test(str(j.youtubeUrl)) ? str(j.youtubeUrl) : '';   // real YT link only
   // Everything the caller didn't ask for stays '' even if the model volunteered
   // it, so an unticked field can never reach the suggestions list.
