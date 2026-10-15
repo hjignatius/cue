@@ -3,6 +3,42 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.15 — 2026-10-15
+
+### Songs
+
+- **Find/Replace: the Ω palette now types where your cursor is.** A special
+  character picked from the palette went into the *song* even when the cursor
+  was in Find or Replace — so the one thing you couldn't search for was a
+  character you couldn't type, and trying left the character in your lyrics.
+  It now inserts wherever you actually are.
+
+- **The Find/Replace bar fits on one line.** The two boxes were a fixed width
+  and pushed **Replace all** onto a line of its own. They're a little smaller
+  now, and give up width as the row gets tight, while the buttons hold theirs.
+
+- **A song's details are checked before they're stored.** A song could end up
+  with its duration in the time-signature field, and once that happened it
+  survived every export and import — the picker even offered it back as though
+  it were a real signature. Time signature, duration, tempo and the video link
+  are now validated wherever a song is saved: a value that is plainly not what
+  its field is for is cleared rather than kept. Nothing is ever filled in for
+  you, and an empty field stays empty. A song that already has a bad value is
+  corrected the next time you save it.
+
+### AI
+
+- **A tap outside no longer loses your results.** The backdrop behind an AI
+  dialog stopped cancelling a request mid-flight in the last release; now it
+  doesn't dismiss the *results* either. Once suggestions are on screen they're
+  the thing the search was for. **Cancel** and the **X** are the way out.
+
+- **A long title no longer hides the suggestion.** In *Fill in song details* the
+  row showed `current → suggested` on one line, and a long title ran out of
+  width — cutting off the suggestion you were being asked to accept. The
+  suggestion is now shown whole, however long; it's the current value that
+  shortens, since you already know it.
+
 ## v1.9.14 — 2026-10-11
 
 ### AI
