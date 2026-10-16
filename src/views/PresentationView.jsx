@@ -8,7 +8,7 @@ import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import { parseChordPro, attachSectionLabels, expandSections, styleSegments, lineHasLyrics } from '../utils/chordPro.js';
-import { transposeText, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
+import { transposeText, semitonesBetween, useFlatsForKey, displaySemitones, capoFrets } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { resolveChordShape } from '../utils/chordLookup.js';
@@ -481,7 +481,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Transpose is locked OFF for a PDF: its printed chords can't move, so the
   // diagrams must render at the key the chords were entered in (View Key would
   // otherwise drift the shapes away from the sheet).
-  const semitones = isPdfSong(song) ? 0 : semitonesBetween(meta.key, song?.displayKey);
+  const semitones = isPdfSong(song) ? 0 : displaySemitones(meta, song?.displayKey);
   // Accidental spelling for transposed chords/diagrams — auto follows the View Key.
   const useFlats = useFlatsForKey(accidentals, song?.displayKey);
   // The View Key drives the info block, so it updates live on transpose. Declared
@@ -1126,7 +1126,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // is one the set is playing the publisher's version of.
   const inkOff = disableAnnotations || (annotatableIds ? !annotatableIds.has(song?.id) : false);
 
-  const hasKeyOrTempo = !!(viewKey || meta.tempo);
+  // A capo HAS to be on screen here. The chart is drawn as the shapes you
+  // finger with it on, so playing it without the capo is simply the wrong song —
+  // in the wrong key, on stage. This is the safety half of the feature, not
+  // decoration, which is why it sits with Key rather than anywhere quieter.
+  const capo = capoFrets(meta);
+  const hasKeyOrTempo = !!(viewKey || meta.tempo || capo);
 
   // How far v1 annotations must move down: exactly the artist line's height,
   // because the artist is the only thing this layout added inside contentWrapRef.
@@ -1427,6 +1432,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                       style={{ fontSize: fontPx * KEY_BPM_SCALE, lineHeight: ARTIST_LINE_HEIGHT }}
                     >
                       {viewKey && <div>Key: <span className={textCol}>{viewKey}</span></div>}
+                      {capo > 0 && <div>Capo: <span className={textCol}>{capo}</span></div>}
                       {meta.tempo && <div>{meta.tempo} BPM</div>}
                     </div>
                   )}

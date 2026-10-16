@@ -16,7 +16,7 @@ import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
-import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
+import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord, displaySemitones } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets, bracketSourceMap } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, readSongDetails, askMusic, transposeAdvice, chordShapesFor, alternateVoicings, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
@@ -1583,7 +1583,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Transpose is locked OFF for a PDF: its chords are entered to match the fixed
   // printed sheet, so the diagrams render at that key (View Key must not move them).
-  const chordSemitones = songType === 'pdf' ? 0 : semitonesBetween(metadata.key, effectiveDisplayKey);
+  // The chord PANEL draws the shapes you finger, so it follows the capo too.
+  const chordSemitones = songType === 'pdf' ? 0 : displaySemitones(metadata, effectiveDisplayKey);
   // Accidental spelling for transposed diagram labels — auto follows the Transpose key.
   const chordUseFlats = useFlatsForKey(accidentals, effectiveDisplayKey);
 

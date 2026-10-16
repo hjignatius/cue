@@ -16,6 +16,7 @@
 // make every song in a shared set look edited.
 
 import { timeSigOrEmpty } from './timeSig.js';
+import { MAX_CAPO } from './transpose.js';
 
 // M:SS or MM:SS. Seconds are 00-59 — "4:75" is not a length.
 export const DURATION_RE = /^\d{1,2}:[0-5]\d$/;
@@ -36,6 +37,12 @@ const GUARDS = {
   duration:   (v) => (DURATION_RE.test(v) ? v : ''),
   tempo:      (v) => (TEMPO_RE.test(v)    ? v : ''),
   youtubeUrl: (v) => (YOUTUBE_RE.test(v)  ? v : ''),
+  // A fret number. 0 and '' both mean no capo; anything else that is not a whole
+  // fret on the neck is someone else's value in the wrong field.
+  capo:       (v) => {
+    const n = Math.trunc(Number(v));
+    return Number.isFinite(n) && n > 0 && n <= MAX_CAPO ? String(n) : '';
+  },
 };
 
 // Returns the metadata to store. The SAME object is returned when nothing is

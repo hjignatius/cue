@@ -43,7 +43,7 @@
 
 import { Fragment, useMemo } from 'react';
 import { parseChordPro, expandSections, attachSectionLabels, styleSegments, lineHasLyrics } from '../utils/chordPro.js';
-import { transposeChord, semitonesBetween, useFlatsForKey } from '../utils/transpose.js';
+import { transposeChord, displaySemitones, capoFrets, useFlatsForKey } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import ChordDiagram from './ChordDiagram.jsx';
@@ -180,7 +180,9 @@ export default function SongPreview({ text, metadata, displayMode = 'over', disp
   const diagrams = diagramMode && displayMode === 'over' && instrument !== 'none';
   const chordFontSize = PV * 0.85 * (1 + chordLabelScale / 100); // matches Present's chordPx
   const diagNameScale = 1 + chordLabelScale / 100;
-  const semitones = semitonesBetween(metadata?.key, displayKey);
+  // View Key, then the capo — one helper, so the Preview, Present, the PDF and
+  // the chord diagrams can never disagree about what you are asked to play.
+  const semitones = displaySemitones(metadata, displayKey);
   // Spelling of transposed accidentals: auto follows the View Key (displayKey).
   const useFlats = useFlatsForKey(accidentals, displayKey);
   // Always convert to ChordPro brackets before parsing — safe for all input
