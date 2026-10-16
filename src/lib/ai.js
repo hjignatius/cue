@@ -1018,7 +1018,12 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
   // through it is.
   ...jsonProgress(onStage, { count: countKeys(want), of: want.length, budget: search ? budget : 0 }));
 
-  const j = extractJson(raw) || {};
+  return validatedFill(extractJson(raw) || {}, want);
+}
+
+// What a field is allowed to come back as, whether the answer was searched for
+// or read off the chart. Shared so the two tools can never disagree about it.
+function validatedFill(j, want) {
   const str = (v) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
   const tempo = str(j.tempo).match(/\d{2,3}/)?.[0] || '';       // integer BPM only
   const duration = DURATION_RE.test(str(j.duration)) ? str(j.duration) : '';
@@ -1031,6 +1036,75 @@ When unsure, prefer "". Do not include any key that is not listed above.`;
   const out = {};
   for (const f of ALL_FILL) out[f] = want.includes(f) ? all[f] : '';
   return out;
+}
+
+// ── Read the details OUT of the chart ───────────────────────────────────────
+// The other half of Fill in song details. Same answer shape, same review
+// dialog — the difference is where the answer comes from.
+//
+// A chart pasted off a website arrives with its title, artist, often a link and
+// a line or two of site furniture sitting above the music. Those are facts the
+// song already contains, so there is nothing to look up: no web search, no
+// search tokens, and an answer that is read rather than recalled. It costs well
+// under a cent where a searching run costs tens of them, and it is the more
+// accurate of the two whenever the text actually says.
+//
+// It also returns `remove`: the lines that are NOT part of the chart, verbatim.
+// Cue finds those itself (utils/liftLines.js) and refuses any it cannot match or
+// that looks musical — the model never gets to say "delete line 7".
+const READ_RULES = {
+  title:      '- title: the song\'s title, as the text gives it. Usually a heading above the chart.',
+  artist:     '- artist: the performer, as the text gives it — a heading, a "by X" line, or similar.',
+  key:        '- key: read the most likely key from the CHORDS (e.g. "G", "Em", "Bb"). Minor keys end in "m". This one is worked out from the music, not copied from the text.',
+  timeSig:    '- timeSig: ONLY if the text states it (e.g. "6/8", "3/4"). Do not infer it from the music.',
+  tempo:      '- tempo: ONLY if the text states a BPM, as a plain integer string. Do not estimate it.',
+  duration:   '- duration: ONLY if the text states a length, as M:SS. Do not estimate it.',
+  youtubeUrl: '- youtubeUrl: a YouTube watch URL appearing in the text, copied verbatim. "" if there is none.',
+};
+
+export async function readSongDetails(text, model, fields = ALL_FILL, onStage, signal) {
+  const chart = (text || '').trim();
+  if (!chart) {
+    const err = new Error('Nothing to read — the chart is empty.');
+    err.code = 'empty';
+    throw err;
+  }
+  const want = ALL_FILL.filter(f => fields.includes(f));
+  if (want.length === 0) {
+    const err = new Error('Nothing selected to read.');
+    err.code = 'empty';
+    throw err;
+  }
+  const template = `{${want.map(f => `"${f}": ""`).join(', ')}, "remove": []}`;
+
+  const system = `You read ONE song's chord chart, pasted from a website, and pull out the details that are sitting IN the text. You do NOT look anything up and you do NOT use outside knowledge: every value comes from the text in front of you, or comes back "".
+
+Work out ONLY these fields: ${want.join(', ')}. Respond with ONLY a JSON object (no prose, no code fence) with exactly these keys:
+${template}
+Rules:
+${want.map(f => READ_RULES[f]).join('\n')}
+- remove: the lines that are NOT part of the song — a title or artist heading, a URL, "Tabs by", ratings, view counts, navigation text, advertising. Copy each one VERBATIM as its own string.
+- NEVER list a line that contains chords or lyrics. Section labels (Intro, Verse, Chorus), capo notes and performance notes are part of the song: leave them.
+- A line you are unsure about is part of the song. Leave it.
+- When unsure of a field, prefer "".`;
+
+  const raw = await streamClaude({
+    ...(model ? { model } : {}),
+    max_tokens: 2000,
+    atomic: true,
+    signal,
+    output_config: { effort: 'low' },
+    system,
+    messages: [{ role: 'user', content: chart.slice(0, 8000) }],
+  },
+  // No search budget: there is nothing to search, which is the whole point.
+  ...jsonProgress(onStage, { count: countKeys(want), of: want.length, budget: 0 }));
+
+  const j = extractJson(raw) || {};
+  return {
+    ...validatedFill(j, want),
+    remove: Array.isArray(j.remove) ? j.remove.filter(v => typeof v === 'string' && v.trim()) : [],
+  };
 }
 
 // ── Chord shapes (fill the library's gaps) ──────────────────────────────────

@@ -18,13 +18,14 @@ import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets, bracketSourceMap } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, askMusic, transposeAdvice, chordShapesFor, alternateVoicings, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, readSongDetails, askMusic, transposeAdvice, chordShapesFor, alternateVoicings, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
 import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
 import { loadCustomChords, mutateCustomChords } from '../utils/chordStorage.js';
+import { planLineRemoval, applyLineRemoval } from '../utils/liftLines.js';
 import { shapesForName } from '../utils/chordLookup.js';
 import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
@@ -544,6 +545,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // so everything starts ticked with nothing to seed. fillFields is what step 1
   // settled on, kept so "try again — smarter" re-runs the same selection.
   const [fillAsk, setFillAsk]           = useState(false);
+  // Where the answer comes from. 'web' searches for facts about the recording;
+  // 'chart' reads what the pasted text already says and offers to lift the
+  // header out of the song. Same dialog, same rows — only the source differs.
+  const [fillMode, setFillMode]         = useState('web');
   const [fillSkip, setFillSkip]         = useState({});
   const [fillFields, setFillFields]     = useState([]);
   // What the song held when these suggestions arrived. Without it, a suggestion
@@ -1000,23 +1005,29 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   function openFillAsk() {
     if (aiBusy || !canIdentifySong()) return;
     setFillSkip({});   // every field starts ticked
+    setFillMode('web');
     setFillAsk(true);
   }
 
   // Step 2: look up the chosen fields. `fields` omitted = re-run what step 1
   // chose (the smarter-model retry), never silently widen back to everything.
-  async function runFill(model, fields) {
+  async function runFill(model, fields, mode) {
     if (aiBusy || !canIdentifySong()) return;
     const use = fields || fillFields;
     if (use.length === 0) return;
+    const how = mode || fillMode;
     setFillFields(use);
+    setFillMode(how);
     const signal = beginAi('fill');
     setFillStage(null);
     setFillResult({ loading: true, error: '', suggest: null });
     try {
-      const suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use, (s) => {
-        setFillStage(prev => advanceStage(prev, s, { ...FILL_STAGE, idleLabel: '' }));
-      }, signal);
+      const onStage = (st) => setFillStage(prev => advanceStage(prev, st, { ...FILL_STAGE, idleLabel: '' }));
+      // 'chart' reads the pasted text; 'web' looks the recording up. The answer
+      // has the same shape either way, so everything downstream is shared.
+      const suggest = how === 'chart'
+        ? await readSongDetails(text, model, use, onStage, signal)
+        : await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use, onStage, signal);
       // Safe to read `metadata` from this closure: the dialog is modal for the
       // whole request, so the song can't have been edited while we waited.
       setFillBaseline({ ...metadata });
@@ -1034,6 +1045,19 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   function applyDetail(field, value) {
     setMetadata(m => ({ ...m, [field]: value }));
     setIsDirty(true);
+  }
+
+  // Take the header lines out of the chart, once their contents are in the
+  // fields. Separate from applyDetail on purpose: a field is one tap to put
+  // back, and this edits the song. It is a single undoable step — Revert still
+  // reaches past it until you Save.
+  function applyLineLift(indices) {
+    if (!indices.length) return;
+    setText(t => applyLineRemoval(t, indices));
+    setIsDirty(true);
+    // Those lines are gone, so the offer must go with them, or a second tap
+    // would remove whatever now sits at those positions.
+    setFillResult(r => (r?.suggest ? { ...r, suggest: { ...r.suggest, remove: [] } } : r));
   }
 
   // Shared song context for the level-aware AI actions.
@@ -1784,7 +1808,25 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
             <button onClick={() => setFillAsk(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
           </div>
-          <p className={`text-xs ${mutedText}`}>Here's what this song has now. Tick what Cue should work out — it only looks up what you tick, and nothing changes until you apply what comes back.</p>
+          {/* Where the answer comes from. Reading the chart is the cheap one —
+              nothing is searched, so it costs a fraction of a look-up — and the
+              more accurate one whenever the text actually says. It also offers
+              to lift the header out of the song, which looking up never can. */}
+          <SegmentedControl
+            ariaLabel="Where to get the details from"
+            fullWidth
+            value={fillMode}
+            onChange={setFillMode}
+            options={[
+              { value: 'web',   label: 'Look it up' },
+              { value: 'chart', label: 'Read the chart' },
+            ]}
+          />
+          <p className={`text-xs ${mutedText}`}>
+            {fillMode === 'chart'
+              ? 'Reads what this chart already says — the title and artist above it, a video link, the key from the chords. Nothing is searched for, so it costs almost nothing and only finds what is actually written here. It also offers to take those lines out of the song.'
+              : "Here's what this song has now. Tick what Cue should work out — it only looks up what you tick, and nothing changes until you apply what comes back."}
+          </p>
           <ul className="flex flex-col gap-2">
             {FILL_FIELDS.map(f => {
               const current = (metadata[f.field] || '').trim();
@@ -1813,7 +1855,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </ul>
           <div className="flex gap-2">
             <button
-              onClick={() => { setFillAsk(false); runFill(undefined, chosen.map(f => f.field)); }}
+              onClick={() => { setFillAsk(false); runFill(undefined, chosen.map(f => f.field), fillMode); }}
               disabled={chosen.length === 0}
               className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
                 chosen.length === 0
@@ -1881,8 +1923,46 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </a>
             </div>
           ) : null;
+          // Hoisted: a chart can yield no FIELDS and still have header lines
+          // worth taking out, and the "nothing found" branch below used to
+          // return before the offer was ever drawn.
+          const plan = planLineRemoval(text, s.remove || []);
+          const liftSection = plan.remove.length ? (
+            /* The other half of reading a pasted chart: the lines those values
+               came OFF. Left in place they are sung, printed and presented as
+               though they were lyrics.
+
+               Shown, never assumed. A wrong field costs one tap to put back; a
+               deleted lyric line is gone — so this lists exactly what would go
+               and waits. planLineRemoval has already dropped anything it could
+               not find in the chart, and anything that looks musical, whatever
+               the model proposed. */
+            <div className={`flex flex-col gap-2 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>Not part of the song</span>
+              <p className={`text-xs ${mutedText}`}>These lines sit in the chart but aren't music. Taking them out leaves the chords and words untouched.</p>
+              <ul className="flex flex-col gap-1">
+                {plan.remove.map(r => (
+                  <li key={r.index} className={`text-xs font-mono truncate ${dark ? 'text-gray-300' : 'text-gray-700'}`} title={r.line}>{r.line.trim()}</li>
+                ))}
+              </ul>
+              <button
+                onClick={() => applyLineLift(plan.remove.map(r => r.index))}
+                className={`py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                Remove {plan.remove.length} line{plan.remove.length === 1 ? '' : 's'} from the chart
+              </button>
+            </div>
+          ) : null;
+
           if (rows.length === 0) return (<>
-            <p className={`text-sm ${mutedText}`}>Couldn't work out any details for this song. The key is read from the chords; the rest depends on identifying the song.</p>
+            <p className={`text-sm ${mutedText}`}>
+              {fillMode === 'chart'
+                ? (liftSection
+                    ? "Nothing to fill in from this chart — but these lines aren't part of the song."
+                    : "This chart doesn't say anything the fields don't already have. Nothing was searched for, so nothing was guessed at — try Look it up if you want the details found.")
+                : "Couldn't work out any details for this song. The key is read from the chords; the rest depends on identifying the song."}
+            </p>
+            {liftSection}
             {ytSearchLink}
           </>);
           // Same predicate the per-row buttons already use, across every row: once
@@ -1905,7 +1985,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           // pointing at the one thing you had chosen not to do.
           const picking = appliedNow || allApplied;
           return (<>
-            <p className={`text-xs ${mutedText}`}>Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.</p>
+            <p className={`text-xs ${mutedText}`}>
+              {fillMode === 'chart'
+                ? 'Read out of this chart. Apply the ones you want — nothing changes until you do. Nothing here was searched for or guessed at: if the text did not say, the field came back empty.'
+                : 'Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.'}
+            </p>
             <ul className="flex flex-col gap-2">
               {rows.map(r => (
                 <li key={r.field} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
@@ -1972,6 +2056,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               ))}
             </ul>
             {ytSearchLink}
+            {liftSection}
             <div className="flex gap-2">
               <button
                 onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}
