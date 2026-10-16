@@ -73,5 +73,47 @@ const capoed = { ...plain, metadata: { ...plain.metadata, capo: '2' } };
 check('adding a capo changes the content hash', contentHash(plain) === contentHash(capoed), false);
 check('the same capo twice hashes the same', contentHash(capoed), contentHash({ ...capoed, metadata: { ...capoed.metadata } }));
 
+
+// ---- 6. reading a capo off a pasted chart ---------------------------------
+//
+// From Howard's America The Beautiful paste, where the capo is prose on the end
+// of a link line rather than a directive. No model is needed for this: the word
+// "capo" followed by a number is not a judgement call.
+const { readChartMetadata } = await import('../src/utils/readChart.js');
+
+const AMERICA = [
+  '{t:America The Beautiful}',
+  '{artist:Various}',
+  '{key: G}',
+  '<a title="YouTube Video" href="https://www.youtube.com/watch?v=iFtM8iHC_UM" target="_blank">https://www.youtube.com/watch?v=iFtM8iHC_UM</a> Bb so capo 3',
+  '{c:The Youtube is the original lyrics - this is the more modern one}',
+].join('\n');
+
+const read = readChartMetadata(AMERICA);
+check('the capo is read out of the prose', read.fields.capo, '3');
+check('and the rest still comes through', [read.fields.title, read.fields.artist, read.fields.key], ['America The Beautiful', 'Various', 'G']);
+// The line carries a note worth keeping, so it is NOT offered for removal.
+check('a line that is more than a link is kept', read.remove.some(l => l.includes('<a ')), false);
+
+// Both spellings, and the shapes charts actually use.
+for (const [line, want] of [
+  ['{capo: 3}', '3'],
+  ['Capo 2', '2'],
+  ['capo: 5', '5'],
+  ['Capo on 4', '4'],
+  ['CAPO 7th fret', '7'],
+  ['Bb so capo 3', '3'],
+  ['play with capo 1', '1'],
+]) check(`read: ${JSON.stringify(line)}`, readChartMetadata(line).fields.capo, want);
+
+// The word has to be there, and the fret has to be on the neck.
+for (const line of ['3', 'fret 3', 'capotasto', 'capo', 'capo 0', 'capo 13', 'Capo: none']) {
+  check(`not a capo: ${JSON.stringify(line)}`, readChartMetadata(line).fields.capo, undefined);
+}
+// A directive wins over prose later in the song, and the first one wins.
+check('the directive is taken first', readChartMetadata('{capo: 2}\ncapo 9').fields.capo, '2');
+check('a {capo:} line is offered for removal', readChartMetadata('{capo: 2}').remove, ['{capo: 2}']);
+
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

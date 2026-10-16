@@ -20,6 +20,7 @@
 import { timeSigOrEmpty } from '../utils/timeSig.js';
 import { notePitchClass } from '../utils/notes.js';
 import { mmss } from '../utils/duration.js';
+import { MAX_CAPO } from '../utils/transpose.js';
 import { DURATION_RE, YOUTUBE_RE } from '../utils/songMetadata.js';
 
 const KEY_STORAGE = 'cue:anthropic_key';
@@ -924,6 +925,10 @@ export const FILL_FIELDS = [
   { field: 'tempo',      label: 'Tempo (BPM)' },
   { field: 'duration',   label: 'Duration' },
   { field: 'youtubeUrl', label: 'YouTube' },
+  // READ ONLY. A capo is a fact about how this chart was written down, so it can
+  // be read off the page — but it cannot be looked up, because it is not a
+  // property of the recording. What capo to USE is Transposing advice's job.
+  { field: 'capo',       label: 'Capo' },
 ];
 const ALL_FILL = FILL_FIELDS.map(f => f.field);
 
@@ -947,6 +952,10 @@ const FILL_RULES = {
 // recording that has to be looked up. Asking for key alone therefore needs no
 // web search at all — skip the tool rather than pay for a search nobody wanted.
 const NEEDS_SEARCH = new Set(['title', 'artist', 'timeSig', 'tempo', 'duration', 'youtubeUrl']);
+// Fields only the chart can answer. Looking these up means nothing: what capo a
+// RECORDING used is not a fact about the song, and guessing one would retune a
+// chart on a whim.
+export const READ_ONLY_FIELDS = new Set(['capo']);
 
 // `onStage` is optional and purely cosmetic: it reports { phase, ... } as the
 // request runs — 'search' while the web is being consulted, 'writing' as the
@@ -966,8 +975,8 @@ export async function fillSongDetails(text, hint = {}, model, fields = ALL_FILL,
     err.code = 'empty';
     throw err;
   }
-  // Only what was asked for. An unknown name can't widen the request.
-  const want = ALL_FILL.filter(f => fields.includes(f));
+  // Only what was asked for, minus anything the web cannot answer.
+  const want = ALL_FILL.filter(f => fields.includes(f) && !READ_ONLY_FIELDS.has(f));
   if (want.length === 0) {
     const err = new Error('Nothing selected to look up.');
     err.code = 'empty';
@@ -1032,7 +1041,11 @@ function validatedFill(j, want) {
   // it, so an unticked field can never reach the suggestions list.
   // timeSigOrEmpty, not normalizeTimeSig: an unparseable answer must come back
   // '' and drop out of the suggestions, never as a default-looking "4/4".
-  const all = { title: str(j.title), artist: str(j.artist), key: str(j.key), timeSig: timeSigOrEmpty(str(j.timeSig)), tempo, duration, youtubeUrl };
+  const capo = (() => {
+    const n = Math.trunc(Number(str(j.capo)));
+    return Number.isFinite(n) && n > 0 && n <= MAX_CAPO ? String(n) : '';
+  })();
+  const all = { title: str(j.title), artist: str(j.artist), key: str(j.key), timeSig: timeSigOrEmpty(str(j.timeSig)), tempo, duration, youtubeUrl, capo };
   const out = {};
   for (const f of ALL_FILL) out[f] = want.includes(f) ? all[f] : '';
   return out;
@@ -1060,6 +1073,7 @@ const READ_RULES = {
   tempo:      '- tempo: ONLY if the text states a BPM, as a plain integer string. Do not estimate it.',
   duration:   '- duration: ONLY if the text states a length, as M:SS. Do not estimate it.',
   youtubeUrl: '- youtubeUrl: a YouTube watch URL appearing in the text, copied verbatim. "" if there is none.',
+  capo:       '- capo: ONLY if the text says so — "capo 3", "Capo: 2nd fret", "{capo: 3}". The fret number alone, as a plain integer string. "" if the text does not mention a capo.',
 };
 
 export async function readSongDetails(text, model, fields = ALL_FILL, onStage, signal) {
