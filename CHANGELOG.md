@@ -3,6 +3,29 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.17 — 2026-10-17
+
+### Fixes
+
+- **Read the chart can actually be selected.** The switch added in v1.9.16 was
+  wired wrong: the thumb slid across when you tapped it and the setting never
+  changed, so *Fill in song details* always searched the web. It works now.
+
+- **"Intro: [Am] [Em7] [G] [Am]" is a heading with a chord run, not a lyric.**
+  The label counted as the line's words, so switching to Over-lyrics laid eight
+  chord names above the six characters of *Intro:* and the chart read as though
+  the intro were sung. A label followed by nothing but chords now becomes the
+  two lines it is. A line with real words after a chord — *Baby: [C]I love
+  you* — is untouched, and so is one with no chords at all.
+
+- **A chord-only line now survives switching format, exactly as written.** On a
+  line with no words, the space between two chords in Inline is the space
+  between them in Over-lyrics, and the same in reverse — so `[Am] [Em7]` stays
+  `[Am] [Em7]` however many times you switch, and `Am6    D6  D7` keeps its
+  spacing. Previously each switch re-spent the width of every chord name and
+  the line crept wider. On an intro or a turnaround that spacing is the
+  notation, so it's now carried across untouched.
+
 ## v1.9.16 — 2026-10-16
 
 ### Songs
