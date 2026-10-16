@@ -107,5 +107,56 @@ for (const [line, want] of [
 // ...while a parenthesised ALTERATION is still a chord.
 check('Am7(b5) is still detected as a chord', detectChords(convertToBrackets('Am7(b5)\nwords')), ['Am7b5']);
 
+
+// ---- 14. chord names never fuse in the over-lyrics text --------------------
+//
+// "It's [D] easy [Am6]   [D6]  [D7]" came out of the Inline -> Over switch as
+// "Am6D6D7". A chord NAME is wider than the syllable under it, so by the time
+// the next chord's column arrives the chord line has already passed it. The
+// Preview looked right — it positions chords itself — but the Text pane, which
+// is what you edit, held one unreadable token.
+const FUSED = /[A-G][#b]?[A-Za-z0-9#b/+°()-]*[A-G][#b]?(?:maj|min|dim|aug|sus|add|m|M)?\d/;
+function chordRowOf(brackets) {
+  return convertToOver(brackets).split('\n')[0];
+}
+function noFusedNames(label, brackets) {
+  const row = chordRowOf(brackets);
+  // Every whitespace-separated token must be a single chord, not two run together.
+  const bad = row.trim().split(/\s+/).filter(t => t && FUSED.test(t) && !/^[A-G][#b]?(maj|min|m|M|dim|aug|sus|add|°)?\d*(sus[24]?|add\d+|aug|dim|\+|b\d+|#\d+)?(\([^)]+\))?(\/[A-G][#b]?)?$/.test(t));
+  check(label, bad, []);
+}
+
+noFusedNames('his line: trailing turnaround', "It's [D] easy [Am6]   [D6]  [D7]");
+noFusedNames('two long names, one gap',       "[Cmaj7]a [D]b");
+noFusedNames('stacked at one column',         "[C][G][Am]");
+noFusedNames('long name then short syllable', "[Am7]a[B]b and on we go");
+noFusedNames('slash chords',                  "[D/F#]a [G/B]b");
+
+check('his line reads as three chords',
+  chordRowOf("It's [D] easy [Am6]   [D6]  [D7]").trim().split(/\s+/),
+  ['D', 'Am6', 'D6', 'D7']);
+
+// Spacing that is already wide enough is left exactly as it was — the rule adds
+// a separator, it does not re-space a line that reads fine.
+check('a comfortable line is untouched',
+  convertToOver("[C]Love [Am]potion [F]number [G]nine"),
+  'C    Am     F      G\nLove potion number nine');
+check('...and still round-trips',
+  convertToBrackets(convertToOver("[C]Love [Am]potion [F]number [G]nine")),
+  "[C]Love [Am]potion [F]number [G]nine");
+
+// The chord still sits over its own syllable wherever the width allows it.
+check('chords stay on their syllables when there is room',
+  convertToOver("[C]Love [Am]potion").split('\n')[0].indexOf('Am'),
+  'Love '.length);
+
+// Switching format twice settles rather than creeping further each time.
+for (const src of ["It's [D] easy [Am6]   [D6]  [D7]", "[Cmaj7]a [D]b", "[C]Love [Am]potion [F]number [G]nine"]) {
+  const once  = convertToBrackets(convertToOver(src));
+  const twice = convertToBrackets(convertToOver(once));
+  check(`settles after one pass: ${JSON.stringify(src)}`, twice, once);
+}
+
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

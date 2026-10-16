@@ -46,17 +46,29 @@ export function convertToOver(text) {
       } else {
         let chordLine = '';
         let lyricLine = '';
-        let abut = false; // previous chord sat at the same column (no lyric between)
         for (const seg of line.segments) {
           if (seg.chord !== null) {
             while (chordLine.length < lyricLine.length) chordLine += ' ';
-            // Two chords stacked at the same lyric column would run together
-            // ([C][G] → "CG"); keep a space between them so both read.
-            if (abut && chordLine.length > 0 && !chordLine.endsWith(' ')) chordLine += ' ';
+            // ALWAYS leave a space, not only when two chords share a column.
+            //
+            // A chord NAME is usually wider than the syllable it sits over, so by
+            // the time the next chord's column comes round the chord line has
+            // already passed it and the padding loop above has nothing to do.
+            // Without this the two names fuse: "[Am6]   [D6]  [D7]" at the end of
+            // a line came out as "Am6D6D7", which is unreadable and uneditable in
+            // the Text pane — and not even positionally safe, since reading
+            // "Am7B" back splits it at the name boundary and lands the second
+            // chord on whatever character that offset happens to be.
+            //
+            // The cost is that a chord whose column has been overrun sits one or
+            // more columns right of where it belongs. That is the format's own
+            // limit: two chords closer together than the first one's name cannot
+            // both be drawn at their true columns AND be told apart. Readable and
+            // slightly late beats exact and illegible.
+            if (chordLine.length > 0 && !chordLine.endsWith(' ')) chordLine += ' ';
             chordLine += seg.chord;
           }
           if (seg.text) lyricLine += seg.text;
-          abut = seg.chord !== null && !seg.text;
         }
         if (chordLine.trim()) out.push(chordLine.trimEnd());
         out.push(lyricLine.trimEnd());
