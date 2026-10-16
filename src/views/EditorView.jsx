@@ -16,9 +16,9 @@ import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
-import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord } from '../utils/transpose.js';
+import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord, displaySemitones } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets, bracketSourceMap } from '../utils/chordStyle.js';
-import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, readSongDetails, askMusic, transposeAdvice, chordShapesFor, alternateVoicings, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
+import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, readSongDetails, READ_ONLY_FIELDS, askMusic, transposeAdvice, chordShapesFor, alternateVoicings, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
 import { DEFAULT_TIME_SIG } from '../utils/timeSig.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
@@ -1583,7 +1583,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Transpose is locked OFF for a PDF: its chords are entered to match the fixed
   // printed sheet, so the diagrams render at that key (View Key must not move them).
-  const chordSemitones = songType === 'pdf' ? 0 : semitonesBetween(metadata.key, effectiveDisplayKey);
+  // The chord PANEL draws the shapes you finger, so it follows the capo too.
+  const chordSemitones = songType === 'pdf' ? 0 : displaySemitones(metadata, effectiveDisplayKey);
   // Accidental spelling for transposed diagram labels — auto follows the Transpose key.
   const chordUseFlats = useFlatsForKey(accidentals, effectiveDisplayKey);
 
@@ -1827,7 +1828,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Deliberately BEFORE the request: unticking here means Cue never asks about
   // that field at all, rather than asking and then discarding the answer.
   const fillAskDialog = fillAsk && (() => {
-    const chosen = FILL_FIELDS.filter(f => !fillSkip[f.field]);
+    // Capo is only on offer when reading the chart. Looking one up would be
+    // meaningless — what capo a RECORDING used is not a fact about the song —
+    // so the row is not there to be ticked in the other mode.
+    const offered = FILL_FIELDS.filter(f => fillMode === 'chart' || !READ_ONLY_FIELDS.has(f.field));
+    const chosen = offered.filter(f => !fillSkip[f.field]);
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => setFillAsk(false))}>
         <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
@@ -1860,8 +1865,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               : "Here's what this song has now. Tick what Cue should work out — it only looks up what you tick, and nothing changes until you apply what comes back."}
           </p>
           <ul className="flex flex-col gap-2">
-            {FILL_FIELDS.map(f => {
-              const current = (metadata[f.field] || '').trim();
+            {offered.map(f => {
+              const current = String(metadata[f.field] ?? '').trim();
               return (
                 <li key={f.field} className={`flex items-center p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer">

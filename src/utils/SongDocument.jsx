@@ -133,24 +133,34 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
 }
 
 // Reusable song page — can be embedded in SongDocument or SetDocument
-function SongPage({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordColor, embed = false, shapeFor = null }) {
+function SongPage({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordColor, embed = false, shapeFor = null }) {
   const styles = buildStyles(scale, chordColor);
   // Guard against a song with missing/null metadata — otherwise destructuring
   // throws and, inside a SetDocument, one bad song aborts the whole PDF.
   const meta = metadata || {};
   const { title, artist, key } = meta;
   const lines = attachSectionLabels(parsedLines || []);
-  const displayKey = semitones && key ? transposeChord(key, semitones, useFlats) : key;
+  // `semitones` is the View Key shift MINUS the capo, because that is what the
+  // chords are drawn at. The printed KEY is not that: a capo changes what you
+  // finger, not what the song sounds like, so adding the capo back gives the key
+  // it is still in. Printing the fingered key here would tell a reader the song
+  // is in C when it is in D.
+  const keyShift = semitones + (capo || 0);
+  const displayKey = keyShift && key ? transposeChord(key, keyShift, useFlats) : key;
 
   return (
     <Page size="A4" style={styles.page}>
-      {(title || artist || key || meta.tempo) ? (
+      {(title || artist || key || meta.tempo || capo) ? (
         <View style={styles.header}>
           {title  ? <Text style={styles.title}>{title}</Text>  : null}
           {artist ? <Text style={styles.artist}>{artist}</Text> : null}
-          {(displayKey || meta.tempo) ? (
+          {(displayKey || meta.tempo || capo) ? (
             <View style={styles.metaRow}>
               {displayKey ? <Text style={styles.meta}>Key: {displayKey}</Text>       : null}
+              {/* On the page for the same reason it is on stage: the chart is
+                  drawn as the shapes you finger with the capo on, so a reader
+                  without it is playing the wrong song. */}
+              {capo ? <Text style={styles.meta}>Capo: {capo}</Text>                  : null}
               {meta.tempo ? <Text style={styles.meta}>Tempo: {meta.tempo} BPM</Text> : null}
             </View>
           ) : null}
@@ -198,10 +208,10 @@ function ChordReferencePage({ chords, tuning = ['G', 'C', 'E', 'A'], instrumentN
 }
 
 // Single-song PDF document
-export function SongDocument({ metadata, parsedLines, semitones = 0, useFlats = false, scale = 1, chordDiagrams, chordColor, tuning, instrumentName, embed = false, shapeFor = null }) {
+export function SongDocument({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordDiagrams, chordColor, tuning, instrumentName, embed = false, shapeFor = null }) {
   return (
     <Document>
-      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} useFlats={useFlats} scale={scale} chordColor={chordColor} embed={embed} shapeFor={shapeFor} />
+      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} capo={capo} useFlats={useFlats} scale={scale} chordColor={chordColor} embed={embed} shapeFor={shapeFor} />
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>
   );
@@ -212,7 +222,7 @@ export function SetDocument({ songs, chordDiagrams, chordColor, tuning, instrume
   return (
     <Document>
       {songs.map((song, i) => (
-        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} />
+        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} capo={song.capo || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} />
       ))}
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>

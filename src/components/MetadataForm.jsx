@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { KEY_NAMES } from '../utils/transpose.js';
+import { KEY_NAMES, MAX_CAPO, capoFrets } from '../utils/transpose.js';
 import { TIME_SIGNATURES } from '../utils/timeSig.js';
 import { playMetronome } from '../utils/metronome.js';
 import { mmss } from '../utils/duration.js';
@@ -154,6 +154,30 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
         >
           <option value="">—</option>
           {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+
+      {/* Capo — beside Key on purpose: the two are read together ("D, capo 2"),
+          and a fret number next to a key explains itself in a way it would not
+          next to a video link.
+
+          IT DOES NOT CHANGE THE KEY. A song in D with a capo on 2 is fingered in
+          C and still sounds in D, so Key stays D and only the chords DRAWN come
+          down — one semitone per fret, everywhere they are drawn. That is the
+          whole difference from Transpose, which changes what you sound. */}
+      <div className="flex flex-col gap-0.5">
+        <label className="text-xs text-gray-500 uppercase tracking-wide">Capo</label>
+        <select
+          value={String(capoFrets(metadata) || '')}
+          onChange={e => set('capo', e.target.value)}
+          title="Chords are drawn as the shapes you finger with the capo on. The song's key, and what it sounds like, do not change."
+          aria-label="Capo fret"
+          className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+        >
+          <option value="">—</option>
+          {Array.from({ length: MAX_CAPO }, (_, i) => i + 1).map(n => (
+            <option key={n} value={n}>{n}</option>
+          ))}
         </select>
       </div>
 

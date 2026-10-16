@@ -19,6 +19,7 @@
 
 import { timeSigOrEmpty } from './timeSig.js';
 import { YOUTUBE_RE, DURATION_RE, TEMPO_RE } from './songMetadata.js';
+import { MAX_CAPO } from './transpose.js';
 
 // ChordPro names its directives twice: a long form and a short one. Cue read
 // only the long forms, so {t:…} — the form most ChordPro files in the wild use —
@@ -30,7 +31,19 @@ export const DIRECTIVES = {
   tempo: 'tempo',    bpm: 'tempo',
   duration: 'duration',  length: 'duration',
   time: 'timeSig',   timesig: 'timeSig',
+  capo: 'capo',
 };
+
+// A capo written in prose rather than as a directive: "capo 3", "Capo: 2nd
+// fret", "capo on 5". Charts carry this far more often than they carry
+// {capo: N}, and a fret number after the word is not something that needs a
+// model's judgement — so it is read here, for nothing.
+//
+// The word must be there. A bare number is not a capo, and "capotasto" is not
+// either, so the word is bounded on both sides. Between the word and the fret,
+// at most one linking word ("capo ON 4") and whatever punctuation; after it, an
+// ordinal suffix, because "capo 7th fret" is how people write it.
+const CAPO_IN_TEXT = /\bcapo\b\W*(?:on|at|the|fret)?\W*(\d{1,2})(?:st|nd|rd|th)?\b/i;
 
 export const DIRECTIVE_RE = /^\{\s*([A-Za-z_]+)\s*:\s*([\s\S]*?)\s*\}$/;
 
@@ -43,8 +56,14 @@ function validate(field, value) {
     case 'timeSig':  return timeSigOrEmpty(value);
     case 'duration': return DURATION_RE.test(value) ? value : '';
     case 'tempo':    return TEMPO_RE.test(value) ? value : '';
+    case 'capo':     return capoOrEmpty(value);
     default:         return value;
   }
+}
+
+function capoOrEmpty(value) {
+  const n = Math.trunc(Number(String(value).match(/\d{1,2}/)?.[0]));
+  return Number.isFinite(n) && n > 0 && n <= MAX_CAPO ? String(n) : '';
 }
 
 // Returns { fields, remove } — the values found, and the exact text of the lines
@@ -77,6 +96,16 @@ export function readChartMetadata(text) {
     if (link) {
       if (!fields.youtubeUrl) fields.youtubeUrl = link.url;
       if (link.isOnly) remove.push(trimmed);
+    }
+
+    // A capo written in prose, wherever it sits — including on the end of a link
+    // line, which is where Howard's charts tend to put it. The LINE is never
+    // offered for removal on account of a capo: it usually carries a note worth
+    // keeping, and a capo mentioned inside a lyric is a lyric.
+    if (!fields.capo) {
+      const m = trimmed.match(CAPO_IN_TEXT);
+      const kept = m && capoOrEmpty(m[1]);
+      if (kept) fields.capo = kept;
     }
   }
 

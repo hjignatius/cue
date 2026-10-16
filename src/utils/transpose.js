@@ -113,3 +113,32 @@ export function semitonesBetween(from, to) {
   if (fi === -1 || ti === -1) return 0;
   return ((ti - fi) + 12) % 12;
 }
+
+// ---- Capo --------------------------------------------------------------
+//
+// A capo changes what you FINGER, not what you sound. A song in D played with a
+// capo on 2 is fingered in C and still sounds in D — so the song's key stays D
+// and only the chords DRAWN move down, one semitone per fret.
+//
+// That is the whole difference from Transpose, which changes what you sound. The
+// two stack: transpose to the View Key, then come down by the capo.
+
+export const MAX_CAPO = 12;
+
+// The capo as a number of frets, 0 when there is none. Tolerant of the string a
+// form control hands back, and of the junk a hand-edited file might carry.
+export function capoFrets(metadata) {
+  const n = Math.trunc(Number(metadata?.capo));
+  return Number.isFinite(n) && n > 0 && n <= MAX_CAPO ? n : 0;
+}
+
+// THE number of semitones to shift a song's chords by when drawing it: the View
+// Key, then the capo. Every surface that renders chords uses this one, so the
+// Preview, Present, the PDF and the chord diagrams can never disagree about what
+// you are being asked to play.
+//
+// NOT for transposeSource, which bakes a transposition into the song text: a
+// capo is not a key change and must never be written into the chart.
+export function displaySemitones(metadata, displayKey) {
+  return semitonesBetween(metadata?.key, displayKey) - capoFrets(metadata);
+}

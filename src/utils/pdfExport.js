@@ -1,6 +1,6 @@
 import { pdf } from '@react-pdf/renderer';
 import { parseChordPro, expandSections } from './chordPro.js';
-import { semitonesBetween, transposeChord, useFlatsForKey } from './transpose.js';
+import { semitonesBetween, transposeChord, useFlatsForKey, displaySemitones, capoFrets } from './transpose.js';
 import { convertToBrackets } from './chordStyle.js';
 import { detectChords } from './chordDetect.js';
 import { lookupChordDiagrams, resolveChordShape } from './chordLookup.js';
@@ -22,7 +22,7 @@ function metaForPdf(metadata) {
 
 export async function exportToPdf(song, { displayKey, includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
   const { metadata, text } = song;
-  const semitones  = semitonesBetween(metadata?.key, displayKey);
+  const semitones  = displaySemitones(metadata, displayKey);
   const useFlats   = useFlatsForKey(accidentals, displayKey);
   const parsedP    = parseChordPro(convertToBrackets(sanitizeForPdf(text || '')));
   // Condensed songs print verbatim — skip section-reference expansion.
@@ -40,7 +40,7 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
   const embed = song.embed === true && instrument !== 'none';
   const shapeFor = embed ? (name) => resolveChordShape(name, song.chordPrefs || {}, instrument) : null;
   // PDFs are black & white — chord text and diagrams both print black on paper.
-  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, useFlats, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name, embed, shapeFor })).toBlob();
+  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, capo: capoFrets(metadata), useFlats, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name, embed, shapeFor })).toBlob();
   await saveFilePicker(blob, `${sanitize(metadata?.title)}.pdf`);
 }
 
@@ -60,7 +60,8 @@ function songsForPdf(sets, allSongs, accidentals) {
         metadata:    metaForPdf(song.metadata),
         parsedLines: (() => { const p = parseChordPro(convertToBrackets(sanitizeForPdf(song.text || ''))); return song.condensed === true ? p : expandSections(p); })(),
         text:        song.text || '',
-        semitones:   semitonesBetween(song.metadata?.key, song.displayKey),
+        semitones:   displaySemitones(song.metadata, song.displayKey),
+        capo:        capoFrets(song.metadata),
         useFlats:    useFlatsForKey(accidentals, song.displayKey),
         chordPrefs:  song.chordPrefs || {},
       });

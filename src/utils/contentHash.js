@@ -10,7 +10,7 @@ export function contentSig(song) {
   const m = song?.metadata || {};
   return JSON.stringify({
     t: song?.text || '',
-    md: { title: m.title || '', artist: m.artist || '', key: m.key || '', tempo: m.tempo || '', duration: m.duration || '', timeSig: m.timeSig || '', youtubeUrl: m.youtubeUrl || '' },
+    md: { title: m.title || '', artist: m.artist || '', key: m.key || '', tempo: m.tempo || '', duration: m.duration || '', timeSig: m.timeSig || '', youtubeUrl: m.youtubeUrl || '', capo: m.capo || '' },
     cs: song?.chordStyle || '', pm: song?.previewMode || '',
     fp: !!song?.fullPage, em: !!song?.embed, type: song?.type || 'text',
   });
@@ -44,6 +44,7 @@ const SIG_FIELDS = [
   ['the duration',         (s) => s?.metadata?.duration || ''],
   ['the time signature',   (s) => s?.metadata?.timeSig || ''],
   ['the YouTube link',     (s) => s?.metadata?.youtubeUrl || ''],
+  ['the capo',             (s) => s?.metadata?.capo || ''],
   ['the chord format',     (s) => s?.chordStyle || ''],
   ['the preview format',   (s) => s?.previewMode || ''],
   ['the full-page setting',(s) => String(!!s?.fullPage)],
