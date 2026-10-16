@@ -26,6 +26,7 @@ import { detectChords, normalizeChordName } from '../utils/chordDetect.js';
 import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
 import { loadCustomChords, mutateCustomChords } from '../utils/chordStorage.js';
 import { planLineRemoval, applyLineRemoval } from '../utils/liftLines.js';
+import { readChartMetadata } from '../utils/readChart.js';
 import { shapesForName } from '../utils/chordLookup.js';
 import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
@@ -1025,9 +1026,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       const onStage = (st) => setFillStage(prev => advanceStage(prev, st, { ...FILL_STAGE, idleLabel: '' }));
       // 'chart' reads the pasted text; 'web' looks the recording up. The answer
       // has the same shape either way, so everything downstream is shared.
-      const suggest = how === 'chart'
-        ? await readSongDetails(text, model, use, onStage, signal)
-        : await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use, onStage, signal);
+      let suggest;
+      if (how === 'chart') {
+        // FREE AND EXACT FIRST. A ChordPro paste states its own title, artist and
+        // key in directives, and carries its link as a bare URL or an anchor the
+        // browser brought along. Those need reading, not judging — so they are
+        // read here, and the model is asked only about what is left. A paste that
+        // is proper ChordPro sends no request at all.
+        const local   = readChartMetadata(text);
+        const missing = use.filter(f => !local.fields[f]);
+        const fromAi  = missing.length ? await readSongDetails(text, model, missing, onStage, signal) : {};
+        suggest = {};
+        for (const f of FILL_FIELDS.map(x => x.field)) suggest[f] = local.fields[f] || fromAi[f] || '';
+        // Local proposals first — they are the ones Cue is certain about.
+        suggest.remove = [...new Set([...local.remove, ...(fromAi.remove || [])])];
+      } else {
+        suggest = await fillSongDetails(text, { title: metadata.title, artist: metadata.artist }, model, use, onStage, signal);
+      }
       // Safe to read `metadata` from this closure: the dialog is modal for the
       // whole request, so the song can't have been edited while we waited.
       setFillBaseline({ ...metadata });

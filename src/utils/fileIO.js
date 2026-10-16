@@ -3,7 +3,8 @@ import { saveFilePicker } from './filePicker.js';
 import { loadSongs, loadSets, collectPdfBackups, SCHEMA_VERSION } from './storage.js';
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
 import { stripStyling } from './chordPro.js';
-import { normalizeTimeSig } from './timeSig.js';
+import { normalizeTimeSig, timeSigOrEmpty } from './timeSig.js';
+import { DIRECTIVES, DIRECTIVE_RE } from './readChart.js';
 import { detectChords } from './chordDetect.js';
 // ANNOTATION SAFETY: all export functions below read exclusively from loadSongs()
 // and loadSets() (the 'songs'/'sets' IndexedDB stores). Ink annotations live in
@@ -223,18 +224,28 @@ export function parseCho(content) {
   const bodyLines = [];
 
   for (const line of lines) {
-    const m = line.match(/^\{(\w+):\s*(.*?)\s*\}$/);
-    if (m) {
-      const [, key, value] = m;
-      if      (key === 'title')                    metadata.title  = value;
-      else if (key === 'artist' || key === 'subtitle') metadata.artist = value;
-      else if (key === 'key')                      metadata.key    = value;
-      else if (key === 'tempo'  || key === 'bpm')  metadata.tempo  = value;
-      else if (key === 'duration')                 metadata.duration = value;
-      else if (key === 'timesig' || key === 'time') metadata.timeSig  = normalizeTimeSig(value);
-      else bodyLines.push(line); // unknown directives stay in body
+    const m = line.trim().match(DIRECTIVE_RE);
+    // ONE directive table, shared with the paste reader (utils/readChart.js), so
+    // a .cho file and a pasted song understand the same spellings.
+    //
+    // THE BUG THIS FIXES: the long forms were listed by hand and the SHORT ones
+    // were missing, so "{t: Ain't It Funny How Time Slips Away}" — the form most
+    // ChordPro in the wild uses — left the title unset and the directive sitting
+    // in the body, to be printed and presented as a lyric.
+    const field = m && DIRECTIVES[m[1].toLowerCase()];
+    if (field) {
+      const value = m[2].trim();
+      if (!value) continue;                          // "{c: }" and friends
+      if (field === 'timeSig') {
+        // timeSigOrEmpty, not normalizeTimeSig: a signature the file got wrong
+        // must arrive unset, never wearing 4/4 as though it had been chosen.
+        const sig = timeSigOrEmpty(value);
+        if (sig) metadata.timeSig = sig; else bodyLines.push(line);
+      } else if (!metadata[field]) {
+        metadata[field] = value;
+      }
     } else {
-      bodyLines.push(line);
+      bodyLines.push(line); // unknown directives stay in body
     }
   }
 
