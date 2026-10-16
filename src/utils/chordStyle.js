@@ -27,19 +27,31 @@ export function convertToOver(text) {
       // Detect whether there is any real lyric content (not just inter-chord spaces).
       const hasLyric = line.segments.some(s => s.text && s.text.trim() !== '');
       if (!hasLyric) {
-        // Chord-only line (e.g. [>]  [G]  [G6] …): reconstruct by joining each
-        // chord name with the spacing that originally separated the brackets,
-        // but never let two adjacent chords ([C][G]) fuse into "CG" — insert a
-        // separating space when a chord abuts the previous one.
+        // Chord-only line (e.g. [>]  [G]  [G6] …). KEEPING THE COLUMNS IS THE
+        // WHOLE POINT: on an intro or a turnaround there are no words, so the
+        // spacing IS the notation — it says where in the bar each chord falls.
+        //
+        // Placed at the column, exactly as the with-lyrics branch below does it,
+        // rather than by appending each chord's name and then the text after it.
+        // Appending was an asymmetry with the way back: converting TO brackets
+        // records a chord's column, while appending re-spent that column on the
+        // NAME and then added the gap again. So every switch between the two
+        // formats widened the line by the width of each chord name, for ever:
+        //
+        //   [Am6] [D6]  ->  [Am6]    [D6]  ->  [Am6]       [D6]  ->  …
+        //
+        // Reading the column instead makes the two directions agree, so a line
+        // authored in over-lyrics round-trips unchanged and one authored in
+        // brackets settles after a single pass.
         let s = '';
-        let abut = false; // previous chord had no lyric text after it
+        let col = 0;   // column in the (wordless) lyric this line sits over
         for (const seg of line.segments) {
           if (seg.chord != null) {
-            if (abut && s.length && !s.endsWith(' ')) s += ' ';
+            while (s.length < col) s += ' ';
+            if (s.length > 0 && !s.endsWith(' ')) s += ' ';   // names must not fuse
             s += seg.chord;
           }
-          if (seg.text) s += seg.text;
-          abut = seg.chord != null && !seg.text;
+          if (seg.text) col += seg.text.length;
         }
         s = s.trimEnd();
         if (s.trim()) out.push(s);

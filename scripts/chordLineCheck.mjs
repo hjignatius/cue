@@ -158,5 +158,46 @@ for (const src of ["It's [D] easy [Am6]   [D6]  [D7]", "[Cmaj7]a [D]b", "[C]Love
 }
 
 
+
+// ---- 15. a chord-only line keeps its width -------------------------------
+//
+// Switching format used to WIDEN a chord-only line every time, for ever:
+//   [Am6] [D6] -> [Am6]    [D6] -> [Am6]       [D6] -> …
+// Converting TO brackets records each chord's column; converting back used to
+// spend that column on the NAME and then add the gap again, so each pass grew
+// the line by the width of every chord name. Both directions now read the
+// column.
+
+// On an intro or a turnaround the spacing IS the notation — it says where in
+// the bar each chord falls. A line written in over-lyrics must come back
+// byte-identical.
+for (const line of [
+  'Am6    D6  D7',
+  'C       G       Am      F',
+  'Fm7     Bb7',
+  'G  G6  G7  G6',
+  'D/F#    G    A7sus4   A7',
+]) check(`gaps kept: ${JSON.stringify(line)}`, convertToOver(convertToBrackets(line)), line);
+
+// A line written in brackets settles after one pass instead of creeping.
+for (const src of ['[Am6] [D6]', '[Am6]   [D6]  [D7]', '[C]  [G]  [Am]', '[C][G]', '[C][G][Am]']) {
+  const once  = convertToBrackets(convertToOver(src));
+  const twice = convertToBrackets(convertToOver(once));
+  check(`settles: ${JSON.stringify(src)}`, twice, once);
+}
+
+// The one-time adjustment only ever widens a gap too narrow to hold the name,
+// and never by more than it must.
+check('a narrow gap opens to one space', convertToOver('[Am6] [D6]'), 'Am6 D6');
+check('stacked chords separate', convertToOver('[C][G][Am]'), 'C G Am');
+check('a wide gap is left alone', convertToOver('[Am6]       [D6]'), 'Am6    D6');
+
+// A chord-only line is the same whether it stands alone, precedes a blank, or
+// precedes another chord line.
+check('alone and in a run agree',
+  convertToOver('[Am6]   [D6]\n[C]   [G]').split('\n'),
+  [convertToOver('[Am6]   [D6]'), convertToOver('[C]   [G]')]);
+
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
