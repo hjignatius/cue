@@ -229,7 +229,23 @@ function mergeIntoLyricLine(chordLine, lyricLine) {
 function chordLineToBrackets(line) {
   const chords = extractChords(line);
   if (chords.length === 0) return line;
-  return mergeIntoLyricLine(line, '');
+  // The gap AFTER each name, not the column the name starts at.
+  //
+  // Merging into an empty lyric records columns, which is right for a line with
+  // words under it and wrong here: converting back writes the NAME into those
+  // columns and then adds the gap again, so every switch between the formats
+  // widened the line by the width of every chord on it. A line with no words has
+  // no columns to be absolute about — the space between two chords IS the gap
+  // between them, and recorded that way the line survives any number of switches
+  // byte for byte.
+  let out = '';
+  let end = 0;   // column just past the previous chord name
+  for (const { chord, pos } of chords) {
+    if (out) out += ' '.repeat(Math.max(1, pos - end));
+    out += `[${chord}]`;
+    end = pos + chord.length;
+  }
+  return out;
 }
 
 // Returns { converted: string, wasConverted: boolean }

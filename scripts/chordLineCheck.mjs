@@ -186,11 +186,43 @@ for (const src of ['[Am6] [D6]', '[Am6]   [D6]  [D7]', '[C]  [G]  [Am]', '[C][G]
   check(`settles: ${JSON.stringify(src)}`, twice, once);
 }
 
-// The one-time adjustment only ever widens a gap too narrow to hold the name,
-// and never by more than it must.
-check('a narrow gap opens to one space', convertToOver('[Am6] [D6]'), 'Am6 D6');
-check('stacked chords separate', convertToOver('[C][G][Am]'), 'C G Am');
-check('a wide gap is left alone', convertToOver('[Am6]       [D6]'), 'Am6    D6');
+// On a wordless line the spacing between the BRACKETS is the gap between the
+// NAMES — which is also what it looks like when you read it. So it is carried
+// across as-is, in both directions, and only a gap too narrow to hold a
+// separator is touched at all.
+check('the gap is carried across as written', convertToOver('[Am6]       [D6]'), 'Am6       D6');
+check('a one-space gap stays one space', convertToOver('[Am6] [D6]'), 'Am6 D6');
+check('stacked chords get the one space they need', convertToOver('[C][G][Am]'), 'C G Am');
+// Which makes the whole thing symmetric: written in EITHER format, it survives
+// any number of switches byte for byte.
+for (const src of ['[Am] [Em7] [G] [Am]', '[Am6]   [D6]  [D7]', '[Am6] [D6]']) {
+  check(`brackets survive a switch: ${JSON.stringify(src)}`, convertToBrackets(convertToOver(src)), src);
+}
+
+// ---- 16. a label followed by nothing but chords is two lines --------------
+//
+// "Intro: [Am] [Em7] [G] [Am]" counted the label as the line's lyric, so
+// over-lyrics laid eight chord names above the six characters of "Intro:" and
+// the chart read as though the intro were sung. It is a heading with a chord
+// run under it.
+check('his intro splits in two',
+  convertToOver('Intro: [Am] [Em7] [G] [Am] [Am] [Em7] [G] [Am]'),
+  'Intro:\nAm Em7 G Am Am Em7 G Am');
+check('...and survives the trip back',
+  convertToBrackets(convertToOver('Intro: [Am] [Em7] [G] [Am]')),
+  'Intro:\n[Am] [Em7] [G] [Am]');
+for (const label of ['Intro:', 'Outro:', 'Chorus:', 'Verse 2:', 'Instrumental:']) {
+  check(`label: ${label}`, convertToOver(`${label} [C] [G]`), `${label}\nC G`);
+}
+// Narrow on purpose: the label must be the ONLY non-chord text on the line.
+// Still one line with words under it, and the chord still sits over the
+// syllable it belongs to — six columns in, above the "I".
+check('a lyric after a chord keeps the line whole',
+  convertToOver('Baby: [C]I love you'), '      C\nBaby: I love you');
+check('words after the chords keep it whole',
+  convertToOver('Intro: [Am] la la').split('\n').length, 2);
+check('a line with no chords is not a label run',
+  convertToOver('Intro: just talking'), 'Intro: just talking');
 
 // A chord-only line is the same whether it stands alone, precedes a blank, or
 // precedes another chord line.

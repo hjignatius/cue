@@ -18,12 +18,70 @@ export function detectChordStyle(text) {
 }
 
 // Convert ChordPro inline-bracket text to over-lyrics (chord line above lyric line).
+// A chord-only run.
+//
+// On a line with no words the spacing between the BRACKETS is the gap between
+// the chord NAMES — which is also what it looks like when you read it. So the
+// text between two brackets is laid down as-is, and chordLineToBrackets reads it
+// back the same way. "[Am] [Em7]" is "Am Em7" and comes back "[Am] [Em7]",
+// unchanged, in both directions and however many times you switch.
+//
+// Reading it as an absolute COLUMN instead — which is what a line with lyrics
+// under it means — is what made every switch re-spend the width of each chord
+// name and widen the line. A wordless line has no columns to be absolute about.
+function chordRun(segments) {
+  let s = '';
+  let gap = 0;
+  for (const seg of segments) {
+    if (seg.chord != null) {
+      if (s.length) s += ' '.repeat(Math.max(1, gap));   // names must not fuse
+      s += seg.chord;
+      gap = 0;
+    }
+    if (seg.text) gap += seg.text.length;
+  }
+  return s.trimEnd();
+}
+
+// "Intro: [Am] [Em7] [G] [Am]" — a section label, then nothing but chords.
+//
+// Without this the label counts as the line's lyric, so over-lyrics lays the
+// whole run of chords above the single word "Intro:" — eight chord names over
+// six characters, and the chart reads as though the intro were sung. It is a
+// heading with a chord run under it, and that is two lines.
+//
+// The test is deliberately narrow: the label must be the ONLY non-chord text on
+// the line. "Baby: [C]I love you" keeps its lyric and is left alone, and so is
+// "Intro: [Am] la la", because in both the text after a chord is words.
+const LABEL_PREFIX = /^\s*([^\s:][^:]{0,24}):\s*$/;
+
+function labelledChordRun(segments) {
+  const first = segments[0];
+  if (!first || first.chord != null) return null;
+  const m = LABEL_PREFIX.exec(first.text || '');
+  if (!m) return null;
+  const rest = segments.slice(1);
+  if (!rest.length || !rest.some(sg => sg.chord != null)) return null;
+  // Every remaining segment must be a chord carrying only spacing after it.
+  if (rest.some(sg => sg.chord == null || (sg.text && sg.text.trim() !== ''))) return null;
+  return { label: `${m[1].trim()}:`, rest };
+}
+
 export function convertToOver(text) {
   const lines = parseChordPro(text);
   const out = [];
 
   for (const line of lines) {
     if (line.type === 'chords') {
+      // A label followed by nothing but chords is a heading and a chord run —
+      // two lines, not one line with a six-character lyric under eight chords.
+      const labelled = labelledChordRun(line.segments);
+      if (labelled) {
+        out.push(labelled.label);
+        const run = chordRun(labelled.rest);
+        if (run.trim()) out.push(run);
+        continue;
+      }
       // Detect whether there is any real lyric content (not just inter-chord spaces).
       const hasLyric = line.segments.some(s => s.text && s.text.trim() !== '');
       if (!hasLyric) {
@@ -43,17 +101,7 @@ export function convertToOver(text) {
         // Reading the column instead makes the two directions agree, so a line
         // authored in over-lyrics round-trips unchanged and one authored in
         // brackets settles after a single pass.
-        let s = '';
-        let col = 0;   // column in the (wordless) lyric this line sits over
-        for (const seg of line.segments) {
-          if (seg.chord != null) {
-            while (s.length < col) s += ' ';
-            if (s.length > 0 && !s.endsWith(' ')) s += ' ';   // names must not fuse
-            s += seg.chord;
-          }
-          if (seg.text) col += seg.text.length;
-        }
-        s = s.trimEnd();
+        const s = chordRun(line.segments);
         if (s.trim()) out.push(s);
       } else {
         let chordLine = '';
