@@ -3,6 +3,30 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.18 — 2026-10-18
+
+### Songs
+
+- **Capo.** A new field beside **Key** in the editor, 1&ndash;12 or none. A capo
+  changes what you *finger*, not what you *sound*: a song in D with a capo on 2
+  is fingered in C and still sounds in D — so **Key stays D** and only the
+  chords drawn come down, one semitone per fret. That holds everywhere they're
+  drawn: the preview, Present, the PDF, and the chord diagrams, which show the
+  shapes you actually finger. It's the opposite of **Transpose**, which changes
+  what you sound; set both and they stack.
+
+- **The capo is shown beside the key in Present and on the PDF.** A chart drawn
+  for a capo you haven't put on is the wrong song in the wrong key, so it isn't
+  hidden away. The printed key still reads as the key the song *sounds* in.
+
+- **A capo in a pasted chart is read for free.** *Fill in song details* →
+  **Read the chart** finds `{capo: 3}` and plain words alike — *capo 3*,
+  *Capo: 2nd fret*, *capo on 4*, *capo 7th fret* — wherever they sit, including
+  on the end of a link line. The line itself is left in place, since it usually
+  carries a note worth keeping. Capo is the one field only reading can fill:
+  it's absent under *Look it up*, because what capo a recording used isn't a
+  fact about the song.
+
 ## v1.9.17 — 2026-10-17
 
 ### Fixes
