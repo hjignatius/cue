@@ -1831,10 +1831,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             ariaLabel="Where to get the details from"
             fullWidth
             value={fillMode}
-            onChange={setFillMode}
+            // Normalised rather than passed straight through: this is a
+            // two-state switch, and anything that is not 'chart' is 'web'. The
+            // first cut of this passed `value:` keys to a control that reads
+            // `id:`, so the selection never matched and onChange handed back
+            // undefined — the toggle moved and the mode did not.
+            onChange={v => setFillMode(v === 'chart' ? 'chart' : 'web')}
             options={[
-              { value: 'web',   label: 'Look it up' },
-              { value: 'chart', label: 'Read the chart' },
+              { id: 'web',   label: 'Look it up' },
+              { id: 'chart', label: 'Read the chart' },
             ]}
           />
           <p className={`text-xs ${mutedText}`}>

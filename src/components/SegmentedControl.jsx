@@ -61,6 +61,14 @@ export default function SegmentedControl({
   // Unknown/absent value falls back to the first segment rather than -1.
   const activeIndex = Math.max(0, options.findIndex(o => o.id === value));
 
+  // Options are keyed by `id`. Writing `value:` instead is silent and total: no
+  // option ever matches, so the control pins itself to the first segment and
+  // hands onChange an undefined id — the thumb slides, the setting does not
+  // move, and nothing anywhere says why. It shipped once. Say so in dev.
+  if (import.meta.env?.DEV && options.some(o => o && o.id === undefined)) {
+    console.warn('SegmentedControl: every option needs an `id`. Got:', options);
+  }
+
   function select(i) {
     const opt = options[i];
     if (!opt) return;
