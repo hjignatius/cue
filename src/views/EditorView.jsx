@@ -795,9 +795,21 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   function setChordFormat(target) {
     const newFmt = target === 'brackets' ? 'brackets' : 'over';
     if (newFmt !== displayMode) {
-      const cur = detectChordStyle(text);
-      if (newFmt === 'over' && cur === 'brackets') setText(convertToOver(text));
-      else if (newFmt === 'brackets' && cur === 'over') setText(convertToBrackets(text));
+      // CONVERT UNCONDITIONALLY. Both conversions are no-ops on text already in
+      // their own format, so there is nothing to protect by asking first.
+      //
+      // THE BUG THIS FIXES: this used to convert only when detectChordStyle
+      // named the CURRENT format, and that detector needs a chord line with a
+      // lyric line under it before it will commit. A song that is a heading and
+      // a chord run — "Intro:" over "Am Em7 G Am" — gives it nothing to go on,
+      // so it answers null, neither branch fired, and the text was left in
+      // over-lyrics while BOTH modes were set to brackets.
+      //
+      // The two then disagreed in the worst way: the Text pane showed the
+      // unconverted over-lyrics, while the Preview — which converts on its own,
+      // and treats null as "not brackets, so convert" — drew the same song in
+      // inline notation, brackets and all. Two panes, one song, two formats.
+      setText(newFmt === 'over' ? convertToOver(text) : convertToBrackets(text));
       setDisplayMode(newFmt);
       setPreviewFormat(newFmt);
     }

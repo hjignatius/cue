@@ -15,7 +15,7 @@
 // Run: node scripts/chordLineCheck.mjs
 
 import { isChordLine } from '../src/utils/visualImport.js';
-import { convertToBrackets, convertToOver } from '../src/utils/chordStyle.js';
+import { convertToBrackets, convertToOver, detectChordStyle } from '../src/utils/chordStyle.js';
 import { detectChords } from '../src/utils/chordDetect.js';
 
 let pass = 0, fail = 0;
@@ -229,6 +229,45 @@ check('a line with no chords is not a label run',
 check('alone and in a run agree',
   convertToOver('[Am6]   [D6]\n[C]   [G]').split('\n'),
   [convertToOver('[Am6]   [D6]'), convertToOver('[C]   [G]')]);
+
+
+
+// ---- 17. switching format does not need the detector to be sure -----------
+//
+// THE BUG: the Format switch converted only when detectChordStyle could name
+// the CURRENT format, and that detector wants a chord line with a lyric line
+// under it before it commits. A song that is a heading and a chord run —
+// "Intro:" over "Am Em7 G Am" — gives it nothing, so it answers null, nothing
+// was converted, and both modes were set to the new format anyway. The Text
+// pane then showed unconverted over-lyrics while the Preview, which converts on
+// its own, drew the same song in inline notation, brackets and all.
+//
+// The switch now converts unconditionally, which is safe because each
+// conversion is a no-op on text already in its own format. These pin that.
+
+const DETECTOR_BLIND = [
+  'Intro:\nAm Em7 G Am Am Em7 G Am',   // his song
+  'Am6    D6  D7',                      // a turnaround on its own
+  'Intro:\nC  G  Am  F',
+];
+for (const t of DETECTOR_BLIND) {
+  check(`the detector cannot name it: ${JSON.stringify(t.slice(0, 24))}`, detectChordStyle(t), null);
+  // ...and it does not matter, because converting is still correct.
+  check(`over -> over is a no-op anyway: ${JSON.stringify(t.slice(0, 24))}`, convertToOver(t), t);
+  const br = convertToBrackets(t);
+  check(`and it really does convert: ${JSON.stringify(t.slice(0, 24))}`, /\[/.test(br), true);
+  check(`brackets -> brackets is a no-op: ${JSON.stringify(t.slice(0, 24))}`, convertToBrackets(br), br);
+  check(`and back again returns the song: ${JSON.stringify(t.slice(0, 24))}`, convertToOver(br), t);
+}
+
+// The same no-op property on songs the detector IS sure about, so the switch is
+// safe to call whatever state it is in.
+for (const t of ['C       Am\nwords here', 'Intro:\nAm Em7 G Am\n\nC   Am\nwords']) {
+  check(`over -> over: ${JSON.stringify(t.slice(0, 20))}`, convertToOver(t), t);
+}
+for (const t of ['[C]words [Am]here', 'Intro:\n[Am] [Em7]', 'Intro: [Am] la la']) {
+  check(`brackets -> brackets: ${JSON.stringify(t.slice(0, 20))}`, convertToBrackets(t), t);
+}
 
 
 console.log(`\n${pass} passed, ${fail} failed`);
