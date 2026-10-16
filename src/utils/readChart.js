@@ -73,16 +73,30 @@ export function readChartMetadata(text) {
       continue;
     }
 
-    // A link line. Only when the line is JUST the link (optionally wrapped in an
-    // anchor): a URL mentioned inside a lyric is part of the lyric.
-    const url = trimmed.match(URL_IN_LINE)?.[0];
-    if (url && YOUTUBE_RE.test(url)) {
-      if (!fields.youtubeUrl) fields.youtubeUrl = url;
-      if (isOnlyLink(trimmed, url)) remove.push(trimmed);
+    const link = youtubeLineInfo(trimmed);
+    if (link) {
+      if (!fields.youtubeUrl) fields.youtubeUrl = link.url;
+      if (link.isOnly) remove.push(trimmed);
     }
   }
 
   return { fields, remove };
+}
+
+// The YouTube link on one line, if there is one.
+//
+// `isOnly` says the line carries NOTHING but that link and the markup around it,
+// which is what makes it safe to take out: a URL mentioned inside a lyric is
+// part of the lyric and must be read without being cut.
+//
+// Shared with parseCho, so a .cho file and a pasted song treat a link line the
+// same way.
+export function youtubeLineInfo(line) {
+  const trimmed = String(line ?? '').trim();
+  if (!trimmed) return null;
+  const url = trimmed.match(URL_IN_LINE)?.[0];
+  if (!url || !YOUTUBE_RE.test(url)) return null;
+  return { url, isOnly: isOnlyLink(trimmed, url) };
 }
 
 // True when the line carries nothing but the link and the markup around it.

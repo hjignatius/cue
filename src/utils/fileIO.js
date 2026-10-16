@@ -4,7 +4,7 @@ import { loadSongs, loadSets, collectPdfBackups, SCHEMA_VERSION } from './storag
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
 import { stripStyling } from './chordPro.js';
 import { normalizeTimeSig, timeSigOrEmpty } from './timeSig.js';
-import { DIRECTIVES, DIRECTIVE_RE } from './readChart.js';
+import { DIRECTIVES, DIRECTIVE_RE, youtubeLineInfo } from './readChart.js';
 import { detectChords } from './chordDetect.js';
 // ANNOTATION SAFETY: all export functions below read exclusively from loadSongs()
 // and loadSets() (the 'songs'/'sets' IndexedDB stores). Ink annotations live in
@@ -220,7 +220,7 @@ function readFile(accept) {
 export function parseCho(content) {
   // Normalize line endings (OnSong and other apps export \r\n)
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-  const metadata = { title: '', artist: '', key: '', tempo: '', duration: '' };
+  const metadata = { title: '', artist: '', key: '', tempo: '', duration: '', youtubeUrl: '' };
   const bodyLines = [];
 
   for (const line of lines) {
@@ -244,9 +244,19 @@ export function parseCho(content) {
       } else if (!metadata[field]) {
         metadata[field] = value;
       }
-    } else {
-      bodyLines.push(line); // unknown directives stay in body
+      continue;
     }
+
+    // A video link, bare or wrapped in the anchor tag a browser brings along.
+    // Same rule as a pasted song: read it wherever it appears, but only take the
+    // LINE out when it holds nothing else — a URL inside a lyric is a lyric.
+    const link = youtubeLineInfo(line);
+    if (link) {
+      if (!metadata.youtubeUrl) metadata.youtubeUrl = link.url;
+      if (link.isOnly) continue;
+    }
+
+    bodyLines.push(line); // unknown directives, and everything else, stay in body
   }
 
   return { metadata, text: bodyLines.join('\n').trim() };

@@ -3,6 +3,48 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.16 — 2026-10-16
+
+### Songs
+
+- **Fill in song details can read the chart instead of searching the web.** The
+  first step now offers **Look it up** or **Read the chart**. Reading searches
+  for nothing: it takes what the text in front of it already says — the title
+  and artist above a chart you pasted, a video link among the words, the key
+  from the chords — and leaves a field empty when the text doesn't say. It's
+  the one to use straight after pasting a song in, it costs a tiny fraction of
+  a look-up, and it can't be wrong about a fact that's written on the page.
+
+- **It also offers to take those lines out of the song.** A title, an artist, a
+  link or a line of website clutter left in the chart gets sung, printed and
+  presented as though it were a lyric. The lines are listed for you to see
+  before anything happens, and the offer is separate from the fields — applying
+  a suggestion never edits your chart. Cue finds each line itself and refuses
+  any it can't match, or that has chords in it. Capo notes, section labels and
+  performance notes count as part of the song and are left alone.
+
+- **ChordPro costs nothing to read.** Where a pasted song states its own
+  details — `{t: …}`, `{artist: …}`, `{key: …}`, a link on its own line — Cue
+  reads them directly and only asks the AI about whatever is left. A paste
+  that's proper ChordPro sends no request at all.
+
+### Fixes
+
+- **`{t: …}` now sets the title on import.** Cue understood the long directive
+  names only, so `{t: …}` — the form most ChordPro files use — left the title
+  blank *and* left the directive sitting in the song, to be printed and
+  presented as a lyric. Both spellings of every directive are now understood,
+  for pasted songs and imported `.cho`/`.txt` files alike.
+
+- **A video link in an imported file goes to the video field.** A link on its
+  own line — including one wrapped in the anchor tag a browser copies along
+  with it — is now lifted into the song's YouTube field instead of staying in
+  the chart. A link mentioned inside a lyric is read but the line is left
+  whole.
+
+- **A bad time signature in an imported file arrives unset** rather than
+  silently becoming 4/4.
+
 ## v1.9.15 — 2026-10-15
 
 ### Songs
