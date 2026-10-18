@@ -1300,7 +1300,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           Fixed + pointer-events-none so it never affects the lyric layout. */}
       {sourceLabel && (
         <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[55] pointer-events-none">
-          <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium shadow ${dark ? 'bg-gray-800/85 text-gray-300 border border-gray-700' : 'bg-white/90 text-gray-600 border border-gray-200'}`}>
+          <span className={`px-2.5 py-1 rounded-full text-[0.6875rem] font-medium shadow ${dark ? 'bg-gray-800/85 text-gray-300 border border-gray-700' : 'bg-white/90 text-gray-600 border border-gray-200'}`}>
             {sourceLabel}
           </span>
         </div>

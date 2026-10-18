@@ -1139,7 +1139,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                 that silently did nothing. */}
             {copyShareErr && (
               <div className={`px-3 py-2 border-b ${border}`}>
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-1">Couldn't reach the clipboard — copy this by hand:</p>
+                <p className="text-[0.6875rem] text-amber-600 dark:text-amber-400 mb-1">Couldn't reach the clipboard — copy this by hand:</p>
                 <input
                   readOnly
                   value={copyShareErr}
@@ -2531,7 +2531,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           </div>
           {/* App version, sourced from package.json at build time. Tells the user
               which release is running — useful for a cached/offline copy. */}
-          <span className="mt-1 text-[10px] leading-none font-mono text-gray-400 dark:text-gray-600 tabular-nums">
+          <span className="mt-1 text-[0.625rem] leading-none font-mono text-gray-400 dark:text-gray-600 tabular-nums">
             v{import.meta.env.VITE_APP_VERSION}
           </span>
         </div>
@@ -2961,7 +2961,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 <div key={i} className={`rounded-xl border p-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <div className="flex items-baseline justify-between gap-2 mb-2">
                     {g.reason
-                      ? <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{g.reason}</p>
+                      ? <p className="text-[0.6875rem] uppercase tracking-wide text-gray-400 dark:text-gray-500">{g.reason}</p>
                       : <span />}
                     {/* One Compare per GROUP, whatever the count. With more than two
                         copies the comparison itself offers the pairing, because you
@@ -3045,7 +3045,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                             const created = when(s.createdAt);
                             const edited  = when(s.updatedAt);
                             return (
-                              <p className="text-[11px] mt-0.5 text-gray-500 dark:text-gray-400">
+                              <p className="text-[0.6875rem] mt-0.5 text-gray-500 dark:text-gray-400">
                                 <span className={inSets.length === 0 ? '' : 'font-medium text-gray-700 dark:text-gray-200'}>
                                   {inSets.length === 0
                                     ? 'Not in any set'
@@ -3085,7 +3085,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
             </div>
             {!dupBusy && dupGroups && dupGroups.length > 0 && (
               <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">Deleting also removes the song from any sets it's in.</p>
+                <p className="text-[0.6875rem] text-gray-400 dark:text-gray-500">Deleting also removes the song from any sets it's in.</p>
                 <AiRetryLink usedModel={dupModel} onRetry={m => runFindDuplicates(m)} dark={dark}
                   variant="link" label="Scan again — smarter"
                   title={`Re-scan on the ${escalatedTierLabel()} model — slower, and costs more`} />

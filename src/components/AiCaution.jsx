@@ -107,7 +107,7 @@ export function AiProgress({ label, detail, percent, dark, onCancel }) {
         />
       </div>
       {detail && (
-        <p className={`text-[11px] max-w-full truncate ${dark ? 'text-gray-500' : 'text-gray-400'}`} title={detail}>{detail}</p>
+        <p className={`text-[0.6875rem] max-w-full truncate ${dark ? 'text-gray-500' : 'text-gray-400'}`} title={detail}>{detail}</p>
       )}
       <AiCaution dark={dark} center />
       <CancelLink onCancel={onCancel} dark={dark} />
@@ -166,7 +166,7 @@ export function AiInlineProgress({ percent, dark, label = 'Working…', onCancel
 // specific about what exactly is a guess.
 export function AiCaution({ dark, center = false, children }) {
   return (
-    <p className={`text-[11px] ${center ? 'text-center' : ''} ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+    <p className={`text-[0.6875rem] ${center ? 'text-center' : ''} ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
       {children || AI_CAUTION}
     </p>
   );

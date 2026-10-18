@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { applyUiScale, DEFAULT_UI_SCALE } from '../utils/uiScale.js';
 
 const PREFS_KEY = 'cue_prefs';
 
@@ -54,7 +55,7 @@ export const MUSIC_GENRES = ['Rock', 'Pop', 'Country', 'Folk', 'Bluegrass', 'Blu
 // aiTier: which quality tier the AI tools run on. The literal must match
 // DEFAULT_AI_TIER in lib/ai.js, which reads this blob directly (it isn't a React
 // module, so it can't use this context). An unknown value is validated there.
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, libraryColumnsOnTablet: false, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE, aiLevel: DEFAULT_AI_LEVEL, aiTier: 'balanced', genres: [], favoriteArtists: '', personalizeFromLibrary: true };
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, libraryColumnsOnTablet: false, uiScale: DEFAULT_UI_SCALE, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE, aiLevel: DEFAULT_AI_LEVEL, aiTier: 'balanced', genres: [], favoriteArtists: '', personalizeFromLibrary: true };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 
@@ -76,11 +77,13 @@ export function PrefsProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     document.documentElement.classList.toggle('dark', prefs.theme === 'dark');
+    applyUiScale(prefs.uiScale);
   }, [prefs]);
 
   // Apply immediately on first render
   useEffect(() => {
     document.documentElement.classList.toggle('dark', prefs.theme === 'dark');
+    applyUiScale(prefs.uiScale);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function updatePref(key, value) {

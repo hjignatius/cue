@@ -256,7 +256,7 @@ export default function YouTubePlayer() {
           so even a perfect link the AI finds may be unplayable here. */}
       {!collapsed && (
         <div
-          className={`flex items-center gap-2 px-2.5 py-1.5 text-[11px] border-t ${
+          className={`flex items-center gap-2 px-2.5 py-1.5 text-[0.6875rem] border-t ${
             dark ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'
           }`}
           style={{ width: videoW }}

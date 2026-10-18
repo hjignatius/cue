@@ -67,7 +67,7 @@ export default function SongSuggestionsDialog({
                     <p className={`font-medium ${dark ? 'text-white' : 'text-gray-900'}`}>{s.title || 'Untitled'}</p>
                     {s.artist && <p className="text-sm text-gray-500 dark:text-gray-400">{s.artist}</p>}
                   </div>
-                  {s.difficulty && <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">{s.difficulty}</span>}
+                  {s.difficulty && <span className="shrink-0 text-[0.6875rem] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">{s.difficulty}</span>}
                 </div>
                 {s.why && <p className="text-sm mt-1.5 text-gray-600 dark:text-gray-300">{s.why}</p>}
                 {/* A suggestion you ALREADY OWN needs no chord source — it
@@ -101,7 +101,7 @@ export default function SongSuggestionsDialog({
                           <ListPlus size={13} /> Add to set
                         </button>
                       )}
-                      <span className="text-[11px] text-gray-400 dark:text-gray-500">In your library</span>
+                      <span className="text-[0.6875rem] text-gray-400 dark:text-gray-500">In your library</span>
                     </div>
                   );
                 })()}
@@ -112,7 +112,7 @@ export default function SongSuggestionsDialog({
 
         {has && (
           <div className={`px-5 py-3 border-t ${border} flex items-center justify-between gap-2`}>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500">{footerNote}</p>
+            <p className="text-[0.6875rem] text-gray-400 dark:text-gray-500">{footerNote}</p>
             <AiRetryLink usedModel={usedModel} onRetry={onRetry} dark={dark} variant="link" label={retryLabel} />
           </div>
         )}

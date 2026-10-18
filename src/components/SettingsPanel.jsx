@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
 import { useIsTablet } from '../hooks/useIsPhonePortrait.js';
+import { UI_SCALES, DEFAULT_UI_SCALE, normalizeUiScale } from '../utils/uiScale.js';
 import { getApiKey, setApiKey, AI_TIERS, tierById } from '../lib/ai.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import { setsWithUnsentChanges } from '../utils/storage.js';
@@ -114,7 +115,7 @@ function Section({ title, badge, summary, open, onToggle, dark, children }) {
 }
 
 export default function SettingsPanel({ open, onClose, hideAccount = false, initialSection = null }) {
-  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, aiTier, genres, favoriteArtists, personalizeFromLibrary, libraryColumnsOnTablet, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, aiTier, genres, favoriteArtists, personalizeFromLibrary, libraryColumnsOnTablet, uiScale, updatePref } = usePrefs();
   // Shown on a tablet in EITHER orientation, so it can be set in landscape and
   // take effect on the next rotate. Hidden on a phone and on a desktop, where it
   // would be an option that does nothing.
@@ -298,8 +299,12 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
   const accidentalLabel = accidentals === 'flats' ? 'Flats' : accidentals === 'sharps' ? 'Sharps' : 'Auto';
   // The collapsed section shows its values, so a setting that lives in here is
   // findable without opening it. Only when ON and only where it applies.
-  const appearanceSummary = [dark ? 'Dark' : 'Light', accidentalLabel, isTablet && libraryColumnsOnTablet && '3 columns']
-    .filter(Boolean).join(' · ');
+  const appearanceSummary = [
+    dark ? 'Dark' : 'Light',
+    accidentalLabel,
+    normalizeUiScale(uiScale) !== DEFAULT_UI_SCALE && `${normalizeUiScale(uiScale)}%`,
+    isTablet && libraryColumnsOnTablet && '3 columns',
+  ].filter(Boolean).join(' · ');
   const chordsSummary = instrumentLabel;
   const aiSummary = aiKeySaved ? `Key saved · ${tierById(aiTier).label}` : 'Not set up';
   const accountSummary = user?.email || 'Signed out';
@@ -375,7 +380,35 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   </button>
                 ))}
               </div>
-              <p className={`text-[11px] ${muted}`}>Spelling of transposed C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭. Auto follows the View Key.</p>
+              <p className={`text-[0.6875rem] ${muted}`}>Spelling of transposed C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭. Auto follows the View Key.</p>
+            </div>
+
+            {/* Text size. The browser's root font size, so type and the spacing
+                around it grow together and the layout reflows — what Cmd+ does,
+                rather than magnifying pixels.
+
+                It deliberately leaves the song CHART alone, in the Preview and
+                in Present: those are sized in pixels, Present has A−/A+ of its
+                own, and ink annotations only stay on the words they were drawn
+                over while nothing underneath them moves. */}
+            <div className="flex flex-col gap-2">
+              <span className={`text-sm ${label}`}>Text size</span>
+              <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                {UI_SCALES.map(n => (
+                  <button
+                    key={n}
+                    onClick={() => updatePref('uiScale', n)}
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm transition-colors ${
+                      normalizeUiScale(uiScale) === n
+                        ? 'bg-indigo-600 text-white'
+                        : `${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                    }`}
+                  >
+                    {n}%
+                  </button>
+                ))}
+              </div>
+              <p className={`text-[0.6875rem] ${muted}`}>Scales the app's own text — song lists, menus, forms and the editor's text pane. The song chart in the Preview and in Present is not scaled: Present has its own <strong>A−</strong> / <strong>A+</strong>, and keeping the chart fixed is what keeps ink annotations on the words they were drawn over. Stays on this device.</p>
             </div>
 
             {/* Library columns on a portrait tablet. Off by default, because at
@@ -396,7 +429,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 >
                   {libraryColumnsOnTablet ? 'On' : 'Off'}
                 </button>
-                <p className={`text-[11px] ${muted}`}>Off, the Library shows one panel at a time in portrait, with a selector — titles get the full width. On, it keeps Library, Sets and Setlist side by side as it does in landscape, which fits but reads tighter. Landscape is unaffected either way, and this setting stays on this device.</p>
+                <p className={`text-[0.6875rem] ${muted}`}>Off, the Library shows one panel at a time in portrait, with a selector — titles get the full width. On, it keeps Library, Sets and Setlist side by side as it does in landscape, which fits but reads tighter. Landscape is unaffected either way, and this setting stays on this device.</p>
               </div>
             )}
           </Section>
@@ -429,7 +462,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   );
                 })}
               </div>
-              <p className={`text-[11px] ${muted}`}>Which chord-diagram library the chord panel shows. “None” hides the diagram panel entirely. Chord names in your lyrics are unaffected.</p>
+              <p className={`text-[0.6875rem] ${muted}`}>Which chord-diagram library the chord panel shows. “None” hides the diagram panel entirely. Chord names in your lyrics are unaffected.</p>
             </div>
 
             {/* Chord color */}
@@ -465,7 +498,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   <button
                     key={step}
                     onClick={() => updatePref('chordLabelScale', step)}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-[11px] rounded-lg border transition-colors ${
+                    className={`flex-1 py-2.5 pointer-fine:py-2 text-[0.6875rem] rounded-lg border transition-colors ${
                       chordLabelScale === step
                         ? 'bg-indigo-600 border-indigo-600 text-white'
                         : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-200 text-gray-500 hover:text-gray-900'
@@ -475,7 +508,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   </button>
                 ))}
               </div>
-              <p className={`text-[11px] ${muted}`}>Applies to chord names above lyrics, and to the chord shapes when Imbed is on.</p>
+              <p className={`text-[0.6875rem] ${muted}`}>Applies to chord names above lyrics, and to the chord shapes when Imbed is on.</p>
             </div>
           </Section>
 
@@ -486,7 +519,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
             open={openSection === 'ai'} onToggle={() => toggleSection('ai')}>
             <div className="flex flex-col gap-2">
               <span className={`text-sm ${label}`}>Anthropic API key</span>
-              <p className={`text-[11px] ${muted}`}>
+              <p className={`text-[0.6875rem] ${muted}`}>
                 Enables the editor's <span className={`font-medium ${label}`}>AI</span> menu — find music online, clean up a pasted chart, and fill in song details. Paste a key from <span className={`font-medium ${label}`}>console.anthropic.com → API Keys</span>. It's stored only on this device, never in your exports or backups, and each request bills your own Anthropic account. Treat it like a password.
               </p>
               <div className="flex gap-2">
@@ -530,7 +563,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 )}
               </div>
               {aiKeySaved && !aiKeyDirty && (
-                <p className="text-[11px] text-green-600 dark:text-green-500">Key saved — the AI menu is active in the editor.</p>
+                <p className="text-[0.6875rem] text-green-600 dark:text-green-500">Key saved — the AI menu is active in the editor.</p>
               )}
             </div>
             {/* Which model the AI tools run on. Deliberately named by INTENT, not
@@ -566,7 +599,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 advice) from beginner-friendly explanations to terse expert ones. */}
             <div className="flex flex-col gap-2">
               <span className={`text-sm ${label}`}>Playing level</span>
-              <p className={`text-[11px] ${muted}`}>How the AI pitches its answers — beginners get more explanation and easier options; pros get terse expert replies.</p>
+              <p className={`text-[0.6875rem] ${muted}`}>How the AI pitches its answers — beginners get more explanation and easier options; pros get terse expert replies.</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {AI_LEVELS.map(lv => (
                   <button
@@ -588,7 +621,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 recommender also infers taste from the songs already in the library. */}
             <div className="flex flex-col gap-2">
               <span className={`text-sm ${label}`}>Music taste</span>
-              <p className={`text-[11px] ${muted}`}>Genres and artists you like — used to suggest songs to learn. Optional; Cue also learns from your library.</p>
+              <p className={`text-[0.6875rem] ${muted}`}>Genres and artists you like — used to suggest songs to learn. Optional; Cue also learns from your library.</p>
               <div className="flex flex-wrap gap-1.5">
                 {MUSIC_GENRES.map(g => {
                   const on = (genres || []).includes(g);
@@ -629,7 +662,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
               >
                 {personalizeFromLibrary ? 'On' : 'Off'}
               </button>
-              <p className={`text-[11px] ${muted}`}>When on, <em>Suggest songs to learn</em> uses the songs in your library to tailor picks and avoid ones you already have (your song titles are sent to the AI on your key). Turn off to get suggestions from your genres/artists only.</p>
+              <p className={`text-[0.6875rem] ${muted}`}>When on, <em>Suggest songs to learn</em> uses the songs in your library to tailor picks and avoid ones you already have (your song titles are sent to the AI on your key). Turn off to get suggestions from your genres/artists only.</p>
             </div>
           </Section>
 
@@ -644,7 +677,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
               {canPickFolder && (
               <div className="flex flex-col gap-2">
                 <span className={`text-sm ${label}`}>Save location</span>
-                <p className={`text-[11px] ${muted}`}>
+                <p className={`text-[0.6875rem] ${muted}`}>
                   {exportFolder
                     ? <>Exports and backups save straight into <span className={`font-medium ${label}`}>{exportFolder}</span>, no dialog. Same-named files get a number, like the browser does.</>
                     : 'Exports ask where to save each time. Pick a folder to save there automatically.'}

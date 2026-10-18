@@ -239,7 +239,7 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
                   className={`w-full text-left rounded-xl p-3 border transition-colors ${dark ? 'border-gray-700 bg-gray-800/50 hover:border-indigo-600' : 'border-gray-200 bg-gray-50 hover:border-indigo-400'}`}
                 >
                   <p className={`text-sm font-medium truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{cs.name}</p>
-                  <p className={`text-[10px] mt-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
+                  <p className={`text-[0.625rem] mt-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
                     Updated {fmtDate(cs.updated_at)}
                     {localSets.some(s => s.id === cs.id) ? ' · already on this device' : ''}
                   </p>

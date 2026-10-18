@@ -62,7 +62,7 @@ function Facts({ song, sets, hasInk, dark }) {
   const edited  = when(song.updatedAt);
   const muted   = dark ? 'text-gray-400' : 'text-gray-500';
   return (
-    <p className={`text-[11px] ${muted}`}>
+    <p className={`text-[0.6875rem] ${muted}`}>
       <span className={sets.length ? (dark ? 'font-medium text-gray-200' : 'font-medium text-gray-700') : ''}>
         {sets.length === 0 ? 'Not in any set' : `In ${sets.length} set${sets.length === 1 ? '' : 's'}: ${sets.join(', ')}`}
       </span>
@@ -145,7 +145,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className={`w-full text-[11px] rounded-lg border px-2 py-1 ${bdr} ${dark ? 'bg-gray-900 text-gray-200' : 'bg-white text-gray-700'}`}
+      className={`w-full text-[0.6875rem] rounded-lg border px-2 py-1 ${bdr} ${dark ? 'bg-gray-900 text-gray-200' : 'bg-white text-gray-700'}`}
     >
       {songs.map(s => (
         <option key={s.id} value={s.id} disabled={s.id === other}>{labelFor(s)}</option>
@@ -170,7 +170,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
     </span>
   );
 
-  const lineCls = 'font-mono text-[11px] leading-snug px-2 py-0.5 rounded';
+  const lineCls = 'font-mono text-[0.6875rem] leading-snug px-2 py-0.5 rounded';
   // Both chart columns get the width of the longest line in EITHER song, so they
   // are equal to each other rather than each hugging its own content — and a
   // minimum, not a fixed width, so when the songs are narrow the columns still
@@ -245,7 +245,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
                     normalizeTitle(val(get, left)) === normalizeTitle(val(get, right));
                   const cell = (v, tint) => (
                     <span className={`px-2 py-1.5 min-w-0 rounded ${tint}`}>
-                      <span className={`block text-[10px] ${muted}`}>
+                      <span className={`block text-[0.625rem] ${muted}`}>
                         {label}{lookalike && <span className="italic"> · punctuation or spacing only</span>}
                       </span>
                       <span className="block truncate">{v || '—'}</span>

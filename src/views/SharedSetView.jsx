@@ -1523,7 +1523,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
             that stops being a detail. */}
         {actionable.length > 1 && (
           <div className="flex items-center gap-2">
-            <span className={`text-[11px] ${sub}`}>All:</span>
+            <span className={`text-[0.6875rem] ${sub}`}>All:</span>
             <button onClick={() => onSetAll('take')} className={seg(false)}>Take everything</button>
             <button onClick={() => onSetAll('skip')} className={seg(false)}>Skip everything</button>
           </div>
@@ -1547,7 +1547,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
                 >
                   <span className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium truncate ${em}`}>{title}</span>
-                    <span className={`text-[11px] ${item.state === 'conflict' ? 'text-amber-500' : sub}`}>
+                    <span className={`text-[0.6875rem] ${item.state === 'conflict' ? 'text-amber-500' : sub}`}>
                       {item.state === 'uptodate' && 'Up to date'}
                       {item.state === 'update' && (item.changed?.length
                         ? `Changed in the share — ${item.changed.join(', ')}`
@@ -1581,14 +1581,14 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
         )}
 
         {n.have > 0 && (
-          <p className={`text-[11px] ${sub}`}>
+          <p className={`text-[0.6875rem] ${sub}`}>
             A song you already have is set to <strong>Skip</strong>. Choosing <strong>Add</strong> brings the
             publisher’s version in as a <em>separate</em> song with a numbered name — your own copy is never
             changed or replaced.
           </p>
         )}
         {anyConflict && (
-          <p className="text-[11px] text-amber-500">A song you’ve also edited is set to <strong>Skip</strong>, so your version is kept. Choose <strong>Update</strong> only where you’d rather have the shared one — it replaces yours. Your ink annotations are kept either way.</p>
+          <p className="text-[0.6875rem] text-amber-500">A song you’ve also edited is set to <strong>Skip</strong>, so your version is kept. Choose <strong>Update</strong> only where you’d rather have the shared one — it replaces yours. Your ink annotations are kept either way.</p>
         )}
 
         <div className="flex gap-2">

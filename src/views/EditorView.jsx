@@ -265,7 +265,7 @@ function SymbolMenu({ open, onClose, symbols, onInsert, onChange, dark }) {
         </p>
       )}
       <div className={`mt-2 pt-2 border-t ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-        <label className={`block text-[11px] mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+        <label className={`block text-[0.6875rem] mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
           Your symbols — type or paste, then click one above
         </label>
         {/* stopPropagation on mousedown so the symbolBar's selection-preserving
@@ -346,7 +346,7 @@ function CharRuler({ textareaRef, text, target, dark }) {
     const major = c % 10 === 0;
     ticks.push(<div key={`t${c}`} className="absolute bottom-0" style={{ left: x, width: 1, height: major ? 9 : 5, background: tickCol }} />);
     if (major) ticks.push(
-      <div key={`l${c}`} className="absolute top-0 text-[9px] leading-none tabular-nums" style={{ left: x, transform: 'translateX(-50%)', color: labelCol }}>{c}</div>
+      <div key={`l${c}`} className="absolute top-0 text-[0.5625rem] leading-none tabular-nums" style={{ left: x, transform: 'translateX(-50%)', color: labelCol }}>{c}</div>
     );
   }
   const tx = TA_PAD + target * advance;
@@ -357,7 +357,7 @@ function CharRuler({ textareaRef, text, target, dark }) {
         {ticks}
         {/* Target-width marker — the one that matters. */}
         <div className="absolute top-0 bottom-0" style={{ left: tx, width: 2, background: targetCol }} />
-        <div className="absolute top-0 px-0.5 text-[9px] leading-none font-semibold tabular-nums rounded-sm" style={{ left: tx, transform: 'translateX(-50%)', color: '#fff', background: targetCol }}>{target}</div>
+        <div className="absolute top-0 px-0.5 text-[0.5625rem] leading-none font-semibold tabular-nums rounded-sm" style={{ left: tx, transform: 'translateX(-50%)', color: '#fff', background: targetCol }}>{target}</div>
       </div>
     </div>
   );
@@ -1628,7 +1628,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           title="Insert symbol"
           aria-haspopup="menu"
           aria-expanded={symbolOpen}
-          className={`${styleBtn} font-serif text-[15px] leading-none ${symbolOpen ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
+          className={`${styleBtn} font-serif text-[0.9375rem] leading-none ${symbolOpen ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
         >Ω</button>
         <SymbolMenu
           open={symbolOpen}
@@ -1811,14 +1811,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   <span className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.name}</span>
                     {r.note && <span className={`text-xs ${mutedText}`}>{r.note}</span>}
-                    <span className={`text-[11px] truncate ${dark ? 'text-indigo-400' : 'text-indigo-600'}`}>{r.url}</span>
+                    <span className={`text-[0.6875rem] truncate ${dark ? 'text-indigo-400' : 'text-indigo-600'}`}>{r.url}</span>
                   </span>
                 </a>
               </li>
             ))}
           </ul>
         )}
-        <p className={`text-[11px] ${mutedText}`}>Links open in a new tab. Cue doesn't copy the charts — you decide what to use.</p>
+        <p className={`text-[0.6875rem] ${mutedText}`}>Links open in a new tab. Cue doesn't copy the charts — you decide what to use.</p>
         <AiCaution dark={dark}>AI can get things wrong — a link may not be the song you meant, or may no longer work.</AiCaution>
       </div>
     </div>
@@ -1877,7 +1877,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       onChange={e => setFillSkip(m => ({ ...m, [f.field]: !e.target.checked }))}
                     />
                     <span className="flex flex-col min-w-0">
-                      <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{f.label}</span>
+                      <span className={`text-[0.6875rem] uppercase tracking-wide ${mutedText}`}>{f.label}</span>
                       {/* The value it already holds — the "here's what you have
                           now" half. Blank fields say so rather than showing
                           nothing, so an empty row still reads as a row. */}
@@ -1949,7 +1949,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           const ytMissed = fillFields.includes('youtubeUrl') && !s.youtubeUrl && ytQuery;
           const ytSearchLink = ytMissed ? (
             <div className={`flex flex-col gap-1.5 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-              <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>YouTube</span>
+              <span className={`text-[0.6875rem] uppercase tracking-wide ${mutedText}`}>YouTube</span>
               <span className={`text-sm ${mutedText}`}>No video found — a link has to be copied from a real search result, so it says nothing rather than guessing.</span>
               <a
                 href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery)}`}
@@ -1975,7 +1975,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                not find in the chart, and anything that looks musical, whatever
                the model proposed. */
             <div className={`flex flex-col gap-2 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
-              <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>Not part of the song</span>
+              <span className={`text-[0.6875rem] uppercase tracking-wide ${mutedText}`}>Not part of the song</span>
               <p className={`text-xs ${mutedText}`}>These lines sit in the chart but aren't music. Taking them out leaves the chords and words untouched.</p>
               <ul className="flex flex-col gap-1">
                 {plan.remove.map(r => (
@@ -2031,7 +2031,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               {rows.map(r => (
                 <li key={r.field} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                   <span className="flex flex-col min-w-0">
-                    <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
+                    <span className={`text-[0.6875rem] uppercase tracking-wide ${mutedText}`}>{r.label}</span>
                     {/* Show what the song holds NOW alongside what was found, so a
                         change is legible as a change: "G → Am", not a bare "Am"
                         you have to remember the old value to judge. Only when
@@ -2067,7 +2067,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     {/* YouTube gets a word instead of an arrow, so a replacement
                         still announces itself. */}
                     {r.field === 'youtubeUrl' && (metadata.youtubeUrl || '').trim() && metadata.youtubeUrl !== r.value && (
-                      <span className={`text-[11px] ${mutedText}`}>replaces the current link</span>
+                      <span className={`text-[0.6875rem] ${mutedText}`}>replaces the current link</span>
                     )}
                   </span>
                   {/* Three states, not two. "Matches" means the song ALREADY
@@ -2150,7 +2150,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             {d.summary && <p className={`text-sm ${dark ? 'text-gray-200' : 'text-gray-800'}`}>{d.summary}</p>}
             {d.keys.length > 0 && (
               <div className="flex flex-col gap-2">
-                <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>Keys to try</span>
+                <span className={`text-[0.6875rem] uppercase tracking-wide ${mutedText}`}>Keys to try</span>
                 {d.keys.map((k, i) => (
                   <div key={i} className={`flex items-center justify-between gap-3 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                     <span className="flex flex-col min-w-0">
@@ -2166,7 +2166,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             )}
             {d.capo.length > 0 && (
               <div className="flex flex-col gap-2">
-                <span className={`text-[11px] uppercase tracking-wide ${mutedText}`}>Capo</span>
+                <span className={`text-[0.6875rem] uppercase tracking-wide ${mutedText}`}>Capo</span>
                 {d.capo.map((c, i) => (
                   <div key={i} className={`p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
                     <span className={`text-sm font-medium ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Capo {c.fret}{c.shapes ? <> · play {c.shapes} shapes</> : null}</span>
@@ -2175,7 +2175,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 ))}
               </div>
             )}
-            <p className={`text-[11px] ${mutedText}`}>Apply sets Cue's Transpose (display only) — it doesn't change your saved text. Capo tips are just advice.</p>
+            <p className={`text-[0.6875rem] ${mutedText}`}>Apply sets Cue's Transpose (display only) — it doesn't change your saved text. Capo tips are just advice.</p>
             <AiRetryLink usedModel={adviceResult.model} onRetry={m => runAdvice(m)} dark={dark} />
           </>);
         })()}

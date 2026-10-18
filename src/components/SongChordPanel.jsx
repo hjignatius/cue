@@ -83,7 +83,7 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
 
   const inp = `w-full border rounded px-2 py-1.5 text-sm font-mono outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-600' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`;
   const lbl = `block text-xs font-medium mb-1 ${dark ? 'text-gray-400' : 'text-gray-600'}`;
-  const hint = `text-[10px] mt-0.5 ${dark ? 'text-gray-600' : 'text-gray-400'}`;
+  const hint = `text-[0.625rem] mt-0.5 ${dark ? 'text-gray-600' : 'text-gray-400'}`;
 
   return (
     <form onSubmit={handleSave} className={`border rounded-lg p-3 space-y-3 ${dark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-gray-50'}`}>
@@ -476,7 +476,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                 style={{ minWidth: `${Math.round(diagBaseW(tuning.length) * scale)}px`, minHeight: '60px' }}
               >
                 <Plus size={14} className="mx-auto mb-0.5" />
-                <span className="text-[9px]">Add</span>
+                <span className="text-[0.5625rem]">Add</span>
               </button>
             )}
           </div>
@@ -496,7 +496,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         {/* Size control */}
         {onSizeLevelChange && (
           <div className={`flex items-center justify-between px-2 py-1.5 border-b ${border} shrink-0`}>
-            <span className={`text-[10px] uppercase tracking-wide ${mutedTx}`}>Size</span>
+            <span className={`text-[0.625rem] uppercase tracking-wide ${mutedTx}`}>Size</span>
             <div className="flex items-center gap-1">
               <button className={btnBase} onClick={() => onSizeLevelChange(Math.max(0, sizeLevel - 1))} disabled={sizeLevel === 0}>−</button>
               <span className={`text-xs w-4 text-center ${mutedTx}`}>{sizeLevel + 1}</span>
@@ -529,7 +529,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     } ${dark ? 'border-gray-800' : 'border-gray-300'}`}
                   >
                     <p className={`text-xs font-mono font-semibold ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{name}</p>
-                    <p className={`text-[9px] ${mutedTx}`}>{!readonly ? '+ add' : '?'}</p>
+                    <p className={`text-[0.5625rem] ${mutedTx}`}>{!readonly ? '+ add' : '?'}</p>
                   </div>
                 );
               }
@@ -557,7 +557,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     <ChordDiagram chord={selectedShape.droppedBass ? { ...selectedShape, name } : selectedShape} scale={scale} nameScale={1 + chordLabelScale / 100} theme={theme} chordColor={chordColor} tuning={tuning} />
                   </div>
                   {hasAlternates && (
-                    <div className={`absolute bottom-1 right-1 text-[8px] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}>
+                    <div className={`absolute bottom-1 right-1 text-[0.5rem] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}>
                       {selectedIdx + 1}/{shapes.length}
                     </div>
                   )}
@@ -567,7 +567,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                       that matters needs to know which note is gone. */}
                   {selectedShape.droppedBass && (
                     <div
-                      className={`absolute bottom-1 left-1 text-[8px] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}
+                      className={`absolute bottom-1 left-1 text-[0.5rem] leading-none px-0.5 rounded pointer-events-none ${dark ? 'text-gray-600 bg-gray-950' : 'text-gray-400 bg-white'}`}
                       title={`${name} played as ${selectedShape.slashBase} — no string reaches the ${selectedShape.droppedBass} bass`}
                     >
                       no {selectedShape.droppedBass} bass
