@@ -296,7 +296,10 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
   // hit those constants' temporal dead zone and take the panel out on open.
   const instrumentLabel = INSTRUMENT_OPTIONS.find(o => o.id === instrument)?.label ?? 'None';
   const accidentalLabel = accidentals === 'flats' ? 'Flats' : accidentals === 'sharps' ? 'Sharps' : 'Auto';
-  const appearanceSummary = `${dark ? 'Dark' : 'Light'} · ${accidentalLabel}`;
+  // The collapsed section shows its values, so a setting that lives in here is
+  // findable without opening it. Only when ON and only where it applies.
+  const appearanceSummary = [dark ? 'Dark' : 'Light', accidentalLabel, isTablet && libraryColumnsOnTablet && '3 columns']
+    .filter(Boolean).join(' · ');
   const chordsSummary = instrumentLabel;
   const aiSummary = aiKeySaved ? `Key saved · ${tierById(aiTier).label}` : 'Not set up';
   const accountSummary = user?.email || 'Signed out';
@@ -374,11 +377,34 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
               </div>
               <p className={`text-[11px] ${muted}`}>Spelling of transposed C♯/D♭, D♯/E♭, F♯/G♭, G♯/A♭, A♯/B♭. Auto follows the View Key.</p>
             </div>
+
+            {/* Library columns on a portrait tablet. Off by default, because at
+                768-1024pt three columns are tight and truncate titles — which is
+                why the layout collapses there in the first place. A phone is not
+                offered the choice at all: three columns on a 390pt screen is not
+                a layout. */}
+            {isTablet && (
+              <div className="flex flex-col gap-2">
+                <span className={`text-sm ${label}`}>Three columns in portrait</span>
+                <button
+                  onClick={() => updatePref('libraryColumnsOnTablet', !libraryColumnsOnTablet)}
+                  className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
+                    libraryColumnsOnTablet
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : `${btnBorder} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                  }`}
+                >
+                  {libraryColumnsOnTablet ? 'On' : 'Off'}
+                </button>
+                <p className={`text-[11px] ${muted}`}>Off, the Library shows one panel at a time in portrait, with a selector — titles get the full width. On, it keeps Library, Sets and Setlist side by side as it does in landscape, which fits but reads tighter. Landscape is unaffected either way, and this setting stays on this device.</p>
+              </div>
+            )}
           </Section>
 
           {/* Chords — the instrument library plus how chord names look over
               lyrics. Split out of Appearance: it was the tallest section, and
               these three belong together more than they belong with Theme. */}
+
           <Section title="Chords" summary={chordsSummary} dark={dark}
             open={openSection === 'chords'} onToggle={() => toggleSection('chords')}>
             {/* Chord instrument — which diagram library the chord panel shows */}
@@ -587,28 +613,6 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 className={`mt-1 w-full py-2 px-3 text-sm rounded-lg border bg-transparent ${btnBorder} ${label}`}
               />
             </div>
-
-            {/* Library columns on a portrait tablet. Off by default, because at
-                768-1024pt three columns are tight and truncate titles — which is
-                why the layout collapses there in the first place. A phone is not
-                offered the choice at all: three columns on a 390pt screen is not
-                a layout. */}
-            {isTablet && (
-              <div className="flex flex-col gap-2">
-                <span className={`text-sm ${label}`}>Three columns in portrait</span>
-                <button
-                  onClick={() => updatePref('libraryColumnsOnTablet', !libraryColumnsOnTablet)}
-                  className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
-                    libraryColumnsOnTablet
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : `${btnBorder} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
-                  }`}
-                >
-                  {libraryColumnsOnTablet ? 'On' : 'Off'}
-                </button>
-                <p className={`text-[11px] ${muted}`}>Off, the Library shows one panel at a time in portrait, with a selector — titles get the full width. On, it keeps Library, Sets and Setlist side by side as it does in landscape, which fits but reads tighter. Landscape is unaffected either way, and this setting stays on this device.</p>
-              </div>
-            )}
 
             {/* Personalize from library — when on, "Suggest songs to learn" sends
                 your song list to tailor picks and skip ones you own. Off = pick

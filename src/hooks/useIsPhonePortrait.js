@@ -48,7 +48,14 @@ export function useTabletPortrait() {
 // A tablet in EITHER orientation — for showing the preference itself, so it can
 // be set in landscape and take effect on the next rotate, and so it never
 // appears on a phone or a desktop where it would do nothing.
-const TABLET_QUERY = '(pointer: coarse) and (min-width: 768px)';
+//
+// TOUCH POINTS, NOT `pointer: coarse`. An iPad with a Magic Keyboard or a
+// trackpad attached reports a FINE pointer, so a coarse-pointer test hides this
+// setting on exactly the device it exists for. maxTouchPoints is a property of
+// the hardware and does not change when a keyboard is clipped on.
+const NOT_PHONE_WIDTH = '(min-width: 768px)';
 export function useIsTablet() {
-  return useMediaQuery(TABLET_QUERY);
+  const wideEnough = useMediaQuery(NOT_PHONE_WIDTH);
+  const touch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+  return wideEnough && touch;
 }
