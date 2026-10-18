@@ -54,7 +54,7 @@ export const MUSIC_GENRES = ['Rock', 'Pop', 'Country', 'Folk', 'Bluegrass', 'Blu
 // aiTier: which quality tier the AI tools run on. The literal must match
 // DEFAULT_AI_TIER in lib/ai.js, which reads this blob directly (it isn't a React
 // module, so it can't use this context). An unknown value is validated there.
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE, aiLevel: DEFAULT_AI_LEVEL, aiTier: 'balanced', genres: [], favoriteArtists: '', personalizeFromLibrary: true };
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, libraryColumnsOnTablet: false, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE, aiLevel: DEFAULT_AI_LEVEL, aiTier: 'balanced', genres: [], favoriteArtists: '', personalizeFromLibrary: true };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 

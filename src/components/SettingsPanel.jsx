@@ -4,6 +4,7 @@ import { usePrefs, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
 import { CHORD_LIBRARIES } from '../data/chordLibraries.js';
+import { useIsTablet } from '../hooks/useIsPhonePortrait.js';
 import { getApiKey, setApiKey, AI_TIERS, tierById } from '../lib/ai.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import { setsWithUnsentChanges } from '../utils/storage.js';
@@ -113,7 +114,11 @@ function Section({ title, badge, summary, open, onToggle, dark, children }) {
 }
 
 export default function SettingsPanel({ open, onClose, hideAccount = false, initialSection = null }) {
-  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, aiTier, genres, favoriteArtists, personalizeFromLibrary, updatePref } = usePrefs();
+  const { theme, chordColor, chordLabelScale, accidentals, instrument, aiLevel, aiTier, genres, favoriteArtists, personalizeFromLibrary, libraryColumnsOnTablet, updatePref } = usePrefs();
+  // Shown on a tablet in EITHER orientation, so it can be set in landscape and
+  // take effect on the next rotate. Hidden on a phone and on a desktop, where it
+  // would be an option that does nothing.
+  const isTablet = useIsTablet();
   const toggleGenre = (g) => updatePref('genres', (genres || []).includes(g) ? genres.filter(x => x !== g) : [...(genres || []), g]);
   const dark = theme === 'dark';
   const { user, isConfigured, signInWithEmail, verifyEmailOtp, signOut, endedElsewhere, clearEndedElsewhere } = useAuth();
@@ -582,6 +587,28 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 className={`mt-1 w-full py-2 px-3 text-sm rounded-lg border bg-transparent ${btnBorder} ${label}`}
               />
             </div>
+
+            {/* Library columns on a portrait tablet. Off by default, because at
+                768-1024pt three columns are tight and truncate titles — which is
+                why the layout collapses there in the first place. A phone is not
+                offered the choice at all: three columns on a 390pt screen is not
+                a layout. */}
+            {isTablet && (
+              <div className="flex flex-col gap-2">
+                <span className={`text-sm ${label}`}>Three columns in portrait</span>
+                <button
+                  onClick={() => updatePref('libraryColumnsOnTablet', !libraryColumnsOnTablet)}
+                  className={`w-full py-2.5 pointer-fine:py-2 rounded-lg border text-sm transition-colors ${
+                    libraryColumnsOnTablet
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : `${btnBorder} ${muted} ${dark ? 'hover:text-white hover:bg-gray-800' : 'hover:text-gray-900 hover:bg-gray-50'}`
+                  }`}
+                >
+                  {libraryColumnsOnTablet ? 'On' : 'Off'}
+                </button>
+                <p className={`text-[11px] ${muted}`}>Off, the Library shows one panel at a time in portrait, with a selector — titles get the full width. On, it keeps Library, Sets and Setlist side by side as it does in landscape, which fits but reads tighter. Landscape is unaffected either way, and this setting stays on this device.</p>
+              </div>
+            )}
 
             {/* Personalize from library — when on, "Suggest songs to learn" sends
                 your song list to tailor picks and skip ones you own. Off = pick

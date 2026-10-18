@@ -248,6 +248,7 @@ function manualHTML() {
 <!-- 3 -->
 <h1>3. The Library</h1>
 <p>The Library is the home screen. It is divided into three columns: <strong>Library</strong> (songs), <strong>Sets</strong>, and <strong>Setlist</strong>.</p>
+<p>In <strong>portrait</strong> on a phone or tablet the three columns do not fit side by side, so Cue shows <strong>one at a time</strong> with a floating <strong>Library / Sets / Setlist</strong> selector; landscape and desktop always show all three. On a <strong>tablet</strong> you can override that: <strong>Settings &rarr; Three columns in portrait</strong> keeps all three side by side in portrait as well. It fits, but reads tighter &mdash; at 768&ndash;1024pt each column is a third of the width, so titles truncate sooner. That is why it collapses by default. The setting stays on the device you set it on, and is not offered on a phone, where three columns would not be a layout.</p>
 
 <h2>Song List &amp; Search</h2>
 <p>The <strong>Library</strong> column on the left lists all your songs. Use the <strong>search bar</strong> to filter by title, artist, or key. Use the <strong>sort menu</strong> to order by:</p>

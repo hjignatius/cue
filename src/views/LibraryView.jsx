@@ -37,7 +37,8 @@ import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups, describeCloudError } from '../lib/cloud.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
-import { useIsPhonePortrait, usePortraitPanels } from '../hooks/useIsPhonePortrait.js';
+import { useIsPhonePortrait, usePortraitPanels, useTabletPortrait } from '../hooks/useIsPhonePortrait.js';
+import { shouldStack } from '../utils/libraryLayout.js';
 import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
 import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
 import AiRetryLink from '../components/AiRetryLink.jsx';
@@ -1850,7 +1851,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 // ---- Library view -----------------------------------------------------------
 
 export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
-  const { theme, updatePref, chordColor, accidentals, instrument, symbols, aiLevel, genres, favoriteArtists, personalizeFromLibrary } = usePrefs();
+  const { theme, updatePref, chordColor, accidentals, instrument, symbols, aiLevel, genres, favoriteArtists, personalizeFromLibrary, libraryColumnsOnTablet } = usePrefs();
   const dark = theme === 'dark';
   const searchInputRef = useRef(null);
 
@@ -2183,11 +2184,20 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [activeSetId, setActiveSetId] = useState(() => sessionStorage.getItem('cue:active_set_id') || null);
 
   // ---- Portrait single-panel mode --------------------------------------------
-  // `stacked` (any portrait phone OR tablet) drives the one-panel-at-a-time
-  // layout and its selector; desktop and any landscape device render as before.
-  // `isPhonePortrait` (phone width only) still gates the phone-only header
-  // cosmetics, which a roomier iPad portrait header does not need.
-  const stacked = usePortraitPanels();
+  // `stacked` drives the one-panel-at-a-time layout and its selector; desktop
+  // and any landscape device render as before. `isPhonePortrait` (phone width
+  // only) still gates the phone-only header cosmetics, which a roomier iPad
+  // portrait header does not need.
+  //
+  // A TABLET in portrait can opt out and keep the three columns (Settings). A
+  // phone cannot, at any setting — see utils/libraryLayout.js. The columns are
+  // tight at 768-1024pt, which is why it collapses by default and why this is a
+  // preference rather than a new rule.
+  const stacked = shouldStack({
+    portraitPanels:  usePortraitPanels(),
+    tabletPortrait:  useTabletPortrait(),
+    columnsOnTablet: libraryColumnsOnTablet,
+  });
   const isPhonePortrait = useIsPhonePortrait();
   const [phonePanel, setPhonePanel] = useState(loadPhonePanel);
   useEffect(() => {
@@ -2850,7 +2860,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
       </div>
 
-      {/* Floating panel switcher — iPhone portrait only, and never over Present.
+      {/* Floating panel switcher — wherever the panels are stacked, and never
+          over Present. (It long said "iPhone portrait only"; tablets joined the
+          stacked layout and the comment did not. A tablet that opts back into
+          three columns drops out of `stacked`, so the switcher goes with it.)
           z-30 sits above panel content but below the modal/dialog layer (z-50). */}
       {stacked && !presenting && (
         <div

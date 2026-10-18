@@ -35,3 +35,20 @@ const PHONE_QUERY = '(max-width: 767px)';
 export function useIsPhonePortrait() {
   return useMediaQuery(PHONE_QUERY);
 }
+
+// A TABLET held in portrait: the part of PORTRAIT_PANELS_QUERY that is not a
+// phone. The lower bound is what makes the three-column preference safe to
+// offer — it can free an iPad and can never free an iPhone, whatever it is set
+// to. Upper bound as above: 1024pt is the 12.9" iPad Pro.
+const TABLET_PORTRAIT_QUERY = '(orientation: portrait) and (min-width: 768px) and (max-width: 1024px)';
+export function useTabletPortrait() {
+  return useMediaQuery(TABLET_PORTRAIT_QUERY);
+}
+
+// A tablet in EITHER orientation — for showing the preference itself, so it can
+// be set in landscape and take effect on the next rotate, and so it never
+// appears on a phone or a desktop where it would do nothing.
+const TABLET_QUERY = '(pointer: coarse) and (min-width: 768px)';
+export function useIsTablet() {
+  return useMediaQuery(TABLET_QUERY);
+}
