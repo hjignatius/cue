@@ -3,6 +3,33 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.19 — 2026-10-19
+
+### Appearance
+
+- **Text size.** Settings → Appearance now offers 90, 100, 110, 125 or 150%.
+  It scales Cue's own text — song lists, menus, forms and the editor's text
+  pane — and the spacing around it grows too, so the layout reflows rather than
+  simply magnifying. Mainly for an iPad, where an installed app has no
+  pinch-zoom or **aA** menu the way Safari does. The **song chart** is
+  deliberately not scaled, in the Preview or in Present: Present has its own
+  **A−** / **A+**, and keeping the chart fixed is what keeps ink annotations on
+  the words they were drawn over. Stays on the device you set it on.
+
+- **Three columns in portrait, on a tablet.** Portrait has always collapsed the
+  Library to one panel at a time with a selector. On an iPad that's now your
+  choice — Settings → Appearance. It fits, but reads tighter, which is why it
+  still collapses by default. Phones aren't offered it. Landscape is unaffected
+  either way.
+
+### Fixes
+
+- **A chord can no longer break a styling marker.** On a coloured or bold line,
+  a chord whose column fell inside the closing marker split it — so `{/c}`
+  printed in the Preview and the colour never closed, running to the end of the
+  line. Chords now snap past a marker rather than through it. A chord that
+  wasn't in trouble doesn't move.
+
 ## v1.9.18 — 2026-10-18
 
 ### Songs
