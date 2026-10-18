@@ -199,14 +199,43 @@ function extractChords(chordLine) {
   return chords;
 }
 
+// Styling markers — {c=#2563eb}, {/c}, {b}, {/b} — occupy columns in the text
+// but render as nothing. A chord whose column lands INSIDE one splits it:
+//
+//   …gone{/c}   with a chord at that column becomes   …gone{[C]/c}
+//
+// and a split marker is no longer a marker, so its characters print. The colour
+// stays open to the end of the line and "{/c}" appears in the Preview, which is
+// exactly what Howard saw.
+//
+// Snapping to the marker's END keeps the marker whole and puts the chord just
+// past it. That is the right side to land on: a closing marker sits at the end
+// of the styled run, so the chord belongs after it, and an opening marker sits
+// before the words, so after it is where the first syllable is.
+// Both brace markers and the two-character bold marker. A single '*' is one
+// character wide, so nothing can land inside it; '**' and '{…}' can be split.
+const MARKER_SPAN = /\{[^{}]*\}|\*\*/g;
+
+function snapOutOfMarker(line, pos) {
+  for (const m of line.matchAll(MARKER_SPAN)) {
+    const start = m.index;
+    const end = start + m[0].length;
+    if (pos > start && pos < end) return end;
+  }
+  return pos;
+}
+
 function mergeIntoLyricLine(chordLine, lyricLine) {
   const chords = extractChords(chordLine);
   if (chords.length === 0) return lyricLine;
 
-  // Work right-to-left so earlier insertions don't shift later positions.
+  // Work right-to-left so earlier insertions don't shift later positions. Marker
+  // spans are measured on the ORIGINAL line for the same reason: nothing to the
+  // left of an insertion has moved yet.
   let lyric = lyricLine;
   for (let i = chords.length - 1; i >= 0; i--) {
-    const { chord, pos } = chords[i];
+    const { chord } = chords[i];
+    const pos = snapOutOfMarker(lyricLine, chords[i].pos);
     // Pad lyric with spaces if the chord sits past the end of the lyric line.
     while (lyric.length < pos) lyric += ' ';
     lyric = lyric.slice(0, pos) + `[${chord}]` + lyric.slice(pos);
