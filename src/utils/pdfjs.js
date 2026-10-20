@@ -17,3 +17,35 @@ export function loadPdfjs() {
   }
   return _pdfjsPromise;
 }
+
+// Pull a PDF's text layer out as lines of text, with the blank lines the format
+// never stored put back (see pdfText.js for how, and why it matters).
+//
+// PER PAGE, and concatenated after. y starts again at the foot of every page, so
+// throwing all the items into one pile and sorting by y would shuffle page two
+// up into page one.
+//
+// An empty result is the normal answer for a scanned songbook: pages of images
+// with no text layer at all. The caller decides what to do about it.
+export async function extractPdfLines(data) {
+  const { linesFromItems } = await import('./pdfText.js');
+  const pdfjs = await loadPdfjs();
+  const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  const pages = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    pages.push(linesFromItems(content.items));
+  }
+  return pages;
+}
+
+// The same, as the text Cue would put in the editor.
+export async function extractPdfText(data) {
+  const { textFromLines } = await import('./pdfText.js');
+  const pages = await extractPdfLines(data);
+  // Each page keeps its own line spacing, so each is measured on its own; a
+  // blank line joins them, the way a page turn reads.
+  return pages.map(lines => textFromLines(lines)).filter(Boolean).join('\n\n');
+}

@@ -28,6 +28,7 @@ import { getActiveChords, getActiveTuning } from '../data/chordLibraries.js';
 import { loadCustomChords, mutateCustomChords } from '../utils/chordStorage.js';
 import { planLineRemoval, applyLineRemoval } from '../utils/liftLines.js';
 import { readChartMetadata } from '../utils/readChart.js';
+import { extractPdfText } from '../utils/pdfjs.js';
 import { shapesForName } from '../utils/chordLookup.js';
 import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
@@ -677,6 +678,42 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // affordance and the "Replace PDF" menu item both land here. The bytes are
   // only held in state; Save is what writes them (see handleSave below), so
   // backing out of an unsaved pick leaves nothing behind.
+  // A PDF whose text layer turned out to hold a chord chart: null, or
+  // { file, text } while the user decides whether to unpack it or keep the page.
+  const [pdfOffer, setPdfOffer] = useState(null);
+
+  // Today's behaviour: the PDF becomes the song, shown as its pages.
+  function attachPdf(file) {
+    setPendingPdf(file);
+    setSongType('pdf');
+    setIsDirty(true);
+    // Name the song after the file, as Import does — but never overwrite a
+    // title the user already typed.
+    setMetadata(m => (m.title?.trim() ? m : { ...m, title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }));
+  }
+
+  // The other outcome: the chart comes OUT of the PDF and becomes a real song —
+  // transposable, restyleable, inkable on the words. The PDF itself is not kept;
+  // a song is text or pages, not both.
+  //
+  // No title from the filename here. "Test 1" is not a song, and leaving it
+  // empty is what sends Fill details looking for the real one.
+  function unpackPdf(chart) {
+    setText(chart);
+    senseFormat(chart);
+    setSongType('text');
+    setIsDirty(true);
+    setPdfOffer(null);
+    // Straight into Fill details, in 'chart' mode — everything it needs is in
+    // the text now, and readChartMetadata takes the free half (the YouTube link
+    // these songbooks carry) before any request is made. Set directly rather
+    // than through openFillAsk, whose canIdentifySong() guard would still be
+    // reading the empty `text` from this render.
+    setFillSkip({});
+    setFillMode('chart');
+    setFillAsk(true);
+  }
+
   function pickPdf() {
     setPdfErr('');
     const input = document.createElement('input');
@@ -687,7 +724,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     input.style.display = 'none';
     document.body.appendChild(input);
     input.oncancel = () => input.remove();
-    input.onchange = () => {
+    input.onchange = async () => {
       input.remove();
       const file = input.files?.[0];
       if (!file) return;
@@ -695,12 +732,18 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         setPdfErr('That is not a PDF.');
         return;
       }
-      setPendingPdf(file);
-      setSongType('pdf');
-      setIsDirty(true);
-      // Name the song after the file, as Import does — but never overwrite a
-      // title the user already typed.
-      setMetadata(m => (m.title?.trim() ? m : { ...m, title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }));
+      // Look in the text layer before committing to the page. Only offer the
+      // choice when there is really one to make: a chart written in brackets,
+      // and an editor with nothing in it to strand.
+      let chart = '';
+      try {
+        if (!text.trim()) chart = await extractPdfText(file);
+      } catch { /* unreadable text layer — it is a page, then */ }
+      if (chart && detectChordStyle(chart) === 'brackets') {
+        setPdfOffer({ file, text: chart });
+        return;
+      }
+      attachPdf(file);
     };
     input.click();
   }
@@ -3289,6 +3332,43 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           />
         </div>
       )}
+
+      {/* A PDF that turned out to hold a chord chart. No dimmed backdrop: the
+          question is about the song behind it, and neither answer destroys
+          anything — nothing is written until Save either way. */}
+      {pdfOffer && (() => {
+        const lines = pdfOffer.text.split('\n').filter(l => l.trim());
+        const preview = lines.slice(0, 6);
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={() => setPdfOffer(null)}>
+            <div className={`w-[26rem] max-w-full max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col gap-1">
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>There&rsquo;s a chord chart in this PDF</h2>
+                <p className={`text-sm ${mutedText}`}>
+                  Load it as text and it becomes a song you can transpose, restyle and capo, and ink lands on the words. Keep it as a page and you get the sheet exactly as it was drawn.
+                </p>
+              </div>
+
+              {/* What was actually found, so the choice isn't blind. */}
+              <div className={`rounded-xl border px-3 py-2 ${dark ? 'border-gray-700 bg-gray-950' : 'border-gray-200 bg-gray-50'}`}>
+                <pre className={`text-[11px] leading-snug font-mono whitespace-pre-wrap break-words ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{preview.join('\n')}</pre>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 tabular-nums">{lines.length} lines</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button onClick={() => unpackPdf(pdfOffer.text)} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">
+                  Load as text
+                </button>
+                <button onClick={() => { const f = pdfOffer.file; setPdfOffer(null); attachPdf(f); }}
+                  className={`w-full py-2 text-sm font-medium rounded-xl border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
+                  Keep it as a page
+                </button>
+                <button onClick={() => setPdfOffer(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* AI setup — the same Settings panel, opened in place from the AI menu so
           the key can be entered without leaving the editor. */}
