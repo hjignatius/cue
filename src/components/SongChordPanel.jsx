@@ -132,7 +132,7 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
 
 // ---- SongChordPanel --------------------------------------------------------
 
-export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [] }) {
+export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [], bottomInset }) {
   const { theme, chordColor, instrument, chordLabelScale } = usePrefs();
   const dark = theme === 'dark';
   const tuning = getActiveTuning(instrument);
@@ -438,7 +438,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         </div>
 
         {/* Voicings */}
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-3" style={bottomInset ? { paddingBottom: bottomInset } : undefined}>
           <div className="flex flex-wrap gap-2 items-start">
             {pickerShapes.map((shape, idx) => {
               const isSelected = selectedIdx === idx;
@@ -506,7 +506,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
         )}
 
         {/* Chord diagrams */}
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto p-2" style={bottomInset ? { paddingBottom: bottomInset } : undefined}>
           <div className="grid gap-2 justify-center" style={{ gridTemplateColumns: `repeat(auto-fill, ${Math.round(diagBaseW(tuning.length) * scale)}px)` }}>
             {groups.map(({ name, shapes }) => {
               const selectedIdx = prefIndex(name, shapes);

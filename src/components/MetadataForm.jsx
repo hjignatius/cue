@@ -14,7 +14,7 @@ const META_OPEN_KEY = 'cue:editor_meta_open';
 const RESET_AFTER_MS = 3000;
 const MIN_TAPS = 2;
 
-// Shared height reference: matches DurationStepper -/+ buttons (py-2 text-sm border)
+// Shared height reference: matches DurationStepper -/+ buttons (py-1.5 text-sm border)
 const fieldCls = 'border border-gray-300 dark:border-gray-700 rounded outline-none transition-colors';
 const fieldFocus = 'focus:border-indigo-500';
 const fieldHover = 'hover:border-indigo-400 dark:hover:border-indigo-500';
@@ -40,7 +40,7 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
   }
 
   const previewBpm = Number(display || bpm || 120);
-  const tapBtnCls = `px-2 py-2 font-medium ${fieldCls} ${fieldHover} text-gray-600 dark:text-gray-300 hover:text-indigo-400 select-none touch-none text-sm`;
+  const tapBtnCls = `px-2 py-1.5 font-medium ${fieldCls} ${fieldHover} text-gray-600 dark:text-gray-300 hover:text-indigo-400 select-none touch-none text-sm`;
 
   return (
     <div className="flex items-center gap-1">
@@ -66,7 +66,10 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
       <select
         value={timeSig}
         onChange={e => onTimeSig(e.target.value)}
-        className={`px-2 py-2 font-mono font-bold ${fieldCls} ${fieldHover} ${fieldFocus} text-gray-500 dark:text-gray-400 hover:text-indigo-400 text-sm bg-white dark:bg-gray-900 cursor-pointer`}
+        // h-[34px] for the same reason as Key and Capo: a native select renders
+        // ~1px shorter than a button at the same padding, which left the time
+        // signature visibly short beside Tap and ▶.
+        className={`px-2 h-[34px] font-mono font-bold ${fieldCls} ${fieldHover} ${fieldFocus} text-gray-500 dark:text-gray-400 hover:text-indigo-400 text-sm bg-white dark:bg-gray-900 cursor-pointer`}
         title="Time signature"
         aria-label="Time signature"
       >
@@ -112,7 +115,7 @@ function DurationStepper({ value, onChange }) {
     clearInterval(intervalRef.current);
   }
 
-  const btnCls = `px-3 py-2 text-sm font-bold ${fieldCls} ${fieldHover} text-gray-600 dark:text-gray-300 hover:text-indigo-400 select-none touch-none`;
+  const btnCls = `px-3 py-1.5 text-sm font-bold ${fieldCls} ${fieldHover} text-gray-600 dark:text-gray-300 hover:text-indigo-400 select-none touch-none`;
 
   return (
     <div className="flex items-center gap-1">
@@ -123,7 +126,7 @@ function DurationStepper({ value, onChange }) {
         placeholder="3:30"
         size={5}
         autoComplete="off" data-1p-ignore data-lpignore="true"
-        className={`bg-transparent ${fieldCls} ${fieldFocus} px-1 py-2 text-sm ${fieldText} ${fieldMuted} text-center`}
+        className={`bg-transparent ${fieldCls} ${fieldFocus} px-1 py-1.5 text-sm ${fieldText} ${fieldMuted} text-center`}
       />
       <button type="button" onPointerDown={e => startHold(e, 1)} onPointerUp={stopHold} onPointerLeave={stopHold} onPointerCancel={stopHold} className={btnCls} title="Increase duration">+</button>
     </div>
@@ -158,7 +161,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
     metadata.youtubeUrl && 'video',
   ].filter(Boolean).join(' · ');
 
-  const inputCls = `bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2 ${fieldText} ${fieldMuted} w-full`;
+  const inputCls = `bg-transparent ${fieldCls} ${fieldFocus} px-2 py-1.5 ${fieldText} ${fieldMuted} w-full`;
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
@@ -169,12 +172,14 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
         className="w-full flex items-center gap-2 px-4 py-1.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
       >
         <span className="text-xs font-semibold uppercase tracking-wide shrink-0 text-gray-500">Details</span>
-        {/* Values only while shut — open, the real controls say the same thing. */}
-        {!open && (
-          <span className="ml-auto text-xs truncate text-gray-500 dark:text-gray-400" title={summary}>
-            {summary || 'Add artist, key, tempo…'}
-          </span>
-        )}
+        {/* The values stay on the row whether it is open or shut. Settings hides
+            them when open, on the grounds that the controls below say the same —
+            but here the row is the one place the song reads as a sentence
+            ("Johnny Cash · Am · 110 bpm · 2:37"), and losing that on expand is a
+            step backwards even though nothing is actually hidden. */}
+        <span className="ml-auto text-xs truncate text-gray-500 dark:text-gray-400" title={summary}>
+          {summary || 'Add artist, key, tempo…'}
+        </span>
         <ChevronRight
           size={14}
           className={`shrink-0 text-gray-500 transition-transform ${open ? 'rotate-90' : 'ml-1'}`}
@@ -205,9 +210,9 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
             value={metadata.key || ''}
             onChange={e => set('key', e.target.value)}
             aria-label="Key"
-            // h-[38px] matches the sibling inputs exactly (a native select renders
-            // ~1px shorter than an input at the same py-2).
-            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[38px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+            // h-[34px] matches the sibling inputs exactly (a native select renders
+            // ~1px shorter than an input at the same py-1.5).
+            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[34px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
           >
             <option value="">Key</option>
             {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
@@ -226,7 +231,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
             onChange={e => set('capo', e.target.value)}
             title="Chords are drawn as the shapes you finger with the capo on. The song's key, and what it sounds like, do not change."
             aria-label="Capo fret"
-            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[38px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[34px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
           >
             <option value="">Capo</option>
             {Array.from({ length: MAX_CAPO }, (_, i) => i + 1).map(n => (
@@ -243,7 +248,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
               aria-label="Tempo in BPM"
               size={4}
               autoComplete="off" data-1p-ignore data-lpignore="true"
-              className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2 text-sm ${fieldText} ${fieldMuted}`}
+              className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-1.5 text-sm ${fieldText} ${fieldMuted}`}
             />
             <TapTempo
               bpm={metadata.tempo}
@@ -264,7 +269,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
             type="button"
             title="Off = continuous scroll. On = discrete full pages that fit the screen, turned one at a time. Applies to text and PDF songs."
             onClick={() => onFullPageChange?.(!fullPage)}
-            className={`h-[38px] px-4 text-sm rounded-md border transition-colors ${fullPage
+            className={`h-[34px] px-4 text-sm rounded-md border transition-colors ${fullPage
               ? 'bg-indigo-600 border-indigo-600 text-white'
               : 'border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
           >

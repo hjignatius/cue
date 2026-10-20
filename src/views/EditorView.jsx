@@ -1557,6 +1557,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       wrap="off"
       placeholder="Paste chords-over-lyrics or ChordPro text here…"
       className={`flex-1 resize-none font-mono text-sm p-4 outline-none leading-relaxed whitespace-pre overflow-auto ${dark ? 'bg-gray-950 text-gray-100 placeholder-gray-800' : 'bg-white text-gray-900 placeholder-gray-400'}`}
+      // Room to scroll the last line out from under the floating pill.
+      style={oneAtATime ? { paddingBottom: PILL_CLEARANCE } : undefined}
     />
     {canLoadPdf && (
       /* Overlay, not flow: the textarea stays full-size and focusable, so
@@ -1685,6 +1687,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       chordPrefs={chordPrefs}
       onChordPrefsChange={prefs => { setChordPrefs(prefs); setIsDirty(true); }}
       extraCustomChords={addedChords}
+      bottomInset={oneAtATime ? PILL_CLEARANCE : undefined}
     />
   );
 
@@ -3090,10 +3093,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           /* ── One panel at a time (portrait phone / narrow iPad) ── */
           <>
             {/* Text editor — always mounted (preserves cursor/scroll); hidden via CSS when inactive */}
-            <div
-              className={`flex-col min-w-0 min-h-0 flex-1 overflow-hidden ${narrowTab === 'editor' ? 'flex' : 'hidden'}`}
-              style={{ paddingBottom: PILL_CLEARANCE }}
-            >
+            <div className={`flex-col min-w-0 min-h-0 flex-1 overflow-hidden ${narrowTab === 'editor' ? 'flex' : 'hidden'}`}>
               <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center gap-2`}>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
                 {symbolBar}
@@ -3139,7 +3139,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             )}
 
             {chordsAvailable && narrowTab === 'chords' && (
-              <div className="flex-1 flex flex-col overflow-hidden" style={{ paddingBottom: PILL_CLEARANCE }}>
+              <div className="flex-1 flex flex-col overflow-hidden">
                 <div className={`px-3 py-1.5 border-b ${border} shrink-0`}>
                   <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Chords</span>
                 </div>
