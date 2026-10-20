@@ -121,7 +121,7 @@ export const UKULELE_CHORDS = [
   { name: 'C9',  type: 'dom9', frets: [0, 2, 0, 1] },
   { name: 'C#9', type: 'dom9', frets: [1, 3, 1, 2] },
   { name: 'Db9', type: 'dom9', frets: [1, 3, 1, 2] },
-  { name: 'D9',  type: 'dom9', frets: [2, 0, 2, 0] },
+  { name: 'D9',  type: 'dom9', frets: [5, 6, 0, 0] },
   { name: 'D#9', type: 'dom9', frets: [0, 3, 1, 4] },
   { name: 'Eb9', type: 'dom9', frets: [0, 3, 1, 4] },
   { name: 'E9',  type: 'dom9', frets: [1, 4, 2, 5] },

@@ -14,7 +14,11 @@
 import { notePitchClass, shapeNotes } from '../src/utils/notes.js';
 import { UKULELE_CHORDS } from '../src/data/ukuleleChords.js';
 
-const TUNING = ['G', 'C', 'E', 'A'];
+// Ukulele by default. TUNING=D,G,B,E generates for the baritone, which is how
+// the baritone 7#5 and 9 shapes were repaired — see the note on SPEC['9'].
+// The weights below were calibrated on the UKULELE library, so another tuning
+// gets shapes that are right on the notes and unproven under the hand.
+const TUNING = (process.env.TUNING || 'G,C,E,A').split(',');
 // Weights chosen by CALIBRATION, not by taste: swept against the 170 shipped
 // ukulele shapes these families could be checked against, and this is the
 // setting where the top pick agreed most often. Position is worth more than
@@ -41,6 +45,14 @@ const SPEC = {
   // clash is the whole point of the sound, so both are required and the root is
   // not. Four strings hold 3rd, b7, #9 and one more; the root is the one to go.
   '7#9': { notes: [0, 3, 4, 7, 10], need: [3, 4, 10],    type: 'dom7' },
+  // The 9 is the note the chord is named after, so it is required; the root and
+  // the 5th are not, which is what every correct shipped 9 shape already does
+  // (ukulele C9 [0,2,0,1] is 2,4,7,10 — no root at all).
+  //
+  // Added when the audit caught two shapes filed as 9 that contain no 9: the
+  // ukulele D9 and baritone A9 both sat at [2,0,2,0], which sounds the plain
+  // dominant 7th and nothing more.
+  '9':   { notes: [0, 2, 4, 7, 10], need: [2, 4, 10],    type: 'dom9' },
 };
 
 // The roots the library already uses, in its own order and spelling.

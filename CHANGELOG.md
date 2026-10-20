@@ -3,6 +3,22 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.24 — 2026-10-20
+
+### Chords
+
+- **Ten chord shapes were wrong, and are now right.** Eight baritone
+  **7&#9839;5** shapes &mdash; C, D, E, F, G, A, B&#9837; and B &mdash; had no
+  7th in them at all. A dominant 7&#9839;5 without its 7th is just an augmented
+  triad, so those eight were drawing the wrong chord under the right name. The
+  ukulele **D9** and baritone **A9** had the same trouble the other way: both
+  sat on a shape with no 9th in it, which sounds a plain dominant 7th.
+
+  All ten were re-derived from the notes rather than guessed, and every shape
+  Cue ships now contains the note it is named after. The baritone ones are
+  correct on paper but have not had a hand on them &mdash; if one feels wrong,
+  say so and it can be re-picked.
+
 ## v1.9.23 — 2026-10-20
 
 ### Songs
