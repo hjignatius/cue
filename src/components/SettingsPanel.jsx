@@ -872,9 +872,20 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
               the browser. Written https even though the link is usually quoted as
               http; paypal.me redirects either way, but there is no reason to make
               the first hop plaintext.
-              "Support", not "Donate": PayPal reserves Donate wording and the
-              charity fee rate for registered charities in many countries, and Cue
-              is one person's app, not a charity. */}
+              "Support", not "Donate" — but that reasoning was overstated here
+              and is corrected rather than deleted, because it nearly settled a
+              question it should not have.
+
+              What IS charity-only is the reduced charity fee rate and PayPal
+              Giving Fund. The Donate BUTTON itself appears to be open to an
+              ordinary account: ozbcoz — Jim's Ukulele Songbook, one person and
+              no charity — has a PayPal donation page with the amount box, the
+              monthly tick and the card option. So "Donate" is probably
+              available if it is ever wanted; creating a Donate button in the
+              PayPal account is the two-minute way to find out. Not verified,
+              and PayPal's terms vary by country.
+
+              Raised 2026-10-20 and left as it is, deliberately. */}
           <p className={`text-xs ${muted}`}>
             Cue is free and always will be.{' '}
             <a
