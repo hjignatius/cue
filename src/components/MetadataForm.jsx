@@ -13,6 +13,20 @@ const fieldFocus = 'focus:border-indigo-500';
 const fieldHover = 'hover:border-indigo-400 dark:hover:border-indigo-500';
 const fieldText  = 'text-sm text-gray-900 dark:text-white';
 const fieldMuted = 'placeholder-gray-400 dark:placeholder-gray-600';
+// The height a `py-1.5 text-sm` input comes out at, written so it SCALES:
+//   line-height(text-sm) 1.25rem + py-1.5 twice 0.75rem + 1px border twice
+//   = 2rem + 2px, which is 34px at the default 16px root.
+//
+// It has to be a formula and not a frozen 34px. The app's text size (Settings ->
+// Appearance) works by moving the ROOT FONT SIZE, and Tailwind's rem padding
+// moves with it — so the inputs grow while a pinned pixel height does not. At
+// 150% the inputs came to 50px beside selects stuck at 34, which is a good part
+// of what made the large sizes look broken rather than merely big.
+//
+// Native selects (and the Full Page button, which has no padding of its own)
+// need it stated explicitly: a select renders ~1px shorter than an input at the
+// same padding, which is why matching by padding alone was never enough.
+const fieldHeight = 'h-[calc(2rem_+_2px)]';
 
 function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
   const tapsRef = useRef([]);
@@ -59,10 +73,8 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
       <select
         value={timeSig}
         onChange={e => onTimeSig(e.target.value)}
-        // h-[34px] for the same reason as Key and Capo: a native select renders
-        // ~1px shorter than a button at the same padding, which left the time
-        // signature visibly short beside Tap and ▶.
-        className={`px-2 h-[34px] font-mono font-bold ${fieldCls} ${fieldHover} ${fieldFocus} text-gray-500 dark:text-gray-400 hover:text-indigo-400 text-sm bg-white dark:bg-gray-900 cursor-pointer`}
+        // Explicit height for the same reason as Key and Capo — see fieldHeight.
+        className={`px-2 ${fieldHeight} font-mono font-bold ${fieldCls} ${fieldHover} ${fieldFocus} text-gray-500 dark:text-gray-400 hover:text-indigo-400 text-sm bg-white dark:bg-gray-900 cursor-pointer`}
         title="Time signature"
         aria-label="Time signature"
       >
@@ -151,9 +163,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
         <select
           value={metadata.key || ''}
           onChange={e => set('key', e.target.value)}
-          // h-[34px] matches the sibling inputs exactly (a native select renders
-          // ~1px shorter than an input at the same py-1.5).
-          className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[34px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+          className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 ${fieldHeight} text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
         >
           <option value="">—</option>
           {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
@@ -175,7 +185,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
           onChange={e => set('capo', e.target.value)}
           title="Chords are drawn as the shapes you finger with the capo on. The song's key, and what it sounds like, do not change."
           aria-label="Capo fret"
-          className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[34px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+          className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 ${fieldHeight} text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
         >
           <option value="">—</option>
           {Array.from({ length: MAX_CAPO }, (_, i) => i + 1).map(n => (
@@ -221,7 +231,7 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
           type="button"
           title="Off = continuous scroll. On = discrete full pages that fit the screen, turned one at a time. Applies to text and PDF songs."
           onClick={() => onFullPageChange?.(!fullPage)}
-          className={`h-[34px] px-4 text-sm rounded-md border transition-colors ${fullPage
+          className={`${fieldHeight} px-4 text-sm rounded-md border transition-colors ${fullPage
             ? 'bg-indigo-600 border-indigo-600 text-white'
             : 'border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
         >

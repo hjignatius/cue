@@ -22,23 +22,26 @@ function check(label, got, want) {
 }
 
 // ---- 1. the offered sizes --------------------------------------------------
-check('the steps are predictable, not a slider', UI_SCALES, [90, 100, 110, 125, 150]);
+check('the steps are predictable, not a slider', UI_SCALES, [80, 90, 100, 110, 125]);
 check('normal is one of them', UI_SCALES.includes(DEFAULT_UI_SCALE), true);
 for (const n of UI_SCALES) check(`${n}% survives`, normalizeUiScale(n), n);
 
 // ---- 2. anything else reads as normal -------------------------------------
 // An unreadable setting must leave the app at a size that definitely works.
 for (const junk of [0, -100, 75, 200, 101, 1.5, '', null, undefined, NaN, 'large', {}, []]) {
+  // 150 belongs here now: it was an offered size in earlier versions, so a
+  // device that still has it stored must come back to normal, not stay large.
   check(`junk reads as ${DEFAULT_UI_SCALE}: ${JSON.stringify(junk)}`, normalizeUiScale(junk), DEFAULT_UI_SCALE);
 }
 check('a numeric string is accepted', normalizeUiScale('125'), 125);
+check('the retired 150 reads as normal', normalizeUiScale(150), DEFAULT_UI_SCALE);
 
 // ---- 3. the root size it works out to -------------------------------------
-check('90% of 16px', rootFontPx(90), 14.4);
+check('80% of 16px', rootFontPx(80), 12.8);
+check('90%', rootFontPx(90), 14.4);
 check('100% is the browser default', rootFontPx(100), 16);
 check('110%', rootFontPx(110), 17.6);
 check('125%', rootFontPx(125), 20);
-check('150%', rootFontPx(150), 24);
 check('junk lands on the default', rootFontPx('nonsense'), 16);
 
 // ---- 4. applying it -------------------------------------------------------
@@ -68,7 +71,7 @@ applyUiScale('rubbish', root);
 check('junk clears it too, rather than writing NaN', root._props['font-size'], undefined);
 
 root = fakeRoot();
-applyUiScale(150, root);
+applyUiScale(125, root);
 applyUiScale(90, root);
 check('changing size replaces, never stacks', root.style.fontSize, '14.4px');
 

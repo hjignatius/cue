@@ -12,7 +12,12 @@
 // both only while nothing underneath them moves. Scaling the chrome is safe;
 // scaling the chart would drag annotations off the words they were drawn over.
 
-export const UI_SCALES = [90, 100, 110, 125, 150];
+// 150% was dropped and 80% added. 150 made the app unusable rather than large;
+// 125 is the top step that still reads as the same app. A device sitting on 150
+// lands back on 100 by itself, because normalizeUiScale only accepts a value
+// that is on this list — so no migration is needed, but no notice is given
+// either: the setting will look to its owner as though it reset itself.
+export const UI_SCALES = [80, 90, 100, 110, 125];
 export const DEFAULT_UI_SCALE = 100;
 const ROOT_PX = 16;   // the browser default this is a percentage OF
 

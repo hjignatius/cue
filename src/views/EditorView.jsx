@@ -353,7 +353,7 @@ function CharRuler({ textareaRef, text, target, dark }) {
   const tx = TA_PAD + target * advance;
 
   return (
-    <div className={`relative shrink-0 h-[22px] overflow-hidden select-none border-b ${dark ? 'border-gray-800 bg-gray-950' : 'border-gray-200 bg-white'}`} aria-hidden="true">
+    <div className={`relative shrink-0 h-[1.375rem] overflow-hidden select-none border-b ${dark ? 'border-gray-800 bg-gray-950' : 'border-gray-200 bg-white'}`} aria-hidden="true">
       <div ref={trackRef} className="absolute inset-0 will-change-transform">
         {ticks}
         {/* Target-width marker — the one that matters. */}
