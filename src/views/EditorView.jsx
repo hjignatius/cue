@@ -7,9 +7,10 @@ import SettingsPanel from '../components/SettingsPanel.jsx';
 import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
-import SegmentedControl from '../components/SegmentedControl.jsx';
+import SegmentedControl, { PILL_BOTTOM, PILL_CLEARANCE } from '../components/SegmentedControl.jsx';
 import AiRetryLink from '../components/AiRetryLink.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
+import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, TriangleLeft, TriangleRight, GLASS } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
@@ -498,6 +499,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Preview On / Chords On toggles; iPad portrait is tight but the toggles let
   // the user reclaim space by turning panels off.
   const oneAtATime = compactChrome && !phoneLandscape;
+  // Lifts the floating panel pill clear of the on-screen keyboard; 0 otherwise.
+  const kbInset = useKeyboardInset();
   // Format toggle (OL/B) sits inline on the compact toolbar at every phone width
   // now that Find/Save/Revert are icon-only and free up the room — so it's no
   // longer tucked in the overflow menu (which then appears only for annotations).
@@ -3079,24 +3082,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         )}
       </div>
 
-      {/* Portrait phone: the panel selector gets its own full-width row directly
-          below the toolbar, at the 44px touch size. Landscape phones drop it —
-          they use the Preview/Chords toggles and the side-by-side layout. */}
-      {compactChrome && !phoneLandscape && (
-        // Centered compact pill, sized to its labels — matching the Library /
-        // Sets / Setlist selector rather than stretching the full editor width.
-        <div className={`px-4 pb-2 border-b ${border} ${dark ? 'bg-gray-950' : 'bg-gray-50'} shrink-0 flex justify-center`}>
-          <SegmentedControl
-            ariaLabel="Editor panel"
-            options={panelOptions}
-            value={narrowTab === 'editor' ? 'text' : narrowTab}
-            onChange={setPanelFromOption}
-            size="stack"
-            fullWidth={false}
-            segmentPadX={14}
-          />
-        </div>
-      )}
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -3105,7 +3090,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           /* ── One panel at a time (portrait phone / narrow iPad) ── */
           <>
             {/* Text editor — always mounted (preserves cursor/scroll); hidden via CSS when inactive */}
-            <div className={`flex-col min-w-0 min-h-0 flex-1 overflow-hidden ${narrowTab === 'editor' ? 'flex' : 'hidden'}`}>
+            <div
+              className={`flex-col min-w-0 min-h-0 flex-1 overflow-hidden ${narrowTab === 'editor' ? 'flex' : 'hidden'}`}
+              style={{ paddingBottom: PILL_CLEARANCE }}
+            >
               <div className={`px-3 py-1.5 border-b ${border} shrink-0 flex items-center gap-2`}>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Text</span>
                 {symbolBar}
@@ -3116,7 +3104,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </div>
 
             {narrowTab === 'preview' && (
-              <div ref={previewRef} className="flex-1 min-h-0 overflow-y-auto p-4">
+              <div ref={previewRef} className="flex-1 min-h-0 overflow-y-auto p-4" style={{ paddingBottom: PILL_CLEARANCE }}>
                 {songType === 'pdf' ? pdfPreview : (
                 <SongPreview
                   text={text}
@@ -3151,7 +3139,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             )}
 
             {chordsAvailable && narrowTab === 'chords' && (
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col overflow-hidden" style={{ paddingBottom: PILL_CLEARANCE }}>
                 <div className={`px-3 py-1.5 border-b ${border} shrink-0`}>
                   <span className={`text-xs font-semibold uppercase tracking-wide ${mutedText}`}>Chords</span>
                 </div>
@@ -3268,6 +3256,37 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <button onClick={() => setClearInkModal(false)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Portrait phone: the panel selector floats at the bottom, matching the
+          Library / Sets / Setlist pill rather than taking a row of its own below
+          the toolbar. Landscape phones drop it — they use the Preview/Chords
+          toggles and the side-by-side layout.
+
+          It RIDES ABOVE THE KEYBOARD rather than hiding under it. The old in-flow
+          row sat near the top, so you could switch panes mid-type; a plain
+          fixed-bottom pill would have taken that away, and a <textarea> gives you
+          no button to dismiss the keyboard with. z-30 sits above the panes but
+          below the dialog layer (z-50). */}
+      {oneAtATime && (
+        <div
+          className="fixed left-1/2 z-30 [transition:bottom_160ms_ease] motion-reduce:[transition:none]"
+          style={{
+            bottom: `calc(${PILL_BOTTOM + kbInset}px + env(safe-area-inset-bottom))`,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <SegmentedControl
+            ariaLabel="Editor panel"
+            options={panelOptions}
+            value={narrowTab === 'editor' ? 'text' : narrowTab}
+            onChange={setPanelFromOption}
+            size="stack"
+            fullWidth={false}
+            translucent
+            segmentPadX={14}
+          />
         </div>
       )}
 

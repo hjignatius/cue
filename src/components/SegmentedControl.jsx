@@ -25,6 +25,18 @@ export const SEGMENTED_HEIGHT = { sm: 32, lg: 44, stack: 42 };
 // floating panel, whose Controls tab then comes to exactly 402px — a phone's
 // landscape viewport. One notch taller and the Save speed row starts going off
 // the bottom of the screen.
+// How far a floating panel pill sits above the bottom edge.
+//
+// Was 8px, which relied on env(safe-area-inset-bottom) adding the rest. Since
+// viewport-fit=cover was removed (see index.html — it broke touch targets after
+// rotation on iOS 27) that env resolves to 0, leaving the pill uncomfortably
+// close to the iOS home-indicator bar. This is a plain number instead: it does
+// not depend on the insets resolving, so it can't quietly collapse again.
+export const PILL_BOTTOM = 24;
+// Room under the last row of whatever scrolls behind the pill, so it clears it
+// and stays tappable. Derived from PILL_BOTTOM so the two can never drift apart.
+export const PILL_CLEARANCE = `calc(${SEGMENTED_HEIGHT.lg}px + ${PILL_BOTTOM + 12}px + env(safe-area-inset-bottom))`;
+
 const STACK_ICON = 18;
 const FONT = { sm: 13, lg: 15, stack: 12 };
 

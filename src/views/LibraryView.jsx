@@ -40,7 +40,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 import { useIsPhonePortrait, usePortraitPanels, useTabletPortrait } from '../hooks/useIsPhonePortrait.js';
 import { shouldStack } from '../utils/libraryLayout.js';
 import { useAutoHideOnScroll } from '../hooks/useAutoHideOnScroll.js';
-import SegmentedControl, { SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
+import SegmentedControl, { PILL_BOTTOM, PILL_CLEARANCE } from '../components/SegmentedControl.jsx';
 import AiRetryLink from '../components/AiRetryLink.jsx';
 import SongSuggestionsDialog from '../components/SongSuggestionsDialog.jsx';
 import RowMenu from '../components/RowMenu.jsx';
@@ -87,17 +87,6 @@ function loadPhonePanel() {
     return PHONE_PANELS.includes(v) ? v : 'library';
   } catch { return 'library'; }
 }
-// How far the floating panel pill sits above the bottom edge.
-//
-// Was 8px, which relied on env(safe-area-inset-bottom) adding the rest. Since
-// viewport-fit=cover was removed (see index.html — it broke touch targets after
-// rotation on iOS 27) that env resolves to 0, leaving the pill uncomfortably
-// close to the iOS home-indicator bar. This is a plain number instead: it does
-// not depend on the insets resolving, so it can't quietly collapse again.
-const PILL_BOTTOM = 24;
-// Room under the last list row so it clears the floating pill and stays
-// tappable. Derived from PILL_BOTTOM so the two can never drift apart.
-const PILL_CLEARANCE = `calc(${SEGMENTED_HEIGHT.lg}px + ${PILL_BOTTOM + 12}px + env(safe-area-inset-bottom))`;
 
 
 // Normalize text for search so smart quotes match straight ones. iOS keyboards
