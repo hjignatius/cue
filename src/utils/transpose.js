@@ -76,7 +76,7 @@ const SHARP_KEYS = new Set([
  * accidental honours it (F# → sharps, Gb → flats); C major / A minor and any
  * unclassified key default to sharps.
  */
-export function useFlatsForKey(mode, targetKey) {
+export function flatsForKey(mode, targetKey) {
   if (mode === 'flats')  return true;
   if (mode === 'sharps') return false;
   const k = (targetKey || '').trim();

@@ -1,6 +1,6 @@
 import { pdf } from '@react-pdf/renderer';
 import { parseChordPro, expandSections } from './chordPro.js';
-import { semitonesBetween, transposeChord, useFlatsForKey, displaySemitones, capoFrets } from './transpose.js';
+import { semitonesBetween, transposeChord, flatsForKey, displaySemitones, capoFrets } from './transpose.js';
 import { convertToBrackets } from './chordStyle.js';
 import { detectChords } from './chordDetect.js';
 import { lookupChordDiagrams, resolveChordShape } from './chordLookup.js';
@@ -23,7 +23,7 @@ function metaForPdf(metadata) {
 export async function exportToPdf(song, { displayKey, includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
   const { metadata, text } = song;
   const semitones  = displaySemitones(metadata, displayKey);
-  const useFlats   = useFlatsForKey(accidentals, displayKey);
+  const useFlats   = flatsForKey(accidentals, displayKey);
   const parsedP    = parseChordPro(convertToBrackets(sanitizeForPdf(text || '')));
   // Condensed songs print verbatim — skip section-reference expansion.
   const parsedLines = song.condensed === true ? parsedP : expandSections(parsedP);
@@ -62,7 +62,7 @@ function songsForPdf(sets, allSongs, accidentals) {
         text:        song.text || '',
         semitones:   displaySemitones(song.metadata, song.displayKey),
         capo:        capoFrets(song.metadata),
-        useFlats:    useFlatsForKey(accidentals, song.displayKey),
+        useFlats:    flatsForKey(accidentals, song.displayKey),
         chordPrefs:  song.chordPrefs || {},
       });
     }

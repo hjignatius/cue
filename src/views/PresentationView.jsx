@@ -8,7 +8,7 @@ import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import { parseChordPro, attachSectionLabels, expandSections, styleSegments, lineHasLyrics } from '../utils/chordPro.js';
-import { transposeText, semitonesBetween, useFlatsForKey, displaySemitones, capoFrets } from '../utils/transpose.js';
+import { transposeText, semitonesBetween, flatsForKey, displaySemitones, capoFrets } from '../utils/transpose.js';
 import { convertToBrackets } from '../utils/chordStyle.js';
 import ChordDiagram from '../components/ChordDiagram.jsx';
 import { resolveChordShape } from '../utils/chordLookup.js';
@@ -483,7 +483,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // otherwise drift the shapes away from the sheet).
   const semitones = isPdfSong(song) ? 0 : displaySemitones(meta, song?.displayKey);
   // Accidental spelling for transposed chords/diagrams — auto follows the View Key.
-  const useFlats = useFlatsForKey(accidentals, song?.displayKey);
+  const useFlats = flatsForKey(accidentals, song?.displayKey);
   // The View Key drives the info block, so it updates live on transpose. Declared
   // up here, not beside hasKeyOrTempo, because the per-song column width below
   // reads it from a dependency array — which runs during render, not after it.

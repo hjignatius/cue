@@ -16,7 +16,7 @@ import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
-import { KEY_NAMES, semitonesBetween, useFlatsForKey, transposeText, transposeChord, displaySemitones } from '../utils/transpose.js';
+import { KEY_NAMES, semitonesBetween, flatsForKey, transposeText, transposeChord, displaySemitones } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets, bracketSourceMap } from '../utils/chordStyle.js';
 import { hasApiKey, findMusicOnline, cleanUpChart, detectStructure, fillSongDetails, readSongDetails, READ_ONLY_FIELDS, askMusic, transposeAdvice, chordShapesFor, alternateVoicings, FILL_FIELDS, escalatedTierLabel } from '../lib/ai.js';
 import { condenseStructure, expandStructure } from '../utils/condense.js';
@@ -1586,7 +1586,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // The chord PANEL draws the shapes you finger, so it follows the capo too.
   const chordSemitones = songType === 'pdf' ? 0 : displaySemitones(metadata, effectiveDisplayKey);
   // Accidental spelling for transposed diagram labels — auto follows the Transpose key.
-  const chordUseFlats = useFlatsForKey(accidentals, effectiveDisplayKey);
+  const chordUseFlats = flatsForKey(accidentals, effectiveDisplayKey);
 
   // Format control label: an empty editor invites a paste ("Sense Chords"); once
   // there is content it names the current (auto-sensed) format.
