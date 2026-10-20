@@ -3,6 +3,39 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.22 — 2026-10-20
+
+### Sets
+
+- **Merge two sets.** Check exactly two sets and tap **Merge**. Cue asks which
+  one you want to *keep*; that set survives, holding on to its songs, their
+  order, its name — you can change it there if you like — and, if it was
+  published, its **share link**. The other set's songs go on the end, except
+  any that are already there, which are skipped rather than added twice and
+  stay where they were.
+
+  **Nothing is deleted.** The other set is still there afterwards, unchanged,
+  and no song leaves your library. If one of the two is published, that's the
+  one offered to keep, because the share link belongs to the set rather than to
+  its name. The dialog says how many songs will be added and how many skipped
+  before you commit, and reminds you that a published set needs **Send changes**
+  before anyone holding the link sees the new version.
+
+  To merge three sets, merge two and then merge the result with the third.
+
+### Appearance
+
+- **Text size now runs 80% to 125%**, instead of 90% to 150%. 150% made the app
+  awkward rather than just large, and 80% is there for an iPad where you'd
+  rather give the room to the song. If you were on 150%, you'll find yourself
+  back at 100%.
+
+- **Fixed: the song details row came apart at the bigger text sizes.** Artist
+  and the YouTube box grew with the text while Key, Capo, the time signature
+  and Full Page stayed the size they were — by half an inch at 150%. They now
+  all grow together, which is a good part of why the large sizes felt broken
+  rather than merely big. The editor's character ruler had the same fault.
+
 ## v1.9.21 — 2026-10-20
 
 ### Editor

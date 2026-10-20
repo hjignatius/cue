@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, Check } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, Check } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
@@ -45,6 +45,7 @@ import AiRetryLink from '../components/AiRetryLink.jsx';
 import SongSuggestionsDialog from '../components/SongSuggestionsDialog.jsx';
 import RowMenu from '../components/RowMenu.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
+import { mergedSongIds, mergeCounts, defaultMergeTargetId } from '../utils/mergeSets.js';
 import { shortDuration } from '../utils/duration.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
@@ -740,6 +741,37 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
     setSelectedSets(new Set());
   }
 
+  // ---- Merge two sets ------------------------------------------------------
+  // Exactly two at a time, deliberately. "B's songs go on the end of A" has no
+  // visible answer for three or more: `selectedSets` is a Set, so its order is
+  // the order the boxes were TICKED — invisible, and not the order on screen.
+  // Merging twice gives the same result and shows you each step.
+  //
+  // null | { targetId, name } — the set that survives, and what to call it.
+  const [mergeDialog, setMergeDialog] = useState(null);
+
+  function handleMerge() {
+    const chosen = [...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean);
+    if (chosen.length !== 2) return;
+    const targetId = defaultMergeTargetId(chosen, id => !!publishedSets[id]);
+    setMergeDialog({ targetId, name: chosen.find(x => x.id === targetId)?.name || '' });
+  }
+
+  async function performMerge() {
+    const chosen = [...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean);
+    const target = chosen.find(x => x.id === mergeDialog?.targetId);
+    const source = chosen.find(x => x.id !== mergeDialog?.targetId);
+    if (!target || !source) { setMergeDialog(null); return; }
+    await saveSet({
+      ...target,
+      name: mergeDialog.name.trim() || target.name,
+      songIds: mergedSongIds(target.songIds, source.songIds),
+    });
+    setMergeDialog(null);
+    setSelectedSets(new Set());
+    onRefresh();
+  }
+
   // Export the selected set(s) in the chosen format. One set uses the single-set
   // functions; several combine (one PDF, one JSON bundle). 'setlist' is one set
   // only (a numbered performance list) and is disabled in the menu when >1.
@@ -788,6 +820,81 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
           </div>
         );
       })()}
+      {/* Merge — no dimmed backdrop: the dialog is about the two sets behind it,
+          and it destroys nothing on confirm. Both sets survive; only the target
+          gains songs. */}
+      {mergeDialog && (() => {
+        const chosen = [...selectedSets].map(id => sets.find(x => x.id === id)).filter(Boolean);
+        const target = chosen.find(x => x.id === mergeDialog.targetId);
+        const source = chosen.find(x => x.id !== mergeDialog.targetId);
+        if (!target || !source) return null;
+        const { added, skipped } = mergeCounts(target.songIds, source.songIds);
+        const isPublished = !!publishedSets[target.id];
+        const rowCls = (on) => `w-full text-left px-3 py-2 rounded-xl border transition-colors ${on
+          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
+          : dark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'}`;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setMergeDialog(null))}>
+            <div className={`w-96 max-w-full max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col gap-1">
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Merge sets</h2>
+                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Which set do you want to keep? It keeps its songs, their order, and its share link.</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {chosen.map(s2 => (
+                  <button key={s2.id} type="button" onClick={() => setMergeDialog({ targetId: s2.id, name: s2.name })} className={rowCls(s2.id === mergeDialog.targetId)}>
+                    <span className={`text-sm font-medium block truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{s2.name}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {s2.songIds.length} {s2.songIds.length === 1 ? 'song' : 'songs'}
+                      {publishedSets[s2.id] && ' · published'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-500 uppercase tracking-wide">Name</span>
+                <input
+                  value={mergeDialog.name}
+                  onChange={e => setMergeDialog(m => ({ ...m, name: e.target.value }))}
+                  placeholder={target.name}
+                  className={`w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+              </label>
+
+              {/* Real numbers, because there is no undo — unpicking a merge you
+                  did not mean is deleting songs one at a time. */}
+              <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+                Adds <strong>{added}</strong> {added === 1 ? 'song' : 'songs'} from &ldquo;{source.name}&rdquo; to the end of &ldquo;{target.name}&rdquo;.
+                {skipped > 0 && <> {skipped} already {skipped === 1 ? 'is' : 'are'} there and will be skipped.</>}
+                {target.sortMode === 'alpha' && <> This set is on A&ndash;Z, so they&rsquo;ll sort in by title.</>}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">&ldquo;{source.name}&rdquo; is not changed and not deleted.</p>
+
+              {isPublished && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  &ldquo;{target.name}&rdquo; is published. Anyone with the link keeps seeing the old version until you send changes.
+                </p>
+              )}
+              {target.copiedFrom && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  This set came from a shared link. Adding songs makes it differ from that share.
+                </p>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <button onClick={performMerge} disabled={added === 0}
+                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-xl transition-colors">
+                  {added === 0 ? 'Nothing to add' : `Merge into "${mergeDialog.name.trim() || target.name}"`}
+                </button>
+                <button onClick={() => setMergeDialog(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className={`px-3 py-2 border-b ${border} flex items-center justify-between shrink-0`}>
         <div className="flex flex-col leading-tight">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sets</span>
@@ -888,7 +995,13 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
             old colour-dot legend is gone. */}
         <div className="flex-1" />
 
-        {/* Right: Delete. */}
+        {/* Right: Merge, then Delete. */}
+        <HeaderPill
+          dark={dark} icon={Merge} label="Merge" hideLabelWhenNarrow
+          title={selectedSets.size === 2 ? 'Merge these two sets' : 'Tick exactly two sets to merge them'}
+          disabled={selectedSets.size !== 2}
+          onActivate={handleMerge}
+        />
         <RoundButton
           size={ROUND_SIZE_COMPACT}
           label={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
