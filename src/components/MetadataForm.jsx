@@ -180,34 +180,38 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
           className={`shrink-0 text-gray-500 transition-transform ${open ? 'rotate-90' : 'ml-1'}`}
         />
       </button>
+      {/* No label line above the fields: it cost 16px per wrapped row, and an
+          inline label would buy that back in WIDTH, which on a phone just
+          wraps to another row. Each control names itself instead — the empty
+          option on a select, the placeholder on an input, its own text on a
+          button — all of which fit in space the control already occupies.
+          aria-label carries the name for screen readers. */}
       {open && (
-        <div className="flex flex-wrap items-end gap-3 px-4 pb-2 pt-0.5">
+        <div className="flex flex-wrap items-center gap-3 px-4 pb-2 pt-0.5">
           {/* Artist */}
-          <div className="flex flex-col gap-0.5 min-w-32">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">Artist</label>
+          <div className="min-w-32">
             <input
               value={metadata.artist || ''}
               onChange={e => set('artist', e.target.value)}
-              placeholder="Artist name"
+              placeholder="Artist"
+              aria-label="Artist"
               autoComplete="off" data-1p-ignore data-lpignore="true"
               className={inputCls}
             />
           </div>
 
           {/* Source key */}
-          <div className="flex flex-col gap-0.5">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">Key</label>
-            <select
-              value={metadata.key || ''}
-              onChange={e => set('key', e.target.value)}
-              // h-[42px] matches the sibling inputs exactly (a native select renders
-              // ~1px shorter than an input at the same py-2.5).
-              className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
-            >
-              <option value="">—</option>
-              {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
+          <select
+            value={metadata.key || ''}
+            onChange={e => set('key', e.target.value)}
+            aria-label="Key"
+            // h-[42px] matches the sibling inputs exactly (a native select renders
+            // ~1px shorter than an input at the same py-2.5).
+            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+          >
+            <option value="">Key</option>
+            {KEY_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
 
           {/* Capo — beside Key on purpose: the two are read together ("D, capo 2"),
               and a fret number next to a key explains itself in a way it would not
@@ -217,76 +221,65 @@ export default function MetadataForm({ metadata, onChange, fullPage = false, onF
               C and still sounds in D, so Key stays D and only the chords DRAWN come
               down — one semitone per fret, everywhere they are drawn. That is the
               whole difference from Transpose, which changes what you sound. */}
-          <div className="flex flex-col gap-0.5">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">Capo</label>
-            <select
-              value={String(capoFrets(metadata) || '')}
-              onChange={e => set('capo', e.target.value)}
-              title="Chords are drawn as the shapes you finger with the capo on. The song's key, and what it sounds like, do not change."
-              aria-label="Capo fret"
-              className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
-            >
-              <option value="">—</option>
-              {Array.from({ length: MAX_CAPO }, (_, i) => i + 1).map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+          <select
+            value={String(capoFrets(metadata) || '')}
+            onChange={e => set('capo', e.target.value)}
+            title="Chords are drawn as the shapes you finger with the capo on. The song's key, and what it sounds like, do not change."
+            aria-label="Capo fret"
+            className={`bg-gray-50 dark:bg-gray-800 ${fieldCls} ${fieldFocus} px-2 h-[42px] text-sm text-gray-900 dark:text-white pr-6 cursor-pointer`}
+          >
+            <option value="">Capo</option>
+            {Array.from({ length: MAX_CAPO }, (_, i) => i + 1).map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+
+          {/* Tempo — the Tap button beside it is what says "tempo". */}
+          <div className="flex items-center gap-1.5">
+            <input
+              value={metadata.tempo || ''}
+              onChange={e => set('tempo', e.target.value)}
+              placeholder="BPM"
+              aria-label="Tempo in BPM"
+              size={4}
+              autoComplete="off" data-1p-ignore data-lpignore="true"
+              className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm ${fieldText} ${fieldMuted}`}
+            />
+            <TapTempo
+              bpm={metadata.tempo}
+              onBpm={v => set('tempo', v)}
+              timeSig={metadata.timeSig || '4/4'}
+              onTimeSig={v => set('timeSig', v)}
+            />
           </div>
 
-          {/* Tempo */}
-          <div className="flex flex-col gap-0.5">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">Tempo (BPM)</label>
-            <div className="flex items-center gap-1.5">
-              <input
-                value={metadata.tempo || ''}
-                onChange={e => set('tempo', e.target.value)}
-                placeholder="120"
-                size={4}
-                autoComplete="off" data-1p-ignore data-lpignore="true"
-                className={`bg-transparent ${fieldCls} ${fieldFocus} px-2 py-2.5 text-sm ${fieldText} ${fieldMuted}`}
-              />
-              <TapTempo
-                bpm={metadata.tempo}
-                onBpm={v => set('tempo', v)}
-                timeSig={metadata.timeSig || '4/4'}
-                onTimeSig={v => set('timeSig', v)}
-              />
-            </div>
-          </div>
-
-          {/* Duration */}
-          <div className="flex flex-col gap-0.5">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">Duration (M:SS)</label>
-            <DurationStepper value={metadata.duration || ''} onChange={v => set('duration', v)} />
-          </div>
+          {/* Duration (M:SS) */}
+          <DurationStepper value={metadata.duration || ''} onChange={v => set('duration', v)} />
 
           {/* Display mode (per song). Off = continuous scroll (the default that gets
               the most done). On = discrete full pages that fit the screen, turned one
               at a time. Applies to text and PDF songs alike. The Screen-vs-Songs pedal
               choice is a global setting (Settings), not per song. */}
-          <div className="flex flex-col gap-0.5">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">Display</label>
-            <button
-              type="button"
-              title="Off = continuous scroll. On = discrete full pages that fit the screen, turned one at a time. Applies to text and PDF songs."
-              onClick={() => onFullPageChange?.(!fullPage)}
-              className={`h-[42px] px-4 text-sm rounded-md border transition-colors ${fullPage
-                ? 'bg-indigo-600 border-indigo-600 text-white'
-                : 'border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-            >
-              {/* Full label on wider screens, "FP" on a phone to save room. */}
-              <span className="hidden sm:inline">Full Page</span>
-              <span className="sm:hidden">FP</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            title="Off = continuous scroll. On = discrete full pages that fit the screen, turned one at a time. Applies to text and PDF songs."
+            onClick={() => onFullPageChange?.(!fullPage)}
+            className={`h-[42px] px-4 text-sm rounded-md border transition-colors ${fullPage
+              ? 'bg-indigo-600 border-indigo-600 text-white'
+              : 'border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+          >
+            {/* Full label on wider screens, "FP" on a phone to save room. */}
+            <span className="hidden sm:inline">Full Page</span>
+            <span className="sm:hidden">FP</span>
+          </button>
 
           {/* YouTube URL */}
-          <div className="flex flex-col gap-0.5 min-w-48 flex-1">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">YouTube URL</label>
+          <div className="min-w-48 flex-1">
             <input
               value={metadata.youtubeUrl || ''}
               onChange={e => set('youtubeUrl', e.target.value)}
-              placeholder="https://youtube.com/watch?v=…"
+              placeholder="YouTube URL"
+              aria-label="YouTube URL"
               autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} data-1p-ignore data-lpignore="true"
               className={inputCls}
             />
