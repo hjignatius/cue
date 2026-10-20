@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.20 — 2026-10-20
+
+Nothing changes on screen in this one. It exists so each device can show you
+that it is up to date: the number under the **Cue** title now reads 1.9.20.
+
+Behind it, a rename that the linter had been complaining about, and a single
+`npm test` that runs all twenty of Cue's check suites — 1,183 checks — instead
+of needing each one started by name.
+
 ## v1.9.19 — 2026-10-19
 
 ### Appearance
