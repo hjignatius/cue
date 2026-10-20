@@ -19,7 +19,7 @@ IndexedDB record are the same object by id.
 
 **The shared viewer does not read these tables directly.** It calls the database
 function `get_shared_set(share_token)` via `supabase.rpc(...)` — see
-`loadSharedSet` in [`src/lib/cloud.js`](../src/lib/cloud.js). So an anonymous
+`getSharedSet` in [`src/lib/cloud.js`](../src/lib/cloud.js). So an anonymous
 visitor needs `execute` on that function, not `select` on the tables.
 
 ## Storage
@@ -68,13 +68,23 @@ which rows. Both are needed.
 
 ## Known gap
 
-The table definitions are **not in this repo** — they were created by hand in
-the dashboard, and only the Storage policies above were ever written down. The
-table above is reconstructed from the queries in `src/lib/cloud.js` and names
-only the columns Cue touches; there may be others, and the types and constraints
-are not recorded anywhere outside the dashboard.
+The real table definitions are **still not in this repo** — they were created by
+hand in the dashboard, and only the Storage policies above have ever been
+authoritative.
 
-That has been survivable because the schema is small and stable, but it means a
-fresh Supabase project cannot be rebuilt from this repo — and after 2026-10-30,
-rebuilding it by hand would need the grants above added manually too. Capturing
-the real schema as SQL is the fix if the cloud side ever grows.
+`schema.sql` beside this README is a first pass at closing that: the four
+tables, their RLS policies and the grants they would now need, reconstructed
+from the queries in `src/lib/cloud.js`. It is **documentation, not a
+migration** — it names only the columns Cue touches, guesses their types, and
+infers the policies from how Cue queries. There may be columns Cue never reads,
+constraints that are not there, and policies that differ.
+
+`get_shared_set` is the sharpest hole: its body exists only in the dashboard,
+and nothing in this repo records what it does. A rebuild needs it recovered
+before the shared-set viewer works at all.
+
+To make `schema.sql` authoritative, run the three queries at the top of it in
+the dashboard's SQL editor and replace the guesses with what comes back. Worth
+doing before the cloud side grows — after 2026-10-30 a hand rebuild needs the
+grants added manually too, and the failure mode is `permission denied` rather
+than anything that names the cause.
