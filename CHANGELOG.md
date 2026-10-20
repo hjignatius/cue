@@ -3,6 +3,27 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.21 — 2026-10-20
+
+### Editor
+
+- **Text / Preview / Chords has moved to the bottom.** On a portrait phone the
+  selector used to take a full-width row of its own just below the toolbar.
+  It now floats at the bottom as a pill, the same way **Library / Sets /
+  Setlist** does, and gives that row back to the song. It sits *over* the
+  panel, so the words keep running to the bottom of the screen, and there's
+  room to scroll the last line out from under it.
+
+  When the keyboard is up it lifts to sit just above it, so you can still
+  switch panes in the middle of typing — which the old row let you do, and a
+  pill parked at the bottom edge would have taken away.
+
+- **The song details line up with the Library.** Artist, Key, Capo, Tempo,
+  Duration, Full Page and the YouTube box are each a little shorter, matching
+  the height of the search and sort controls on the Library screen rather than
+  standing a touch taller than them. The **time signature** was a pixel shorter
+  than everything beside it and now matches too.
+
 ## v1.9.20 — 2026-10-20
 
 Nothing changes on screen in this one. It exists so each device can show you
