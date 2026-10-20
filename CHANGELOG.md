@@ -3,6 +3,36 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.23 — 2026-10-20
+
+### Songs
+
+- **A PDF can give up its chord chart.** **Load PDF** now looks inside the file
+  first. If what it finds is a chart written in brackets — `[C] No one to
+  [C#dim7] talk with` — it offers you a choice, and shows the first few lines
+  it found so you're not choosing blind:
+
+  **Load as text** takes the chart *out* of the PDF and makes it an ordinary
+  song. You can transpose it, switch its chord format, put a capo on it,
+  Condense it, and ink lands on the words instead of on a picture. Cue puts
+  back the blank lines between verses — a PDF records where each line sits, not
+  that a verse ended — and then opens **Fill in song details** so the title,
+  artist and YouTube link can go in and the page's headers and footers can come
+  out. Songbook pages often carry their own video link, and that one is read
+  straight out of the file without asking the AI anything.
+
+  **Keep it as a page** is exactly what Load PDF has always done.
+
+  The offer only appears when there's really a choice: the PDF has text in it,
+  that text is a bracket chart, and the editor is empty so nothing of yours can
+  be stranded. A **scanned** PDF — a photo or a screenshot saved as a PDF — has
+  no text in it at all and is simply loaded as a page, as before. So is
+  anything over **12 pages**, on the grounds that a songbook is not a song.
+
+  Nothing in your chart is rewritten on the way in: every line that survives is
+  the line that was in the PDF, character for character. The AI is asked only
+  which lines are page furniture and what the song is called.
+
 ## v1.9.22 — 2026-10-20
 
 ### Sets

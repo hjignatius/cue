@@ -438,7 +438,14 @@ Love Potion Number Ni-ah-ah-a-ine</pre>
 <h2>PDF Songs</h2>
 <p>There are two ways to get a PDF lead sheet into Cue. Use <strong>Import</strong> (see <em>Importing Songs</em>) when you have several files to bring in at once, or start a <strong>New Song</strong> and load the PDF right in the editor:</p>
 <ul>
-  <li><strong>Load PDF</strong> — a blank new song shows a <strong>Load PDF</strong> button under the placeholder text. Pick a file and the song becomes a PDF song: the sheet appears in the preview panel, and the Title fills in from the filename unless you have already typed one. The button disappears as soon as you type anything, since a chart you have written can't be turned into a PDF.</li>
+  <li><strong>Load PDF</strong> — a blank new song shows a <strong>Load PDF</strong> button under the placeholder text. Pick a file and the song becomes a PDF song: the sheet appears in the preview panel, and the Title fills in from the filename unless you have already typed one. The button disappears as soon as you type anything, since a chart you have written can't be turned into a PDF.
+    <p>If the PDF turns out to hold a chord chart written in <strong>brackets</strong> &mdash; <code>[C] No one to [C#dim7] talk with</code> &mdash; Cue offers you a choice before it commits, and shows the first few lines it found so the choice isn't blind:</p>
+    <ul>
+      <li><strong>Load as text</strong> &mdash; the chart comes out of the PDF and becomes an ordinary song. You can transpose it, switch its chord format, put a capo on it, Condense it, and ink lands on the words rather than on a picture. Cue puts back the blank lines between verses (a PDF records where each line sits, not that a verse ended) and then opens <strong>Fill in song details</strong> so the title, artist and YouTube link can be filled in and the page's headers and footers removed. The PDF itself is not kept &mdash; a song is text or pages, not both.</li>
+      <li><strong>Keep it as a page</strong> &mdash; exactly what Load PDF has always done.</li>
+    </ul>
+    <p>The offer only appears when there is really a choice to make: the PDF has a text layer, that text is a bracket chart, and the editor is empty so nothing can be stranded. A <strong>scanned</strong> PDF &mdash; a photo or a screenshot saved as a PDF &mdash; has no text in it at all, so it is simply loaded as a page. So is anything longer than <strong>12 pages</strong>, on the grounds that a songbook is not a song.</p>
+  </li>
   <li><strong>Replace PDF</strong> — on a song that is already a PDF, the <strong>⋯</strong> overflow menu offers <strong>Replace PDF</strong> to swap in a different file (a rescan, or a cleaner copy) while keeping the song's title, chords, set membership and ink.</li>
 </ul>
 <p>Both are staged until you <strong>Save</strong> — <strong>Revert</strong> discards a PDF you picked by mistake, and nothing is written until you save. If the song is in a published set, saving a replacement re-uploads the new sheet the next time you publish.</p>

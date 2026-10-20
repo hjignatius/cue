@@ -27,11 +27,19 @@ export function loadPdfjs() {
 //
 // An empty result is the normal answer for a scanned songbook: pages of images
 // with no text layer at all. The caller decides what to do about it.
+// A chart is a handful of pages; a songbook is not a song. Jim's Ukulele
+// Songbook is 5155 pages — reading them all takes ~20s of main-thread work and
+// produces a multi-megabyte blob that is nonsense as a single song. Over this,
+// Cue does not offer to unpack at all and the PDF is attached as pages, which
+// is what you want from a book anyway.
+export const MAX_UNPACK_PAGES = 12;
+
 export async function extractPdfLines(data) {
   const { linesFromItems } = await import('./pdfText.js');
   const pdfjs = await loadPdfjs();
   const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  if (doc.numPages > MAX_UNPACK_PAGES) return [];
   const pages = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
