@@ -3,6 +3,27 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.25 — 2026-10-21
+
+### Present
+
+- **The floating panel can be smaller.** Present settings has a new
+  **Panel size**: **Full** or **80%**. At 80% the controls and tools panel
+  takes about a fifth less room over the song, and its buttons are still big
+  enough to hit reliably mid-song &mdash; that is why 80% is as small as it
+  goes. The collapsed blue pill stays full size so it is easy to find. The
+  setting belongs to the device you set it on, so the iPad can be at 80% while
+  the phone stays at Full.
+
+### Songs
+
+- **Fill in song details fits an iPad.** With **Read the chart** chosen, the
+  window had grown taller than the screen, pushing its title off the top and
+  **Check 8 details** off the bottom &mdash; and reaching for that button
+  closed the window. It now stays within the screen with the list scrolling
+  between a fixed top and bottom, a tap outside no longer closes it, and the
+  explanations are shorter.
+
 ## v1.9.24 — 2026-10-20
 
 ### Chords
