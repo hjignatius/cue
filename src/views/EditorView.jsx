@@ -1883,8 +1883,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const offered = FILL_FIELDS.filter(f => fillMode === 'chart' || !READ_ONLY_FIELDS.has(f.field));
     const chosen = offered.filter(f => !fillSkip[f.field]);
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => setFillAsk(false))}>
-        <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+      /* Capped at the screen, with only the middle scrolling: eight rows plus
+         the Read-the-chart explanation outgrew an iPad, pushing the title off
+         the top and "Check 8 details" off the bottom — and reaching for that
+         button landed on the backdrop, which closed the dialog. The backdrop
+         no longer dismisses this one either; Cancel and the X are the way out. */
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => setFillAsk(false), false)}>
+        <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-full overflow-hidden rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
           <div className="flex items-start justify-between gap-3">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
             <button onClick={() => setFillAsk(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
@@ -1908,10 +1913,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               { id: 'chart', label: 'Read the chart' },
             ]}
           />
+          <div className="flex flex-col gap-4 min-h-0 overflow-y-auto overscroll-contain -mx-6 px-6">
           <p className={`text-xs ${mutedText}`}>
             {fillMode === 'chart'
-              ? 'Reads what this chart already says — the title and artist above it, a video link, the key from the chords. Nothing is searched for, so it costs almost nothing and only finds what is actually written here. It also offers to take those lines out of the song.'
-              : "Here's what this song has now. Tick what Cue should work out — it only looks up what you tick, and nothing changes until you apply what comes back."}
+              ? 'Reads only what this chart already says. Nothing is searched for, so it costs almost nothing.'
+              : 'Tick what Cue should look up. Nothing changes until you apply it.'}
           </p>
           <ul className="flex flex-col gap-2">
             {offered.map(f => {
@@ -1939,7 +1945,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               );
             })}
           </ul>
-          <div className="flex gap-2">
+          </div>
+          <div className="flex gap-2 shrink-0">
             <button
               onClick={() => { setFillAsk(false); runFill(undefined, chosen.map(f => f.field), fillMode); }}
               disabled={chosen.length === 0}
@@ -1973,7 +1980,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
        paid for — throwing either away is nobody's intention. Cancel and the X
        are the way out. */
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(() => closeFill(), false)}>
-      <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+      <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-full overflow-hidden rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
           <button onClick={() => closeFill()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
@@ -2040,7 +2047,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </div>
           ) : null;
 
-          if (rows.length === 0) return (<>
+          if (rows.length === 0) return (
+            <div className="flex flex-col gap-4 min-h-0 overflow-y-auto overscroll-contain -mx-6 px-6">
             <p className={`text-sm ${mutedText}`}>
               {fillMode === 'chart'
                 ? (liftSection
@@ -2050,7 +2058,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </p>
             {liftSection}
             {ytSearchLink}
-          </>);
+            </div>
+          );
           // Same predicate the per-row buttons already use, across every row: once
           // it's true there is nothing left to apply, so "Apply all" spends itself
           // (mirroring a row's "Applied") and Close becomes the primary action.
@@ -2071,10 +2080,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           // pointing at the one thing you had chosen not to do.
           const picking = appliedNow || allApplied;
           return (<>
+            <div className="flex flex-col gap-4 min-h-0 overflow-y-auto overscroll-contain -mx-6 px-6">
             <p className={`text-xs ${mutedText}`}>
               {fillMode === 'chart'
-                ? 'Read out of this chart. Apply the ones you want — nothing changes until you do. Nothing here was searched for or guessed at: if the text did not say, the field came back empty.'
-                : 'Suggestions for this song. Apply the ones you want — nothing changes until you do. Tempo, duration and the video are best guesses for the well-known recording, so double-check them.'}
+                ? 'Read out of this chart, not guessed. Apply the ones you want.'
+                : 'Apply the ones you want. Tempo, duration and the video are best guesses — double-check them.'}
             </p>
             <ul className="flex flex-col gap-2">
               {rows.map(r => (
@@ -2143,7 +2153,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </ul>
             {ytSearchLink}
             {liftSection}
-            <div className="flex gap-2">
+            </div>
+            <div className="flex gap-2 shrink-0">
               <button
                 onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}
                 disabled={allApplied}
