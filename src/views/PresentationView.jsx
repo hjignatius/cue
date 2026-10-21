@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, Pencil, Settings as SettingsIcon } from 'lucide-react';
-import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN, PRESENT_CONTROL_BUTTON_SIZE } from '../components/PresentControls.jsx';
+import PresentControls, { PRESENT_CONTROL_IDLE_OPACITY, PRESENT_CONTROL_EDGE_MARGIN } from '../components/PresentControls.jsx';
+import { panelMetrics, panelGlyph } from '../utils/presentPanelSize.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY, MIN_TOUCH_TARGET, GLASS } from '../components/RoundButton.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
@@ -390,7 +391,7 @@ function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
 // for others — and ink drawn on the publisher's version would be stored under
 // THEIR song id, leaving two sets of marks for what you think of as one song.
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false, annotatableIds = null, sourceLabel = null }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, presentPanelSize, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   // Fraction of the viewport a page turn moves: 3/4 or 1/2, else null = a full
@@ -1200,28 +1201,31 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // here rather than inside that component because every one of them closes over
   // this view's state (annotating, showChords, isFullPage, the YouTube player) —
   // passing a slot keeps that ownership where it belongs instead of threading a
-  // dozen props through. Sized to the panel grid, not the old 44px gutter.
+  // dozen props through. Sized to the panel grid, not the old 44px gutter — and
+  // at the panel's size, which the Panel size setting can take down to 80%.
+  const panel = panelMetrics(presentPanelSize);
+  const tg = (n) => panelGlyph(n, panel);
   const presentTools = (<>
     {/* Present's own settings — a set-and-forget tool, which is why it lives in
         Tools rather than beside the controls reached for mid-song. */}
     <RoundButton
-      size={PRESENT_CONTROL_BUTTON_SIZE}
+      size={panel.button}
       label="Present settings"
       fill={actionFill}
       active={settingsOpen}
       onActivate={() => setSettingsOpen(true)}
     >
-      <SettingsIcon size={20} strokeWidth={2} />
+      <SettingsIcon size={tg(20)} strokeWidth={2} />
     </RoundButton>
 
     {showEdit && (
       <RoundButton
-        size={PRESENT_CONTROL_BUTTON_SIZE}
+        size={panel.button}
         label="Edit this song"
         fill={actionFill}
         onActivate={() => onEdit?.(songs[index], index)}
       >
-        <span className="font-bold leading-none" style={{ fontSize: 20 }}>E</span>
+        <span className="font-bold leading-none" style={{ fontSize: tg(20) }}>E</span>
       </RoundButton>
     )}
 
@@ -1231,13 +1235,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         is a global setting under Settings, not a per-song control.) */}
     {onSetFullPage && (
       <RoundButton
-        size={PRESENT_CONTROL_BUTTON_SIZE}
+        size={panel.button}
         label={isFullPage ? 'Full Page mode: one page at a time' : 'Scroll mode: continuous scroll'}
         fill={actionFill}
         active={isFullPage}
         onActivate={toggleFullPage}
       >
-        <span className="font-bold leading-none" style={{ fontSize: 13 }}>
+        <span className="font-bold leading-none" style={{ fontSize: tg(13) }}>
           {isFullPage ? 'FP' : 'SC'}
         </span>
       </RoundButton>
@@ -1247,7 +1251,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       const hasYT = !!youtubeEmbedUrl(meta.youtubeUrl);
       return (
         <RoundButton
-          size={PRESENT_CONTROL_BUTTON_SIZE}
+          size={panel.button}
           label={hasYT ? 'Play YouTube' : 'No YouTube URL for this song'}
           fill={actionFill}
           disabled={!hasYT}
@@ -1256,7 +1260,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           {/* Red brand mark, matching the editor header. #ff0033 reads on
               both the night and day action-button fills. RoundButton's opacity
               still dims it when disabled. */}
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="#ff0033" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+          <svg viewBox="0 0 24 24" width={tg(22)} height={tg(22)} fill="#ff0033" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
         </RoundButton>
       );
     })()}
@@ -1271,25 +1275,25 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         even though the glyph says what the feature is. */}
     {!inkOff && (
       <RoundButton
-        size={PRESENT_CONTROL_BUTTON_SIZE}
+        size={panel.button}
         label={annotating ? 'Finger drawing on' : 'Finger drawing off'}
         fill={actionFill}
         active={annotating}
         onActivate={() => setAnnotating(v => !v)}
       >
-        <Pencil size={22} strokeWidth={2} />
+        <Pencil size={tg(22)} strokeWidth={2} />
       </RoundButton>
     )}
 
     {chordControlsAvailable && (
     <RoundButton
-      size={PRESENT_CONTROL_BUTTON_SIZE}
+      size={panel.button}
       label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
       fill={actionFill}
       active={showChords}
       onActivate={() => setShowChords(v => !v)}
     >
-      <span className="font-bold leading-none" style={{ fontSize: 20 }}>C</span>
+      <span className="font-bold leading-none" style={{ fontSize: tg(20) }}>C</span>
     </RoundButton>
     )}
   </>);
@@ -1607,6 +1611,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       <PresentControls
         dark={dark}
         idleDelayMs={idleDelayMs}
+        panelSize={presentPanelSize}
         onSmaller={smallerAction}
         onLarger={largerAction}
         canSmaller={!songIsPdf && baseFontPx > MIN_FONT}

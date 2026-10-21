@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { beatsPerBar } from '../utils/timeSig.js';
 import { ArrowDown, ChevronDown, ChevronUp, Gauge, Pause, Wrench } from 'lucide-react';
 import { useDraggablePanel } from '../hooks/useDraggablePanel.js';
+import { panelMetrics, panelGlyph } from '../utils/presentPanelSize.js';
 import RoundButton, {
   ROUND_FILL_ACTIVE,
   ROUND_FILL_NIGHT,
@@ -34,22 +35,26 @@ const PILL_BG     = 'rgba(79,70,229,0.95)';   // indigo-600
 const PILL_BORDER = 'rgba(255,255,255,0.30)';
 export const PRESENT_CONTROL_EDGE_MARGIN   = 16;   // min gap from any viewport edge
 
-const PANEL_PADDING     = 12;
+// The button size, gap, padding, toggle, handle and Save row are full-size
+// values that the Panel size setting scales — they live in panelMetrics
+// (utils/presentPanelSize.js), and the panel is laid out from its result.
+// PRESENT_CONTROL_BUTTON_SIZE and _GAP above are the full-size figures, kept
+// for callers that size against the panel at full size.
+
 // The panel shell carries a 1px border, and clientHeight excludes it — so without
 // this the inner column is 2px short of what the height maths promised, and the
 // only shrinkable child (the selector) silently absorbs the difference.
 const PANEL_BORDER      = 1;
-const HANDLE_H          = 24;
 const FLASH_MS          = 180;
-// Full-width "Save speed" row below the button grid. Present only when a save
-// handler is wired (Present-from-library), so its height is added conditionally.
-const SAVE_ROW_H        = 40;
+// The full-width "Save speed" row below the button grid is present only when a
+// save handler is wired (Present-from-library), so its height is added
+// conditionally.
 
 const GRID_ROWS = 4; // A−/A+ · Prev/Next · D−/D+ · Count-in/Scroll
-const GRID_W = PRESENT_CONTROL_BUTTON_SIZE * 2 + PRESENT_CONTROL_GAP;
-const GRID_H = PRESENT_CONTROL_BUTTON_SIZE * GRID_ROWS + PRESENT_CONTROL_GAP * (GRID_ROWS - 1);
 
-const EXPANDED_W  = GRID_W + PANEL_PADDING * 2;
+// The collapsed pill does NOT follow the Panel size setting. It is the only way
+// back to the controls and already ghosts when idle; a smaller ghost on a bright
+// stage is easy to lose.
 const COLLAPSED_W = PRESENT_CONTROL_BUTTON_SIZE;
 const COLLAPSED_H = PRESENT_CONTROL_BUTTON_SIZE;
 
@@ -67,11 +72,8 @@ const TAB_KEY       = 'cue:present_controls_tab';
 // taps near its right end would collapse the panel instead of switching tabs.
 //
 // The hit box is padded to MIN_TOUCH_TARGET vertically and pulled back with a
-// negative margin, so the header row still measures TOGGLE_H rather than the
+// negative margin, so the header row still measures the pill rather than the
 // larger target.
-const TOGGLE_W      = 80;
-const TOGGLE_H      = 40;
-const TOGGLE_HIT_H  = 44;
 // The collapse caret sits in its own full-width row directly beneath the selector,
 // so it lands where the collapsed blue pill appears. Kept deliberately short, and
 // tucked close under the selector, because those two rows are pure chrome and
@@ -103,8 +105,8 @@ function MetronomeIcon({ size = 26 }) {
   );
 }
 
-function Glyph({ children }) {
-  return <span className="font-bold leading-none" style={{ fontSize: 24, letterSpacing: '-0.02em' }}>{children}</span>;
+function Glyph({ size = 24, children }) {
+  return <span className="font-bold leading-none" style={{ fontSize: size, letterSpacing: '-0.02em' }}>{children}</span>;
 }
 
 // ---- Control grid -----------------------------------------------------------
@@ -121,7 +123,10 @@ export function ControlGrid({
   onToggleScroll, scrolling, scrollDisabled,
   showSaveSpeed, canSaveSpeed, onSaveSpeed, saveSpeedLabel,
   speedPct = 1, fontPx = 0, tempo = 0, timeSig = '4/4',
+  metrics = panelMetrics(),
 }) {
+  const m = metrics;
+  const g = (n) => panelGlyph(n, m);
   const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY;
   const saveDisabledBg    = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
   const saveDisabledColor = dark ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.40)';
@@ -168,7 +173,7 @@ export function ControlGrid({
   }
 
   return (
-    <div className="relative flex flex-col" style={{ gap: PRESENT_CONTROL_GAP }}>
+    <div className="relative flex flex-col" style={{ gap: m.gap }}>
     {/* Transient value readout for A−/A+ (text px) and F/S (scroll %). Floats
         above the panel so it never reflows the grid. */}
     {readout && (
@@ -184,43 +189,43 @@ export function ControlGrid({
         {readout === 'speed' ? `Scroll ${Math.round((speedPct || 1) * 100)}%` : `Text ${Math.round(fontPx || 0)}px`}
       </div>
     )}
-    <div className="grid grid-cols-2" style={{ gap: PRESENT_CONTROL_GAP }}>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Smaller text" fill={fill} disabled={!canSmaller} active={flashKey === 'as'} onActivate={() => pulseWithReadout('as', 'font', onSmaller)}>
-        <Glyph>A−</Glyph>
+    <div className="grid grid-cols-2" style={{ gap: m.gap }}>
+      <RoundButton size={m.button} label="Smaller text" fill={fill} disabled={!canSmaller} active={flashKey === 'as'} onActivate={() => pulseWithReadout('as', 'font', onSmaller)}>
+        <Glyph size={g(24)}>A−</Glyph>
       </RoundButton>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Larger text" title={largerHint} fill={fill} disabled={!canLarger} active={flashKey === 'al'} onActivate={() => pulseWithReadout('al', 'font', onLarger)}>
-        <Glyph>A+</Glyph>
+      <RoundButton size={m.button} label="Larger text" title={largerHint} fill={fill} disabled={!canLarger} active={flashKey === 'al'} onActivate={() => pulseWithReadout('al', 'font', onLarger)}>
+        <Glyph size={g(24)}>A+</Glyph>
       </RoundButton>
 
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Previous song" fill={fill} disabled={!canPrev} active={flashKey === 'prev'} onActivate={() => pulse('prev', onPrev)}>
-        <TriangleLeft />
+      <RoundButton size={m.button} label="Previous song" fill={fill} disabled={!canPrev} active={flashKey === 'prev'} onActivate={() => pulse('prev', onPrev)}>
+        <TriangleLeft size={g(26)} />
       </RoundButton>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Next song" fill={fill} disabled={!canNext} active={flashKey === 'next'} onActivate={() => pulse('next', onNext)}>
-        <TriangleRight />
+      <RoundButton size={m.button} label="Next song" fill={fill} disabled={!canNext} active={flashKey === 'next'} onActivate={() => pulse('next', onNext)}>
+        <TriangleRight size={g(26)} />
       </RoundButton>
 
       {/* Auto-scroll speed. F = faster, S = slower — spelled out rather than ±
           so the meaning is unmistakable mid-performance (F sits left, matching
           the faster-on-the-left position it had as D−). */}
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll faster" fill={fill} disabled={!canFaster} active={flashKey === 'f'} onActivate={() => pulseWithReadout('f', 'speed', onFaster)}>
-        <Glyph>F</Glyph>
+      <RoundButton size={m.button} label="Scroll faster" fill={fill} disabled={!canFaster} active={flashKey === 'f'} onActivate={() => pulseWithReadout('f', 'speed', onFaster)}>
+        <Glyph size={g(24)}>F</Glyph>
       </RoundButton>
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Scroll slower" fill={fill} disabled={!canSlower} active={flashKey === 's'} onActivate={() => pulseWithReadout('s', 'speed', onSlower)}>
-        <Glyph>S</Glyph>
+      <RoundButton size={m.button} label="Scroll slower" fill={fill} disabled={!canSlower} active={flashKey === 's'} onActivate={() => pulseWithReadout('s', 'speed', onSlower)}>
+        <Glyph size={g(24)}>S</Glyph>
       </RoundButton>
 
-      <RoundButton size={PRESENT_CONTROL_BUTTON_SIZE} label="Count-in" fill={fill} disabled={!canCountIn} active={flashKey === 'count'} onActivate={handleCountIn}>
-        <MetronomeIcon />
+      <RoundButton size={m.button} label="Count-in" fill={fill} disabled={!canCountIn} active={flashKey === 'count'} onActivate={handleCountIn}>
+        <MetronomeIcon size={g(26)} />
       </RoundButton>
       <RoundButton
-        size={PRESENT_CONTROL_BUTTON_SIZE}
+        size={m.button}
         label={scrollDisabled ? 'Auto-scroll off in pedal paging mode' : scrolling ? 'Pause auto-scroll' : 'Start auto-scroll'}
         fill={fill}
         active={scrolling && !scrollDisabled}
         disabled={scrollDisabled}
         onActivate={onToggleScroll}
       >
-        {scrolling && !scrollDisabled ? <Pause size={26} fill="currentColor" /> : <ArrowDown size={28} strokeWidth={2.5} />}
+        {scrolling && !scrollDisabled ? <Pause size={g(26)} fill="currentColor" /> : <ArrowDown size={g(28)} strokeWidth={2.5} />}
       </RoundButton>
     </div>
 
@@ -235,7 +240,7 @@ export function ControlGrid({
         aria-label={saveSpeedLabel || 'Save scroll speed to song'}
         className="w-full rounded-xl text-sm font-semibold flex items-center justify-center px-2 transition-colors select-none disabled:cursor-default"
         style={{
-          height: SAVE_ROW_H,
+          height: m.saveRowH,
           background: canSaveSpeed ? '#4f46e5' : saveDisabledBg,
           color: canSaveSpeed ? '#ffffff' : saveDisabledColor,
           touchAction: 'none',
@@ -252,7 +257,10 @@ export function ControlGrid({
 // ---- Floating shell ---------------------------------------------------------
 
 export default function PresentControls(props) {
-  const { dark, idleDelayMs = PRESENT_CONTROL_IDLE_DELAY_MS } = props;
+  const { dark, idleDelayMs = PRESENT_CONTROL_IDLE_DELAY_MS, panelSize } = props;
+  // Everything inside the expanded panel is laid out from these, so the Panel
+  // size setting resizes the panel rather than magnifying it.
+  const m = panelMetrics(panelSize);
 
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   // 'controls' (text size, navigation, scroll) or 'tools' (the per-song actions
@@ -304,18 +312,20 @@ export default function PresentControls(props) {
   // Height follows the VISIBLE tab — only one set of buttons is ever rendered,
   // which is what makes the whole thing fit a phone in landscape.
   const toolsRows = props.toolsRows || 0;
+  const gridH = m.button * GRID_ROWS + m.gap * (GRID_ROWS - 1);
   const bodyH = showTools
-    ? toolsRows * PRESENT_CONTROL_BUTTON_SIZE + PRESENT_CONTROL_GAP * Math.max(0, toolsRows - 1)
-    : GRID_H + (props.showSaveSpeed ? SAVE_ROW_H + PRESENT_CONTROL_GAP : 0);
+    ? toolsRows * m.button + m.gap * Math.max(0, toolsRows - 1)
+    : gridH + (props.showSaveSpeed ? m.saveRowH + m.gap : 0);
   // The toggle REPLACES the drag-handle row rather than sitting above it. Stacking
   // chrome rows cost 44px once before, which put the Controls tab at 408px against
   // a phone's ~402px landscape viewport — the Save speed row fell off the bottom
   // of the very screen this redesign exists to fit.
   // The caret is corner-anchored and absolutely positioned, so it costs the
   // header nothing — the row is just the toggle.
-  const headerH = hasTools ? TOGGLE_H : HANDLE_H;
-  const expandedH = headerH + PRESENT_CONTROL_GAP + bodyH + PANEL_PADDING * 2 + PANEL_BORDER * 2;
-  const width  = collapsed ? COLLAPSED_W : EXPANDED_W;
+  const headerH = hasTools ? m.toggleH : m.handleH;
+  const expandedH = headerH + m.gap + bodyH + m.padding * 2 + PANEL_BORDER * 2;
+  const expandedW = m.button * 2 + m.gap + m.padding * 2;
+  const width  = collapsed ? COLLAPSED_W : expandedW;
   const height = collapsed ? COLLAPSED_H : expandedH;
 
   const defaultPos = useCallback(
@@ -414,7 +424,7 @@ export default function PresentControls(props) {
       ) : (
         <div
           className="relative w-full h-full rounded-2xl shadow-xl backdrop-blur-md border flex flex-col"
-          style={{ background: shellBg, borderColor: shellBorder, padding: PANEL_PADDING, gap: PRESENT_CONTROL_GAP }}
+          style={{ background: shellBg, borderColor: shellBorder, padding: m.padding, gap: m.gap }}
         >
           {/* Header row: the selector when there are tools to switch to, the bare
               chevron otherwise. Either way it doubles as the drag grip — the
@@ -428,8 +438,8 @@ export default function PresentControls(props) {
               onClick={() => pulseToggle(() => changeTab(showTools ? 'controls' : 'tools'))}
               className="self-start flex items-center justify-center shrink-0 relative bg-transparent border-0"
               style={{
-                width: TOGGLE_W, height: TOGGLE_HIT_H,
-                margin: `${(TOGGLE_H - TOGGLE_HIT_H) / 2}px 0`,
+                width: m.toggleW, height: m.toggleHitH,
+                margin: `${(m.toggleH - m.toggleHitH) / 2}px 0`,
                 color: togFlash ? '#ffffff' : toggleTint,
                 touchAction: 'none', WebkitTapHighlightColor: 'transparent',
               }}
@@ -438,7 +448,7 @@ export default function PresentControls(props) {
                 aria-hidden="true"
                 className="absolute rounded-full border"
                 style={{
-                  width: TOGGLE_W, height: TOGGLE_H,
+                  width: m.toggleW, height: m.toggleH,
                   // No colour transition, deliberately: RoundButton transitions
                   // only transform and filter, so its flash snaps to full indigo.
                   // A 120ms ease inside a 180ms flash never reaches the colour
@@ -454,8 +464,8 @@ export default function PresentControls(props) {
                   going, and watching it turn into the other one teaches that in a
                   single press, with nothing to read. */}
               {[
-                { key: 'tools',    icon: <Wrench size={22} strokeWidth={2} />, on: !showTools },
-                { key: 'controls', icon: <Gauge  size={22} strokeWidth={2} />, on: showTools },
+                { key: 'tools',    icon: <Wrench size={panelGlyph(22, m)} strokeWidth={2} />, on: !showTools },
+                { key: 'controls', icon: <Gauge  size={panelGlyph(22, m)} strokeWidth={2} />, on: showTools },
               ].map(({ key, icon, on }) => (
                 <span
                   key={key}
@@ -478,7 +488,7 @@ export default function PresentControls(props) {
               aria-expanded={true}
               onClick={() => setCollapsedByUser(true)}
               className="w-full flex items-center justify-center rounded-lg shrink-0"
-              style={{ height: HANDLE_H, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
+              style={{ height: m.handleH, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
             >
               <ChevronDown size={20} strokeWidth={2.5} />
             </button>
@@ -502,8 +512,8 @@ export default function PresentControls(props) {
             </button>
           )}
           {showTools
-            ? <div style={{ display: 'grid', gridTemplateColumns: `repeat(2, ${PRESENT_CONTROL_BUTTON_SIZE}px)`, gap: PRESENT_CONTROL_GAP }}>{props.toolsSlot}</div>
-            : <ControlGrid {...props} />}
+            ? <div style={{ display: 'grid', gridTemplateColumns: `repeat(2, ${m.button}px)`, gap: m.gap }}>{props.toolsSlot}</div>
+            : <ControlGrid {...props} metrics={m} />}
         </div>
       )}
     </div>

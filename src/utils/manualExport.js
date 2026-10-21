@@ -625,6 +625,7 @@ Bb,8-10-11-10,1243</pre>
 <table>
   <tr><th>Setting</th><th>What it does</th></tr>
   <tr><td><strong>Controls fade delay</strong></td><td>0–5 seconds before the floating controls and side buttons dim and collapse. 0 hides them straight away. <strong>Keep controls up (practice mode)</strong> stops them fading at all.</td></tr>
+  <tr><td><strong>Panel size</strong></td><td><strong>Full</strong> or <strong>80%</strong> — the size of the floating controls and tools panel. 80% is as small as it goes, because that is where the buttons reach the smallest size that is still a reliable tap. The collapsed blue pill stays full size. Set on each device separately, so a phone and an iPad can differ.</td></tr>
   <tr><td><strong>Scroll start delay</strong></td><td>0–10 seconds of lead-in after you press the scroll button before auto-scroll actually begins — time to get your hands to the instrument.</td></tr>
   <tr><td><strong>Count-in</strong></td><td><strong>♪ Sound</strong> clicks out loud; <strong>⚡ Visual</strong> flashes the button instead, for a quiet stage.</td></tr>
   <tr><td><strong>Pedal paging mode</strong></td><td>See below.</td></tr>

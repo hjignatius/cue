@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
+import { normalizePanelSize } from '../utils/presentPanelSize.js';
 
 // The settings that only make sense while presenting, reachable from inside
 // Present rather than from the global Settings panel.
@@ -16,8 +17,9 @@ import { dismissOnOutside } from '../utils/overlayDismiss.js';
 export default function PresentSettings({ onClose }) {
   const {
     theme, metronomeMode, presentIdleSec, scrollStartDelaySec,
-    pedalPaging, pageGlideMs, pageSize, updatePref,
+    pedalPaging, pageGlideMs, pageSize, presentPanelSize, updatePref,
   } = usePrefs();
+  const panelSize = normalizePanelSize(presentPanelSize);
   const dark = theme === 'dark';
 
   const border = dark ? 'border-gray-700' : 'border-gray-200';
@@ -82,6 +84,20 @@ export default function PresentSettings({ onClose }) {
             Keep controls up (practice mode)
           </button>
           <p className={`text-xs ${muted}`}>Seconds before the Present controls fade and collapse. 0 hides them right away. Practice mode keeps them up the whole time.</p>
+        </div>
+
+        {/* Panel size — two sizes only. 80% is as small as the buttons go while
+            staying a reliable tap (see utils/presentPanelSize.js). Like every
+            pref it lives on this device, so a phone and an iPad keep their own. */}
+        <div className="flex flex-col gap-2">
+          <span className={`text-sm ${label}`}>Panel size</span>
+          <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+            {[[100, 'Full'], [80, '80%']].map(([val, text], i) => (
+              <button key={val} onClick={() => updatePref('presentPanelSize', val)}
+                className={`${seg(panelSize === val)} ${i > 0 ? `border-l ${border}` : ''}`}>{text}</button>
+            ))}
+          </div>
+          <p className={`text-xs ${muted}`}>The size of the floating controls and tools panel. Set on this device only.</p>
         </div>
 
         {/* Scroll lead-in */}
