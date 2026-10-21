@@ -365,7 +365,10 @@ async function shareJsonFile(payload, filename, { title, text } = {}) {
       return 'shared';
     } catch (err) {
       if (err?.name === 'AbortError') return 'cancelled'; // user dismissed the sheet
-      // any other share failure → fall through to a download
+      // any other share failure → fall through to a download. Logged, because
+      // the download lands quietly in the saved export folder and otherwise
+      // nothing says the share never happened, or why.
+      console.warn('Share failed, saving the file instead:', err?.name, err?.message);
     }
   }
   await download(filename, payload, 'application/json');
