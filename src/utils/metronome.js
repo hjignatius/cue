@@ -22,6 +22,59 @@ import { beatsPerBar } from './timeSig.js';
 // constructed before one starts suspended under autoplay policy.
 let ctx = null;
 let nodes = [];
+// Where the context's clock stood at the last press, against the wall clock —
+// how a context that SAYS it is running but has gone deaf is caught.
+let lastCheck = null;
+
+// A context whose clock has advanced less than this fraction of the wall-clock
+// time since the last press is not producing sound, whatever its state says.
+const STUCK_CLOCK_RATIO = 0.5;
+// Too short a gap to judge: the clock ticks in render quanta, not continuously.
+const STUCK_CHECK_MIN_MS = 1000;
+
+function newContext() {
+  const AC = globalThis.window?.AudioContext || globalThis.window?.webkitAudioContext;
+  return AC ? new AC() : null;
+}
+
+function retire(old) {
+  try { old?.close?.()?.catch?.(() => {}); } catch { /* already closed */ }
+}
+
+// A context that will actually make sound, for THIS press.
+//
+// The one-context rule above had a hole: an iPad plugged into a TV, or
+// unplugged from one, changes its audio route, and Safari parks the context in
+// a state the old code never checked for — 'interrupted', not 'suspended'.
+// Nothing resumed it, so the count-in stayed silent until Cue was closed,
+// while the button went on flashing. Every press now checks:
+//   * suspended            -> resume, as before
+//   * interrupted / closed -> replace it. A context made inside a tap starts
+//                             running, and resuming one mid-interruption can
+//                             fail without saying so, then play late or never.
+//   * running, but its clock has stalled since the last press -> replace it.
+//     That is a context still bound to an output that has gone away, and its
+//     state alone would never show it.
+// Replacing costs one context per breakage, not per press, so the browser's
+// cap on contexts (the reason there is only one) is not at risk.
+function readyContext(now) {
+  if (ctx) {
+    const state = ctx.state;
+    let replace = state === 'interrupted' || state === 'closed';
+    if (!replace && state === 'running' && lastCheck) {
+      const wallSec = (now - lastCheck.wall) / 1000;
+      const clockSec = ctx.currentTime - lastCheck.clock;
+      if (wallSec * 1000 >= STUCK_CHECK_MIN_MS && clockSec < wallSec * STUCK_CLOCK_RATIO) replace = true;
+    }
+    if (replace) { stopMetronome(); retire(ctx); ctx = null; }
+  }
+  if (!ctx) ctx = newContext();
+  if (!ctx) return null;
+  // Resuming is a no-op when it is already running.
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  lastCheck = { wall: now, clock: ctx.currentTime };
+  return ctx;
+}
 
 /** Silence a count-in that is still running or scheduled. */
 export function stopMetronome() {
@@ -42,14 +95,7 @@ export function playMetronome(bpm, timeSig = '4/4') {
   const rate = Number(bpm);
   if (!rate || rate <= 0) return;
 
-  if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    ctx = new AC();
-  }
-  // The OS can suspend a context (a phone call, an audio-route change). Resuming
-  // is a no-op when it is already running.
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (!readyContext(globalThis.performance?.now?.() ?? Date.now())) return;
 
   stopMetronome();
 
