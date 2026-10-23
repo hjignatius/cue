@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, Check } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, Check, QrCode as QrCodeIcon } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
@@ -34,6 +34,7 @@ import OnboardingTour from '../components/OnboardingTour.jsx';
 import PublishSetDialog from '../components/PublishSetDialog.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
+import GetCueDialog from '../components/GetCueDialog.jsx';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups, describeCloudError } from '../lib/cloud.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
@@ -2279,6 +2280,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
   const [newSetName, setNewSetName]     = useState('');
   const [setPickerSearch, setSetPickerSearch] = useState(''); // filter for the picker list
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [getCueOpen, setGetCueOpen] = useState(false);
   // Which section Settings should arrive on. 'ai' for the routes that open it
   // BECAUSE no key is saved; null for the plain gear, which opens everything shut.
   const [settingsSection, setSettingsSection] = useState(null);
@@ -2629,7 +2631,23 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                 at every larger width — including iPhone landscape, which is above
                 the hook's 767px breakpoint, so no orientation check is needed. */}
             {!isPhonePortrait && <Music size={28} className="text-indigo-400" />}
-            <h1 className="text-3xl font-bold tracking-tight leading-none">Cue</h1>
+            {/* The title doubles as "Get Cue": the link to the app itself, as
+                a QR code, for someone who asks to try it. The small QR mark is
+                the only hint it can be tapped — a title gives no other sign. */}
+            <h1 className="text-3xl font-bold tracking-tight leading-none">
+              <button
+                type="button"
+                onClick={() => setGetCueOpen(true)}
+                title="Get Cue — the link and QR code for Cue itself"
+                aria-label="Cue — show the link and QR code for Cue itself"
+                className="inline-flex items-start gap-1 rounded-lg -mx-1 px-1 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors"
+              >
+                Cue
+                {/* Not in phone portrait: that header has about 1px to spare
+                    (see the mark above). The title still opens Get Cue there. */}
+                {!isPhonePortrait && <QrCodeIcon size={13} strokeWidth={2.25} aria-hidden="true" className="mt-0.5 text-gray-400 dark:text-gray-500" />}
+              </button>
+            </h1>
           </div>
           {/* App version, sourced from package.json at build time. Tells the user
               which release is running — useful for a cached/offline copy. */}
@@ -3015,6 +3033,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
       {showTour && <OnboardingTour onDone={finishTour} />}
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsSection} />
+      {getCueOpen && <GetCueDialog onClose={() => setGetCueOpen(false)} />}
 
       {/* Suggest songs to learn — grounded recommendations from instrument +
           level + taste + library. Discovery only: each pick links out to a real

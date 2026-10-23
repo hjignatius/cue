@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
   foot:    { fontSize: 8, color: '#999999', textAlign: 'center', marginTop: 'auto' },
 });
 
-export function QrDocument({ title, url, subtitle }) {
+export function QrDocument({ title, url, subtitle, foot }) {
   const model = qrPath(url);
   const box = model ? model.count + QUIET_ZONE * 2 : 0;
 
@@ -51,7 +51,7 @@ export function QrDocument({ title, url, subtitle }) {
         <Text style={styles.caption}>Point a phone camera at the code, or open the link:</Text>
         <Text style={styles.url}>{url}</Text>
 
-        <Text style={styles.foot}>Anyone with this link can view the set and copy its songs into their own Cue.</Text>
+        <Text style={styles.foot}>{foot || 'Anyone with this link can view the set and copy its songs into their own Cue.'}</Text>
       </Page>
     </Document>
   );

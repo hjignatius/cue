@@ -11,10 +11,11 @@ function sanitize(name) {
   return (name || 'shared-set').replace(/[/\\:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 100) || 'shared-set';
 }
 
-// Save the set's share link as a one-page printable QR sheet.
-// Returns saveFilePicker's { ok, method } — method 'cancelled' when the user
-// dismissed the save dialog, which is not an error.
-export async function exportQrPdf(setName, url) {
-  const blob = await pdf(QrDocument({ title: sanitizeForPdf(setName), url })).toBlob();
+// Save a link as a one-page printable QR sheet — a set's share link, or the
+// link to Cue itself. `subtitle` and `foot` replace the set wording for the
+// latter. Returns saveFilePicker's { ok, method } — method 'cancelled' when the
+// user dismissed the save dialog, which is not an error.
+export async function exportQrPdf(setName, url, { subtitle, foot } = {}) {
+  const blob = await pdf(QrDocument({ title: sanitizeForPdf(setName), url, subtitle, foot })).toBlob();
   return saveFilePicker(blob, `${sanitize(setName)}_QR.pdf`);
 }

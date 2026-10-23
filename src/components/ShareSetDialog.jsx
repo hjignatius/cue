@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Check, X, QrCode as QrCodeIcon, FileDown, Loader2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { getOrCreateShareToken, revokeShareToken } from '../lib/cloud.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import QrCode from './QrCode.jsx';
-import { exportQrPdf } from '../utils/qrPdf.js';
+import LinkQrPanel from './LinkQrPanel.jsx';
+import { shareUrl } from '../utils/shareLink.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 
 // ONE LINK PER SET. Opening Share shows the set's single link, creating it if the
@@ -19,9 +19,6 @@ export default function ShareSetDialog({ set, onClose }) {
   const [phase, setPhase]   = useState('loading'); // loading | shared | notshared | error
   const [token, setToken]   = useState(null);
   const [errMsg, setErrMsg] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [showQr, setShowQr] = useState(false);
-  const [savingQr, setSavingQr] = useState(false);
   const [busy, setBusy]     = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const stopTimer = useRef(null);
@@ -44,31 +41,7 @@ export default function ShareSetDialog({ set, onClose }) {
     }
   }
 
-  const url = token ? `${window.location.origin}/shared/${token}` : '';
-
-  function copyUrl() {
-    if (!url) return;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
-  // Save the code as a one-page printable sheet — for propping on a stand or
-  // pinning up, where a screen isn't practical.
-  async function saveQrPdf() {
-    if (!url || savingQr) return;
-    setSavingQr(true);
-    setErrMsg('');
-    try {
-      await exportQrPdf(set.name, url);
-    } catch (err) {
-      console.error('[ShareSetDialog] QR PDF export failed', err);
-      setErrMsg('Could not save the QR code as a PDF.');
-    } finally {
-      setSavingQr(false);
-    }
-  }
+  const url = token ? shareUrl(token) : '';
 
   function armStop() {
     clearTimeout(stopTimer.current);
@@ -87,8 +60,7 @@ export default function ShareSetDialog({ set, onClose }) {
     try {
       await revokeShareToken(token);
       setToken(null);
-      setShowQr(false); // the code on screen would now point at a dead link
-      setPhase('notshared');
+      setPhase('notshared'); // takes the code with it: it would point at a dead link
     } catch (err) {
       setErrMsg(err.message || 'Failed to stop sharing.');
     } finally {
@@ -134,55 +106,15 @@ export default function ShareSetDialog({ set, onClose }) {
           {phase === 'shared' && (
             <>
               <p className={muted}>Anyone with this link can view the set and copy its songs into their own Cue.</p>
-              {/* The one link */}
-              <div className={`flex items-center gap-2 rounded-xl border p-2 ${dark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
-                <span className={`flex-1 text-xs font-mono truncate px-1 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{url}</span>
-                <button
-                  onClick={copyUrl}
-                  className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    copied
-                      ? (dark ? 'bg-green-900/40 text-green-400' : 'bg-green-50 text-green-600')
-                      : (dark ? 'bg-gray-700 text-gray-100 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300')
-                  }`}
-                >
-                  {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
-                </button>
-              </div>
-
-              {/* QR code — for handing the link to someone in the room: they point
-                  a phone at the screen instead of typing it. Collapsed by default
-                  so the dialog keeps its size until asked. */}
-              <div className="flex flex-col items-center gap-3">
-                <button
-                  onClick={() => setShowQr(v => !v)}
-                  aria-expanded={showQr}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    dark ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <QrCodeIcon size={13} /> {showQr ? 'Hide QR code' : 'Show QR code'}
-                </button>
-                {showQr && (
-                  <>
-                    {/* White plate in both themes — the code needs its light field. */}
-                    <div className="rounded-xl bg-white p-3 shadow-sm">
-                      <QrCode value={url} size={176} title={`QR code for the "${set.name}" share link`} />
-                    </div>
-                    <p className={`${sub} text-center`}>Point a phone camera at this to open the set.</p>
-                    <button
-                      onClick={saveQrPdf}
-                      disabled={savingQr}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                        dark ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {savingQr
-                        ? <><Loader2 size={13} className="animate-spin" /> Saving…</>
-                        : <><FileDown size={13} /> Save as PDF</>}
-                    </button>
-                  </>
-                )}
-              </div>
+              {/* The one link, and the same link as a QR code. Collapsed by
+                  default so the dialog keeps its size until asked. */}
+              <LinkQrPanel
+                url={url}
+                dark={dark}
+                qrTitle={`QR code for the "${set.name}" share link`}
+                qrCaption="Point a phone camera at this to open the set."
+                pdfTitle={set.name}
+              />
 
               {/* Stop sharing — reversible. Two taps so it isn't hit by accident. */}
               <div className="flex items-center justify-end pt-1">
