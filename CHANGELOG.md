@@ -3,6 +3,40 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.26 — 2026-10-23
+
+### Getting Cue and sets to other people
+
+- **Get Cue.** Tap the **Cue** title at the top-left of the Library &mdash; the
+  small QR mark beside it is the hint. It shows the link to Cue itself, with no
+  set attached, as a link to copy and a QR code to scan, plus how to add Cue as
+  an app on an iPhone, iPad, Mac, Android or Windows device. For the person
+  who asks to try it, so they end up with Cue on their Home Screen or Dock
+  instead of in a browser tab.
+- **Pass on a set someone shared with you.** The icon on a **Shared with me**
+  row now opens a window with the set's link, **Copy**, and a QR code. It
+  used to copy the link straight away, which was no help for handing it to
+  someone in the room.
+- **Scan a set into Cue.** A scan button now sits beside **Paste a share
+  link**. It opens the camera inside Cue, reads a set's QR code, and adds the
+  set to **Shared with me**. Use it instead of the device's own camera app:
+  on an iPhone or iPad that opens the link in Safari, which keeps a separate
+  library from the Cue app. A code that isn't a Cue set is named and ignored.
+  The first time, the device asks to allow the camera.
+- **Copy image** under every QR code puts the code on the clipboard as a
+  picture, to paste into a message. **Save as PDF** is still there for a
+  printed sheet.
+- The page a share link opens in a browser now says where to paste the code
+  in Cue, mentions the scan button for next time, and has **Don't have Cue
+  yet?** with the install steps.
+
+### Present
+
+- **The count-in sound comes back after the iPad is plugged into a TV.**
+  Plugging in or unplugging an HDMI adapter left the count-in silent until Cue
+  was closed, while the button kept flashing. Each press now checks the sound
+  is really working and restarts it if not.
+
 ## v1.9.25 — 2026-10-21
 
 ### Present
