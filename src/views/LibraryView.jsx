@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
@@ -36,6 +36,7 @@ import SettingsPanel from '../components/SettingsPanel.jsx';
 import ShareSetDialog from '../components/ShareSetDialog.jsx';
 import GetCueDialog from '../components/GetCueDialog.jsx';
 import PassOnSetDialog from '../components/PassOnSetDialog.jsx';
+import QrScanDialog from '../components/QrScanDialog.jsx';
 import { tokenFromShareInput } from '../utils/shareLink.js';
 import PullSetDialog from '../components/PullSetDialog.jsx';
 import { unpublishSet, publishSet, ownedSongIds, cloudSetRollups, describeCloudError } from '../lib/cloud.js';
@@ -392,6 +393,13 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
   // browser entirely, mirroring the emailed sign-in code.
   const [shareInput, setShareInput] = useState('');
   const [shareErr, setShareErr]     = useState('');
+  // The same route by camera: scanning a set's QR code from inside Cue, so the
+  // set lands in THIS Cue rather than in Safari, where the device camera sends it.
+  const [scanOpen, setScanOpen]     = useState(false);
+  function openScannedShare(token) {
+    setScanOpen(false);
+    navigate(`/shared/${token}`, { state: { autoSave: true } });
+  }
 
   function openSharedLink(e) {
     e.preventDefault();
@@ -1228,6 +1236,17 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                   }`}
                 />
                 <button
+                  type="button"
+                  onClick={() => setScanOpen(true)}
+                  title="Scan a set's QR code"
+                  aria-label="Scan a set's QR code"
+                  className={`h-11 w-11 pointer-fine:h-9 pointer-fine:w-9 shrink-0 inline-flex items-center justify-center rounded-lg border transition-colors ${
+                    dark ? 'border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <ScanQrCode size={20} />
+                </button>
+                <button
                   type="submit"
                   disabled={!shareInput.trim()}
                   className="h-11 pointer-fine:h-9 px-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors shrink-0"
@@ -1238,7 +1257,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
               {shareErr
                 ? <p className="text-xs text-red-500">{shareErr}</p>
                 : <p className="text-xs text-gray-400 dark:text-gray-600">
-                    Opens a set someone shared with you, without leaving Cue.
+                    Opens a set someone shared with you, without leaving Cue — paste its link, or scan its QR code.
                   </p>}
             </form>
           </div>
@@ -1259,6 +1278,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
 
       {/* Share dialog */}
       {passOnShare && <PassOnSetDialog share={passOnShare} onClose={() => setPassOnShare(null)} />}
+      {scanOpen && <QrScanDialog onToken={openScannedShare} onClose={() => setScanOpen(false)} />}
 
       {shareDialogSet && (
         <ShareSetDialog
