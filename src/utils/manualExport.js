@@ -765,8 +765,10 @@ Pulling will discard them. Continue?</pre>
 <p>Open the shared link on any device. On a fresh open a small <strong>landing screen</strong> appears first so the recipient can choose:</p>
 <ul>
   <li><strong>Continue to set</strong> — opens the set here in the browser to follow along.</li>
-  <li><strong>Copy code</strong> — copies the set's code so they can save it in their own Cue: paste it into <strong>Sets → "Paste a share link"</strong> and tap Open (which also bookmarks it under <em>Shared with me</em> automatically). The landing screen is skipped on repeat visits and for sets you've already bookmarked.</li>
+  <li><strong>Copy code</strong> — copies the set's code so they can save it in their own Cue: paste it into <strong>Sets → Shared with me → "Paste a share link"</strong> and tap Open (which also bookmarks it under <em>Shared with me</em> automatically). The screen also suggests the quicker route for next time: open Cue first and use its scan button on the set's QR code.</li>
+  <li><strong>Don't have Cue yet?</strong> — opens the install steps for iPhone/iPad, Mac, Android and Windows, with the reason to install <em>before</em> saving anything: on an iPhone or iPad the app and the browser keep separate libraries, so a set saved in the browser does not appear in the app.</li>
 </ul>
+<p>The landing screen is skipped on repeat visits and for sets you've already bookmarked.</p>
 <p>In the viewer you can:</p>
 <ul>
   <li><strong>Present All</strong> — launches Present mode from the first song, or from any song you tap <strong>Present</strong> on. PDF lead sheets render just as they do in your own library.</li>

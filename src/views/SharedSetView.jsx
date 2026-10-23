@@ -17,6 +17,7 @@ import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
+import InstallTips from '../components/InstallTips.jsx';
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -132,6 +133,7 @@ export default function SharedSetView() {
   // device, or if the set is already bookmarked.
   const [gatePassed, setGatePassed] = useState(() => loadContinued().has(token));
   const [copiedCode, setCopiedCode] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
   function copyCode() {
     if (!token) return;
     navigator.clipboard.writeText(token).then(() => { setCopiedCode(true); setTimeout(() => setCopiedCode(false), 2000); });
@@ -1016,8 +1018,12 @@ export default function SharedSetView() {
   // device, or when the set is already bookmarked.
   if (!gatePassed && !isBookmarked && !autoSave) {
     return (
-      <div className={`ios-glass-inset h-dvh flex flex-col items-center justify-center p-6 ${bg}`}>
-        <div className={`w-full max-w-md rounded-2xl border ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'} shadow-xl p-6 flex flex-col gap-5`}>
+      // Scrolls, and centres with my-auto rather than justify-center: with the
+      // install steps open this card outgrows a phone held sideways, and a
+      // justify-centred column that overflows cuts off its top with no way to
+      // scroll up to it.
+      <div className={`ios-glass-inset h-dvh overflow-y-auto flex flex-col items-center p-6 ${bg}`}>
+        <div className={`my-auto w-full max-w-md rounded-2xl border ${bdr} ${dark ? 'bg-gray-900' : 'bg-white'} shadow-xl p-6 flex flex-col gap-5`}>
           <div className="flex items-center gap-2">
             <CueMark size={24} />
             <span className={`text-xs uppercase tracking-wide ${muted}`}>Shared with you from Cue</span>
@@ -1035,10 +1041,14 @@ export default function SharedSetView() {
             <p className={`text-xs text-center ${muted}`}>Opens the set here in your browser to follow along.</p>
           </div>
 
-          {/* Save the code into the viewer's own Cue app. */}
+          {/* Save the code into the viewer's own Cue app. This page is almost
+              always open in a browser, and on an iPhone or iPad the Cue app
+              keeps separate storage from it — so anything saved HERE is not in
+              the app. Copy-and-paste is the way across from this page; the
+              scan button inside Cue is the way next time. */}
           <div className={`flex flex-col gap-2 border-t ${bdr} pt-4`}>
             <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-              To save it in the Cue app on your device: open Cue → Sets → "Paste a share link", paste this code, then tap Open.
+              To save it in the Cue app on your device: copy this code, open Cue → Sets → Shared with me, paste it into "Paste a share link", then tap Open.
             </p>
             <div className={`flex items-center gap-2 rounded-xl border ${bdr} p-2 ${dark ? 'bg-gray-800/50' : 'bg-gray-50'}`}>
               <span className={`flex-1 text-xs font-mono truncate px-1 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{token}</span>
@@ -1053,6 +1063,30 @@ export default function SharedSetView() {
                 {copiedCode ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy code</>}
               </button>
             </div>
+            <p className={`text-xs ${muted}`}>
+              Next time, open Cue first and tap the scan button beside that box, then scan the set's QR code — it goes straight into the app.
+            </p>
+          </div>
+
+          {/* For someone who has no Cue yet: install it BEFORE saving anything,
+              or what they save stays behind in the browser. */}
+          <div className={`flex flex-col gap-2 border-t ${bdr} pt-4`}>
+            <button
+              type="button"
+              onClick={() => setShowInstall(v => !v)}
+              aria-expanded={showInstall}
+              className={`self-start text-sm font-medium ${dark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'}`}
+            >
+              {showInstall ? "Hide how to get Cue" : "Don't have Cue yet?"}
+            </button>
+            {showInstall && (
+              <>
+                <p className={`text-xs ${muted}`}>
+                  Add Cue to your device as an app first, then paste the code into it. On an iPhone or iPad the app and the browser keep separate libraries, so a set saved here in the browser won't appear in the app.
+                </p>
+                <InstallTips dark={dark} />
+              </>
+            )}
           </div>
         </div>
       </div>
