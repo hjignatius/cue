@@ -114,6 +114,8 @@ export default function ShareSetDialog({ set, onClose }) {
                 qrTitle={`QR code for the "${set.name}" share link`}
                 qrCaption="Point a phone camera at this to open the set."
                 pdfTitle={set.name}
+                shareTitle={`Cue set: ${set.name}`}
+                shareText={`"${set.name}" — a set shared from Cue.`}
               />
 
               {/* Stop sharing — reversible. Two taps so it isn't hit by accident. */}

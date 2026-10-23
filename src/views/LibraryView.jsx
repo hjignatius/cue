@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, ExternalLink, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
@@ -337,7 +337,6 @@ function SharedWithMeRow({ share, dark, border, subtitle, onOpen, onPassOn, onRe
       >
         <Share size={17} />
       </button>
-      <ExternalLink size={12} className={`shrink-0 ${dark ? 'text-gray-700' : 'text-gray-300'} group-hover:opacity-60 transition-opacity`} />
       {onRemove && (
         <button
           onClick={onRemove}

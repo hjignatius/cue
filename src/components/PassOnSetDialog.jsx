@@ -52,6 +52,8 @@ export default function PassOnSetDialog({ share, onClose }) {
             qrTitle={`QR code for the "${name}" share link`}
             qrCaption="Scan this from inside Cue — Sets → Shared with me → the scan button — to add the set straight to it."
             pdfTitle={name}
+            shareTitle={`Cue set: ${name}`}
+            shareText={`"${name}" — a set shared from Cue.`}
           />
         </div>
       </div>

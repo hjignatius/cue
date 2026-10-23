@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Copy, Check, QrCode as QrCodeIcon, FileDown, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Copy, Check, QrCode as QrCodeIcon, FileDown, Loader2, Image as ImageIcon, Share } from 'lucide-react';
 import QrCode from './QrCode.jsx';
 import { exportQrPdf } from '../utils/qrPdf.js';
 import { qrPath, QUIET_ZONE } from '../utils/qr.js';
 
-// A link, its Copy button, and the same link as a QR code — with Copy image and
-// Save as PDF under the code. ONE component because three windows hand out a
+// A link, its Copy and Share buttons, and the same link as a QR code — with
+// Copy image and Save as PDF under the code. ONE component because three windows hand out a
 // link this way (Share set, passing on a set shared with you, and Get Cue), and
 // the first of them grew its copy-and-QR row before the other two existed.
 //
@@ -44,6 +44,7 @@ export default function LinkQrPanel({
   qrTitle,                 // aria label for the code
   qrCaption,               // the line under the code
   pdfTitle, pdfSubtitle, pdfFoot,
+  shareTitle, shareText,   // for the device's share sheet
   qrOpen: qrOpenInitial = false,
 }) {
   const [copied, setCopied]       = useState(false);
@@ -52,6 +53,21 @@ export default function LinkQrPanel({
   const [imageState, setImage]    = useState('idle'); // idle | copied | failed
   const [savingPdf, setSavingPdf] = useState(false);
   const [pdfErr, setPdfErr]       = useState('');
+  const [shareFailed, setShareFail] = useState(false);
+  // The device's own share sheet — AirDrop, Messages, Mail — where there is one:
+  // iPhone, iPad, Android, Mac Safari. A web page cannot start AirDrop itself;
+  // this is the only door to it. Hidden where the browser has no sheet.
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+    && (!navigator.canShare || navigator.canShare({ url }));
+
+  function shareLink() {
+    setShareFail(false);
+    navigator.share({ title: shareTitle, text: shareText, url }).catch(err => {
+      if (err?.name === 'AbortError') return; // dismissed the sheet
+      console.warn('Share failed:', err?.name, err?.message);
+      setShareFail(true);
+    });
+  }
 
   function copyUrl() {
     if (!url) return;
@@ -122,7 +138,22 @@ export default function LinkQrPanel({
           >
             {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
           </button>
+          {canShare && (
+            <button
+              onClick={shareLink}
+              aria-label="Share — AirDrop, Messages, Mail"
+              title="Share — AirDrop, Messages, Mail"
+              className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                dark ? 'bg-gray-700 text-gray-100 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              }`}
+            >
+              <Share size={13} /> Share
+            </button>
+          )}
         </div>
+        {shareFailed && (
+          <p className="text-[0.6875rem] text-amber-600 dark:text-amber-400">The share menu didn't open. Copy the link instead.</p>
+        )}
         {copyFailed && (
           <p className="text-[0.6875rem] text-amber-600 dark:text-amber-400">Couldn't reach the clipboard — tap the link to select it and copy it by hand.</p>
         )}

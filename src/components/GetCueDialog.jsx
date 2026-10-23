@@ -55,6 +55,8 @@ export default function GetCueDialog({ onClose }) {
             pdfTitle="Cue"
             pdfSubtitle="Scan to open Cue"
             pdfFoot="Open it, then add it to your Home Screen or Dock to use it as an app."
+            shareTitle="Cue"
+            shareText="Cue — chords and lyrics for live performance. Open it, then add it to your Home Screen."
           />
           <div className={`flex flex-col gap-2 border-t pt-4 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
             <p className={`text-sm font-medium ${dark ? 'text-gray-200' : 'text-gray-800'}`}>Then make it an app</p>
