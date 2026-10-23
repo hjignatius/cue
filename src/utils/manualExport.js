@@ -782,6 +782,14 @@ Pulling will discard them. Continue?</pre>
 </ul>
 <div class="tip"><strong>Note:</strong> Viewing a shared set is entirely read-only. Nothing the viewer does (key changes, bookmarks, copies) is written back to the shared set or the publisher's account.</div>
 
+<h2>Shared with Me</h2>
+<p>Sets other people have shared with you are listed under <strong>Sets → Shared with me</strong>. Tap a name to open it.</p>
+<ul>
+  <li><strong>Pass it on</strong> — the share icon on a row opens <strong>Pass this set on</strong>: the set's link, a <strong>Copy</strong> button, and <strong>Show QR code</strong>, with <strong>Copy image</strong> and <strong>Save as PDF</strong> under the code. It is the same window as Share for your own sets, minus <strong>Stop sharing</strong> — the set is not yours to stop. Anyone you pass it to sees the same set, and if its owner stops sharing it, the link stops working for everyone.</li>
+  <li><strong>Paste a share link</strong> — the box at the foot of the list opens a set someone sent you without leaving Cue, and adds it to the list. This matters most on an iPhone or iPad: a link tapped in Messages or Mail opens in Safari, not in the Cue app on your Home Screen, and the two keep separate storage. Copy the link, open Cue, paste it here.</li>
+  <li><strong>Remove</strong> — the bin on a row takes it off your list. It does not affect the set or anyone else's copy of the link.</li>
+</ul>
+
 <!-- 10 -->
 <h1>10. File Formats</h1>
 
