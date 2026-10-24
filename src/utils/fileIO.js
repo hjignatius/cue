@@ -187,9 +187,9 @@ function sanitizeFilename(name) {
   return ((name || 'Untitled').replace(/[/\\:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100)) || 'Untitled';
 }
 
-async function download(filename, content, mimeType) {
+async function download(filename, content, mimeType, opts) {
   const blob = new Blob([content], { type: mimeType });
-  return saveFilePicker(blob, filename); // { ok, method, location? } — for caller feedback
+  return saveFilePicker(blob, filename, opts); // { ok, method, location? } — for caller feedback
 }
 
 function readFile(accept) {
@@ -345,10 +345,15 @@ export async function importCho() {
 // ---- Share (Web Share Level 2, download fallback) ---------------------------
 
 // True when the OS share sheet can take a .json FILE (iOS Safari, Android
-// Chrome, some desktop). Where false (Firefox, most desktop), callers fall back
+// Chrome). Where false (Firefox, desktop Chrome, most desktop), callers fall back
 // to a download. Used to show/hide the "Share…" export option.
 export function canShareFiles() {
   try {
+    // Desktop Chrome says yes to the probe below, then refuses the real share
+    // with "NotAllowedError: Permission denied" — .json isn't on its list of
+    // shareable file types. userAgentData exists only in Chromium, and every
+    // browser on iPhone/iPad is WebKit underneath, so iOS Chrome keeps Share.
+    if (navigator.userAgentData && !navigator.userAgentData.mobile) return false;
     const probe = new File(['{}'], 'probe.json', { type: 'application/json' });
     return typeof navigator !== 'undefined' && !!navigator.canShare && navigator.canShare({ files: [probe] });
   } catch { return false; }
@@ -369,6 +374,10 @@ async function shareJsonFile(payload, filename, { title, text } = {}) {
       // the download lands quietly in the saved export folder and otherwise
       // nothing says the share never happened, or why.
       console.warn('Share failed, saving the file instead:', err?.name, err?.message);
+      await download(filename, payload, 'application/json', {
+        note: 'Sharing didn’t work here, so Cue saved the file instead. Attach it to an email yourself.',
+      });
+      return 'downloaded';
     }
   }
   await download(filename, payload, 'application/json');

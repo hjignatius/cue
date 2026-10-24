@@ -111,12 +111,15 @@ function fallbackDownload(blob, filename) {
 // download fallback) — they show no dialog, so without this an export looks like
 // nothing happened. The native Save dialog / iOS Share Sheet are self-confirming,
 // so those paths never call this. Guarded so a non-browser context can't throw.
-function announceSave(filename, folderName) {
+// `note` leads the message when the save stands in for something that failed —
+// a refused share — so the user learns both that it failed and where the file went.
+function announceSave(filename, folderName, note) {
   const where = folderName ? `“${folderName}”` : 'your Downloads folder';
-  try { alert(`Saved “${filename}” to ${where}.`); } catch { /* no alert available */ }
+  const saved = `Saved “${filename}” to ${where}.`;
+  try { alert(note ? `${note}\n\n${saved}` : saved); } catch { /* no alert available */ }
 }
 
-export async function saveFilePicker(blob, filename) {
+export async function saveFilePicker(blob, filename, { note } = {}) {
   const ext = filename.split('.').pop().toLowerCase();
 
   // 0. A saved export folder (Chromium, set in Settings) — write straight in,
@@ -131,7 +134,7 @@ export async function saveFilePicker(blob, filename) {
         await writable.write(blob);
         await writable.close();
         // Written silently to the saved folder — confirm where it went.
-        announceSave(filename, dir.name);
+        announceSave(filename, dir.name, note);
         return { ok: true, method: 'folder', location: dir.name };
       } catch { /* fall through to the save dialog */ }
     }
@@ -153,6 +156,8 @@ export async function saveFilePicker(blob, filename) {
       await writable.write(blob);
       await writable.close();
       await setLastHandle(fileHandle);
+      // The user picked the place, so only the failure needs saying.
+      if (note) { try { alert(`${note}\n\nSaved “${fileHandle.name}”.`); } catch { /* no alert available */ } }
       return { ok: true, method: 'picker' };
     } catch (err) {
       if (err.name === 'AbortError') return { ok: false, method: 'cancelled' };
@@ -161,7 +166,7 @@ export async function saveFilePicker(blob, filename) {
       // IndexedDB (loadSongs/loadSets) before reaching this call. Don't fail
       // silently: fall back to a plain download so the file still saves.
       fallbackDownload(blob, filename);
-      announceSave(filename, null);
+      announceSave(filename, null, note);
       return { ok: true, method: 'download' };
     }
   }
@@ -183,7 +188,7 @@ export async function saveFilePicker(blob, filename) {
       }
     }
     fallbackDownload(blob, filename);
-    announceSave(filename, null);
+    announceSave(filename, null, note);
     return { ok: true, method: 'download' };
   }
 
@@ -191,6 +196,6 @@ export async function saveFilePicker(blob, filename) {
   //    Mac Safari users can set Safari › Settings › General ›
   //    "File download location" to "Ask for each download" to choose per-file.
   fallbackDownload(blob, filename);
-  announceSave(filename, null);
+  announceSave(filename, null, note);
   return { ok: true, method: 'download' };
 }
