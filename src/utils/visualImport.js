@@ -86,11 +86,24 @@ export function isTabLine(line) {
   return TAB_LINE.test(line || '') && /-{4,}/.test(line);
 }
 
-// A performance note written at the end of a chord line, in parentheses:
+// A performance note on a chord line, in parentheses, after any chord:
 //   Dm↓                Am \\\\   (Trill for 5 beats)
+//   G (Riff)         G (Riff)
 // Space before the '(' is required, which is what keeps "G(4x)" a single chord
-// token rather than a chord plus a note.
-const TRAILING_NOTE = /^(.*?\S)\s+\([^()]*\)$/;
+// token rather than a chord plus a note. It also means a note can never open
+// the line: something has to come before it.
+//
+// Each note is blanked to spaces rather than cut out, so the chords after it
+// keep their columns. Returns the blanked line and the notes at their columns.
+const NOTE_RE = /(\s)(\([^()]*\))/g;
+function liftNotes(line) {
+  const notes = [];
+  const body = line.replace(NOTE_RE, (m, sp, note, offset) => {
+    notes.push({ chord: note, pos: offset + sp.length });
+    return sp + ' '.repeat(note.length);
+  });
+  return { body, notes };
+}
 
 export function isChordLine(line) {
   const trimmed = line.trim();
@@ -103,8 +116,8 @@ export function isChordLine(line) {
   // which opens with a perfectly good chord name — out of the chord row. There is
   // no spacing rule that separates those two cases, so the marking has to be
   // explicit.
-  const note = trimmed.match(TRAILING_NOTE);
-  if (note) return isChordLine(note[1]);
+  const { body, notes } = liftNotes(trimmed);
+  if (notes.length) return isChordLine(body);
 
   const tokens = trimmed.split(/\s+/);
   // Every token must be a chord, strum marker, annotation, or bare asterisk —
@@ -139,16 +152,10 @@ export function isChordLine(line) {
 function extractChords(chordLine) {
   const chords = [];
 
-  // Lift a trailing parenthesised note out before tokenising, so it stays one
-  // thing at one column instead of becoming "(Trill" "for" "5" "beats)". Same
-  // space-before-'(' rule as isChordLine, so the two always agree.
-  let body = chordLine;
-  let trailingNote = null;
-  const nm = chordLine.match(/\([^()]*\)\s*$/);
-  if (nm && nm.index > 0 && /\s/.test(chordLine[nm.index - 1]) && /\S/.test(chordLine.slice(0, nm.index))) {
-    trailingNote = { chord: nm[0].trim(), pos: nm.index };
-    body = chordLine.slice(0, nm.index);
-  }
+  // Lift parenthesised notes out before tokenising, so each stays one thing at
+  // one column instead of becoming "(Trill" "for" "5" "beats)". Same
+  // liftNotes as isChordLine, so the two always agree.
+  const { body, notes } = liftNotes(chordLine);
 
   for (const m of body.matchAll(/\S+/g)) {
     const clean = m[0].replace(/\*/g, '');
@@ -195,7 +202,10 @@ function extractChords(chordLine) {
       }
     }
   }
-  if (trailingNote) chords.push(trailingNote);
+  if (notes.length) {
+    chords.push(...notes);
+    chords.sort((a, b) => a.pos - b.pos);
+  }
   return chords;
 }
 

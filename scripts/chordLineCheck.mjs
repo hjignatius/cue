@@ -9,8 +9,10 @@
 // gap, then prose" turns "A    long time ago" into a chord row at a 1-chord
 // threshold, still breaks "A  B  C of it all" at 2, and misses his own line at
 // 3. There is no threshold that works, so the marking is explicit instead: a
-// TRAILING PARENTHESISED note. The lyric corpus below pins that decision — if
-// someone later relaxes the rule to guess from spacing, these fail.
+// PARENTHESISED note. It was trailing-only at first, which demoted
+// "G (Riff)         G (Riff)" — a note after each chord — to text (section 7).
+// The lyric corpus below pins that decision — if someone later relaxes the rule
+// to guess from spacing, these fail.
 //
 // Run: node scripts/chordLineCheck.mjs
 
@@ -269,6 +271,25 @@ for (const t of ['[C]words [Am]here', 'Intro:\n[Am] [Em7]', 'Intro: [Am] la la']
   check(`brackets -> brackets: ${JSON.stringify(t.slice(0, 20))}`, convertToBrackets(t), t);
 }
 
+// ---- 7. a note after any chord, not only at the end -------------------------
+// "G (Riff)" worked and "G (Riff)         G (Riff)" did not: only the last note
+// was lifted, which left "(Riff)" mid-line as a word and demoted the line.
+const RIFF = 'G (Riff)         G (Riff)';
+check('a note after each chord is a chord line', isChordLine(RIFF), true);
+for (const l of [
+  'G (Riff)   C   D',
+  'Am (let ring)     F     C (hold)',
+  'G (Riff) (x2)',
+]) check(`mid-line notes accepted: ${JSON.stringify(l)}`, isChordLine(l), true);
+// Notes don't excuse prose: a bare word between them still demotes the line.
+check('prose between notes still demotes', isChordLine('G (Riff)  then  G (Riff)'), false);
+check('a note cannot open the line', isChordLine('(Riff) G'), false);
+
+const RIFF_SONG = `${RIFF}\nSome words here and more words`;
+const riffBr = convertToBrackets(RIFF_SONG);
+check('each note stays one bracket at its column', riffBr, '[G]So[(Riff)]me words here a[G]nd[(Riff)] more words');
+check('riff: over -> brackets -> over is lossless', convertToOver(riffBr), RIFF_SONG);
+check('riff: notes are left out of the chord list', detectChords(riffBr), ['G']);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

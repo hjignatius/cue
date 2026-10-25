@@ -397,7 +397,7 @@ function manualHTML() {
 <p>Chords sit on a dedicated line above the lyrics they belong to:</p>
 <pre>G          Em         C          D
 Here comes the sun, little darlin</pre>
-<p>A chord line may carry a <strong>performance note in parentheses at the end</strong> — <em>(Trill for 5 beats)</em>, <em>(let it ring)</em>, <em>(hold 2 bars)</em>. The note stays in the chord row where you put it, and is never treated as a chord: it gets no diagram and never appears in the Chords panel.</p>
+<p>A chord line may carry a <strong>performance note in parentheses</strong> after any chord — <em>(Trill for 5 beats)</em>, <em>(let it ring)</em>, or one after each chord, as in <em>G (Riff)&nbsp;&nbsp;&nbsp;G (Riff)</em>. Leave a space before the opening parenthesis. The note stays in the chord row where you put it, and is never treated as a chord: it gets no diagram and never appears in the Chords panel.</p>
 <pre>Dm&#8595;                Am \\\\   (Trill for 5 beats)
 Love Potion Number Ni-ah-ah-a-ine</pre>
 <p>The parentheses are what mark it. Plain words on a chord line turn the whole line back into lyrics, and deliberately so — a great many lyrics open with a word that is also a chord name (<em>A long time ago</em>, <em>Em and the rain came down</em>), and nothing about the spacing tells those apart from a chord followed by a note. Put a note in parentheses, or on a line of its own.</p>
