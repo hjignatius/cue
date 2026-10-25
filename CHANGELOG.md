@@ -3,6 +3,27 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.27 — 2026-10-25
+
+### Sharing
+
+- **A Share button beside Copy** in the Share set, Pass this set on and Get
+  Cue windows. It opens the device's own share sheet &mdash; AirDrop,
+  Messages, Mail &mdash; so a link is one tap to send. Shown on iPhone, iPad,
+  Android and Mac Safari.
+- **A refused share now says so.** If the browser won't share a .json file
+  (Chrome on a Mac refuses them), Cue tells you, says where it saved the file
+  instead, and suggests attaching it to an email yourself. It used to save the
+  file without a word.
+- The faint arrow on **Shared with me** rows is gone; it was never a button.
+
+### Chord lines
+
+- **A note after any chord, not only at the end.** A chord line like
+  `G (Riff)         G (Riff)` &mdash; a parenthesised note after each chord
+  &mdash; used to be read as lyrics. Notes can now follow any chord on the
+  line. Leave a space before the opening parenthesis.
+
 ## v1.9.26 — 2026-10-23
 
 ### Getting Cue and sets to other people
