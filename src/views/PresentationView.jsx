@@ -1384,14 +1384,21 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             just put the lyrics back under the panel. The cost is that text re-wraps
             and ink rescales when chords are toggled — the same reflow A−/A+ already
             causes, and cheaper than text you cannot read. */}
+        {/* Wide: the column fills the row (never narrower than lyricColWidth)
+            so the scroller reaches the chord panel or the screen edge. It used
+            to be exactly lyricColWidth, which left a strip beside the lyrics
+            where a finger or wheel could not move the sheet. The lyrics keep
+            their fixed width on the inner wrapper below. */}
         <div
-          className={`relative ${isNarrow ? 'flex-1 min-w-0' : 'shrink-0'}`}
-          style={isNarrow ? undefined : { width: lyricColWidth }}
+          className={`relative flex-1 ${isNarrow ? 'min-w-0' : ''}`}
+          style={isNarrow ? undefined : { minWidth: lyricColWidth }}
         >
           {/* pl-14 (56px) keeps lyrics clear of the fixed left gutter buttons
               (~46px wide) on narrow/phone widths, where px-6 (24px) let text run
               under them. md:px-12 restores symmetric 48px padding on wide, which
-              already cleared the gutter. */}
+              already cleared the gutter. The padding sits on the inner wrapper,
+              which holds lyricColWidth on wide, so the scroller itself can be
+              wider than the lyrics. */}
           {/* Manual (touch) scroll is disabled while the pedal drives a text
               song, so the reader can't drift off the pedal's position; the glide
               still moves scrollTop programmatically. Pedal-off keeps auto. */}
@@ -1399,8 +1406,9 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             ref={scrollRef}
             onPointerDownCapture={onLyricPointerDown}
             onPointerUpCapture={onLyricPointerUp}
-            className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} pl-14 pr-6 py-6 md:px-12`}
+            className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} py-6`}
           >
+            <div className="pl-14 pr-6 md:px-12" style={isNarrow ? undefined : { width: lyricColWidth }}>
             {/* relative wrapper so the canvas can use position:absolute inset-0 */}
             <div ref={contentWrapRef} className="pb-32 relative">
               {/* Song info, in the lyric flow rather than in chrome.
@@ -1455,6 +1463,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
                   onCleared={stopAnnotating}
                 />
               )}
+            </div>
             </div>
           </div>
 
