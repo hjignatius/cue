@@ -32,6 +32,7 @@ import { extractPdfText } from '../utils/pdfjs.js';
 import { shapesForName } from '../utils/chordLookup.js';
 import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
+import { blankTab, tabStringNames, insertBlock } from '../utils/blankTab.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -212,8 +213,9 @@ function parseSymbols(str) {
 // is derived from `symbols` (click a glyph to insert at the cursor); the field
 // below is the palette itself — type or paste to curate, delete to remove. Stays
 // open after an insert so a run of arrows can be entered in one go; Escape or an
-// outside press closes it.
-function SymbolMenu({ open, onClose, symbols, onInsert, onChange, dark }) {
+// outside press closes it. Below the grid, Blank tab drops a tab for the
+// current instrument's strings at the cursor and closes the menu.
+function SymbolMenu({ open, onClose, symbols, onInsert, onChange, onInsertTab, tabStrings, dark }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -265,6 +267,22 @@ function SymbolMenu({ open, onClose, symbols, onInsert, onChange, dark }) {
         <p className={`px-1 py-2 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
           No symbols yet — add some below.
         </p>
+      )}
+      {onInsertTab && (
+        <div className={`mt-2 pt-2 border-t ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { onInsertTab(); onClose(); }}
+            title="Insert a blank tab at the cursor"
+            className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-sm text-left ${
+              dark ? 'hover:bg-gray-800 text-gray-100' : 'hover:bg-gray-100 text-gray-900'
+            }`}
+          >
+            <span>Blank tab</span>
+            <span className={`font-mono text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{tabStrings.join(' ')}</span>
+          </button>
+        </div>
       )}
       <div className={`mt-2 pt-2 border-t ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
         <label className={`block text-[0.6875rem] mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -1449,6 +1467,17 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos, pos); });
   }
 
+  // Blank tab from the Ω menu: always into the song, never Find/Replace, on lines
+  // of its own, with the caret on the top string's first dash.
+  function insertTab() {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const { text: next, caret } = insertBlock(text, ta.selectionStart ?? text.length, ta.selectionEnd ?? text.length, blankTab(getActiveTuning(instrument)));
+    setText(next);
+    setIsDirty(true);
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(caret, caret); });
+  }
+
   // Apply a styling op to the PREVIEW's current text selection — the only way to
   // style lyrics now that the Text pane keeps just the symbol palette.
   //
@@ -1684,6 +1713,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           symbols={symbols}
           onInsert={insertText}
           onChange={v => updatePref('symbols', v)}
+          onInsertTab={insertTab}
+          tabStrings={tabStringNames(getActiveTuning(instrument))}
           dark={dark}
         />
       </span>

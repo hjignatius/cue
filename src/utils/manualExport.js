@@ -402,6 +402,14 @@ Here comes the sun, little darlin</pre>
 Love Potion Number Ni-ah-ah-a-ine</pre>
 <p>The parentheses are what mark it. Plain words on a chord line turn the whole line back into lyrics, and deliberately so — a great many lyrics open with a word that is also a chord name (<em>A long time ago</em>, <em>Em and the rain came down</em>), and nothing about the spacing tells those apart from a chord followed by a note. Put a note in parentheses, or on a line of its own.</p>
 
+<h3>Tablature</h3>
+<p>Tab sits in a song as it is, in either format: a line that starts with a string name and a bar, with a run of at least four dashes, is kept as text and never searched for chords. Useful for a riff, or an alternate voicing of a chord.</p>
+<pre>A|----2-----10----|
+E|----3------7----|
+C|----2------7----|
+G|----0------7----|</pre>
+<p>For a blank one, open the <strong>Ω</strong> menu above the text and tap <strong>Blank tab</strong>. It goes in at the cursor, on lines of its own, with one line per string of the instrument set in <strong>Settings</strong> (the GCEA ukulele if none is set), and the cursor on the top string's first dash. To keep the bars lined up, <em>select</em> a dash and type the fret over it rather than typing between dashes — select two dashes for a fret like 10. Tab is not transposed or moved by a capo: the frets stay as you wrote them.</p>
+
 <h3>Inline (brackets)</h3>
 <p>Chords are embedded inline within the lyric line:</p>
 <pre>[G]Here comes the [Em]sun, [C]little [D]darlin</pre>
