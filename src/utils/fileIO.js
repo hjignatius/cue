@@ -345,15 +345,14 @@ export async function importCho() {
 // ---- Share (Web Share Level 2, download fallback) ---------------------------
 
 // True when the OS share sheet can take a .json FILE (iOS Safari, Android
-// Chrome). Where false (Firefox, desktop Chrome, most desktop), callers fall back
+// Chrome, some desktop). Where false (Firefox, most desktop), callers fall back
 // to a download. Used to show/hide the "Share…" export option.
+// Desktop Chrome (as of 2026-10) says yes here, then refuses the real share
+// with "NotAllowedError: Permission denied" — .json isn't on its list of
+// shareable file types. Left showing on purpose, in the hope Chrome catches
+// up; until then shareJsonFile's refusal message tells the user what happened.
 export function canShareFiles() {
   try {
-    // Desktop Chrome says yes to the probe below, then refuses the real share
-    // with "NotAllowedError: Permission denied" — .json isn't on its list of
-    // shareable file types. userAgentData exists only in Chromium, and every
-    // browser on iPhone/iPad is WebKit underneath, so iOS Chrome keeps Share.
-    if (navigator.userAgentData && !navigator.userAgentData.mobile) return false;
     const probe = new File(['{}'], 'probe.json', { type: 'application/json' });
     return typeof navigator !== 'undefined' && !!navigator.canShare && navigator.canShare({ files: [probe] });
   } catch { return false; }
