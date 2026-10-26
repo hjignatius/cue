@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
@@ -2242,7 +2242,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   const [search, setSearch]             = useState(() => sessionStorage.getItem('cue:lib_search') || '');
   const [sortBy, setSortBy]             = useState(() => sessionStorage.getItem('cue:lib_sort') || 'title');
-  const [artistFilter, setArtistFilter] = useState(() => sessionStorage.getItem('cue:lib_artist_filter') || null);
+  // '' is a real filter — the "No artist" group — so only a MISSING key means
+  // none. `|| null` used to turn '' back into null, and Edit returned you to
+  // the artist list instead of the group you were in.
+  const [artistFilter, setArtistFilter] = useState(() => sessionStorage.getItem('cue:lib_artist_filter'));
   const [keyFilter, setKeyFilter]       = useState(() => sessionStorage.getItem('cue:lib_key_filter') || null);
 
   const [selected, setSelected]       = useState(new Set());
@@ -2316,9 +2319,44 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     else sessionStorage.removeItem('cue:lib_key_filter');
   }, [keyFilter]);
   useEffect(() => {
-    if (artistFilter) sessionStorage.setItem('cue:lib_artist_filter', artistFilter);
+    if (artistFilter !== null) sessionStorage.setItem('cue:lib_artist_filter', artistFilter);
     else sessionStorage.removeItem('cue:lib_artist_filter');
   }, [artistFilter]);
+
+  // ---- Where the lists were scrolled to ---------------------------------------
+  // Present opens OVER the Library, so it is still there, scrolled where you
+  // left it, when Present closes. The editor REPLACES it: coming back mounts a
+  // new Library, and the song list started at the top. The sort and filters
+  // already came back through sessionStorage; now the scroll does too.
+  //
+  // Restored once, on the first render that has songs to scroll through — not
+  // whenever a list mounts, or tapping an artist would jump into that artist's
+  // songs at the old position. And re-recorded whenever the view changes, so the
+  // position saved is always the one for the list you are looking at.
+  const songListRef = useRef(null);
+  const artistListRef = useRef(null);
+  const scrollMemo = useRef(null);
+  if (scrollMemo.current === null) {
+    try { scrollMemo.current = JSON.parse(sessionStorage.getItem('cue:lib_scroll')) || {}; } catch { scrollMemo.current = {}; }
+  }
+  const scrollRestored = useRef(false);
+  const saveScroll = () => {
+    const m = scrollMemo.current;
+    if (songListRef.current) m.songs = songListRef.current.scrollTop;
+    if (artistListRef.current) m.artists = artistListRef.current.scrollTop;
+    try { sessionStorage.setItem('cue:lib_scroll', JSON.stringify(m)); } catch { /* private mode */ }
+  };
+  useLayoutEffect(() => {
+    if (scrollRestored.current || songs.length === 0) return;
+    scrollRestored.current = true;
+    const m = scrollMemo.current;
+    if (songListRef.current && m.songs) songListRef.current.scrollTop = m.songs;
+    if (artistListRef.current && m.artists) artistListRef.current.scrollTop = m.artists;
+  });
+  useEffect(() => {
+    if (scrollRestored.current) saveScroll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, artistFilter, keyFilter, search]);
   useEffect(() => {
     if (activeSetId) sessionStorage.setItem('cue:active_set_id', activeSetId);
     else sessionStorage.removeItem('cue:active_set_id');
@@ -2361,8 +2399,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     if (sortBy === 'title')  return (a.metadata?.title  || '').localeCompare(b.metadata?.title  || '');
     if (sortBy === 'newest') return (b.updatedAt || '').localeCompare(a.updatedAt || '');
     if (sortBy === 'oldest') return (a.updatedAt || '').localeCompare(b.updatedAt || '');
-    if (sortBy === 'artist') return (a.metadata?.artist || '').localeCompare(b.metadata?.artist || '');
-    if (sortBy === 'key')    return effectiveKey(a).localeCompare(effectiveKey(b));
+    // Artist and key group songs; within a group, A–Z by title. Without the
+    // tie-break an artist's songs came out in storage order, which looked random.
+    if (sortBy === 'artist') return (a.metadata?.artist || '').localeCompare(b.metadata?.artist || '')
+                                 || (a.metadata?.title || '').localeCompare(b.metadata?.title || '');
+    if (sortBy === 'key')    return effectiveKey(a).localeCompare(effectiveKey(b))
+                                 || (a.metadata?.title || '').localeCompare(b.metadata?.title || '');
     // 'shared' has no ordering of its own — list alphabetically, the library's
     // default, so the filtered set reads like the normal list, just narrowed.
     if (sortBy === 'shared') return (a.metadata?.title || '').localeCompare(b.metadata?.title || '');
@@ -2849,7 +2891,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           </div>
 
           {sortBy === 'artist' && artistFilter === null && !search && artists && (
-            <div data-phone-scroll className="flex-1 overflow-y-auto">
+            <div ref={artistListRef} onScroll={saveScroll} data-phone-scroll className="flex-1 overflow-y-auto">
               {songs.filter(s => !s.metadata?.artist).length > 0 && (
                 <button onClick={() => setArtistFilter('')} className={`w-full flex items-center justify-between px-4 py-3 border-b ${border} hover:bg-gray-100 dark:hover:bg-gray-900 text-left`}>
                   <span className="text-sm text-gray-400 italic">No artist</span>
@@ -2869,7 +2911,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           )}
 
           {(sortBy !== 'artist' || artistFilter !== null || search) && (
-            <div data-phone-scroll className="flex-1 overflow-y-auto">
+            <div ref={songListRef} onScroll={saveScroll} data-phone-scroll className="flex-1 overflow-y-auto">
               {songs.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
                   <Music size={32} className="text-gray-300 dark:text-gray-700" />
