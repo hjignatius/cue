@@ -6,6 +6,7 @@ import UpdateButton from './components/UpdateButton.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
+import { musicXmlFromFile } from './utils/musicXml.js';
 import { CHORD_LIBRARIES } from './data/chordLibraries.js';
 import { usePrefs } from './context/PrefsContext.jsx';
 import { useSwUpdate, applyUpdate, dismissUpdate } from './swUpdate.js';
@@ -132,6 +133,32 @@ export default function App() {
           });
           await savePdfBlob(id, file);
           continue;
+        }
+
+        // MusicXML (.musicxml, .mxl, or an .xml that holds a score) → a chords-
+        // over-lyrics song: chord symbols, lyrics, tab and details, no notes.
+        // An .xml that isn't a score comes back null and is read as text below.
+        if (/\.(mxl|musicxml|xml)$/i.test(file.name)) {
+          let parsed;
+          try {
+            parsed = await musicXmlFromFile(file);
+          } catch (err) {
+            alert(`Couldn't import "${file.name}": ${err?.message || err}`);
+            continue;
+          }
+          if (parsed) {
+            const { metadata, text } = parsed;
+            const existing = songs.find(s => normalizeTitle(s.metadata?.title) === normalizeTitle(metadata.title));
+            let importId = null;
+            if (existing) {
+              const choice = await askConflict(metadata.title || 'Untitled');
+              if (choice === 'cancel') continue;
+              if (choice === 'overwrite') importId = existing.id;
+            }
+            const id = await saveSong({ id: importId, metadata, text, chordStyle: 'over' });
+            lastImportedSong = { id, metadata, text, chordStyle: 'over' };
+            continue;
+          }
         }
 
         const content = await file.text();

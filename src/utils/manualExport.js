@@ -291,8 +291,12 @@ function manualHTML() {
   <li><code>.json</code> — a Cue JSON bundle (single song or full set)</li>
   <li><code>.txt</code> — plain ChordPro text saved with a .txt extension</li>
   <li><code>.pdf</code> — a PDF lead sheet, imported as a <strong>PDF song</strong> (see <em>The Editor → PDF Songs</em>)</li>
+  <li><code>.musicxml</code> / <code>.mxl</code> — sheet music exported from MuseScore and similar programs (see below)</li>
 </ul>
 <p>When importing a JSON set bundle, Cue brings in the set and all its songs in a single step.</p>
+<h3>MusicXML</h3>
+<p>Cue reads the parts of a score it can use and leaves the notes behind: the <strong>chord symbols</strong>, the <strong>lyrics</strong> (joined back into words, with each chord where it falls), any <strong>tab</strong> staff as tab lines, and the <strong>title, composer, key, time signature and tempo</strong>. The song arrives in chords-over-lyrics. <code>.mxl</code> is the same thing compressed; an <code>.xml</code> file that holds a score works too.</p>
+<p>Sheet music has no "end of lyric line", so Cue starts a new line wherever the score starts a new row of music, or every four bars when the file doesn't say. Verses printed under the same notes are written out one after another. Repeats and endings are left as written. Expect to tidy line breaks in the editor; a lead sheet converts better than a full arrangement.</p>
 <p>You can select multiple files in the picker and Cue imports them all in sequence.</p>
 <h3>Conflict Detection</h3>
 <p>When importing a single song whose title matches one already in your library, Cue pauses and asks what to do:</p>
