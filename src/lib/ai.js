@@ -22,6 +22,7 @@ import { notePitchClass } from '../utils/notes.js';
 import { mmss } from '../utils/duration.js';
 import { MAX_CAPO } from '../utils/transpose.js';
 import { DURATION_RE, YOUTUBE_RE } from '../utils/songMetadata.js';
+import { stripEmptyDirectives } from '../utils/chordGuard.js';
 
 const KEY_STORAGE = 'cue:anthropic_key';
 // ── Quality tiers ───────────────────────────────────────────────────────────
@@ -591,6 +592,8 @@ export async function cleanUpChart(text, { symbols, model, onProgress, signal } 
     ? `${CLEANUP_SYSTEM}\n\nThe user's chart may also use these characters, which are MEANINGFUL — keep every one of them exactly: ${allow}`
     : CLEANUP_SYSTEM;
 
+  // Empty "{c: }" lines go before the model sees the chart: see chordGuard.js.
+  const input = stripEmptyDirectives(text);
   const out = await streamClaude({
     ...(model ? { model } : {}),
     max_tokens: 8000,
@@ -598,8 +601,8 @@ export async function cleanUpChart(text, { symbols, model, onProgress, signal } 
     signal,
     output_config: { effort: 'low' },
     system,
-    messages: [{ role: 'user', content: text }],
-  }, echoProgress(text, onProgress));
+    messages: [{ role: 'user', content: input }],
+  }, echoProgress(input, onProgress));
   const m = out.match(/^```[a-zA-Z]*\n([\s\S]*?)\n```$/);
   return (m ? m[1] : out).trim();
 }

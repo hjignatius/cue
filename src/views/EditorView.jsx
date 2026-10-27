@@ -33,6 +33,7 @@ import { shapesForName } from '../utils/chordLookup.js';
 import { shapeNotes } from '../utils/notes.js';
 import { styleRange } from '../utils/styleText.js';
 import { blankTab, tabStringNames, insertBlock } from '../utils/blankTab.js';
+import { chordChange } from '../utils/chordGuard.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { useResizePanel } from '../hooks/useResizePanel.js';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -968,11 +969,28 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // calling it off, which left a reply writing itself into a closed dialog.
   function closeAsk()    { cancelAi('ask');    setAskOpen(false); }
 
+  // Said when an in-place tool's reply is refused for touching a chord. Names
+  // the chord, so it is clear this was a catch and not a failure to connect.
+  function chordChangeMessage(tool, { was, now, words }) {
+    const at = words ? ` at “${words}”` : '';
+    const what = was && now ? `changed [${was}] to [${now}]${at}`
+      : was ? `dropped the [${was}]${at}`
+      : `added a [${now}]${at}`;
+    return `${tool} ${what}, so your chart was left as it was. Try again?`;
+  }
+
   async function runCleanup(model) {
     if (aiBusy || text.trim() === '') return;
     const signal = beginAi('clean');
     try {
       const cleaned = await cleanUpChart(text, { symbols, model, signal, onProgress: p => setAiPct(p * 100) });
+      // A reply that lost or changed a chord is not applied — see chordGuard.js.
+      const changed = cleaned && cleaned !== text && chordChange(text, cleaned);
+      if (changed) {
+        flashAi(chordChangeMessage('Clean up', changed));
+        setAiRetry('clean'); setAiRetryModel(model);
+        return;
+      }
       if (cleaned && cleaned !== text) {
         setText(cleaned);
         senseFormat(cleaned);
@@ -1001,6 +1019,12 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     const signal = beginAi('structure');
     try {
       const labeled = await detectStructure(text, { model, signal, onProgress: p => setAiPct(p * 100) });
+      const changed = labeled && labeled !== text && chordChange(text, labeled);
+      if (changed) {
+        flashAi(chordChangeMessage('Detect structure', changed));
+        setAiRetry('structure'); setAiRetryModel(model);
+        return;
+      }
       if (labeled && labeled !== text) {
         setText(labeled);
         setIsDirty(true);
