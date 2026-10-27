@@ -683,7 +683,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   useEffect(() => {
     if (!hydrated.current) { hydrated.current = true; return; }
     saveDraft({ songId, text, metadata, chordStyle: displayMode, previewMode: previewFormat, chordPrefs, displayKey });
-  }, [text, metadata, displayMode, previewFormat, chordPrefs]);
+  }, [songId, text, metadata, displayMode, previewFormat, chordPrefs, displayKey]);
 
   // Reset the revert baseline whenever the edited song changes. songId changes on
   // mount and when a new song first receives its id on save; the editor also
@@ -1566,21 +1566,24 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   const matchCount = findText ? (text.split(expandEscapes(findText)).length - 1) : 0;
 
+  // ⌘F / Ctrl+F. Registered once and reaching the current openFR through a ref:
+  // this used to re-register on every keystroke, keyed on `text`, which openFR
+  // does not even read.
+  const openFRRef = useRef(openFR);
+  openFRRef.current = openFR;
   useEffect(() => {
     function onKey(e) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); openFR(); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') { e.preventDefault(); openFRRef.current(); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [text]);
+  }, []);
 
   const effectiveDisplayKey = displayKey || metadata.key || '';
 
   const rootBg    = dark ? 'bg-gray-950 text-white'      : 'bg-gray-50 text-gray-900';
   const border    = dark ? 'border-gray-800'              : 'border-gray-200';
   const mutedText = dark ? 'text-gray-600'                : 'text-gray-400';
-  const btnBorder = dark ? 'border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white'
-                         : 'border-gray-300 hover:border-gray-500 text-gray-600 hover:text-gray-900';
   // Shared sizing for the Find and Save buttons.
   const toolCtl = 'h-9 px-3 text-xs rounded-lg font-medium border transition-colors';
 
