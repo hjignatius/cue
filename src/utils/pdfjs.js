@@ -57,3 +57,29 @@ export async function extractPdfText(data) {
   // blank line joins them, the way a page turn reads.
   return pages.map(lines => textFromLines(lines)).filter(Boolean).join('\n\n');
 }
+
+// A songbook, read for splitting into songs (see songbook.js). Lines per page as
+// above, plus the page's web links with where they sit, because a book often
+// puts a song's video behind a caption ("The Chipmunk Song") rather than
+// printing the address. No page cap: this path exists for books.
+//
+// `onPage(done, total)` reports real progress — a page read is a page read.
+export async function extractSongbookPages(data, { onPage, signal } = {}) {
+  const { linesFromItems } = await import('./pdfText.js');
+  const pdfjs = await loadPdfjs();
+  const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  const pages = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { code: 'aborted' });
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    const links = (await page.getAnnotations())
+      .filter(a => a.url && Array.isArray(a.rect))
+      .map(a => ({ url: a.url, bottom: Math.min(a.rect[1], a.rect[3]), top: Math.max(a.rect[1], a.rect[3]) }));
+    pages.push({ lines: linesFromItems(content.items), links });
+    page.cleanup();
+    onPage?.(p, doc.numPages);
+  }
+  return pages;
+}

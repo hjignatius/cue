@@ -3,6 +3,7 @@ import LibraryView from './views/LibraryView.jsx';
 import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
 import UpdateButton from './components/UpdateButton.jsx';
+import SongbookDialog from './components/SongbookDialog.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
@@ -42,6 +43,8 @@ export default function App() {
   // backupDialog: { resolve: (choice: 'replace'|'merge'|'cancel') => void }
   const [setsImportDialog, setSetsImportDialog] = useState(null);
   // setsImportDialog: { resolve: (choice: 'allow'|'skip'|'cancel') => void }
+  const [songbook, setSongbook] = useState(null);
+  // songbook: { fileName, reading: {done,total}, songs: [...]|null, resolve, abort }
 
   async function refresh() {
     const [s, sets_] = await Promise.all([loadSongs(), loadSets()]);
@@ -57,6 +60,54 @@ export default function App() {
   // Only used for single-song imports — set/backup imports skip this.
   function askConflict(title) {
     return new Promise(resolve => setConflictDialog({ title, resolve }));
+  }
+
+  // A PDF imported into the Library may be a whole songbook. Read its text,
+  // split it (songbook.js), and if it really is several bracket charts, ask
+  // which to import. Resolves 'done' when songs were created, 'page' to import
+  // the PDF as one page song exactly as before, 'cancel' to skip the file.
+  //
+  // A PDF that is not a songbook never sees the dialog: one song, no text layer
+  // (a scan), or charts that are not in brackets all go straight to 'page'.
+  // The dialog opens early only for a book long enough to need a progress bar.
+  async function askSongbook(file) {
+    const abort = new AbortController();
+    let songs = [];
+    try {
+      const [{ extractSongbookPages }, { splitSongbook }, { detectChordStyle }] = await Promise.all([
+        import('./utils/pdfjs.js'), import('./utils/songbook.js'), import('./utils/chordStyle.js'),
+      ]);
+      const pages = await extractSongbookPages(file, {
+        signal: abort.signal,
+        onPage: (done, total) => {
+          if (total > 12) setSongbook({ fileName: file.name, reading: { done, total }, songs: null, abort: () => abort.abort() });
+        },
+      });
+      songs = splitSongbook(pages);
+      if (songs.length < 2 || detectChordStyle(songs.map(s => s.text).join('\n\n')) !== 'brackets') songs = [];
+    } catch (e) {
+      setSongbook(null);
+      return e?.code === 'aborted' ? 'cancel' : 'page';
+    }
+    if (!songs.length) { setSongbook(null); return 'page'; }
+
+    const have = new Set((await loadSongs()).map(s => normalizeTitle(s.metadata?.title)));
+    const marked = songs.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
+    const choice = await new Promise(resolve => setSongbook({ fileName: file.name, songs: marked, resolve }));
+    setSongbook(null);
+    if (choice === 'page' || choice === 'cancel') return choice;
+
+    const ids = [];
+    for (const i of choice.picked) {
+      const s = marked[i];
+      const metadata = { title: s.title };
+      if (s.artist) metadata.artist = s.artist;
+      if (s.youtubeUrl) metadata.youtubeUrl = s.youtubeUrl;
+      ids.push(await saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets' }));
+    }
+    if (choice.setName && ids.length) await saveSet({ id: null, name: choice.setName, songIds: ids });
+    alert(`Imported ${ids.length} song${ids.length === 1 ? '' : 's'}${choice.setName ? ` into the set “${choice.setName}”` : ''}.`);
+    return 'done';
   }
 
   function askBackupMode() {
@@ -121,6 +172,8 @@ export default function App() {
         // PDF lead sheet → a 'pdf' song with the raw bytes stored locally (Stage
         // 1a: local-only, nothing uploads it). Branch BEFORE reading as text.
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          const book = await askSongbook(file);
+          if (book !== 'page') continue;
           const title = file.name.replace(/\.pdf$/i, '') || 'Lead Sheet';
           const id = await saveSong({
             id: null,
@@ -649,6 +702,17 @@ export default function App() {
       )}
 
       {/* Import conflict dialog */}
+      {songbook && (
+        <SongbookDialog
+          dark={dark}
+          fileName={songbook.fileName}
+          reading={songbook.reading}
+          songs={songbook.songs}
+          onImport={(picked, setName) => songbook.resolve({ picked, setName })}
+          onKeepAsPage={() => songbook.resolve('page')}
+          onCancel={() => (songbook.resolve ? songbook.resolve('cancel') : songbook.abort?.())}
+        />
+      )}
       {conflictDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
