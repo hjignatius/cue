@@ -44,7 +44,7 @@ export default function App() {
   const [setsImportDialog, setSetsImportDialog] = useState(null);
   // setsImportDialog: { resolve: (choice: 'allow'|'skip'|'cancel') => void }
   const [songbook, setSongbook] = useState(null);
-  // songbook: { fileName, reading: {done,total}, songs: [...]|null, resolve, abort }
+  // songbook: { fileName, reading: {done,total,saving?}, songs: [...]|null, resolve, abort }
 
   async function refresh() {
     const [s, sets_] = await Promise.all([loadSongs(), loadSets()]);
@@ -77,13 +77,18 @@ export default function App() {
       const [{ extractSongbookPages }, { splitSongbook }, { detectChordStyle }] = await Promise.all([
         import('./utils/pdfjs.js'), import('./utils/songbook.js'), import('./utils/chordStyle.js'),
       ]);
-      const pages = await extractSongbookPages(file, {
+      // Progress at most a few times a second. Every update re-renders the
+      // whole app, and once a page for Jim's 5,155 kept it too busy to answer.
+      let shown = 0;
+      const { pages, marks } = await extractSongbookPages(file, {
         signal: abort.signal,
         onPage: (done, total) => {
-          if (total > 12) setSongbook({ fileName: file.name, reading: { done, total }, songs: null, abort: () => abort.abort() });
+          if (total <= 12 || (done < total && performance.now() - shown < 150)) return;
+          shown = performance.now();
+          setSongbook({ fileName: file.name, reading: { done, total }, songs: null, abort: () => abort.abort() });
         },
       });
-      songs = splitSongbook(pages);
+      songs = splitSongbook(pages, marks);
       if (songs.length < 2 || detectChordStyle(songs.map(s => s.text).join('\n\n')) !== 'brackets') songs = [];
     } catch (e) {
       setSongbook(null);
@@ -97,14 +102,22 @@ export default function App() {
     setSongbook(null);
     if (choice === 'page' || choice === 'cancel') return choice;
 
+    // Saving thousands of songs takes a while, so the dialog stays up to say
+    // how far it has got instead of the app looking stuck.
     const ids = [];
+    let shown = 0;
     for (const i of choice.picked) {
+      if (choice.picked.length > 50 && performance.now() - shown > 150) {
+        shown = performance.now();
+        setSongbook({ fileName: file.name, reading: { done: ids.length, total: choice.picked.length, saving: true }, songs: null });
+      }
       const s = marked[i];
       const metadata = { title: s.title };
       if (s.artist) metadata.artist = s.artist;
       if (s.youtubeUrl) metadata.youtubeUrl = s.youtubeUrl;
       ids.push(await saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets' }));
     }
+    setSongbook(null);
     if (choice.setName && ids.length) await saveSet({ id: null, name: choice.setName, songIds: ids });
     alert(`Imported ${ids.length} song${ids.length === 1 ? '' : 's'}${choice.setName ? ` into the set “${choice.setName}”` : ''}.`);
     return 'done';
@@ -710,7 +723,7 @@ export default function App() {
           songs={songbook.songs}
           onImport={(picked, setName) => songbook.resolve({ picked, setName })}
           onKeepAsPage={() => songbook.resolve('page')}
-          onCancel={() => (songbook.resolve ? songbook.resolve('cancel') : songbook.abort?.())}
+          onCancel={songbook.resolve ? () => songbook.resolve('cancel') : songbook.abort}
         />
       )}
       {conflictDialog && (

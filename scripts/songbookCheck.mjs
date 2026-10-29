@@ -112,5 +112,56 @@ const plain = splitSongbook([
 check('one song a page, titled from its first line', plain.map(s => s.title), ['First song line', 'Second Song']);
 check('empty input', splitSongbook([]), []);
 
+// ---- 7. a book with bookmarks ----------------------------------------------------------
+// The big books: gathered from many sources, so each song is set in its own
+// size — the Delmarvalous "500 Miles" has a 16pt title over 16pt lyrics, which
+// by type size alone ran every song into one title. Jim's pages open with a
+// date line and a contents link above the title; his header is "artist:… writer:…".
+const HEAD = [['Date Created - Jul-22 ,2026', 10], ['Go To Contents', 10]];
+const big = [
+  page([['Cover page'], ['Put together by Jim']]),
+  page([['Ukulele Songbook Table of Contents'], ['500 Miles ......... 3'], ['900 Miles ......... 4']]),
+  page([...HEAD, ['500 Miles', 16, 30], ['By: Peter Paul and Mary', 16], [VERSE[0], 16, 30], [VERSE[1], 16], ['Page 3 of 9', 10, 60]]),
+  page([...HEAD, ['900 Miles', 16, 30], ['artist:Wham , writer:Dan Lindfors', 14], [VERSE[1], 14, 30], [VERSE[2], 14], ['Page 4 of 9', 10, 60]]),
+  page([...HEAD, ['[F] Second page of [C] 900', 14, 30], ['[G] and on', 14], ['Page 5 of 9', 10, 60]]),
+  page([...HEAD, ['Christmas Song, The', 18, 30], ['artist: writer:Traditional', 12], ['[G] Chestnuts', 12, 30],
+        ['Banks Of The Ohio [D]', 18, 40], ['[D] I asked my love', 12, 30], ['Page 6 of 9', 10, 60]]),
+  page([...HEAD, ['Que Sera Sera', 16, 30], ['By: Jay Livingston and Ray Evans', 12], ['Page 7 of 9', 10, 600]]),
+  page([...HEAD, ['Last Song', 16, 30], ['[C] The end', 12, 30], ['Page 8 of 9', 10, 60]]),
+  page([...HEAD, ['Lyric Only', 16, 30], ['[C] More end', 12, 30], ['Page 9 of 9', 10, 60]]),
+];
+const bm = splitSongbook(big, [
+  { title: 'Ukulele Songbook Table of Contents', page: 2, top: 763 },
+  { title: '500 Miles', page: 3, top: 763 },
+  { title: '900 Miles', page: 4, top: null },
+  { title: 'Christmas Song, The', page: 6, top: null },
+  { title: 'Banks Of The Ohio [D]', page: 6, top: null },
+  { title: 'Que Sera Sera', page: 7, top: 763 },
+  { title: 'Last Song', page: 8, top: null },
+  { title: 'Lyric Only', page: 9, top: null },
+]);
+check('bookmarks: one song each, wherever the type size', bm.map(s => s.title),
+  ['Ukulele Songbook Table of Contents', '500 Miles', '900 Miles', 'Christmas Song, The', 'Banks Of The Ohio [D]', 'Que Sera Sera', 'Last Song', 'Lyric Only']);
+check('…a title the size of its lyrics is still taken off the chart', bm[1].text, `${VERSE[0]}\n${VERSE[1]}`);
+check('…a song over a page turn stays whole', [bm[2].text, bm[2].firstPage, bm[2].lastPage], [`${VERSE[1]}\n${VERSE[2]}\n\n[F] Second page of [C] 900\n[G] and on`, 4, 5]);
+check('…the heading above a title joins neither song', bm.some(s => /Date Created|Go To Contents/.test(s.text)), false);
+check('…two songs on one page split at the second title', [bm[3].text, bm[4].text], ['[G] Chestnuts', '[D] I asked my love']);
+check('…a title with its key in it is found', bm[4].text.includes('Banks'), false);
+check('artist: field, stray comma gone; writer: when there is no artist', [bm[2].artist, bm[3].artist], ['Wham', 'Traditional']);
+check('"By:" still read under a bookmarked title', bm[1].artist, 'Peter Paul and Mary');
+check('a contents page is flagged as no chords', [bm[0].noChords, bm[1].noChords], [true, false]);
+check('a song whose chart is a picture is kept, flagged', [bm[5].pictureOnly, bm[5].text, bm[5].artist], [true, '', 'Jay Livingston and Ray Evans']);
+check('the cover, before the first bookmark, is no song', bm.some(s => /Cover/.test(s.text)), false);
+const bmSource = new Set(big.flatMap(p => p.lines.map(l => l.text)));
+check('bookmarks: no line is invented or altered', bm.every(s => s.text.split('\n').every(l => l === '' || bmSource.has(l))), true);
+
+// A book bookmarked by chapter only is not split by its bookmarks: one mark for
+// every few dozen pages would make songs dozens of pages long.
+const chapters = splitSongbook(book, [{ title: 'Christmas', page: 1, top: null }]);
+check('chapter bookmarks alone fall back to title type', chapters.map(s => s.title),
+  ['All I Want for Christmas', 'Auld Lang Syne', 'Chipmunk Song', 'Mele Kalikimaka']);
+check('a bookmark to a page the book no longer has is ignored',
+  splitSongbook(book, [{ title: 'Gone', page: 99, top: null }]).length, 4);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
