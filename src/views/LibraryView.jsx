@@ -7,6 +7,7 @@ import { useAiAbort } from '../hooks/useAiAbort.js';
 import { duplicateGroups } from '../utils/contentHash.js';
 import SongCompare from '../components/SongCompare.jsx';
 import PullSpinner from '../components/PullSpinner.jsx';
+import LongList from '../components/LongList.jsx';
 
 // Progress wording per AI tool. Only the words live here — the weights are in
 // utils/aiStage.js, so no two bars can disagree about what a search or a written
@@ -463,7 +464,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
   const { ref: listRef, pull: ptrPull, refreshing: ptrRefreshing } = usePullToRefresh(doRefresh);
 
   function handlePublishClick(set) {
-    const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+    const setSongs = set.songIds.map(id => songById.get(id)).filter(Boolean);
     setPublishDialog({ set, songs: setSongs });
   }
 
@@ -1043,7 +1044,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
           </p>
         )}
         {filtered.map(set => {
-          const count = set.songIds.filter(id => songs.find(s => s.id === id)).length;
+          const count = set.songIds.filter(id => songById.has(id)).length;
           const isActive = set.id === activeSetId;
           const isSelected = selectedSets.has(set.id);
           return (
@@ -1479,7 +1480,7 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
           <GripVertical size={14} />
         </button>
       )}
-      <span className="text-xs text-gray-400 dark:text-gray-600 w-5 shrink-0">{idx + 1}.</span>
+      <span className="text-xs text-gray-400 dark:text-gray-600 min-w-5 shrink-0">{idx + 1}.</span>
       <span className={`flex-1 truncate ${isSelected ? 'text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-900 dark:text-white'}`}>{song.metadata?.title || 'Untitled'}</span>
       {effectiveKey(song) && <span className="text-base text-indigo-500 dark:text-indigo-400 font-mono shrink-0" title={effectiveKey(song) !== (song.metadata?.key || '').trim() ? `Played in ${effectiveKey(song)} (written ${song.metadata?.key})` : undefined}>{effectiveKey(song)}</span>}
       <span onClick={e => e.stopPropagation()}>
@@ -1501,6 +1502,11 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   const { theme, instrument, aiLevel, genres, favoriteArtists, personalizeFromLibrary } = usePrefs();
   const dark = theme === 'dark';
   const [overId, setOverId] = useState(null); // dnd-kit: id of the row currently dragged over
+  const [dragId, setDragId] = useState(null); // and the row being dragged, kept drawn in a long list
+  const listRef = useRef(null);
+  // By id, not songs.find per row: a set made from a songbook is thousands of
+  // songs in a library of thousands, and the find was millions of comparisons.
+  const songById = useMemo(() => new Map(songs.map(s => [s.id, s])), [songs]);
   // Setlist AI: suggested order + time estimate. Muted until a key is saved.
   const [aiReady, setAiReady] = useState(() => hasApiKey());
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
@@ -1583,7 +1589,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
   }
 
   const sortMode = set.sortMode || 'custom';
-  const setSongs = set.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+  const setSongs = set.songIds.map(id => songById.get(id)).filter(Boolean);
   const displaySongs = sortMode === 'alpha'
     ? [...setSongs].sort((a, b) => (a.metadata?.title || '').localeCompare(b.metadata?.title || ''))
     : setSongs;
@@ -1602,6 +1608,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 
   function handleDragEnd(event) {
     setOverId(null);
+    setDragId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const from = displaySongs.findIndex(s => s.id === active.id);
@@ -1774,19 +1781,26 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
         )}
       </div>
 
-      <div data-phone-scroll className="flex-1 overflow-y-auto">
+      <div ref={listRef} data-phone-scroll className="flex-1 overflow-y-auto">
         {displaySongs.length === 0 && (
           <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No songs yet — select songs in the Library and use "Add to Set".</p>
         )}
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={e => setDragId(e.active.id)}
           onDragOver={e => setOverId(e.over?.id ?? null)}
           onDragEnd={handleDragEnd}
-          onDragCancel={() => setOverId(null)}
+          onDragCancel={() => { setOverId(null); setDragId(null); }}
         >
           <SortableContext items={displaySongs.map(s => s.id)} strategy={verticalListSortingStrategy}>
-            {displaySongs.map((song, idx) => (
+            <LongList
+              count={displaySongs.length}
+              scrollRef={listRef}
+              keyOf={i => displaySongs[i].id}
+              estimate={() => 53}
+              keep={dragId ? displaySongs.findIndex(s => s.id === dragId) : -1}
+              renderRow={idx => { const song = displaySongs[idx]; return (
               <SortableSongRow
                 key={song.id}
                 song={song}
@@ -1800,7 +1814,8 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                 onEdit={() => onEdit?.(song, idx, displaySongs)}
                 onRemove={() => handleRemove(song.id)}
               />
-            ))}
+            ); }}
+            />
           </SortableContext>
         </DndContext>
       </div>
@@ -2413,11 +2428,14 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   const uniqueKeys = [...new Set(songs.map(effectiveKey).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-  const artists = sortBy === 'artist'
-    ? [...new Map(songs.filter(s => s.metadata?.artist).map(s => [s.metadata.artist, s])).keys()]
-        .sort((a, b) => a.localeCompare(b))
-        .map(name => ({ name, count: songs.filter(s => s.metadata?.artist === name).length }))
-    : null;
+  // Counted in one pass: a filter of the whole library per artist was a
+  // songbook's 2,000 artists times its 4,600 songs on every render.
+  const artists = useMemo(() => {
+    if (sortBy !== 'artist') return null;
+    const counts = new Map();
+    for (const s of songs) if (s.metadata?.artist) counts.set(s.metadata.artist, (counts.get(s.metadata.artist) || 0) + 1);
+    return [...counts.keys()].sort((a, b) => a.localeCompare(b)).map(name => ({ name, count: counts.get(name) }));
+  }, [songs, sortBy]);
 
   async function handleDuplicate(song) {
     const newId = await saveSong({
@@ -2927,7 +2945,12 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                     : 'No songs match your search.'}
                 </p>
               )}
-              {sorted.map((song, idx) => (
+              <LongList
+                count={sorted.length}
+                scrollRef={songListRef}
+                keyOf={i => sorted[i].id}
+                estimate={i => (sorted[i].metadata?.artist ? 69 : 61)}
+                renderRow={idx => { const song = sorted[idx]; return (
                 <SongRow
                   key={song.id}
                   song={song}
@@ -2953,7 +2976,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
                   highlighted={!selected.has(song.id) && song.id === highlightedSongId}
                   hasAnnotation={annotatedSongIds.has(song.id)}
                 />
-              ))}
+              ); }}
+              />
             </div>
           )}
         </div>
