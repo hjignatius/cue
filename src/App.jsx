@@ -62,65 +62,145 @@ export default function App() {
     return new Promise(resolve => setConflictDialog({ title, resolve }));
   }
 
-  // A PDF imported into the Library may be a whole songbook. Read its text,
-  // split it (songbook.js), and if it really is several bracket charts, ask
-  // which to import. Resolves 'done' when songs were created, 'page' to import
-  // the PDF as one page song exactly as before, 'cancel' to skip the file.
+  // A PDF imported into the Library may be a whole songbook. Read its text and
+  // write the BOOK REPORT (bookReport.js): what it is, how the songs were found,
+  // what was tidied, and whether it can be split at all. Resolves to 'done'
+  // when songs were created ({ show } says where to take you, if you asked),
+  // 'page' to import the PDF as one page song exactly as before, 'cancel' to
+  // skip the file.
   //
-  // A PDF that is not a songbook never sees the dialog: one song, no text layer
-  // (a scan), or charts that are not in brackets all go straight to 'page'.
-  // The dialog opens early only for a book long enough to need a progress bar.
-  async function askSongbook(file) {
+  // A short PDF that is one chart — or a few pages Cue can't split — never sees
+  // the dialog and goes straight in as a page song, as it always has. A book
+  // does see it, even one that can't be split: being told why beats a silent
+  // one-PDF import of 200 pages. `read` is the book's pages when a batch import
+  // has already read them.
+  async function askSongbook(file, read = null) {
     const abort = new AbortController();
-    let songs = [];
+    let report;
     try {
-      const [{ extractSongbookPages }, { splitSongbook }, { detectChordStyle }] = await Promise.all([
-        import('./utils/pdfjs.js'), import('./utils/songbook.js'), import('./utils/chordStyle.js'),
+      const [{ extractSongbookPages }, { bookReport, REPORT_PAGES_MIN }] = await Promise.all([
+        import('./utils/pdfjs.js'), import('./utils/bookReport.js'),
       ]);
       // Progress at most a few times a second. Every update re-renders the
       // whole app, and once a page for Jim's 5,155 kept it too busy to answer.
       let shown = 0;
-      const { pages, marks } = await extractSongbookPages(file, {
+      const { pages, marks } = read || await extractSongbookPages(file, {
         signal: abort.signal,
         onPage: (done, total) => {
           if (total <= 12 || (done < total && performance.now() - shown < 150)) return;
           shown = performance.now();
-          setSongbook({ fileName: file.name, reading: { done, total }, songs: null, abort: () => abort.abort() });
+          setSongbook({ fileName: file.name, reading: { done, total }, abort: () => abort.abort() });
         },
       });
-      songs = splitSongbook(pages, marks);
-      if (songs.length < 2 || detectChordStyle(songs.map(s => s.text).join('\n\n')) !== 'brackets') songs = [];
+      report = bookReport(pages, marks);
+      const book = report.pages >= REPORT_PAGES_MIN || (report.verdict !== 'cant' && report.songs.length >= 2);
+      if (!book) { setSongbook(null); return 'page'; }
     } catch (e) {
       setSongbook(null);
       return e?.code === 'aborted' ? 'cancel' : 'page';
     }
-    if (!songs.length) { setSongbook(null); return 'page'; }
 
     const have = new Set((await loadSongs()).map(s => normalizeTitle(s.metadata?.title)));
-    const marked = songs.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
-    const choice = await new Promise(resolve => setSongbook({ fileName: file.name, songs: marked, resolve }));
+    const marked = report.songs.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
+    const shown = { ...report, songs: marked };
+    const choice = await new Promise(resolve => setSongbook({ fileName: file.name, report: shown, songs: marked, resolve, book: true }));
     setSongbook(null);
     if (choice === 'page' || choice === 'cancel') return choice;
 
-    // Saving thousands of songs takes a while, so the dialog stays up to say
-    // how far it has got instead of the app looking stuck.
+    return saveImported(file.name, marked, choice, (s, title) => {
+      const metadata = { title };
+      if (s.artist) metadata.artist = s.artist;
+      if (s.key) metadata.key = s.key;
+      if (s.youtubeUrl) metadata.youtubeUrl = s.youtubeUrl;
+      return saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage } });
+    });
+  }
+
+  // Save what the review list picked, saying how far it has got for a big book,
+  // then say what happened — in the dialog, with a way to go and see them.
+  async function saveImported(fileName, listed, choice, saveOne, batch = false) {
     const ids = [];
     let shown = 0;
     for (const i of choice.picked) {
       if (choice.picked.length > 50 && performance.now() - shown > 150) {
         shown = performance.now();
-        setSongbook({ fileName: file.name, reading: { done: ids.length, total: choice.picked.length, saving: true }, songs: null });
+        setSongbook({ fileName, batch, reading: { done: ids.length, total: choice.picked.length, saving: true } });
       }
-      const s = marked[i];
-      const metadata = { title: s.title };
-      if (s.artist) metadata.artist = s.artist;
-      if (s.youtubeUrl) metadata.youtubeUrl = s.youtubeUrl;
-      ids.push(await saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets' }));
+      ids.push(await saveOne(listed[i], choice.titles?.[i] || listed[i].title));
+    }
+    const setId = choice.setName && ids.length ? (await saveSet({ id: null, name: choice.setName, songIds: ids })).id : null;
+    const next = await new Promise(resolve => setSongbook({
+      fileName,
+      batch,
+      outcome: { added: ids.length, setName: setId ? choice.setName : null, leftOut: listed.length - ids.length },
+      resolve,
+    }));
+    setSongbook(null);
+    return { done: true, show: next === 'show' ? { setId } : null };
+  }
+
+  // Several PDFs picked at once. Each one that is a single song — a club's
+  // sheets, kept one file a song — goes into ONE report and one list, read off
+  // its first page; each one that is a book gets its own report after.
+  async function importPdfBatch(files) {
+    const abort = new AbortController();
+    const label = `${files.length} PDFs`;
+    const sheets = [], books = [];
+    try {
+      const [{ extractSongbookPages }, { sheetInfo }] = await Promise.all([import('./utils/pdfjs.js'), import('./utils/bookReport.js')]);
+      for (const [i, file] of files.entries()) {
+        setSongbook({ fileName: label, batch: true, reading: { done: i, total: files.length }, abort: () => abort.abort() });
+        const read = await extractSongbookPages(file, { signal: abort.signal });
+        const info = sheetInfo(read.pages, read.marks, file.name);
+        if (info) sheets.push({ ...info, file }); else books.push({ file, read });
+      }
+    } catch (e) {
+      setSongbook(null);
+      if (e?.code === 'aborted') return null;
+      throw e;
     }
     setSongbook(null);
-    if (choice.setName && ids.length) await saveSet({ id: null, name: choice.setName, songIds: ids });
-    alert(`Imported ${ids.length} song${ids.length === 1 ? '' : 's'}${choice.setName ? ` into the set “${choice.setName}”` : ''}.`);
-    return 'done';
+
+    let show = null;
+    if (sheets.length === 1) await savePdfSong(sheets[0].file);
+    else if (sheets.length > 1) {
+      const { sheetsReport } = await import('./utils/bookReport.js');
+      const have = new Set((await loadSongs()).map(s => normalizeTitle(s.metadata?.title)));
+      const marked = sheets.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
+      const report = { ...sheetsReport(marked), songs: marked };
+      const choice = await new Promise(resolve => setSongbook({ fileName: label, batch: true, report, songs: marked, resolve }));
+      setSongbook(null);
+      if (choice !== 'cancel') {
+        const r = await saveImported(label, marked, choice, (s, title) => {
+          const metadata = { title };
+          if (s.artist) metadata.artist = s.artist;
+          if (s.key) metadata.key = s.key;
+          return savePdfSong(s.file, metadata);
+        }, true);
+        show = r.show;
+      }
+    }
+    for (const { file, read } of books) {
+      const r = await askSongbook(file, read);
+      if (r === 'page') await savePdfSong(file);
+      else if (r?.show) show = r.show;
+    }
+    return { show };
+  }
+
+  // A PDF as one page song, as Cue has always imported a PDF: the bytes stored
+  // locally, titled with the file name unless the caller read a better one.
+  async function savePdfSong(file, metadata = { title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }) {
+    const id = await saveSong({
+      id: null,
+      metadata,
+      text: '',
+      type: 'pdf',
+      pedalActive: true,
+      pdf: { filename: file.name, importedAt: new Date().toISOString() },
+    });
+    await savePdfBlob(id, file);
+    return id;
   }
 
   function askBackupMode() {
@@ -181,22 +261,21 @@ export default function App() {
         }
       };
 
+      // Where to take you afterwards, when a songbook's "Show them" was pressed.
+      let showAfter = null;
+      const isPdf = (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+      const pdfFiles = files.filter(isPdf);
+      if (pdfFiles.length > 1) showAfter = (await importPdfBatch(pdfFiles))?.show || null;
+
       for (const file of files) {
         // PDF lead sheet → a 'pdf' song with the raw bytes stored locally (Stage
         // 1a: local-only, nothing uploads it). Branch BEFORE reading as text.
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        if (isPdf(file)) {
+          if (pdfFiles.length > 1) continue;      // the batch above took them
           const book = await askSongbook(file);
+          if (book?.show) showAfter = book.show;
           if (book !== 'page') continue;
-          const title = file.name.replace(/\.pdf$/i, '') || 'Lead Sheet';
-          const id = await saveSong({
-            id: null,
-            metadata: { title },
-            text: '',
-            type: 'pdf',
-            pedalActive: true,
-            pdf: { filename: file.name, importedAt: new Date().toISOString() },
-          });
-          await savePdfBlob(id, file);
+          await savePdfSong(file);
           continue;
         }
 
@@ -456,6 +535,9 @@ export default function App() {
       }
 
       await refresh();
+
+      // "Show them": the Library opens the new set, or lists newest first.
+      if (showAfter) window.dispatchEvent(new CustomEvent('cue:show-imported', { detail: showAfter }));
 
       if (files.length === 1 && lastImportedSong) {
         setActiveSong(lastImportedSong);
@@ -717,13 +799,19 @@ export default function App() {
       {/* Import conflict dialog */}
       {songbook && (
         <SongbookDialog
+          key={`${songbook.fileName}:${songbook.outcome ? 'done' : songbook.report ? 'report' : 'reading'}`}
           dark={dark}
+          batch={!!songbook.batch}
           fileName={songbook.fileName}
           reading={songbook.reading}
+          report={songbook.report}
           songs={songbook.songs}
-          onImport={(picked, setName) => songbook.resolve({ picked, setName })}
-          onKeepAsPage={() => songbook.resolve('page')}
+          outcome={songbook.outcome}
+          onImport={(picked, setName, titles) => songbook.resolve({ picked, setName, titles })}
+          onKeepAsPage={songbook.book ? () => songbook.resolve('page') : null}
           onCancel={songbook.resolve ? () => songbook.resolve('cancel') : songbook.abort}
+          onShow={() => songbook.resolve('show')}
+          onDone={() => songbook.resolve('done')}
         />
       )}
       {conflictDialog && (

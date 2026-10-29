@@ -2355,6 +2355,20 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     try { scrollMemo.current = JSON.parse(sessionStorage.getItem('cue:lib_scroll')) || {}; } catch { scrollMemo.current = {}; }
   }
   const scrollRestored = useRef(false);
+  // "Show them", after a songbook import: open the set it made, or — when it
+  // made none — the whole library newest first, unfiltered, from the top, which
+  // is where the new songs are.
+  useEffect(() => {
+    const show = (e) => {
+      const setId = e.detail?.setId;
+      if (setId) { setActiveSetId(setId); setPhonePanel('setlist'); return; }
+      setSearch(''); setArtistFilter(null); setKeyFilter(null); setSortBy('newest');
+      setPhonePanel('library');
+      if (songListRef.current) songListRef.current.scrollTop = 0;
+    };
+    window.addEventListener('cue:show-imported', show);
+    return () => window.removeEventListener('cue:show-imported', show);
+  }, []);
   const saveScroll = () => {
     const m = scrollMemo.current;
     if (songListRef.current) m.songs = songListRef.current.scrollTop;

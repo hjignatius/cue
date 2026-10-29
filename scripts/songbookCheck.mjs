@@ -6,7 +6,8 @@
 // ways a book can be laid out.
 //
 // Run: node scripts/songbookCheck.mjs
-import { splitSongbook } from '../src/utils/songbook.js';
+import { splitSongbook, roundBracketChords } from '../src/utils/songbook.js';
+import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines } from '../src/utils/bookReport.js';
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -162,6 +163,67 @@ check('chapter bookmarks alone fall back to title type', chapters.map(s => s.tit
   ['All I Want for Christmas', 'Auld Lang Syne', 'Chipmunk Song', 'Mele Kalikimaka']);
 check('a bookmark to a page the book no longer has is ignored',
   splitSongbook(book, [{ title: 'Gone', page: 99, top: null }]).length, 4);
+
+
+// ---- 8. the book report: tidying titles ---------------------------------------
+// Measured on 36 songbooks found online (2026-10-29).
+const t = (title, artist = '') => { const r = tidySong({ title, artist }); return [r.title, r.artist, r.key]; };
+check('version number dropped', t('Ripple - v7d'), ['Ripple', '', '']);
+check('…with "web" after it', t('Blue Hawaii - v5a  web'), ['Blue Hawaii', '', '']);
+check('…but a title ending in a digit keeps it', t('9 to 5'), ['9 to 5', '', '']);
+check('"(Key of C)" moves to the key', t('Aloha Week Hula (Key of C)- v4b'), ['Aloha Week Hula', '', 'C']);
+check('Moselele: difficulty dropped, the artist after it kept', t('Shake It Off Difficulty = a Taylor Swift'), ['Shake It Off', 'Taylor Swift', '']);
+check('"Song – Artist" splits', t('Video Killed the Radio Star – The Buggles*'), ['Video Killed the Radio Star', 'The Buggles', '']);
+check('…and "Song—Artist"', t('Merry Xmas Everybody—Slade'), ['Merry Xmas Everybody', 'Slade', '']);
+check('…but a hyphenated title stays whole', t('Brown-Eyed Girl'), ['Brown-Eyed Girl', '', '']);
+check('…and an arrangement note is not an artist', t('Proud Mary - shorter'), ['Proud Mary - shorter', '', '']);
+check('…and a song with an artist already keeps its title', t('Ob-La-Di – Ob-La-Da', 'The Beatles'), ['Ob-La-Di – Ob-La-Da', 'The Beatles', '']);
+check('a year after the writer goes, a bracket stays closed',
+  [t('X', 'Jack Pitman (~ 1950)')[1], t('X', 'Reg Presley (the Troggs 1967)')[1], t('X', 'Meredith Wilson ,')[1]],
+  ['Jack Pitman', 'Reg Presley (the Troggs 1967)', 'Meredith Wilson']);
+check('a list of chord names is not an artist', t('X', 'Am F C G E7')[1], '');
+check('a contents page is no song', tidySong({ title: 'Ukulele Songbook Table of Contents' }).noChords, true);
+
+// ---- 9. round brackets --------------------------------------------------------
+const roundPage = () => page([['(Am) She leads a (G) lonely life'], ['Oh (x4) whey (Bb C7)'], ['(C) (Dm7) (G7/B)'], ['and (F#m) more (Bbmaj7) words'], ['the (A) end (Dsus4) here']]);
+const rb = roundBracketChords([roundPage(), roundPage(), roundPage(), roundPage()]);
+check('a book of (G) chords becomes [G]', [rb.converted, rb.pages[0].lines.map(l => l.text)], [true,
+  ['[Am] She leads a [G] lonely life', 'Oh (x4) whey (Bb C7)', '[C] [Dm7] [G7/B]', 'and [F#m] more [Bbmaj7] words', 'the [A] end [Dsus4] here']]);
+check('…but a few brackets in a book are left alone', roundBracketChords([roundPage()]).converted, false);
+check('…and a square-bracket book is left alone', roundBracketChords([...book, roundPage()]).converted, false);
+
+// ---- 10. verdicts -------------------------------------------------------------
+check('a good book looks right', [bookReport(book).verdict, bookReport(book).kind, bookReport(book).how], ['ok', 'square', 'titles']);
+const pictures = Array.from({ length: 15 }, () => page([['12']]));
+check('pages of pictures can’t be split', [bookReport(pictures).verdict, bookReport(pictures).kind], ['cant', 'pictures']);
+const overPage = (title) => page([T(title), ['C        G       Am'], ['Some lyric words here'], ['F        C'], ['More of the words now']]);
+const over = bookReport([overPage('One'), overPage('Two'), overPage('Three'), overPage('Four')]);
+check('chords above the lyrics can’t be split yet', [over.verdict, over.kind], ['cant', 'over']);
+check('…and a book that can’t be split says no more than its reason', reportLines(over), []);
+const verses = () => Array.from({ length: 4 }, () => page([[VERSE[0]], [VERSE[1]]]));
+const runTogether = bookReport([book[0], ...verses(), book[1], ...verses()]);
+check('songs many pages long: check the list', [runTogether.verdict, /run together/.test(runTogether.reasons.join(' '))], ['check', true]);
+check('the report says it in order', reportLines(bookReport(book), 2), [
+  'Charts with chords in [square brackets].',
+  'Cue found 4 songs by the large title at the top of each.',
+  'They come in as charts you can edit and transpose.',
+  '2 are already in your library and left unticked.',
+]);
+
+// ---- 11. a sheet from a batch of separate PDFs --------------------------------
+// Farmers Market: a 24pt title, the writer under it, chord diagrams drawn in a
+// symbol font at 80pt, then the chart with chords above the lyrics.
+const sheet = [page([['Ain’t She Sweet?', 24], ['by Milton Ager and Jack Yellen (1927)', 10], ['CLH a KN%df', 80],
+  ['Intro: C . E7 . | A7 . A7+5 |', 14], ['C . C#dim7 . | Dm . G7', 14], ['Ain’t she sweet? See her com-in’ down the street', 14]])];
+const info = sheetInfo(sheet, [], "Ain't She Sweet - v2d.pdf");
+check('a sheet’s title and writer come off the page', [info.title, info.artist, info.fromPage], ['Ain’t She Sweet?', 'Milton Ager and Jack Yellen', true]);
+const noted = sheetInfo(sheet, [], "z Ain't She Sweet - shorter - (key of C) - v5.pdf");
+check('…the file name adds its note and key, not its sort prefix or version', [noted.title, noted.key], ['Ain’t She Sweet? (shorter)', 'C']);
+const untitled = sheetInfo([page([['ripple chart', 12], ['[G] words', 12]])], [], 'Ripple - v7d.pdf');
+check('…and with no title on the page, the file name is the title', [untitled.title, untitled.fromPage], ['Ripple', false]);
+check('a batch of sheets looks right when titles were read', sheetsReport([info, noted]).verdict, 'ok');
+check('…and says to check when many were not', sheetsReport([info, untitled]).verdict, 'check');
+check('a long PDF is a book, not a sheet', sheetInfo(Array.from({ length: 13 }, () => sheet[0]), [], 'x.pdf'), null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

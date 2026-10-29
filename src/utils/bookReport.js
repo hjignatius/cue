@@ -1,0 +1,325 @@
+// The book report: what Cue says about a songbook BEFORE anything is imported.
+//
+// Surveyed on 36 songbooks found online (2026-10-29). About half split cleanly;
+// the rest are charts with chords above the lyrics, pictures of pages, or books
+// whose titles look like everything else. Importing those anyway made junk —
+// one book came out as 271 "songs" titled with chord names. So the report says
+// plainly what the book is, how the songs were found, how they will come in,
+// what was tidied on the way, and one of three verdicts:
+//
+//   ok     Looks right      — import as listed
+//   check  Check the list   — something looks off, and the report says what
+//   cant   Can't split this book — no list at all, only "keep it as one PDF"
+//
+// All of it is measured from the split itself (songbook.js). No AI.
+//
+// Also here: tidying titles (version numbers, "Difficulty = a", "(Key of C)",
+// "Song – Artist"), and reading the title off a single PDF sheet, for a batch
+// of separate PDFs imported together.
+
+import { readSongbook, roundBracketChords, chordNamesOnly } from './songbook.js';
+
+// A page with less text than this is a picture of a page (or blank).
+const TEXT_PAGE_MIN = 40;
+// A book whose pages are mostly pictures cannot be split at all.
+const PICTURE_BOOK_SHARE = 0.8;
+// Under half the songs with chords Cue can read: the split has gone wrong, or
+// the book writes chords some other way.
+const CHORDED_MIN = 0.5;
+// Under this share, some songs without chords are worth a word in the report
+// (they start unticked either way).
+const CHORDED_GOOD = 0.85;
+// Found by title type and averaging more pages than this per song: songs have
+// probably run together because titles were not bigger than the lyrics.
+const PAGES_PER_SONG_MAX = 3.5;
+// More than this share of titles that are chord names, a page long, or one
+// character: titles were not found properly.
+const ODD_TITLES_MAX = 0.1;
+// More than this share, and the list is not worth checking: Brighton's
+// songbooks set titles no bigger than the lyrics, and 10 of the 11 "titles"
+// found were chords or lyric lines.
+const ODD_TITLES_CANT = 0.5;
+const oddTitle = (s) => looksLikeChord(s.title) || s.title.length > 70 || s.title.trim().length < 2;
+// A book this long gets a report even when nothing in it splits — it is plainly
+// a book, and saying why it can't be split beats a silent one-PDF import. A
+// short PDF that is one chart still goes straight in, as it always has.
+export const REPORT_PAGES_MIN = 13;
+
+// ---- Titles -----------------------------------------------------------------
+
+// "v4b", "- v2 web", "Version 3", "v1_6", "rev 2" — at the END of a title only.
+const VERSION_TAG = /\s*[-–—(]?\s*\b(?:v|ver\.?|version|rev\.?)\s*\d+(?:[._]\d+)*[a-z]?\b\)?(?:\s+web)?\s*$/i;
+// Moselele: "Shake It Off Difficulty = a" over "Taylor Swift", both in title
+// type, so they arrive as one title. What follows the rating is the artist.
+const DIFFICULTY = /\s*\bdifficulty\s*[=:]\s*(?:[a-z]{1,4}|\d+(?:\/\d+)?)\b\s*(.*)$/i;
+// A contents page found as if it were a song.
+const NOT_A_SONG = /(?:^|\s)(?:table of )?contents(?: page)?$|^(?:song )?index$|^song list$/i;
+// Moselele's Spookelele book sets every title over its artist in the same
+// type, "Bad Moon Rising" / "Creedence Clearwater Revival", so the two arrive as
+// one title. When most songs in a book do that it is the book's layout, not
+// titles that happened to wrap, and the second line is the artist.
+const TWO_LINE_LAYOUT = 0.6;
+// "(Key of C)", "( key of Dm)".
+const KEY_OF = /\s*\(\s*key\s+of\s+([A-G][#b♯♭]?m?)\s*\)/i;
+// "Song – Artist", "Song—Artist", "Song - Artist". A plain hyphen only with a
+// space either side, so "Brown-Eyed Girl" and "Ob-La-Di" are left whole.
+const TITLE_ARTIST = /^(.+?)\s*(?:\s[-–—]\s|—|–)\s*([^-–—]+)$/;
+// What follows a dash and is a note on the arrangement, not an artist.
+const NOT_AN_ARTIST = /^(?:shorter|longer|easier|easy|harder|tab|with tab|instr|instrumental|web|live|lyrics|chords|version|copy|draft)\b/i;
+// "(~ 1950)", "(1927)", " 1965" after a writer's name.
+// A whole bracket or a bare year only: "Reg Presley (the Troggs 1967)" keeps
+// its bracket closed.
+const TRAILING_YEAR = /\s*(?:\(\s*~?\s*\d{4}s?\s*\)|~?\s*\d{4}s?)\s*$/;
+const looksLikeChord = (t) => /^[A-G][#b♯♭]?\S{0,6}$/.test(t.trim());
+
+// Tidy one song's title, and fill the artist and key it gives away. Returns the
+// song with its new fields and `tidied`: which kinds of tidying happened, so
+// the report can say so ONCE rather than on every row.
+export function tidySong(song, { secondLineIsArtist = false } = {}) {
+  const tidied = new Set();
+  let title = String(song.title || '').replace(/\s*\*+\s*$/, '').trim();
+  let artist = chordNamesOnly(song.artist || '') ? '' : song.artist || '';
+  if (secondLineIsArtist && song.titleParts?.length === 2 && !artist && !DIFFICULTY.test(song.titleParts[0])) {
+    [title, artist] = song.titleParts;
+    tidied.add('artist');
+  }
+  let key = song.key || '';
+
+  const d = DIFFICULTY.exec(title);
+  if (d) {
+    title = title.slice(0, d.index);
+    if (!artist && d[1].trim()) artist = d[1].trim();
+    tidied.add('difficulty');
+  }
+
+  const k = KEY_OF.exec(title);
+  if (k) {
+    title = title.replace(KEY_OF, '').trim();
+    if (!key) key = k[1];
+    tidied.add('key');
+  }
+
+  for (let v = title.replace(VERSION_TAG, ''); v !== title && v.trim(); v = title.replace(VERSION_TAG, '')) {
+    title = v;
+    tidied.add('version');
+  }
+
+  if (!artist) {
+    const m = TITLE_ARTIST.exec(title);
+    if (m && m[1].trim().length > 1 && !NOT_AN_ARTIST.test(m[2].trim()) && m[2].trim().split(/\s+/).length <= 6) {
+      title = m[1];
+      artist = m[2];
+      tidied.add('artist');
+    }
+  }
+  if (artist) {
+    const a = artist.replace(/\s*\*+\s*$/, '').replace(TRAILING_YEAR, '').replace(/[\s,;:\-–—]+$/, '').trim();
+    artist = a || artist;
+  }
+
+  title = title.replace(/[\s\-–—:,]+$/, '').replace(/\s{2,}/g, ' ').trim() || song.title;
+  const noChords = song.noChords || NOT_A_SONG.test(title);
+  const out = { ...song, title, artist, key, noChords, tidied };
+  delete out.titleParts;
+  return out;
+}
+
+// ---- A whole book -------------------------------------------------------------
+
+/**
+ * pages, marks: as extractSongbookPages returns them.
+ * Returns { kind, how, verdict, reasons, tidied, songs, pages: n }.
+ *   kind     'square' | 'round' | 'over' | 'pictures' | 'none'
+ *   how      'bookmarks' | 'titles' | 'pages'
+ *   verdict  'ok' | 'check' | 'cant'
+ *   reasons  plain sentences: why it is 'check' or 'cant'
+ *   tidied   { version, difficulty, key, artist } — how many titles each
+ *   songs    split and tidied, each with `tidied` removed
+ */
+export function bookReport(pages = [], marks = []) {
+  const n = pages.length;
+  const textPages = pages.filter(p => p.lines.map(l => l.text).join('').trim().length >= TEXT_PAGE_MIN).length;
+  const round = roundBracketChords(pages);
+  const { songs: split, how } = readSongbook(round.pages, marks);
+
+  const tidied = { version: 0, difficulty: 0, key: 0, artist: 0 };
+  const chorded = split.filter(s => !s.noChords && !s.pictureOnly);
+  const secondLineIsArtist = chorded.filter(s => s.titleParts?.length === 2).length >= chorded.length * TWO_LINE_LAYOUT;
+  const songs = split.map(s => {
+    const t = tidySong(s, { secondLineIsArtist });
+    for (const kind of t.tidied) tidied[kind]++;
+    delete t.tidied;
+    return t;
+  });
+
+  // Chords written above the lyrics: whole lines of nothing but chord names.
+  let over = 0, square = 0;
+  for (const p of round.pages) for (const l of p.lines) {
+    if (/\[[^\]\s][^\]]*\]/.test(l.text)) square++;
+    else if (/^\s*(?:[A-G][#b♯♭]?(?:maj|min|m|dim|aug|sus|add)?\d{0,2}(?:\/[A-G][#b♯♭]?)?\s+){1,}[A-G][#b♯♭]?(?:maj|min|m|dim|aug|sus|add)?\d{0,2}(?:\/[A-G][#b♯♭]?)?\s*$/.test(l.text)) over++;
+  }
+
+  const kind = textPages < n * (1 - PICTURE_BOOK_SHARE) ? 'pictures'
+    : round.converted ? 'round'
+    : square >= over && square > 0 ? 'square'
+    : over > 0 ? 'over' : 'none';
+
+  const real = songs.filter(s => !s.noChords && !s.pictureOnly);
+  const reasons = [];
+  let verdict = 'ok';
+  const cant = (why) => { verdict = 'cant'; reasons.push(why); };
+
+  if (kind === 'pictures') cant('Its pages are pictures, not text, so there is nothing for Cue to read.');
+  else if (kind === 'over') cant('Its chords sit above the lyrics. Cue can’t turn that kind of book into charts yet.');
+  else if (kind === 'none') cant('Its chords aren’t written in a way Cue can read.');
+  else if (songs.length < 2) cant('Cue couldn’t find separate songs in it.');
+  else if (real.length < songs.length * CHORDED_MIN) cant(`Only ${real.length} of the ${songs.length} songs Cue found have chords it can read, so the split has gone wrong.`);
+  else if (real.filter(oddTitle).length > real.length * ODD_TITLES_CANT) cant('Most of the titles Cue found are chords or lyrics, so it can’t tell where the songs start.');
+
+  if (verdict !== 'cant') {
+    if (how === 'pages') reasons.push('Cue couldn’t find the song titles, so each page is a song.');
+    const odd = real.filter(oddTitle).length;
+    if (odd > real.length * ODD_TITLES_MAX) reasons.push(`${odd} titles look wrong — they may be chords or lyrics.`);
+    if (how === 'titles' && n / real.length > PAGES_PER_SONG_MAX) reasons.push(`The songs average ${Math.round(n / real.length)} pages each. Its titles are no bigger than the lyrics, so some songs have probably run together.`);
+    if (real.length < songs.length * CHORDED_GOOD) reasons.push(`${songs.length - real.length} have no chords and are left unticked.`);
+    if (reasons.length) verdict = 'check';
+  }
+
+  return { kind, how, verdict, reasons, tidied, songs, pages: n };
+}
+
+// ---- One PDF sheet, from a batch of separate PDFs ---------------------------
+
+// A club's sheets carry notes in their file names: "Fun  Fun  Fun - shorter -
+// v5.pdf", "Lovely Hula Hands - instr - low g tab - v2d.pdf", and sort
+// prefixes — "1 Aloha Week Hula", "z White Sandy Beach". The title is read
+// off the page where the page has one (it is the club's own spelling, with
+// its punctuation); the file name adds its notes and key.
+function fromFileName(fileName) {
+  let name = fileName.replace(/\.pdf$/i, '').replace(/_/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  let key = '';
+  const k = KEY_OF.exec(name);
+  if (k) { key = k[1]; name = name.replace(KEY_OF, ' '); }
+  for (let v = name.replace(VERSION_TAG, ''); v !== name && v.trim(); v = name.replace(VERSION_TAG, '')) name = v;
+  const parts = name.split(/\s+-\s*|\s*-\s+/).map(p => p.replace(/^\(|\)$/g, '').trim()).filter(p => p && !/^web$/i.test(p));
+  return { title: parts[0] || name.trim(), notes: parts.slice(1), key };
+}
+
+const sameTitle = (a, b) => {
+  const k = (t) => String(t).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const x = k(a), y = k(b);
+  return x.length >= 3 && y.length >= 3 && (x.includes(y) || y.includes(x));
+};
+
+// The title at the top of a sheet's first page, and the "by" line under it.
+//
+// Read directly rather than by splitting the page as a book: a club's sheet
+// draws its chord diagrams in a symbol font at 80pt, under the title, and the
+// splitter took that row for a second title — so the real one, with nothing
+// under it but its writer, came out empty and was dropped. The title is the
+// FIRST line in large type, which is above the diagrams on every sheet seen.
+const SHEET_TITLE_RATIO = 1.2;
+const SHEET_TOP_LINES = 3;
+const BY_LINE = /^\s*(?:(?:written|words|music|lyrics)(?:\s+(?:and|&)\s+\w+)*\s+)?by\s*:?\s*/i;
+function sheetTitle(lines = []) {
+  const counts = new Map();
+  for (const l of lines) { const h = Math.round(l.height); if (h > 0) counts.set(h, (counts.get(h) || 0) + 1); }
+  let body = 0, most = -1;
+  for (const [h, c] of counts) if (c > most) { body = h; most = c; }
+  const top = lines.slice(0, SHEET_TOP_LINES);
+  const i = top.findIndex(l => body > 0 && l.height >= body * SHEET_TITLE_RATIO && /\p{L}{3}/u.test(l.text) && !l.text.includes('['));
+  if (i < 0) return null;
+  const by = lines[i + 1] && BY_LINE.test(lines[i + 1].text) ? lines[i + 1].text.replace(BY_LINE, '').trim() : '';
+  return { title: lines[i].text.trim(), artist: by };
+}
+
+/**
+ * One PDF that is one song. Returns { title, artist, key, text, lastPage }, or
+ * null when it is not one song (a book: it gets a report of its own).
+ */
+export function sheetInfo(pages = [], marks = [], fileName = '') {
+  const file = fromFileName(fileName);
+  if (pages.length >= REPORT_PAGES_MIN) return null;
+  const { songs } = readSongbook(roundBracketChords(pages).pages, marks);
+  if (songs.filter(s => !s.noChords).length > 1) return null;
+  const head = sheetTitle(pages[0]?.lines);
+  const onPage = head ? tidySong(head) : null;
+  // The page's title wins when it is the same song as the file name says —
+  // "Ain’t She Sweet?" over "Ain't She Sweet". A sort prefix ("z White Sandy
+  // Beach") goes with it.
+  const title = onPage?.title && (sameTitle(onPage.title, file.title) || !file.title) ? onPage.title : file.title;
+  const notes = file.notes.filter(n => !sameTitle(n, title));
+  return {
+    title: notes.length ? `${title} (${notes.join(', ')})` : title,
+    fromPage: title === onPage?.title,
+    notes,
+    artist: onPage?.artist || '',
+    key: onPage?.key || file.key,
+    text: songs.map(s => s.text).join('\n\n'),
+    firstPage: 1,
+    lastPage: Math.max(1, pages.length),
+  };
+}
+
+// ---- What the report says ---------------------------------------------------
+
+export const VERDICT_WORDS = { ok: 'Looks right', check: 'Check the list', cant: 'Can’t split this book' };
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+// A batch of separate PDFs, one song each, as a report the same dialog can show.
+// `sheets` are sheetInfo results with `fromPage` (title read off the page) and
+// `notes` (notes kept from the file name).
+export function sheetsReport(sheets) {
+  const fromFile = sheets.filter(s => !s.fromPage).length;
+  const reasons = fromFile > sheets.length * ODD_TITLES_MAX
+    ? [`For ${plural(fromFile, 'PDF')}, Cue couldn’t read a title on the page and used the file name.`] : [];
+  return {
+    kind: 'sheets', how: 'sheets', verdict: reasons.length ? 'check' : 'ok', reasons,
+    tidied: { notes: sheets.filter(s => s.notes?.length).length },
+    songs: sheets, pages: sheets.length,
+  };
+}
+
+/**
+ * The report's sentences, in the order the design settled: what the book is,
+ * how the songs were found, how they come in, what was tidied — once, as a
+ * summary, never per row — and what is already in the library.
+ */
+export function reportLines(report, inLibrary = 0) {
+  const n = report.songs.length;
+  const lines = [];
+  lines.push({
+    square: 'Charts with chords in [square brackets].',
+    round: 'Charts with chords in (round brackets). They become [square brackets], the way Cue writes them.',
+    over: 'Charts with the chords written above the lyrics.',
+    none: 'Sheets whose chords aren’t written in brackets.',
+    pictures: 'Pictures of pages, not text.',
+    sheets: `${plural(n, 'PDF')}, one song each.`,
+  }[report.kind] || '');
+  // The reason already says what a book of pictures or of chords-above-lyrics
+  // is; the kind is only worth adding where the reason is about the split.
+  if (report.verdict === 'cant') return report.kind === 'square' || report.kind === 'round' ? lines : [];
+
+  lines.push({
+    bookmarks: `Cue found ${plural(n, 'song')} from the book’s bookmarks.`,
+    titles: `Cue found ${plural(n, 'song')} by the large title at the top of each.`,
+    pages: `Cue found ${plural(n, 'page')} and made each one a song.`,
+    sheets: 'Titles, writers and keys are read from the top of each first page.',
+  }[report.how]);
+  lines.push(report.kind === 'sheets'
+    ? 'They come in as PDF pages, exactly as printed.'
+    : 'They come in as charts you can edit and transpose.');
+
+  const t = report.tidied || {};
+  const did = [
+    t.version && `removed version numbers from ${plural(t.version, 'title')}`,
+    t.difficulty && `removed “Difficulty” from ${plural(t.difficulty, 'title')}`,
+    t.key && `moved the key out of ${plural(t.key, 'title')}`,
+    t.artist && `took the artist from ${plural(t.artist, 'title')}`,
+    t.notes && `kept the file name’s note, like “(shorter)”, on ${plural(t.notes, 'title')}`,
+  ].filter(Boolean);
+  if (did.length) lines.push(`Tidied: ${did.join('; ')}.`);
+  if (inLibrary) lines.push(`${inLibrary} ${inLibrary === 1 ? 'is' : 'are'} already in your library and left unticked.`);
+  return lines;
+}

@@ -37,6 +37,11 @@ import { textFromLines } from './pdfText.js';
 // 1.2 leaves room for a book that is less emphatic without catching the odd
 // line set a point larger for a heading.
 const TITLE_RATIO = 1.2;
+// …except a line shaped "Song – Artist", which is how a lot of books head a
+// song and which a lyric line almost never is. Ukulele Wednesdays sets it 14pt
+// over 12pt lyrics (1.17) and Moogly 16 over 14 (1.14): bigger, but not by 1.2.
+const TITLE_ARTIST_RATIO = 1.1;
+const TITLE_ARTIST_LINE = /\S\s*(?:\s[-–—]\s|—|–)\s*\S/;
 // A title that wraps runs to two lines, not more. Anything longer in title type
 // is a song set large, not a title.
 const TITLE_MAX_LINES = 2;
@@ -95,8 +100,15 @@ function uninvert(title) {
 // The line under a title is the writer unless it is plainly part of the chart:
 // a strum pattern, a time signature, a section label, a playing note.
 const NOT_A_WRITER = /\/\/|^\(|[¼½¾]|\b\d+\/\d+\b|^(?:intro|verse|chorus|bridge|outro|tag|strum|capo|key|tempo)\b/i;
+// Nor is a line of nothing but chord names: Moselele lists "CHORDS USED IN
+// THIS SONG" under each title, then "Am G C".
+const CHORD_NAME = /^[A-G][#b♯♭]?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+)?\d{0,2}(?:(?:sus|add|maj|b|#|-)\d{1,2})*(?:\/[A-G][#b♯♭]?)?\*?$/;
+export function chordNamesOnly(text) {
+  const words = String(text).trim().split(/[\s,]+/).filter(Boolean);
+  return words.length > 0 && words.every(w => CHORD_NAME.test(w));
+}
 function looksLikeWriter(text) {
-  return /[a-z]{2,}/i.test(text) && !NOT_A_WRITER.test(text);
+  return /[a-z]{2,}/i.test(text) && !NOT_A_WRITER.test(text) && !chordNamesOnly(text);
 }
 
 // A page number: "12", "- 12 -", "Page 12", "12 of 340". Digits, and only the
@@ -259,13 +271,22 @@ function contentLines(page, junk) {
  * kept so the list can say so, rather than the song quietly not being there.
  */
 export function splitSongbook(pages = [], marks = []) {
+  return readSongbook(pages, marks).songs;
+}
+
+// The same, saying how the songs were found — 'bookmarks', 'titles', or
+// 'pages' when there was no title type to go on and each page is a song —
+// which the book report (bookReport.js) needs to say how far to trust it.
+export function readSongbook(pages = [], marks = []) {
   const placed = placeMarks(pages, marks);
   const withText = pages.filter(p => p.lines.length).length;
-  const songs = placed.length >= 2 && placed.length >= withText * MARKS_PER_PAGE
-    ? byBookmarks(pages, placed)
-    : byTitleType(pages);
-  return songs.map(s => ({
+  const how = placed.length >= 2 && placed.length >= withText * MARKS_PER_PAGE ? 'bookmarks' : 'titles';
+  const found = how === 'bookmarks' ? byBookmarks(pages, placed) : byTitleType(pages);
+  const songs = found.map(s => ({
     title: s.title || (s.lines[0]?.text ?? '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim() || `Page ${s.firstPage}`,
+    // The title-type lines one by one, when a title ran to two: a wrapped
+    // title, or — in a book that does it for every song — title over artist.
+    titleParts: s.titleParts?.length > 1 ? s.titleParts : undefined,
     artist: s.artist,
     youtubeUrl: s.youtubeUrl,
     text: textFromLines(s.lines),
@@ -274,6 +295,7 @@ export function splitSongbook(pages = [], marks = []) {
     noChords: !s.lines.some(l => CHORD.test(l.text)),
     pictureOnly: Boolean(s.marked) && !s.lines.length,
   })).filter(s => s.text.trim() || s.pictureOnly);
+  return { songs, how: how === 'titles' && found.onePerPage ? 'pages' : how };
 }
 
 function newSong(title, pageNo) {
@@ -351,18 +373,21 @@ function byTitleType(pages) {
     // Measured on this page, not across the book: a book gathered from many
     // sources sets each song in its own size.
     const body = bodyHeight(page.lines);
-    const isTitle = (l) => body > 0 && l.height >= body * TITLE_RATIO && !l.text.includes('[');
+    const isTitle = (l) => body > 0 && !l.text.includes('[')
+      && (l.height >= body * TITLE_RATIO || (l.height >= body * TITLE_ARTIST_RATIO && TITLE_ARTIST_LINE.test(l.text)));
     for (const line of contentLines(page, junk)) {
       if (isTitle(line)) {
         // Two title-type lines in a row are one title that wrapped.
         if (cur && cur.lastPage === pageNo && cur.afterTitle === 0 && !cur.lines.length && cur.titleLines < TITLE_MAX_LINES) {
           cur.title = `${cur.title} ${line.text}`.trim();
           cur.titleLines++;
+          cur.titleParts.push(line.text.trim());
           continue;
         }
         cur = newSong(line.text, pageNo);
         cur.titleSeen = true;
         cur.titleLines = 1;
+        cur.titleParts = [line.text.trim()];
         songs.push(cur);
         continue;
       }
@@ -382,6 +407,35 @@ function byTitleType(pages) {
       for (const line of contentLines(page, junk)) push(s, line, i + 1);
       songs.push(s);
     });
+    songs.onePerPage = true;
   }
   return songs;
+}
+
+// ROUND BRACKETS. A common way to write a chart without ChordPro: "(Am) She
+// leads a (G) lonely life" — Ukulele Wednesdays, Moogly, the Christmas Ukulele
+// Song Book. Each "(Am)" is exactly a "[Am]", so turning one into the other
+// keeps the chart as the book wrote it and lets the rest of the splitter read it.
+//
+// Only for a book that writes its charts that way. Lyrics have brackets of
+// their own — "(x4)", "(oh whey oh)", "(Bb C7)" over a chord line — so a book
+// qualifies only when lines with lyrics AND a bracketed chord name are common,
+// and outnumber the square-bracket ones. Inside it, only a bracket holding one
+// chord name and nothing else changes.
+const PAREN_CHORD = /\(([A-G][#b♯♭]?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+)?\d{0,2}(?:(?:sus|add|maj|b|#|-)\d{1,2})*(?:\/[A-G][#b♯♭]?)?)\)/g;
+const PAREN_BOOK_MIN = 10;
+
+export function roundBracketChords(pages = []) {
+  let inline = 0, square = 0;
+  for (const p of pages) for (const l of p.lines) {
+    if (CHORD.test(l.text)) { square++; continue; }
+    PAREN_CHORD.lastIndex = 0;
+    if (PAREN_CHORD.test(l.text) && /[a-z]{3}/i.test(l.text.replace(PAREN_CHORD, ''))) inline++;
+  }
+  if (inline < PAREN_BOOK_MIN || inline <= square) return { pages, converted: false };
+  const swap = (t) => t.replace(PAREN_CHORD, '[$1]');
+  return {
+    pages: pages.map(p => ({ ...p, lines: p.lines.map(l => (l.text.includes('(') ? { ...l, text: swap(l.text) } : l)) })),
+    converted: true,
+  };
 }

@@ -170,7 +170,7 @@ const KNOWN_SONG_FIELDS = new Set([
   'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed', 'condensed',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -192,6 +192,11 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
     createdAt: existing?.createdAt ?? givenCreatedAt ?? now,
     updatedAt: givenUpdatedAt ?? now,
   };
+  // Where an imported song came from: { book, page }. Given only when a
+  // songbook import creates the song, and deliberately NOT a known field, so
+  // every later save (the editor's included, which never passes it) carries it
+  // forward through `preserved` above instead of dropping it.
+  if (source       !== undefined) entry.source       = source;
   if (chordStyle   !== undefined) entry.chordStyle   = chordStyle;
   if (previewMode  !== undefined) entry.previewMode  = previewMode;
   if (diagramScale !== undefined) entry.diagramScale = diagramScale;
