@@ -49,9 +49,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// The ONLY path to activating a waiting update: the page posts this on user tap.
+// SKIP_WAITING is the only path to activating a real update: the page posts it
+// on user tap — or silently, when GET_VERSION shows the "update" is this same
+// release (Safari reports a fresh worker on update checks when nothing changed).
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'GET_VERSION') event.ports[0]?.postMessage(CACHE);
 });
 
 self.addEventListener('fetch', (event) => {
