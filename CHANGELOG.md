@@ -3,6 +3,36 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v1.9.28 — 2026-10-29
+
+### Updates
+
+- **"Update Cue" only appears for a real update.** On a Mac, Safari kept
+  showing the button again after you'd updated, with nothing new to install.
+  Cue now checks that the waiting copy really is a newer release before
+  asking.
+
+### Library
+
+- **An artist's songs are listed A–Z.** Sorted by artist or key, the songs
+  within one artist used to come out in no particular order.
+- **Edit brings you back where you were.** Coming back from the editor
+  returns the song list (and the artist list) to the same scroll position,
+  including the "No artist" group.
+
+### Present
+
+- **The strip beside the lyrics scrolls the sheet.** On a wide screen, the
+  space between the lyrics and the chord panel now scrolls too. Pedal paging
+  still locks it, as before.
+
+### Editor
+
+- **Blank tab** in the &Omega; menu drops an empty tab at the cursor, one line
+  per string of your instrument, with the cursor on the top string.
+- **Clean up never drops a chord.** A tidy-up reply whose chords differ from
+  the chart's is refused and names the chord that went missing.
+
 ## v1.9.27 — 2026-10-25
 
 ### Sharing
