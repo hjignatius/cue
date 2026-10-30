@@ -26,9 +26,18 @@ const ROW_TOLERANCE = 2;
 // side.
 const BLANK_GAP_RATIO = 1.5;
 
-// Items in: pdf.js text items ({ str, transform, width, height }). Lines out, in
-// reading order, each with the geometry a later pass needs to judge it:
-//   { text, x, y, height, gapBefore }
+// Two columns side by side come out as one line wherever their rows line up.
+// Where a gap this many times the smaller text's height opens up between two runs, the
+// line also keeps its pieces, so the book reader can take a title from the left
+// column without the right column's lyric on the end of it.
+const COLUMN_GAP = 2;
+
+// Items in: pdf.js text items ({ str, transform, width, height, fontName }).
+// Lines out, in reading order, each with the geometry a later pass needs to
+// judge it:
+//   { text, x, y, height, gapBefore, font, pieces? }
+// `font` is the font of the line's first run. `pieces` is there only when the
+// line spans a column gap: [{ text, x, height, font }], left to right.
 export function linesFromItems(items = []) {
   const rows = [];
   for (const it of items) {
@@ -51,10 +60,20 @@ export function linesFromItems(items = []) {
     // at the same place is one piece of text, not three.
     const seen = [];
     let text = '';
+    const pieces = [];
     for (const it of row.items) {
       if (seen.some(s => s.str === it.str && Math.abs(s.x - it.x) < 1)) continue;
+      const prev = seen.at(-1);
+      const gap = prev && typeof prev.width === 'number' ? it.x - (prev.x + prev.width) : 0;
       seen.push(it);
       text += it.str;
+      if (!pieces.length || gap > COLUMN_GAP * Math.max(Math.min(prev.height || 0, it.height || 0), 1)) {
+        pieces.push({ text: it.str, x: it.x, height: it.height || 0, font: it.fontName });
+      } else {
+        const last = pieces.at(-1);
+        last.text += it.str;
+        last.height = Math.max(last.height, it.height || 0);
+      }
     }
     // Trimmed at both ends. A run of spaces at the start of a row is the PDF
     // positioning the text, not indentation someone typed — and Cue's bracket
@@ -68,6 +87,9 @@ export function linesFromItems(items = []) {
       y: row.y,
       height: Math.max(...row.items.map(i => i.height || 0)),
       gapBefore: prevY === null ? 0 : Math.round((prevY - row.y) * 10) / 10,
+      font: pieces[0].font,
+      ...(pieces.filter(pc => pc.text.trim()).length > 1
+        ? { pieces: pieces.filter(pc => pc.text.trim()).map(pc => ({ ...pc, text: pc.text.trim() })) } : {}),
     });
     prevY = row.y;
   }

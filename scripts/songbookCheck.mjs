@@ -9,6 +9,7 @@
 import { splitSongbook, roundBracketChords } from '../src/utils/songbook.js';
 import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
+import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
 
 let pass = 0, fail = 0;
@@ -368,6 +369,35 @@ check('…a page of chords over lyrics stays a PDF', charts[1], null);
 check('…round brackets become square, and a title in lyric size comes off too',
   charts[2].text.split('\n')[0], '[C] Sunday Monday [G] happy days');
 check('…and a song asked for as pages stays pages', pickedCharts(mixedBook, [{ ...picked[0], chart: false }]), [null]);
+
+// Stewart Greenhill's book: two columns, the title over the artist in a bold
+// font of their own, the chords drawn as shapes (so no chords in the text at
+// all). Built from pdf.js items, as the import reads it.
+const run = (str, x, y, width, height, fontName) => ({ str, transform: [1, 0, 0, 1, x, y], width, height, fontName });
+const lyric = (str, x, y) => run(str, x, y, 150, 12, 'f2');
+const sgPage = (title, artist) => ({ links: [], lines: linesFromItems([
+  run(title, 72, 799, 167, 15, 'f1'), lyric(`Nothing’s gonna change ${title}`, 311, 797),
+  run(artist, 113, 781, 85, 16, 'f1'), lyric(`Words are flowing out like ${title}`, 28, 739),
+  lyric(`Endless rain into ${title}`, 28, 719), lyric(`They slither wildly as ${title}`, 28, 700),
+]) });
+const merged = sgPage('Across The Universe', 'The Beatles').lines[0];
+check('two columns level with each other are one line, kept in pieces',
+  [merged.text, merged.pieces.map(pc => pc.text), merged.font],
+  ['Across The UniverseNothing’s gonna change Across The Universe', ['Across The Universe', 'Nothing’s gonna change Across The Universe'], 'f1']);
+check('…a line in one column has no pieces',
+  linesFromItems([run('Words are ', 28, 739, 60, 12, 'f2'), run('flowing', 89, 739, 40, 12, 'f2')])[0].pieces, undefined);
+const sgBook = [
+  ...[['Africa', 'Toto'], ['Act Yr Age', 'Bluejuice'], ['Atomic', 'Blondie'], ['Babooshka', 'Kate Bush'], ['Baker Street', 'Gerry Rafferty'],
+    ['Blue Bayou', 'Roy Orbison'], ['Big Yellow Taxi', 'Joni Mitchell'], ['Bad Habits', 'Billy Field'], ['Aquarius', 'Galt Macdermot'], ['Anything Goes', 'Cole Porter']]
+    .map(([t, a]) => sgPage(t, a)),
+  { links: [], lines: linesFromItems([lyric('Once upon a time I was falling in love', 28, 797), lyric('Nothing I can do', 28, 777)]) },
+  { links: [], lines: [] },
+];
+const sgStart = pickerStart(bookReport(sgBook), sgBook);
+check('a book of titles over artists: the first heading line is the title, the next the artist',
+  [sgStart.titles[1], sgStart.titles[2].title], [{ title: 'Africa', artist: 'Toto', key: '' }, 'Act Yr Age']);
+check('…a page with no title, or no text, is the song before it carried over',
+  sgStart.marks.slice(9), ['start', 'same', 'same']);
 
 // Cutting: the pages asked for, in that order, and nothing else.
 const src = await PDFDocument.create();

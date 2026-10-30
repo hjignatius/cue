@@ -442,10 +442,51 @@ const RUN_TOGETHER = /\p{Lu}{2,}\p{Ll}{2,}|\p{Ll}{2,}\p{Lu}{2,}/u;
 // the picker starts from one song a page instead.
 const PICKER_PAGES_PER_SONG = 2.5;
 
+// A book that sets every song's title over its artist in a font of their own
+// (Stewart Greenhill's: "Africa" over "Toto", both in bold, the lyrics in
+// Times) says so on nearly every page, and there the font is the surer sign:
+// the sizes shrink to fit the column, and the artist is often set a point
+// LARGER than the title. Nearly every: other books have a second font at the
+// top of many pages too — Moselele's artist, a chord line, "[intro]" — but on
+// no more than 60% of them, against Stewart Greenhill's 99%.
+const TITLE_OVER_ARTIST_SHARE = 0.9;
+const TITLE_OVER_ARTIST_MIN = 3;
+// Lines from both columns come down the page together, so the artist can be
+// the fifth line read.
+const FONT_HEAD_LINES = 6;
+// A page with no text at all in a book that is nearly all text is the song
+// before it running on — Stewart Greenhill's put chord diagrams that didn't fit
+// on a page of their own.
+const TEXT_BOOK_SHARE = 0.8;
+
+// The two lines at the top of a page set in one font that isn't the page's
+// own: [title, artist] in a book that does that. A lyric from the second
+// column can come first — it may sit a little higher than the title — so it
+// is the top few lines, not the first two, and the left column of each. Empty
+// when there aren't two such lines.
+function fontHead(lines = []) {
+  const counts = new Map();
+  for (const l of lines) if (l.font) counts.set(l.font, (counts.get(l.font) || 0) + 1);
+  if (counts.size < 2) return [];
+  const body = [...counts].reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+  const head = lines.slice(0, FONT_HEAD_LINES).map(l => (l.pieces ? l.pieces[0] : l))
+    .filter(x => x.font && x.font !== body && x.text.trim());
+  return head.length >= 2 && head[0].font === head[1].font ? [head[0].text.trim(), head[1].text.trim()] : [];
+}
+
 // The title on one page, read the way a reader would: the largest line with a
 // word in it near the top, and a "by" line under it or after it for the artist.
-// `lines` are the page's own (bookContent). Null when nothing looks like one.
-export function pageTitle(lines = []) {
+// In a book of titles over artists (`titleOverArtist`), the first line in the
+// heading font, and the one after it. `lines` are the page's own
+// (bookContent). Null when nothing looks like one.
+export function pageTitle(lines = [], { titleOverArtist = false } = {}) {
+  if (titleOverArtist) {
+    const [title, artist = ''] = fontHead(lines);
+    if (title && titleWorthy(title) && /\p{L}{3}/u.test(title) && !title.includes('[')) {
+      const t = tidySong({ title, artist: artist.replace(BY_LINE, '') });
+      return { title: t.title, artist: t.artist, key: t.key };
+    }
+  }
   const counts = new Map();
   for (const l of lines) { const h = Math.round(l.height); if (h > 0) counts.set(h, (counts.get(h) || 0) + 1); }
   let body = 0, most = -1;
@@ -527,6 +568,9 @@ export function pickerStart(report, pages = []) {
   const n = pages.length;
   const content = bookContent(pages);
   const titles = {};
+  const withText = content.filter(c => c.length).length;
+  const titleOverArtist = content.filter(c => fontHead(c).length === 2).length
+    >= Math.max(TITLE_OVER_ARTIST_MIN, withText * TITLE_OVER_ARTIST_SHARE);
   let marks;
   // A book's bookmarks say where its songs start even when its chords can't be
   // read — Farmers Market has one per song, chords above the lyrics.
@@ -548,9 +592,17 @@ export function pickerStart(report, pages = []) {
         titles[s.firstPage] = { title: s.title, artist, key: s.key || '' };
       }
     }
-  } else marks = Array(n).fill('start');
+  } else {
+    marks = Array(n).fill('start');
+    if (titleOverArtist && withText >= n * TEXT_BOOK_SHARE) for (let p = 2; p <= n; p++) if (!content[p - 1].length) marks[p - 1] = 'same';
+  }
   for (let p = 1; p <= n; p++) {
-    if (!titles[p]) titles[p] = pageTitle(content[p - 1]) || { title: `Page ${p}`, artist: '', key: '' };
+    if (titles[p]) continue;
+    const found = pageTitle(content[p - 1], { titleOverArtist });
+    // In a book that heads every song with its title and artist, a page with
+    // neither is the song before it carried over.
+    if (!found && titleOverArtist && !split && p > 1 && marks[p - 1] === 'start') marks[p - 1] = 'same';
+    titles[p] = found || { title: `Page ${p}`, artist: '', key: '' };
   }
   // A contents or index page, wherever the report or the page itself names it.
   if (!split) {
