@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { PDFDocument } from 'pdf-lib';
 
@@ -350,6 +350,24 @@ check('a short PDF with songs on several pages is a book', isBook(bookReport(sho
 check('…and the picker leaves its index out', pickerStart(bookReport(shortBook), shortBook).marks, ['skip', 'start', 'start', 'start']);
 check('…one song over two pages is not', isBook(bookReport([overPage('Ripple'), page([['G     C'], ['more of it']])])), false);
 check('…nor is one song with a picture page', isBook(bookReport([overPage('Ripple'), page([])])), false);
+
+// Which pages read as charts, and the charts made of the songs picked.
+const mixedBook = [
+  page([['Ukulele Lady', 16], ['by Richard Whiting'], ['[C] I saw the splendor of the [A7] moonlight'], ['CHORUS', 18], ['[F] Ukulele lady, [C] like a lady']]),
+  page([['[G] if you like a ukulele [C] lady'], ['[C] she\'ll be true to you']]),
+  overPage('Pearly Shells'),
+  page([['Happy Days', 12], ['(C) Sunday Monday (G) happy days'], ['(F) Tuesday Wednesday (C) happy days'], ['(G) Thursday Friday (C) happy days']]),
+];
+check('a page reads as a chart with chords in its lyrics, square or round', pageChances(mixedBook), [true, true, false, true]);
+const picked = songsFromMarks(['start', 'same', 'start', 'start'], { 1: { title: 'Ukulele Lady' }, 3: { title: 'Pearly Shells' }, 4: { title: 'Happy Days' } });
+const charts = pickedCharts(mixedBook, picked);
+check('a picked song is one chart over its pages, title and writer off the top, a big CHORUS kept',
+  [charts[0].artist, charts[0].text.split('\n')],
+  ['Richard Whiting', ['[C] I saw the splendor of the [A7] moonlight', 'CHORUS', '[F] Ukulele lady, [C] like a lady', '', '[G] if you like a ukulele [C] lady', '[C] she\'ll be true to you']]);
+check('…a page of chords over lyrics stays a PDF', charts[1], null);
+check('…round brackets become square, and a title in lyric size comes off too',
+  charts[2].text.split('\n')[0], '[C] Sunday Monday [G] happy days');
+check('…and a song asked for as pages stays pages', pickedCharts(mixedBook, [{ ...picked[0], chart: false }]), [null]);
 
 // Cutting: the pages asked for, in that order, and nothing else.
 const src = await PDFDocument.create();

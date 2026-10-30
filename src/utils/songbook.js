@@ -557,6 +557,57 @@ export function bookContent(pages = []) {
   return pages.map(p => contentLines(p, junk));
 }
 
+// One song picked out by hand in the page picker: its pages, in order, read as
+// one chart. `pages` are the book's own lines for just those pages (bookContent,
+// so the book's furniture is already gone) with their links.
+//
+// The pages are known to be one song, so nothing here may split it. The title
+// and header are found the usual way, and everything from the first line of
+// the chart on is kept, whatever else looks like a title further down — a
+// CHORUS set large is still part of the song. When something with chords
+// comes before what was taken for the title, the title was a guess too far
+// down the page, and every line is kept.
+//
+// A "by" line counts for more here than in a whole book: on one song's page,
+// Brighton's "Mr. Blue Sky / by Jeff Lynne" is the title whatever else on the
+// page is set larger ("CHORDS", over its diagrams). When no title is found the
+// picker's own — `title`, read off the page — is taken off the top if it's
+// printed there.
+//
+// Returns { artist, youtubeUrl, text }, or null when there is no chart in it.
+export function chartFromPages(pages = [], title = '') {
+  const all = pages.flatMap((p, i) => p.lines.map(line => ({ line, page: i })));
+  if (!all.some(x => CHORD.test(x.line.text))) return null;
+  let found = byTitleType(pages);
+  const byLines = byByLines(pages);
+  if (wellFound(byLines) >= wellFound(found) && byLines.length) found = byLines;
+  const at = found.onePerPage ? -1 : found.findIndex(s => s.lines.length);
+  const head = at >= 0 ? found[at] : null;
+  const first = head?.lines[0];
+  let from = first ? all.findIndex(x => x.page >= head.firstPage - 1 && x.line.text === first.text && x.line.y === first.y) : -1;
+  if (from < 0 || all.slice(0, from).some(x => CHORD.test(x.line.text))) from = 0;
+  let artist = from > 0 ? found.slice(0, at + 1).map(s => s.artist).find(Boolean) || '' : '';
+  let youtubeUrl = from > 0 ? head.youtubeUrl || '' : '';
+  if (!from && title) {
+    const n = all.slice(0, TITLE_MAX_LINES + 1).findIndex(x => titleKey(x.line.text) === titleKey(title));
+    if (n >= 0 && !all.slice(0, n).some(x => CHORD.test(x.line.text))) {
+      // …and the header under it, as under any title: the writer, a video.
+      const cur = newSong(title, 1);
+      cur.titleSeen = true;
+      const body = bodyHeight(pages[0].lines);
+      for (from = n + 1; from < all.length && cur.afterTitle < 3 && !all[from].page; from++) {
+        cur.afterTitle++;
+        if (!takeHeader(cur, all[from].line, pages[0], body)) break;
+      }
+      artist = cur.artist;
+      youtubeUrl = cur.youtubeUrl;
+    }
+  }
+  const lines = all.slice(from).map((x, i, kept) => (
+    !i ? { ...x.line, gapBefore: 0 } : x.page !== kept[i - 1].page ? { ...x.line, gapBefore: Infinity } : x.line));
+  return { artist, youtubeUrl, text: textFromLines(lines) };
+}
+
 // ROUND BRACKETS. A common way to write a chart without ChordPro: "(Am) She
 // leads a (G) lonely life" — Ukulele Wednesdays, Moogly, the Christmas Ukulele
 // Song Book. Each "(Am)" is exactly a "[Am]", so turning one into the other

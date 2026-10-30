@@ -14,8 +14,12 @@ import { songsFromMarks } from '../utils/bookReport.js';
 // Tapping a page moves it on to the next. Cue marks its own guesses first
 // (bookReport.js, pickerStart), so for most books this is fixing, not starting
 // from nothing. A title is read off each song's first page where there is one
-// to read, and can be fixed in place. Each song then comes in as its own PDF,
-// exactly as printed (pdfCut.js).
+// to read, and can be fixed in place.
+//
+// Each page also says whether Cue can read it as a chart (pageChances): a
+// green "Chart", or a grey "PDF". A song whose every page reads comes in as a
+// chart, unless you'd rather have the pages; the rest come in as their own
+// PDF, exactly as printed (pdfCut.js).
 //
 // No dimmed backdrop, as with every dialog in Cue.
 
@@ -30,6 +34,7 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
   const [titles, setTitles] = useState(start.titles);   // page -> { title, artist, key }
   const [big, setBig] = useState(null);                  // page shown large
   const [makeSetChoice, setMakeSet] = useState(null);
+  const [asCharts, setAsCharts] = useState(true);
   const [setName, setSetName] = useState(() => (fileName || '').replace(/\.pdf$/i, ''));
   const gridRef = useRef(null);
 
@@ -50,7 +55,10 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
     return () => { cancelled = true; try { opened?.destroy(); } catch { /* ignore */ } };
   }, [file]);
 
-  const songs = useMemo(() => songsFromMarks(marks, titles), [marks, titles]);
+  const chances = start.chances;
+  const songs = useMemo(() => songsFromMarks(marks, titles)
+    .map(s => ({ ...s, chart: s.pages.every(p => chances?.[p - 1]) })), [marks, titles, chances]);
+  const readable = songs.filter(s => s.chart).length;
   // What each page IS, which is not always what it was marked: the first page
   // that isn't left out starts a song whatever it says.
   const shown = useMemo(() => {
@@ -90,18 +98,18 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
           <h2 className={`text-base font-semibold ${head}`}>Pick the songs <span className={`font-normal text-sm ${muted} break-words`}>“{fileName}”</span></h2>
           <p className={`text-xs sm:text-sm ${head}`}>
             Tap a page to change it: <b>New song</b>, <b>Same song</b> or <b>Leave out</b>. Tap a title to fix it.
-            <span className={muted}> Each song comes in as its own PDF, exactly as printed.</span>
+            <span className={muted}> Pages marked <Chance chart /> Cue can read as a chart; <Chance /> pages come in as a PDF, exactly as printed.</span>
           </p>
         </div>
 
-        <div ref={gridRef} className={`flex-1 min-h-0 overflow-y-auto border-y py-3 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
+        <div ref={gridRef} className={`flex-1 min-h-0 overflow-y-auto border-y py-3 pr-3 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
           {failed ? (
             <p className={`text-sm ${muted}`}>Cue couldn’t open this PDF to show its pages.</p>
           ) : (
             <div className="grid gap-2 sm:gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))' }}>
               {marks.map((_, i) => (
                 <PageCell key={i} p={i + 1} doc={doc} root={gridRef} mark={shown[i]}
-                  title={shown[i] === 'start' ? titles[i + 1]?.title ?? '' : null}
+                  title={shown[i] === 'start' ? titles[i + 1]?.title ?? '' : null} chart={!!chances?.[i]}
                   onTap={tap} onBig={setBig} onRetitle={retitle} dark={dark} muted={muted} />
               ))}
             </div>
@@ -111,7 +119,14 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
         <p className={`text-sm ${head}`}>
           {n} song{n === 1 ? '' : 's'} from {marks.length - left} page{marks.length - left === 1 ? '' : 's'}
           {left ? <span className={muted}> · {left} left out</span> : null}
+          {n ? <span className={muted}> · {asCharts ? readable : 0} as chart{(asCharts ? readable : 0) === 1 ? '' : 's'}, {n - (asCharts ? readable : 0)} as PDF{n - (asCharts ? readable : 0) === 1 ? '' : 's'}</span> : null}
         </p>
+        {readable > 0 && (
+          <label className={`flex items-center gap-2 text-sm ${head}`}>
+            <input type="checkbox" checked={asCharts} onChange={e => setAsCharts(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
+            Make charts of the songs Cue can read
+          </label>
+        )}
         <div className="flex items-center gap-2">
           <label className={`flex items-center gap-2 text-sm shrink-0 ${head}`}>
             <input type="checkbox" checked={makeSet} onChange={e => setMakeSet(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
@@ -122,7 +137,7 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
         <div className="flex gap-2">
           <button onClick={onBack} className={secondary}>Back</button>
           <button disabled={!n || failed}
-            onClick={() => onAccept(songs.map(s => ({ ...s, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null)}
+            onClick={() => onAccept(songs.map(s => ({ ...s, chart: asCharts && s.chart, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null)}
             className={primary}>
             Make {n} song{n === 1 ? '' : 's'}
           </button>
@@ -130,12 +145,20 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
         <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Cancel</button>
 
         {big && (
-          <BigPage doc={doc} p={big} count={marks.length} mark={shown[big - 1]}
+          <BigPage doc={doc} p={big} count={marks.length} mark={shown[big - 1]} chart={!!chances?.[big - 1]}
             title={titles[big]?.title ?? ''} onMark={mark} onRetitle={retitle} onGo={setBig} onClose={() => setBig(null)}
             dark={dark} panel={panel} head={head} muted={muted} field={field} />
         )}
       </div>
     </div>
+  );
+}
+
+// Whether Cue can read a page as a chart: a green "Chart" or a grey "PDF".
+function Chance({ chart = false, className = '' }) {
+  return (
+    <span className={`inline-block align-middle text-[10px] font-semibold leading-none px-1.5 py-1 rounded ${
+      chart ? 'bg-emerald-600 text-white' : 'bg-gray-500/80 text-white'} ${className}`}>{chart ? 'Chart' : 'PDF'}</span>
   );
 }
 
@@ -146,17 +169,20 @@ const CHIP = {
 };
 
 // One page in the grid. Memoised: a tap re-renders the page tapped, not 300.
-const PageCell = memo(function PageCell({ p, doc, root, mark, title, onTap, onBig, onRetitle, dark, muted }) {
+const PageCell = memo(function PageCell({ p, doc, root, mark, title, chart, onTap, onBig, onRetitle, dark, muted }) {
   const ring = mark === 'start' ? 'border-indigo-600' : dark ? 'border-gray-700' : 'border-gray-200';
   return (
     // Off-screen pages skip layout and paint; a 300-page book stays quick.
     <div className="flex flex-col gap-1 min-w-0" style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 190px' }}>
       <div className="relative">
-        <button onClick={() => onTap(p)} aria-label={`Page ${p}: ${WORDS[mark]}. Tap to change.`}
+        <button onClick={() => onTap(p)} aria-label={`Page ${p}: ${WORDS[mark]}, ${chart ? 'reads as a chart' : 'a PDF page'}. Tap to change.`}
           className={`block w-full rounded-lg overflow-hidden border-2 ${ring} ${mark === 'skip' ? 'opacity-40' : ''}`}>
           <Thumb doc={doc} p={p} root={root} />
           <span className={`absolute top-1 left-1 text-[10px] font-semibold leading-none px-1.5 py-1 rounded ${CHIP[mark]}`}>{WORDS[mark]}</span>
-          <span className="absolute bottom-1 left-1 text-[10px] leading-none px-1 py-0.5 rounded bg-black/50 text-white">{p}</span>
+          <span className="absolute bottom-1 left-1 flex items-center gap-1">
+            <span className="text-[10px] leading-none px-1 py-1 rounded bg-black/50 text-white">{p}</span>
+            <Chance chart={chart} />
+          </span>
         </button>
         <button onClick={() => onBig(p)} aria-label={`Show page ${p} large`} title="Show it large"
           className="absolute bottom-1 right-1 p-1 rounded bg-black/50 text-white hover:bg-black/70">
@@ -213,7 +239,7 @@ function Thumb({ doc, p, root }) {
 
 // One page large enough to read, with the same three choices as buttons and
 // arrows to the pages either side.
-function BigPage({ doc, p, count, mark, title, onMark, onRetitle, onGo, onClose, dark, panel, head, muted, field }) {
+function BigPage({ doc, p, count, mark, chart, title, onMark, onRetitle, onGo, onClose, dark, panel, head, muted, field }) {
   const boxRef = useRef(null);
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -260,6 +286,7 @@ function BigPage({ doc, p, count, mark, title, onMark, onRetitle, onGo, onClose,
     <div className={`absolute inset-0 rounded-2xl p-5 flex flex-col gap-3 ${panel}`}>
       <div className="flex items-center gap-2">
         <h3 className={`text-base font-semibold ${head}`}>Page {p} <span className={`font-normal ${muted}`}>of {count}</span></h3>
+        <span className={`text-xs ${muted}`}><Chance chart={chart} /> {chart ? 'Cue can read this page as a chart' : 'This page comes in as a PDF'}</span>
         <button onClick={onClose} aria-label="Back to all the pages" className={`ml-auto ${arrow}`}><X size={18} /></button>
       </div>
       <div className="flex-1 min-h-0 flex items-center gap-2">

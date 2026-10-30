@@ -130,7 +130,8 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
                   <span>{n} of {songs.length} ticked</span>
                   <span className="ml-auto">Tap a title to fix it</span>
                 </div>
-                <div ref={listRef} className={`flex-1 min-h-40 overflow-y-auto border-y ${rule}`}>
+                {/* Room on the right, so the scroll bar never sits on a row's arrow. */}
+                <div ref={listRef} className={`flex-1 min-h-40 overflow-y-auto pr-3 border-y ${rule}`}>
                   <LongList
                     count={songs.length}
                     scrollRef={listRef}
@@ -253,7 +254,7 @@ const SongRow = memo(function SongRow({ i, song: s, title, ticked, open, sheets,
         {s.text && (
           <button onClick={() => onOpen(o => (o === i ? null : i))} aria-label={open ? 'Hide the chart' : 'Show the chart'}
             title={open ? 'Hide the chart' : 'Show the chart'}
-            className={`shrink-0 -mr-1 p-1.5 rounded-lg ${dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}>
+            className={`shrink-0 p-1.5 rounded-lg ${dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}>
             <Chevron size={16} />
           </button>
         )}

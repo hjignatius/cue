@@ -115,7 +115,7 @@ export default function App() {
       if (picked === 'back') continue;
       setSongbook(null);
       if (picked === 'cancel') return 'cancel';
-      return saveCutSongs(file, picked);
+      return saveCutSongs(file, picked, pages);
     }
     setSongbook(null);
     if (choice === 'page' || choice === 'cancel') return choice;
@@ -129,17 +129,27 @@ export default function App() {
     });
   }
 
-  // The page picker's songs: each one's pages cut out of the book as a PDF of
-  // its own (pdfCut.js), saved as a PDF song that remembers where it came from.
-  async function saveCutSongs(file, { songs: cut, setName }) {
+  // The page picker's songs. One whose pages Cue can read comes in as a chart,
+  // read again from just those pages (pickedCharts) — the picker has settled
+  // where it starts and ends — unless you asked for the pages. Every other one
+  // has its pages cut out of the book as a PDF of its own (pdfCut.js). Either
+  // way the song remembers where it came from.
+  async function saveCutSongs(file, { songs: cut, setName }, pages) {
     setSongbook({ fileName: file.name, reading: { done: 0, total: cut.length, saving: true } });
-    const { openBook } = await import('./utils/pdfCut.js');
-    const book = await openBook(file);
+    const [{ openBook }, { pickedCharts }] = await Promise.all([import('./utils/pdfCut.js'), import('./utils/bookReport.js')]);
+    const charts = pickedCharts(pages, cut);
+    const book = cut.some((s, i) => !charts[i]) ? await openBook(file) : null;
     return saveImported(file.name, cut, { picked: cut.map((_, i) => i), setName, titles: {} }, async (s, title) => {
-      const bytes = await book.cut(s.pages);
       const metadata = { title };
       if (s.artist) metadata.artist = s.artist;
       if (s.key) metadata.key = s.key;
+      const chart = charts[cut.indexOf(s)];
+      if (chart) {
+        if (!metadata.artist && chart.artist) metadata.artist = chart.artist;
+        if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
+        return saveSong({ id: null, metadata, text: chart.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage } });
+      }
+      const bytes = await book.cut(s.pages);
       const name = `${title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || `Page ${s.firstPage}`}.pdf`;
       return savePdfSong(new File([bytes], name, { type: 'application/pdf' }), metadata, { book: file.name, page: s.firstPage });
     });

@@ -17,7 +17,7 @@
 // "Song – Artist"), and reading the title off a single PDF sheet, for a batch
 // of separate PDFs imported together.
 
-import { readSongbook, roundBracketChords, chordNamesOnly, titleWorthy, bookContent } from './songbook.js';
+import { readSongbook, roundBracketChords, chordNamesOnly, titleWorthy, bookContent, chartFromPages } from './songbook.js';
 
 // A page with less text than this is a picture of a page (or blank).
 const TEXT_PAGE_MIN = 40;
@@ -423,7 +423,8 @@ export function reportLines(report, inLibrary = 0) {
 // For a book the report can't split — chords above the lyrics, pages that are
 // pictures — or one whose split needs fixing, you mark the pages yourself:
 // each is the start of a NEW song, more of the SAME song, or LEFT OUT. Each
-// song then comes in as its own PDF, exactly as printed (pdfCut.js).
+// song then comes in as a chart when every one of its pages reads as one, and
+// otherwise as its own PDF, exactly as printed (pdfCut.js).
 
 // A title is looked for this far down a page.
 const PAGE_TITLE_LINES = 4;
@@ -469,6 +470,47 @@ export function pageTitle(lines = []) {
   return { title: t.title, artist: t.artist, key: t.key };
 }
 
+// Can Cue read this page as a chart? Yes when it has lyrics with chords in
+// them, square or round brackets, at least as many as lines of chords alone
+// over the lyrics, and its letters are letters. The picker marks each page with
+// the answer, and a song whose every page says yes can come in as a chart.
+const INLINE_CHORD = /\[[^\]\s][^\]]*\]/;
+const CHORDS_ALONE = /^\s*(?:[A-G][#b♯♭]?(?:maj|min|m|dim|aug|sus|add)?\d{0,2}(?:\/[A-G][#b♯♭]?)?\s+){1,}[A-G][#b♯♭]?(?:maj|min|m|dim|aug|sus|add)?\d{0,2}(?:\/[A-G][#b♯♭]?)?\s*$/;
+function readsAsChart(page) {
+  let inline = 0, over = 0, letters = 0, garbled = 0;
+  for (const l of page.lines) {
+    const words = l.text.replace(/\[[^\]]*\]/g, '');
+    if (INLINE_CHORD.test(l.text) && /\p{L}{3}/u.test(words)) {
+      inline++;
+      letters += (words.match(/\p{L}/gu) || []).length;
+      garbled += (words.match(GARBLED) || []).length;
+    } else if (CHORDS_ALONE.test(l.text)) over++;
+  }
+  return inline > 0 && inline >= over && garbled <= letters * 0.25;
+}
+
+/**
+ * Every page's answer, in the order of the book: true when it reads as a chart.
+ */
+export function pageChances(pages = []) {
+  return roundBracketChords(pages).pages.map(readsAsChart);
+}
+
+/**
+ * The charts for the songs picked out by hand, one per song: { artist,
+ * youtubeUrl, text }, or null for a song that comes in as PDF pages — any of
+ * its pages that doesn't read as a chart, or `chart: false` on the song (you
+ * asked for the pages).
+ */
+export function pickedCharts(pages = [], songs = []) {
+  const round = roundBracketChords(pages).pages;
+  const chances = round.map(readsAsChart);
+  const content = bookContent(round);
+  return songs.map(s => (s.chart !== false && s.pages.every(p => chances[p - 1])
+    ? chartFromPages(s.pages.map(p => ({ lines: content[p - 1], links: round[p - 1].links || [] })), s.title)
+    : null));
+}
+
 /**
  * Where the picker starts. From the split when the report could make one — the
  * report did the work, and the picker is for fixing it — or when the book's
@@ -478,7 +520,8 @@ export function pageTitle(lines = []) {
  * tap to make "Same song".
  *
  * Returns { marks: ['start' | 'same' | 'skip', ...] one per page,
- *           titles: { [page]: { title, artist, key } } for every page }.
+ *           titles: { [page]: { title, artist, key } } for every page,
+ *           chances: [true | false, ...] one per page, from pageChances }.
  */
 export function pickerStart(report, pages = []) {
   const n = pages.length;
@@ -514,7 +557,7 @@ export function pickerStart(report, pages = []) {
     for (const s of report.songs) if (NOT_A_SONG.test(s.title)) marks[s.firstPage - 1] = 'skip';
     for (let p = 1; p <= n; p++) if (NOT_A_SONG.test(titles[p].title)) marks[p - 1] = 'skip';
   }
-  return { marks, titles };
+  return { marks, titles, chances: pageChances(pages) };
 }
 
 /**
