@@ -7,7 +7,9 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks } from '../src/utils/bookReport.js';
+import { openBook } from '../src/utils/pdfCut.js';
+import { PDFDocument } from 'pdf-lib';
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -182,6 +184,9 @@ check('a year after the writer goes, a bracket stays closed',
   [t('X', 'Jack Pitman (~ 1950)')[1], t('X', 'Reg Presley (the Troggs 1967)')[1], t('X', 'Meredith Wilson ,')[1]],
   ['Jack Pitman', 'Reg Presley (the Troggs 1967)', 'Meredith Wilson']);
 check('a list of chord names is not an artist', t('X', 'Am F C G E7')[1], '');
+check('", Key of D" at the end moves to the key', [t('OVER THE RIVER, Key of D'), t('LITTLE DRUMMER BOY,.Key of G'), t('The Key of Life')],
+  [['OVER THE RIVER', '', 'D'], ['LITTLE DRUMMER BOY', '', 'G'], ['The Key of Life', '', '']]);
+check('a cover page is no song', tidySong({ title: 'HOLIDAY SONGS, Cover Page' }).noChords, true);
 check('a contents page is no song', tidySong({ title: 'Ukulele Songbook Table of Contents' }).noChords, true);
 
 // ---- 9. round brackets --------------------------------------------------------
@@ -305,6 +310,44 @@ check('…and with no title on the page, the file name is the title', [untitled.
 check('a batch of sheets looks right when titles were read', sheetsReport([info, noted]).verdict, 'ok');
 check('…and says to check when many were not', sheetsReport([info, untitled]).verdict, 'check');
 check('a long PDF is a book, not a sheet', sheetInfo(Array.from({ length: 13 }, () => sheet[0]), [], 'x.pdf'), null);
+
+// ---- 14. the page picker ------------------------------------------------------
+check('marks make songs: a left-out page is in none, a page turn joins',
+  songsFromMarks(['skip', 'same', 'same', 'start', 'skip', 'same', 'start'], { 4: { title: 'Four', artist: 'A', key: '' } })
+    .map(s => [s.title, s.pages, s.firstPage, s.lastPage]),
+  [['Page 2', [2, 3], 2, 3], ['Four', [4, 6], 4, 6], ['Page 7', [7], 7, 7]]);
+check('a page’s title: the largest line near the top, its "by" line the artist',
+  pageTitle(page([['BOOM CHICKA BOOM', 16], ['by Traditional', 10], ['I said a boom chicka boom'], ['I said a boom chicka boom']]).lines),
+  { title: 'BOOM CHICKA BOOM', artist: 'Traditional', key: '' });
+check('…a version number and key tidied as in the report',
+  pageTitle(page([['Feliz Navidad (Key of D) v2', 16], ['Feliz Navidad, prospero año'], ['y felicidad']]).lines),
+  { title: 'Feliz Navidad', artist: '', key: 'D' });
+check('…but no title when nothing stands out, or the text is garbled', [
+  pageTitle(page([['Feliz Navidad, prospero año'], ['y felicidad'], ['I wanna wish you']]).lines),
+  pageTitle(page([['ĐƌŽƐƐƚŚĞhŶŝǀĞƌƐĞ', 16], ['words'], ['more words']]).lines),
+  pageTitle(page([['OFGauld', 16], ['words'], ['more words']]).lines)], [null, null, null]);
+// A book the report could split starts from its split; one it couldn't starts
+// with every page a song.
+const fromSplit = pickerStart(bookReport(book), book);
+check('the picker starts from the report’s songs', [fromSplit.marks, fromSplit.titles[2].title], [['start', 'start', 'start', 'start'], 'Auld Lang Syne']);
+const overBook = [overPage('One'), overPage('Two'), overPage('Three'), overPage('Four')];
+const fromNothing = pickerStart(bookReport(overBook), overBook);
+check('…and a book it couldn’t, with every page a song, titled from the page',
+  [fromNothing.marks, songsFromMarks(fromNothing.marks, fromNothing.titles).map(s => s.title)],
+  [['start', 'start', 'start', 'start'], ['One', 'Two', 'Three', 'Four']]);
+// Farmers Market: chords above the lyrics, but a bookmark for every song.
+const sheetOf = (title, words) => page([T(title), ['C        G       Am'], [`${words} in the morning`], ['F        C'], [`and ${words} at night`]]);
+const marked = [sheetOf('Aloha Week Hula', 'hula'), page([['G     C'], ['more of it']]), sheetOf('Blue Hawaii', 'moon'), page([['Contents', 16], ['Aloha Week Hula 1']])];
+const fromMarks = pickerStart(bookReport(marked, [
+  { title: 'Aloha Week Hula', page: 1, top: null }, { title: 'Blue Hawaii', page: 3, top: null }, { title: 'Contents', page: 4, top: null }]), marked);
+check('…or from its bookmarks, leaving the contents out', fromMarks.marks, ['start', 'same', 'start', 'skip']);
+
+// Cutting: the pages asked for, in that order, and nothing else.
+const src = await PDFDocument.create();
+for (const w of [100, 200, 300]) src.addPage([w, 400]);
+const cutter = await openBook(await src.save());
+const out = await PDFDocument.load(await cutter.cut([3, 1]));
+check('a song cut from a book has just its pages', [cutter.pageCount, out.getPages().map(pg => pg.getWidth())], [3, [300, 100]]);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

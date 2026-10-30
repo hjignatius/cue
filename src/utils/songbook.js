@@ -123,7 +123,7 @@ export function chordNamesOnly(text) {
 // diagrams print theirs larger than the lyrics — and not a single letter:
 // TUSC runs a song's name down the margin in 48pt capitals, one to a line.
 // "R.E.M.", "U2" and "L-O-V-E" are words.
-function titleWorthy(text) {
+export function titleWorthy(text) {
   return /\p{L}[\p{L}\p{N}.'’-]/u.test(text) && !chordNamesOnly(text);
 }
 function looksLikeWriter(text) {
@@ -548,6 +548,13 @@ function byByLines(pages) {
 function wellFound(songs) {
   return songs.filter(s => s.title && titleWorthy(s.title) && s.title.length <= 70
     && s.lines.some(l => CHORD.test(l.text))).length;
+}
+
+// Every page's own lines — no furniture, no page numbers, no diagram names —
+// for the page picker, which reads a title off each page by itself.
+export function bookContent(pages = []) {
+  const junk = furniture(pages);
+  return pages.map(p => contentLines(p, junk));
 }
 
 // ROUND BRACKETS. A common way to write a chart without ChordPro: "(Am) She

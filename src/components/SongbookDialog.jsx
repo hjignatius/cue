@@ -24,6 +24,10 @@ import { VERDICT_WORDS, reportLines } from '../utils/bookReport.js';
 // TITLES CAN BE FIXED before importing: tap one and type. Clubs put their own
 // version numbers and notes in titles in ways no rule will ever all catch.
 //
+// A book that can't be split — or whose split is wrong — can be picked apart
+// by hand instead, page by page (PagePicker): the main way on for a book that
+// can't be split, a quieter one for a book that can.
+//
 // When the songs are in, the outcome is said here, in the dialog, not in the
 // toolbar strip or an alert — with a way to go and see them.
 //
@@ -33,7 +37,7 @@ import { VERDICT_WORDS, reportLines } from '../utils/bookReport.js';
 // No dimmed backdrop, as with every dialog in Cue.
 const SET_DEFAULT_MAX = 100;
 
-export default function SongbookDialog({ dark, batch, fileName, reading, report, songs, outcome, onImport, onKeepAsPage, onCancel, onShow, onDone }) {
+export default function SongbookDialog({ dark, batch, fileName, reading, report, songs, outcome, onImport, onKeepAsPage, onPick, onCancel, onShow, onDone }) {
   // A batch of separate PDFs picked together, named by its count ("3 PDFs").
   const sheets = batch || report?.kind === 'sheets';
   const [picked, setPicked] = useState(null);           // Set of indices, once songs arrive
@@ -115,6 +119,9 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
         {report && !outcome && (
           <>
             <Report report={report} inLibrary={dupes} dark={dark} head={head} muted={muted} />
+            {cant && onPick && (
+              <p className={`text-sm ${head}`}>You can still pick out each song’s pages yourself. They come in as PDF pages, exactly as printed.</p>
+            )}
 
             {!cant && (
               <>
@@ -162,10 +169,14 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
                   Import {n} song{n === 1 ? '' : 's'}
                 </button>
               )}
+              {cant && onPick && <button onClick={onPick} className={primary}>Pick the songs myself</button>}
               {onKeepAsPage && (
-                <button onClick={onKeepAsPage} className={cant ? primary : secondary}>
+                <button onClick={onKeepAsPage} className={cant && !onPick ? primary : secondary}>
                   {cant ? 'Keep it as one PDF' : 'Keep it as one PDF instead'}
                 </button>
+              )}
+              {!cant && onPick && (
+                <button onClick={onPick} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Or pick the pages myself</button>
               )}
               {onCancel && (
                 <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Cancel</button>

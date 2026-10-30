@@ -17,7 +17,7 @@
 // "Song – Artist"), and reading the title off a single PDF sheet, for a batch
 // of separate PDFs imported together.
 
-import { readSongbook, roundBracketChords, chordNamesOnly } from './songbook.js';
+import { readSongbook, roundBracketChords, chordNamesOnly, titleWorthy, bookContent } from './songbook.js';
 
 // A page with less text than this is a picture of a page (or blank).
 const TEXT_PAGE_MIN = 40;
@@ -57,7 +57,7 @@ const VERSION_TAG = /\s*[-–—(]?\s*\b(?:v|ver\.?|version|rev\.?)\s*\d+(?:[._]
 // type, so they arrive as one title. What follows the rating is the artist.
 const DIFFICULTY = /\s*\bdifficulty\s*[=:]\s*(?:[a-z]{1,4}|\d+(?:\/\d+)?)\b\s*(.*)$/i;
 // A contents page found as if it were a song.
-const NOT_A_SONG = /(?:^|\s)(?:table of )?contents(?: page)?$|^(?:song )?index$|^song list$/i;
+const NOT_A_SONG = /(?:^|\s)(?:table of )?contents(?: page)?$|^(?:song )?index$|^song list$|(?:^|[\s,])cover(?: page)?$/i;
 // Moselele's Spookelele book sets every title over its artist in the same
 // type, "Bad Moon Rising" / "Creedence Clearwater Revival", so the two arrive as
 // one title. When most songs in a book do that it is the book's layout, not
@@ -65,6 +65,8 @@ const NOT_A_SONG = /(?:^|\s)(?:table of )?contents(?: page)?$|^(?:song )?index$|
 const TWO_LINE_LAYOUT = 0.6;
 // "(Key of C)", "( key of Dm)".
 const KEY_OF = /\s*\(\s*key\s+of\s+([A-G][#b♯♭]?m?)\s*\)/i;
+// "OVER THE RIVER, Key of D", "LITTLE DRUMMER BOY,.Key of G" — at the end only.
+const KEY_OF_END = /\s*[,.;:\-–—]+\s*key\s+of\s+([A-G][#b♯♭]?m?)\s*$/i;
 // "Song – Artist", "Song—Artist", "Song - Artist". A plain hyphen only with a
 // space either side, so "Brown-Eyed Girl" and "Ob-La-Di" are left whole.
 const TITLE_ARTIST = /^(.+?)\s*(?:\s[-–—]\s|—|–)\s*([^-–—]+)$/;
@@ -121,9 +123,9 @@ export function tidySong(song, { secondLineIsArtist = false, printedPage = null,
     tidied.add('difficulty');
   }
 
-  const k = KEY_OF.exec(title);
+  const k = KEY_OF.exec(title) || KEY_OF_END.exec(title);
   if (k) {
-    title = title.replace(KEY_OF, '').trim();
+    title = title.replace(k[0], ' ').trim();
     if (!key) key = k[1];
     tidied.add('key');
   }
@@ -397,4 +399,119 @@ export function reportLines(report, inLibrary = 0) {
   if (did.length) lines.push(`Tidied: ${did.join('; ')}.`);
   if (inLibrary) lines.push(`${inLibrary} ${inLibrary === 1 ? 'is' : 'are'} already in your library and left unticked.`);
   return lines;
+}
+
+// ---- The page picker ----------------------------------------------------------
+//
+// For a book the report can't split — chords above the lyrics, pages that are
+// pictures — or one whose split needs fixing, you mark the pages yourself:
+// each is the start of a NEW song, more of the SAME song, or LEFT OUT. Each
+// song then comes in as its own PDF, exactly as printed (pdfCut.js).
+
+// A title is looked for this far down a page.
+const PAGE_TITLE_LINES = 4;
+const STARTS_BY = /^\s*(?:(?:written|words|music|lyrics)(?:\s+(?:and|&)\s+\w+)*\s+)?by\s*:?\s+\p{L}/iu;
+const TITLE_THEN_BY = /^(.*?\p{L}.*?)\s+by\s+(\p{Lu}.*)$/u;
+const ROUND_CHORD = /\([A-G][#b♯♭]?[^)\s]{0,6}\)/;
+// A title stands out from the page's ordinary text by at least this much.
+const PAGE_TITLE_RATIO = 1.1;
+// Text whose font has lost its letters comes out as other letters entirely —
+// Happy Ukulele's "ĐƌŽƐƐƚŚĞ…" — and two pages printed side by side run their
+// lines together, "OFGauld". Neither is a title; "Page 10" is better.
+const GARBLED = /[\u0100-\u024F\u0370-\u03FF\u0400-\u04FF]/gu;
+const RUN_TOGETHER = /\p{Lu}{2,}\p{Ll}{2,}|\p{Ll}{2,}\p{Lu}{2,}/u;
+// A split whose songs average more pages than this has run songs together;
+// the picker starts from one song a page instead.
+const PICKER_PAGES_PER_SONG = 2.5;
+
+// The title on one page, read the way a reader would: the largest line with a
+// word in it near the top, and a "by" line under it or after it for the artist.
+// `lines` are the page's own (bookContent). Null when nothing looks like one.
+export function pageTitle(lines = []) {
+  const counts = new Map();
+  for (const l of lines) { const h = Math.round(l.height); if (h > 0) counts.set(h, (counts.get(h) || 0) + 1); }
+  let body = 0, most = -1;
+  for (const [h, c] of counts) if (c > most || (c === most && h < body)) { body = h; most = c; }
+  const top = lines.slice(0, PAGE_TITLE_LINES);
+  let best = -1;
+  top.forEach((l, i) => {
+    const t = l.text.trim();
+    const letters = (t.match(/\p{L}/gu) || []).length;
+    if (!titleWorthy(t) || !/\p{L}{3}/u.test(t) || t.includes('[') || ROUND_CHORD.test(t) || STARTS_BY.test(t) || t.length > 70) return;
+    if ((t.match(GARBLED) || []).length > letters * 0.25 || RUN_TOGETHER.test(t)) return;
+    if (lines.length > 1 && l.height < body * PAGE_TITLE_RATIO) return;
+    if (best < 0 || l.height > top[best].height + 0.5) best = i;
+  });
+  if (best < 0) return null;
+  let title = top[best].text.trim(), artist = '';
+  const next = lines[best + 1]?.text || '';
+  const inline = TITLE_THEN_BY.exec(title);
+  if (STARTS_BY.test(next)) artist = next.replace(BY_LINE, '');
+  else if (inline) [, title, artist] = inline;
+  const t = tidySong({ title, artist });
+  return { title: t.title, artist: t.artist, key: t.key };
+}
+
+/**
+ * Where the picker starts. From the split when the report could make one — the
+ * report did the work, and the picker is for fixing it — or when the book's
+ * bookmarks found its songs, with pages no song claimed (the cover, the
+ * contents) left out. Otherwise every page is a song
+ * of its own: most songs in these books fit on a page, and a page turn is one
+ * tap to make "Same song".
+ *
+ * Returns { marks: ['start' | 'same' | 'skip', ...] one per page,
+ *           titles: { [page]: { title, artist, key } } for every page }.
+ */
+export function pickerStart(report, pages = []) {
+  const n = pages.length;
+  const content = bookContent(pages);
+  const titles = {};
+  let marks;
+  // A book's bookmarks say where its songs start even when its chords can't be
+  // read — Farmers Market has one per song, chords above the lyrics.
+  const split = (report.verdict !== 'cant' || report.how === 'bookmarks')
+    && report.songs.length && n / report.songs.length <= PICKER_PAGES_PER_SONG;
+  if (split) {
+    marks = Array(n).fill('skip');
+    for (const s of report.songs) {
+      // "No chords" means no chords Cue can read — every song, in a book whose
+      // chords sit above the lyrics. There, only a contents page is left out.
+      const notASong = report.verdict === 'cant' ? NOT_A_SONG.test(s.title) : s.noChords && !s.pictureOnly;
+      if (notASong) continue;
+      for (let p = s.firstPage; p <= Math.min(s.lastPage, n); p++) if (marks[p - 1] === 'skip') marks[p - 1] = 'same';
+      if (marks[s.firstPage - 1] !== 'start') {
+        marks[s.firstPage - 1] = 'start';
+        // Under a title in a book of chords above the lyrics, the "artist" Cue
+        // found is as often a chord line or a label ("CCHORUS").
+        const artist = report.verdict === 'cant' && /chorus|verse|intro|bridge|outro/i.test(s.artist || '') ? '' : s.artist || '';
+        titles[s.firstPage] = { title: s.title, artist, key: s.key || '' };
+      }
+    }
+  } else marks = Array(n).fill('start');
+  for (let p = 1; p <= n; p++) {
+    if (!titles[p]) titles[p] = pageTitle(content[p - 1]) || { title: `Page ${p}`, artist: '', key: '' };
+  }
+  return { marks, titles };
+}
+
+/**
+ * The songs the marks make: [{ title, artist, key, pages: [n…], firstPage,
+ * lastPage }]. A "Same song" with no song before it starts one — there is
+ * nothing for it to be the same as. A left-out page in the middle of a song
+ * (an advert) is just not in it.
+ */
+export function songsFromMarks(marks = [], titles = {}) {
+  const songs = [];
+  let cur = null;
+  marks.forEach((m, i) => {
+    const p = i + 1;
+    if (m === 'skip') return;
+    if (m === 'start' || !cur) {
+      cur = { title: `Page ${p}`, artist: '', key: '', ...titles[p], pages: [], firstPage: p };
+      songs.push(cur);
+    }
+    cur.pages.push(p);
+  });
+  return songs.map(s => ({ ...s, lastPage: s.pages.at(-1) }));
 }

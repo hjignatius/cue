@@ -4,6 +4,7 @@ import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
 import UpdateButton from './components/UpdateButton.jsx';
 import SongbookDialog from './components/SongbookDialog.jsx';
+import PagePicker from './components/PagePicker.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
@@ -76,7 +77,7 @@ export default function App() {
   // has already read them.
   async function askSongbook(file, read = null) {
     const abort = new AbortController();
-    let report;
+    let report, pages;
     try {
       const [{ extractSongbookPages }, { bookReport, REPORT_PAGES_MIN }] = await Promise.all([
         import('./utils/pdfjs.js'), import('./utils/bookReport.js'),
@@ -84,14 +85,15 @@ export default function App() {
       // Progress at most a few times a second. Every update re-renders the
       // whole app, and once a page for Jim's 5,155 kept it too busy to answer.
       let shown = 0;
-      const { pages, marks } = read || await extractSongbookPages(file, {
+      let marks;
+      ({ pages, marks } = read || await extractSongbookPages(file, {
         signal: abort.signal,
         onPage: (done, total) => {
           if (total <= 12 || (done < total && performance.now() - shown < 150)) return;
           shown = performance.now();
           setSongbook({ fileName: file.name, reading: { done, total }, abort: () => abort.abort() });
         },
-      });
+      }));
       report = bookReport(pages, marks);
       const book = report.pages >= REPORT_PAGES_MIN || (report.verdict !== 'cant' && report.songs.length >= 2);
       if (!book) { setSongbook(null); return 'page'; }
@@ -103,7 +105,19 @@ export default function App() {
     const have = new Set((await loadSongs()).map(s => normalizeTitle(s.metadata?.title)));
     const marked = report.songs.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
     const shown = { ...report, songs: marked };
-    const choice = await new Promise(resolve => setSongbook({ fileName: file.name, report: shown, songs: marked, resolve, book: true }));
+    let choice;
+    for (;;) {
+      choice = await new Promise(resolve => setSongbook({ fileName: file.name, report: shown, songs: marked, resolve, book: true }));
+      if (choice !== 'pick') break;
+      // Picked by hand, page by page. "Back" returns to the report as it was.
+      const { pickerStart } = await import('./utils/bookReport.js');
+      const start = pickerStart(report, pages);
+      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start }, resolve }));
+      if (picked === 'back') continue;
+      setSongbook(null);
+      if (picked === 'cancel') return 'cancel';
+      return saveCutSongs(file, picked);
+    }
     setSongbook(null);
     if (choice === 'page' || choice === 'cancel') return choice;
 
@@ -113,6 +127,22 @@ export default function App() {
       if (s.key) metadata.key = s.key;
       if (s.youtubeUrl) metadata.youtubeUrl = s.youtubeUrl;
       return saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage } });
+    });
+  }
+
+  // The page picker's songs: each one's pages cut out of the book as a PDF of
+  // its own (pdfCut.js), saved as a PDF song that remembers where it came from.
+  async function saveCutSongs(file, { songs: cut, setName }) {
+    setSongbook({ fileName: file.name, reading: { done: 0, total: cut.length, saving: true } });
+    const { openBook } = await import('./utils/pdfCut.js');
+    const book = await openBook(file);
+    return saveImported(file.name, cut, { picked: cut.map((_, i) => i), setName, titles: {} }, async (s, title) => {
+      const bytes = await book.cut(s.pages);
+      const metadata = { title };
+      if (s.artist) metadata.artist = s.artist;
+      if (s.key) metadata.key = s.key;
+      const name = `${title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || `Page ${s.firstPage}`}.pdf`;
+      return savePdfSong(new File([bytes], name, { type: 'application/pdf' }), metadata, { book: file.name, page: s.firstPage });
     });
   }
 
@@ -190,7 +220,7 @@ export default function App() {
 
   // A PDF as one page song, as Cue has always imported a PDF: the bytes stored
   // locally, titled with the file name unless the caller read a better one.
-  async function savePdfSong(file, metadata = { title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }) {
+  async function savePdfSong(file, metadata = { title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }, source = undefined) {
     const id = await saveSong({
       id: null,
       metadata,
@@ -198,6 +228,7 @@ export default function App() {
       type: 'pdf',
       pedalActive: true,
       pdf: { filename: file.name, importedAt: new Date().toISOString() },
+      source,
     });
     await savePdfBlob(id, file);
     return id;
@@ -797,7 +828,18 @@ export default function App() {
       )}
 
       {/* Import conflict dialog */}
-      {songbook && (
+      {songbook?.picker && (
+        <PagePicker
+          dark={dark}
+          fileName={songbook.fileName}
+          file={songbook.picker.file}
+          start={songbook.picker.start}
+          onAccept={(songs, setName) => songbook.resolve({ songs, setName })}
+          onBack={() => songbook.resolve('back')}
+          onCancel={() => songbook.resolve('cancel')}
+        />
+      )}
+      {songbook && !songbook.picker && (
         <SongbookDialog
           key={`${songbook.fileName}:${songbook.outcome ? 'done' : songbook.report ? 'report' : 'reading'}`}
           dark={dark}
@@ -809,6 +851,7 @@ export default function App() {
           outcome={songbook.outcome}
           onImport={(picked, setName, titles) => songbook.resolve({ picked, setName, titles })}
           onKeepAsPage={songbook.book ? () => songbook.resolve('page') : null}
+          onPick={songbook.book ? () => songbook.resolve('pick') : null}
           onCancel={songbook.resolve ? () => songbook.resolve('cancel') : songbook.abort}
           onShow={() => songbook.resolve('show')}
           onDone={() => songbook.resolve('done')}
