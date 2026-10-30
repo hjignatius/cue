@@ -322,6 +322,12 @@ check('a sheet that reads as a chart comes as one, its title and writer off the 
   asChart && [asChart.title, asChart.artist, asChart.text],
   ['Ain’t She Sweet?', 'Milton Ager and Jack Yellen', '[C]Ain’t she [C#dim7]sweet? See her [Dm]com-in’ down the [G7]street\nNow I [C]ask you [E7]very confidentially']);
 check('…a sheet with its chords still over the lyrics is a page', sheetChart(sheet, "Ain't She Sweet - v2d.pdf"), null);
+const chartLine = (sheets) => reportLines(sheetsReport(sheets))[2];
+check('a batch says how many of its sheets come in as charts',
+  [chartLine([info, { ...noted, chart: asChart }]), chartLine([{ ...info, chart: asChart }, { ...noted, chart: asChart }]), chartLine([info, noted])],
+  ['Cue can read 1 of them as a chart you can edit and transpose. The rest come in as PDF pages, exactly as printed.',
+    'Cue can read every one as a chart, so they come in as charts you can edit and transpose.',
+    'They come in as PDF pages, exactly as printed.']);
 check('…as is a book', sheetChart(Array.from({ length: 13 }, () => readSheet[0]), 'x.pdf'), null);
 const web = sheetChart([page([['There’s a [D]man in the funny papers we all know', 12], ['He [D]lives way back a [A7]long time ago', 12]])],
   'Alley-Oop | Audio & Ukulele Chords | By Doctor Uke.pdf');

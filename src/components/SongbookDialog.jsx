@@ -28,6 +28,10 @@ import { VERDICT_WORDS, reportLines } from '../utils/bookReport.js';
 // by hand instead, page by page (PagePicker): the main way on for a book that
 // can't be split, a quieter one for a book that can.
 //
+// Several PDFs picked together, one song each, mark which ones Cue can read as
+// charts ("Chart") and which come in as their pages ("PDF"), as the page
+// picker does; one tick turns the charts off and brings every one in as a PDF.
+//
 // When the songs are in, the outcome is said here, in the dialog, not in the
 // toolbar strip or an alert — with a way to go and see them.
 //
@@ -48,6 +52,8 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
   const [makeSetChoice, setMakeSet] = useState(null);
   const makeSet = makeSetChoice ?? !(songs && songs.length > SET_DEFAULT_MAX);
   const [setName, setSetName] = useState(() => (sheets ? 'Imported PDFs' : (fileName || '').replace(/\.pdf$/i, '')));
+  const [asCharts, setAsCharts] = useState(true);
+  const charts = sheets && (songs || []).some(s => s.chart);
   const listRef = useRef(null);
 
   const tickable = useMemo(() => (songs || []).map((s, i) => (s.pictureOnly ? -1 : i)).filter(i => i >= 0), [songs]);
@@ -139,13 +145,19 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
                     estimate={() => 56}
                     renderRow={i => (
                       <SongRow key={i} i={i} song={songs[i]} title={titles[i] ?? songs[i].title}
-                        ticked={chosen.has(i)} open={open === i} sheets={sheets}
+                        ticked={chosen.has(i)} open={open === i} sheets={sheets} asChart={charts ? asCharts && !!songs[i].chart : null}
                         onTick={toggle} onOpen={setOpen} onRetitle={retitle}
                         head={head} muted={muted} rule={rule} dark={dark} />
                     )}
                   />
                 </div>
 
+                {charts && (
+                  <label className={`flex items-center gap-2 text-sm ${head}`}>
+                    <input type="checkbox" checked={asCharts} onChange={e => setAsCharts(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
+                    Make charts of the songs Cue can read
+                  </label>
+                )}
                 <label className={`flex items-center gap-2 text-sm ${head}`}>
                   <input type="checkbox" checked={makeSet} onChange={e => setMakeSet(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
                   Put them in a new set
@@ -164,7 +176,7 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
                     const ids = [...chosen].sort((a, b) => a - b);
                     const fixed = {};
                     for (const i of ids) if (titles[i]?.trim() && titles[i].trim() !== songs[i].title) fixed[i] = titles[i].trim();
-                    onImport(ids, makeSet && setName.trim() ? setName.trim() : null, fixed);
+                    onImport(ids, makeSet && setName.trim() ? setName.trim() : null, fixed, asCharts);
                   }}
                   className={primary}>
                   Import {n} song{n === 1 ? '' : 's'}
@@ -231,7 +243,9 @@ const pagesOf = (s) => (s.lastPage !== s.firstPage ? `pp. ${s.firstPage}–${s.l
 // One song in the list. `onTick`, `onOpen` and `onRetitle` take the index, so
 // the row's props stay the same from one render to the next unless the row
 // itself changed.
-const SongRow = memo(function SongRow({ i, song: s, title, ticked, open, sheets, onTick, onOpen, onRetitle, head, muted, rule, dark }) {
+// `asChart`: true or false where the PDFs picked together include charts — the
+// mark says which way this one comes in — null where there's nothing to mark.
+const SongRow = memo(function SongRow({ i, song: s, title, ticked, open, sheets, asChart, onTick, onOpen, onRetitle, head, muted, rule, dark }) {
   const tag = s.pictureOnly ? 'Picture only' : s.inLibrary ? 'In library' : s.noChords && !sheets ? 'No chords' : '';
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
@@ -246,6 +260,12 @@ const SongRow = memo(function SongRow({ i, song: s, title, ticked, open, sheets,
               className={`flex-1 min-w-0 bg-transparent text-sm font-medium truncate rounded px-1 -mx-1 py-0.5 border border-transparent focus:outline-none ${
                 dark ? 'hover:border-gray-700 focus:border-indigo-500' : 'hover:border-gray-200 focus:border-indigo-400'} ${s.pictureOnly ? muted : head}`} />
             {tag && <span className="shrink-0 text-xs font-medium text-amber-600">{tag}</span>}
+            {asChart != null && (
+              // The page picker's mark, so the two read the same.
+              <span className={`shrink-0 self-center text-[10px] font-semibold leading-none px-1.5 py-1 rounded text-white ${asChart ? 'bg-emerald-600' : 'bg-gray-500/80'}`}>
+                {asChart ? 'Chart' : 'PDF'}
+              </span>
+            )}
           </span>
           <span className={`block text-xs truncate ${muted}`}>
             {[s.artist, s.key && `key ${s.key}`, pagesOf(s), s.youtubeUrl ? 'video' : ''].filter(Boolean).join(' · ')}

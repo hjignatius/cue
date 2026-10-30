@@ -429,9 +429,11 @@ export function reportLines(report, inLibrary = 0) {
     pages: `Cue found ${plural(n, 'page')} and made each one a song.`,
     sheets: 'Titles, writers and keys are read from the top of each first page.',
   }[report.how]);
-  lines.push(report.kind === 'sheets'
-    ? 'They come in as PDF pages, exactly as printed.'
-    : 'They come in as charts you can edit and transpose.');
+  const charts = report.kind === 'sheets' ? report.songs.filter(s => s.chart).length : 0;
+  lines.push(report.kind !== 'sheets' ? 'They come in as charts you can edit and transpose.'
+    : charts === n ? 'Cue can read every one as a chart, so they come in as charts you can edit and transpose.'
+    : charts ? `Cue can read ${charts} of them as ${charts === 1 ? 'a chart' : 'charts'} you can edit and transpose. The rest come in as PDF pages, exactly as printed.`
+    : 'They come in as PDF pages, exactly as printed.');
 
   const t = report.tidied || {};
   const did = [
