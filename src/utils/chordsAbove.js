@@ -68,7 +68,9 @@ const isTab = (row) => {
 };
 // A row of chords in round brackets, "(C)(G)(F)(C)", belongs to a book that
 // puts its chords in the lyrics that way (roundBracketChords, songbook.js).
-const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !/\([A-G]/.test(textOf(row));
+// Several chords in one pair of brackets are a group played over again:
+// "Em Bm Em Bm (D Dsus D) X2".
+const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !/\([A-G][^\s()]*\)/.test(textOf(row));
 
 // The chords of `row` put into `lyric`, both as letters; null when none of
 // them is over it.

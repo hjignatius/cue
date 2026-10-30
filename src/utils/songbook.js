@@ -119,12 +119,20 @@ export function chordNamesOnly(text) {
   const words = String(text).trim().split(/[\s,]+/).filter(Boolean);
   return words.length > 0 && words.every(w => CHORD_NAME.test(w));
 }
+// Nor a line of chords to play, counted out in bars under a section's name:
+// "Intro: | D | G D | (X3) | A7 |", as Doctor Uke heads a song with it.
+const PLAYED_LABEL = /^\s*(?:intro|outro|ending|interlude|instrumental|turnaround|vamp|tag|solo|break)\b\s*\d*\s*:?/i;
+const REPEAT = /\(?\s*[x×]\s*\d+\s*\)?|\(?\s*\d+\s*[x×]\s*\)?/gi;
+function chordsPlayed(text) {
+  const bare = String(text).replace(PLAYED_LABEL, '').replace(REPEAT, ' ').replace(/[|()]/g, ' ');
+  return bare !== String(text) && chordNamesOnly(bare);
+}
 // A title has a word in it. Not a line of chord names — Brighton's chord
 // diagrams print theirs larger than the lyrics — and not a single letter:
 // TUSC runs a song's name down the margin in 48pt capitals, one to a line.
 // "R.E.M.", "U2" and "L-O-V-E" are words.
 export function titleWorthy(text) {
-  return /\p{L}[\p{L}\p{N}.'’-]/u.test(text) && !chordNamesOnly(text);
+  return /\p{L}[\p{L}\p{N}.'’-]/u.test(text) && !chordNamesOnly(text) && !chordsPlayed(text);
 }
 function looksLikeWriter(text) {
   return /[a-z]{2,}/i.test(text) && !NOT_A_WRITER.test(text) && !chordNamesOnly(text);
@@ -134,6 +142,13 @@ function looksLikeWriter(text) {
 // few words page numbers use — so a strum line ("//// ////") or a stray "[" is
 // never mistaken for one, as it would be by "no letters in it".
 const PAGE_NUMBER = /^[\s\-–—]*(?:page\s+)?\d{1,4}(?:\s*(?:of|\/)\s*\d{1,4})?[\s\-–—]*$/i;
+// What a browser prints round a web page saved as a PDF: the page's name and
+// when, along the top ("Alley-Oop | … | By Doctor Uke 10/30/26, 6:50 PM"), and
+// its address and the page number along the foot. One sheet has no other pages
+// for it to repeat on and be found as furniture.
+const PRINTED_AT = /(?:^|\s)\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}(?:\s*[AP]M)?(?:\s|$)/i;
+const PRINTED_FROM = /^\s*https?:\/\/\S+\s+(?:page\s+)?\d{1,4}\s*(?:of|\/)\s*\d{1,4}\s*$/i;
+export const printedByBrowser = (text) => PRINTED_AT.test(text) || PRINTED_FROM.test(text);
 
 // The "by" line under a title: "by Bob Dylan", "By Frankie Lymon", "Words &
 // Music by Milt Gabler". A space and a letter after "by", so "Bye Bye Love" is
@@ -299,7 +314,7 @@ function takeHeader(cur, line, page, body) {
 const DIAGRAM_SIZE = 0.15;
 function contentLines(page, junk) {
   const body = bodyHeight(page.lines);
-  return page.lines.filter(l => !PAGE_NUMBER.test(l.text)
+  return page.lines.filter(l => !PAGE_NUMBER.test(l.text) && !printedByBrowser(l.text)
     && (l.text.includes('[') || !junk.has(furnitureKey(l.text)))
     && !(body && !l.text.includes('[') && chordNamesOnly(l.text) && !/\s/.test(l.text.trim())
       && Math.abs(l.height - body) > body * DIAGRAM_SIZE));

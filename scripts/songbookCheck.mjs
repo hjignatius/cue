@@ -6,7 +6,7 @@
 // ways a book can be laid out.
 //
 // Run: node scripts/songbookCheck.mjs
-import { splitSongbook, roundBracketChords } from '../src/utils/songbook.js';
+import { splitSongbook, roundBracketChords, titleWorthy } from '../src/utils/songbook.js';
 import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
@@ -336,6 +336,18 @@ const uke = sheetChart([page([['ALLEY OOP-D. Frazier', 16], ['4/4 1…2…1234',
   'Alley-Oop | Audio & Ukulele Chords | By Doctor Uke.pdf');
 check('…its page’s title, set in capitals with the writer glued on, gives the writer and keeps the file’s spelling',
   uke && [uke.title, uke.artist, uke.text.split('\n')[0]], ['Alley-Oop', 'D. Frazier', '4/4 1…2…1234']);
+// "April Come She Will", printed from Safari: the browser's own header and
+// footer round it, and an intro in bars under the title.
+const april = sheetChart([page([['April Come She Will | Audio & Ukulele Chords | By Doctor Uke 10/30/26, 6:50 PM', 8],
+  ['APRIL COME SHE WILL-Paul Simon', 16], ['Intro: | D | G D | (X3) | A7 | D | Dsus D | D | Dsus D |', 14],
+  ['[D]A - [D]pril [Dsus]come she [D]will', 12], ['[Em]When streams are [Bm]ripe and [C]swelled with [Bm]rain', 12],
+  ['https://www.doctoruke.com/_player/aprilcomeshewill.html Page 1 of 1', 8], ['[G]May, [A]she will [D]stay', 12]])],
+  'April Come She Will | Audio & Ukulele Chords | By Doctor Uke.pdf');
+check('an intro in bars under a sheet’s title is not a second song’s title',
+  april && [april.title, april.artist, april.text.split('\n')[0]], ['April Come She Will', 'Paul Simon', 'Intro: | D | G D | (X3) | A7 | D | Dsus D | D | Dsus D |']);
+check('…and what the browser printed round the page is not in the chart', april && /https|6:50/.test(april.text), false);
+check('a line of chords to play is never a title; a song named for one still is',
+  ['Intro: | D | G D | (X3) | A7 |', 'Outro: C G (x2)', 'Solo', 'Break Up', 'Tag, You’re It'].map(titleWorthy), [false, false, true, true, true]);
 
 // ---- 14. the page picker ------------------------------------------------------
 check('marks make songs: a left-out page is in none, a page turn joins',

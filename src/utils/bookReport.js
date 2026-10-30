@@ -17,7 +17,7 @@
 // "Song – Artist"), and reading the title off a single PDF sheet, for a batch
 // of separate PDFs imported together.
 
-import { readSongbook, roundBracketChords, chordNamesOnly, titleWorthy, bookContent, chartFromPages } from './songbook.js';
+import { readSongbook, roundBracketChords, chordNamesOnly, titleWorthy, bookContent, chartFromPages, printedByBrowser } from './songbook.js';
 
 // A page with less text than this is a picture of a page (or blank).
 const TEXT_PAGE_MIN = 40;
@@ -373,7 +373,8 @@ export function sheetInfo(pages = [], marks = [], fileName = '') {
 export function sheetChart(pages = [], fileName = '') {
   const info = sheetInfo(pages, [], fileName);
   if (!info) return null;
-  const round = roundBracketChords(pages).pages;
+  const round = roundBracketChords(pages).pages
+    .map(p => ({ ...p, lines: p.lines.filter(l => !printedByBrowser(l.text)) }));
   const worded = round.filter(p => p.lines.length);
   if (!worded.length || !worded.every(readsAsChart)) return null;
   const chart = chartFromPages(round, info.title);

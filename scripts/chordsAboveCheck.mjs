@@ -124,6 +124,10 @@ check('a lyric held out with dashes is still a lyric',
 check('chords in round brackets belong to the lyrics, not above them',
   two([[run('(C)(G)(F)(C)', 0, 0)], [run('One day you will look', 0, 0)]]), ['(C)(G)(F)(C)', 'One day you will look']);
 
+check('…but a group of chords in brackets to play again is a row of chords',
+  one([chordRow('Em            Bm     (D Dsus D) X2', 0), [run('Resting in my arms', 0, 0)]]),
+  ['[Em]Resting in my [Bm]arms [(D Dsus D)] [X2]']);
+
 check('a section label under a row of chords is not its lyric',
   two([chordRow('C  G', 0), [run('[Chorus]', 0, 0)]]), ['[C] [G]', '[Chorus]']);
 
