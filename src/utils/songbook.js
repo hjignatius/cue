@@ -16,6 +16,14 @@
 //     pages, 2026-10-28): every title is set in larger type than anything else
 //     on its page — 16pt against 12pt lyrics — and nothing else is.
 //
+//  3. THE "BY" LINE, for a book whose titles are no bigger than its lyrics.
+//     Brighton's songbooks set every title in bold 12pt over 12pt lyrics, and
+//     the only larger type is the chord diagrams' names — so title type found
+//     "C#m" and "Dsus4". What every song there does have is its title at the
+//     top of a page with "by George Harrison, 1969" under it, or "Mister
+//     Sandman by Pat Ballard, 1954" as one line. Both 2 and 3 are tried, and
+//     the one that finds more songs with chords and sensible titles is used.
+//
 // Title type alone is NOT enough for a big book, which is why bookmarks come
 // first. Those books are gathered from many sources, so the type changes from
 // song to song: in the Delmarvalous book "500 Miles" is 16pt title over 16pt
@@ -41,7 +49,10 @@ const TITLE_RATIO = 1.2;
 // song and which a lyric line almost never is. Ukulele Wednesdays sets it 14pt
 // over 12pt lyrics (1.17) and Moogly 16 over 14 (1.14): bigger, but not by 1.2.
 const TITLE_ARTIST_RATIO = 1.1;
-const TITLE_ARTIST_LINE = /\S\s*(?:\s[-–—]\s|—|–)\s*\S/;
+// Moogly's second half writes it with a bare hyphen, "Spirit In The Sky-Norman
+// Greenbaum": a lower-case letter, a hyphen, a capital. "Brown-Eyed Girl" is
+// that shape too, but at 1.1× the lyrics it is a title either way.
+const TITLE_ARTIST_LINE = /\S\s*(?:\s[-–—]\s|—|–)\s*\S|\p{Ll}-\p{Lu}/u;
 // A title that wraps runs to two lines, not more. Anything longer in title type
 // is a song set large, not a title.
 const TITLE_MAX_LINES = 2;
@@ -102,10 +113,18 @@ function uninvert(title) {
 const NOT_A_WRITER = /\/\/|^\(|[¼½¾]|\b\d+\/\d+\b|^(?:intro|verse|chorus|bridge|outro|tag|strum|capo|key|tempo)\b/i;
 // Nor is a line of nothing but chord names: Moselele lists "CHORDS USED IN
 // THIS SONG" under each title, then "Am G C".
-const CHORD_NAME = /^[A-G][#b♯♭]?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+)?\d{0,2}(?:(?:sus|add|maj|b|#|-)\d{1,2})*(?:\/[A-G][#b♯♭]?)?\*?$/;
+// "C7+5" is Brighton's: an augmented fifth after the seventh.
+const CHORD_NAME = /^[A-G][#b♯♭]?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+)?\d{0,2}(?:(?:sus|add|maj|b|#|-|\+)\d{1,2})*(?:\/[A-G][#b♯♭]?)?\*?$/;
 export function chordNamesOnly(text) {
   const words = String(text).trim().split(/[\s,]+/).filter(Boolean);
   return words.length > 0 && words.every(w => CHORD_NAME.test(w));
+}
+// A title has a word in it. Not a line of chord names — Brighton's chord
+// diagrams print theirs larger than the lyrics — and not a single letter:
+// TUSC runs a song's name down the margin in 48pt capitals, one to a line.
+// "R.E.M.", "U2" and "L-O-V-E" are words.
+function titleWorthy(text) {
+  return /\p{L}[\p{L}\p{N}.'’-]/u.test(text) && !chordNamesOnly(text);
 }
 function looksLikeWriter(text) {
   return /[a-z]{2,}/i.test(text) && !NOT_A_WRITER.test(text) && !chordNamesOnly(text);
@@ -115,6 +134,27 @@ function looksLikeWriter(text) {
 // few words page numbers use — so a strum line ("//// ////") or a stray "[" is
 // never mistaken for one, as it would be by "no letters in it".
 const PAGE_NUMBER = /^[\s\-–—]*(?:page\s+)?\d{1,4}(?:\s*(?:of|\/)\s*\d{1,4})?[\s\-–—]*$/i;
+
+// The "by" line under a title: "by Bob Dylan", "By Frankie Lymon", "Words &
+// Music by Milt Gabler". A space and a letter after "by", so "Bye Bye Love" is
+// not one.
+const BY_LINE = /^(?:(?:written|words|music|lyrics)(?:\s+(?:and|&)\s+\w+)*\s+)?by\s*:?\s+\p{L}/iu;
+// A title and its writer on one line: "Mister Sandman by Pat Ballard, 1954",
+// "Sweet Georgia Brown Words by A. Ken Casey". A lower-case "by" and a capital
+// after it, which a title like "Stand By Me" never has.
+const TITLE_BY = /^(.*?\p{L}.*?)\s+(?:(?:[Ww]ritten|[Ww]ords|[Mm]usic|[Ll]yrics)(?:\s+(?:and|&)\s+\w+)*\s+)?by\s+(\p{Lu}.*)$/u;
+// What comes before "by" is the second line of a title when it opens with a
+// bracket or a small letter — "Everybody's Talkin’" over "(Theme from Midnight
+// Cowboy) by Harry Nilsson", "Do Re Mi" over "from the Sound of Music (sung by
+// Julie Andrews)". The line above is the title.
+const SUBTITLE = /^[(\p{Ll}]/u;
+// More credits under the first: "Recorded by Nat "King" Cole, 1964",
+// "Released by The Foundations".
+const CREDIT_LINE = /^(?:[\p{L}&]+\s+){1,3}by\s+\p{L}/iu;
+// A song starts near the top of a page — within its first few lines — or after
+// a gap this many lyric lines tall.
+const BY_TOP_LINES = 3;
+const BY_GAP = 2.5;
 
 function youtubeOf(url) {
   if (!url || !YOUTUBE_URL.test(url)) return '';
@@ -252,9 +292,17 @@ function takeHeader(cur, line, page, body) {
   return Boolean((urls.length && !rest) || (link && !chords));
 }
 
-// Every page's lines that are the songs' own: no page numbers, no furniture.
+// Every page's lines that are the songs' own: no page numbers, no furniture,
+// and no chord diagram's name. A diagram's name is a chord name on a line of
+// its own in another size from the lyrics (Brighton's are larger); a line of
+// chord names in the lyric size is the chart's own, an intro or a chord line.
+const DIAGRAM_SIZE = 0.15;
 function contentLines(page, junk) {
-  return page.lines.filter(l => !PAGE_NUMBER.test(l.text) && (l.text.includes('[') || !junk.has(furnitureKey(l.text))));
+  const body = bodyHeight(page.lines);
+  return page.lines.filter(l => !PAGE_NUMBER.test(l.text)
+    && (l.text.includes('[') || !junk.has(furnitureKey(l.text)))
+    && !(body && !l.text.includes('[') && chordNamesOnly(l.text) && !/\s/.test(l.text.trim())
+      && Math.abs(l.height - body) > body * DIAGRAM_SIZE));
 }
 
 /**
@@ -274,14 +322,20 @@ export function splitSongbook(pages = [], marks = []) {
   return readSongbook(pages, marks).songs;
 }
 
-// The same, saying how the songs were found — 'bookmarks', 'titles', or
-// 'pages' when there was no title type to go on and each page is a song —
+// The same, saying how the songs were found — 'bookmarks', 'titles', 'bylines',
+// or 'pages' when there was no title type to go on and each page is a song —
 // which the book report (bookReport.js) needs to say how far to trust it.
 export function readSongbook(pages = [], marks = []) {
   const placed = placeMarks(pages, marks);
   const withText = pages.filter(p => p.lines.length).length;
-  const how = placed.length >= 2 && placed.length >= withText * MARKS_PER_PAGE ? 'bookmarks' : 'titles';
-  const found = how === 'bookmarks' ? byBookmarks(pages, placed) : byTitleType(pages);
+  let how = placed.length >= 2 && placed.length >= withText * MARKS_PER_PAGE ? 'bookmarks' : 'titles';
+  let found;
+  if (how === 'bookmarks') found = byBookmarks(pages, placed);
+  else {
+    found = byTitleType(pages);
+    const byLines = byByLines(pages);
+    if (wellFound(byLines) > wellFound(found)) { found = byLines; how = 'bylines'; }
+  }
   const songs = found.map(s => ({
     title: s.title || (s.lines[0]?.text ?? '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim() || `Page ${s.firstPage}`,
     // The title-type lines one by one, when a title ran to two: a wrapped
@@ -373,10 +427,31 @@ function byTitleType(pages) {
     // Measured on this page, not across the book: a book gathered from many
     // sources sets each song in its own size.
     const body = bodyHeight(page.lines);
-    const isTitle = (l) => body > 0 && !l.text.includes('[')
+    const isTitle = (l) => body > 0 && !l.text.includes('[') && titleWorthy(l.text)
       && (l.height >= body * TITLE_RATIO || (l.height >= body * TITLE_ARTIST_RATIO && TITLE_ARTIST_LINE.test(l.text)));
     for (const line of contentLines(page, junk)) {
-      if (isTitle(line)) {
+      // A "by" line straight under a title is its writer, however large it is
+      // set: TUSC prints "by Richard Whiting and Gus Kahn" bigger than the
+      // "Ukulele Lady" over it. Anywhere else it may be a title — Moselele has
+      // a song called "By Your Hand".
+      const writer = BY_LINE.test(line.text) && cur?.lastPage === pageNo && cur.titleSeen && !cur.lines.length && !cur.artist;
+      // …and when the title over it was set a shade too small to be found
+      // (TUSC's "Ukulele Lady", 24pt over 20pt lyrics), the "by" line in title
+      // type gives it away: the plain line just above it, on this page, was the
+      // title, not the last line of the song before.
+      const before = cur?.lines.at(-1);
+      if (isTitle(line) && !writer && BY_LINE.test(line.text) && before && cur.lastPage === pageNo
+        && before.y > line.y && !CHORD.test(before.text) && titleWorthy(before.text)) {
+        cur.lines.pop();
+        cur = newSong(before.text.trim(), pageNo);
+        cur.titleSeen = true;
+        cur.titleLines = 1;
+        cur.titleParts = [before.text.trim()];
+        cur.artist = fieldValue(line.text.replace(BY_PREFIX, ''));
+        songs.push(cur);
+        continue;
+      }
+      if (isTitle(line) && !writer) {
         // Two title-type lines in a row are one title that wrapped.
         if (cur && cur.lastPage === pageNo && cur.afterTitle === 0 && !cur.lines.length && cur.titleLines < TITLE_MAX_LINES) {
           cur.title = `${cur.title} ${line.text}`.trim();
@@ -412,6 +487,69 @@ function byTitleType(pages) {
   return songs;
 }
 
+// A title, then "by …" under it — or both on one line — near the top of a page.
+function byByLines(pages) {
+  const junk = furniture(pages);
+  const songs = [];
+  let cur = null;
+
+  pages.forEach((page, i) => {
+    const pageNo = i + 1;
+    const body = bodyHeight(page.lines);
+    const lines = contentLines(page, junk);
+    let skip = null;
+    lines.forEach((line, n) => {
+      if (line === skip) return;
+      const text = line.text.trim();
+      const top = n < BY_TOP_LINES || line.gapBefore >= body * BY_GAP;
+      // Still in the header of a song that started on this page: "Recorded by
+      // Nat "King" Cole" under the writer is a credit, not the next song.
+      const inHeader = cur?.firstPage === pageNo && !cur.lines.length;
+      if (top && !inHeader && !CHORD.test(text) && !BY_LINE.test(text)) {
+        const next = lines[n + 1];
+        const inline = TITLE_BY.exec(text);
+        let start = null;
+        if (next && BY_LINE.test(next.text) && !CHORD.test(next.text) && titleWorthy(text)) {
+          start = { title: text, artist: next.text.replace(BY_PREFIX, '') };
+          skip = next;
+        } else if (inline && titleWorthy(inline[1])) {
+          start = { title: inline[1], artist: inline[2] };
+          const above = lines[n - 1];
+          if (SUBTITLE.test(inline[1]) && above && cur?.lastPage === pageNo && cur.lines.at(-1)?.text === above.text
+            && !CHORD.test(above.text) && titleWorthy(above.text)) {
+            cur.lines.pop();
+            start.title = inline[1].startsWith('(') ? `${above.text.trim()} ${inline[1]}` : above.text.trim();
+          }
+          // "(sung by Julie Andrews)": the bracket "by" opened closes after the name.
+          if ((start.artist.match(/\)/g) || []).length > (start.artist.match(/\(/g) || []).length) start.artist = start.artist.replace(/\)\s*$/, '');
+        }
+        if (start) {
+          cur = newSong(start.title.trim(), pageNo);
+          cur.artist = fieldValue(start.artist);
+          cur.titleSeen = true;
+          songs.push(cur);
+          return;
+        }
+      }
+      if (!cur) return;                 // a cover page, before the first song
+      if (!cur.lines.length && cur.afterTitle < 3) {
+        cur.afterTitle++;
+        if (CREDIT_LINE.test(text) && !CHORD.test(text)) { cur.lastPage = pageNo; return; }
+        if (takeHeader(cur, line, page, body)) { cur.lastPage = pageNo; return; }
+      }
+      push(cur, line, pageNo);
+    });
+  });
+  return songs;
+}
+
+// How many songs a way of splitting found that look like songs: chords in
+// them, and a title with a word in it that is not a lyric's length.
+function wellFound(songs) {
+  return songs.filter(s => s.title && titleWorthy(s.title) && s.title.length <= 70
+    && s.lines.some(l => CHORD.test(l.text))).length;
+}
+
 // ROUND BRACKETS. A common way to write a chart without ChordPro: "(Am) She
 // leads a (G) lonely life" — Ukulele Wednesdays, Moogly, the Christmas Ukulele
 // Song Book. Each "(Am)" is exactly a "[Am]", so turning one into the other
@@ -422,20 +560,29 @@ function byTitleType(pages) {
 // qualifies only when lines with lyrics AND a bracketed chord name are common,
 // and outnumber the square-bracket ones. Inside it, only a bracket holding one
 // chord name and nothing else changes.
+//
+// A book can also mix the two: TUSC writes "Yellow" with [G] and "Faith" with
+// (C), and decided for the whole book, Faith lost its chords. When the book as
+// a whole does not qualify, each page is decided on its own, by the same test.
 const PAREN_CHORD = /\(([A-G][#b♯♭]?(?:maj|min|m|M|dim|aug|sus|add|°|ø|\+)?\d{0,2}(?:(?:sus|add|maj|b|#|-)\d{1,2})*(?:\/[A-G][#b♯♭]?)?)\)/g;
 const PAREN_BOOK_MIN = 10;
+const PAREN_PAGE_MIN = 3;
 
 export function roundBracketChords(pages = []) {
-  let inline = 0, square = 0;
-  for (const p of pages) for (const l of p.lines) {
-    if (CHORD.test(l.text)) { square++; continue; }
-    PAREN_CHORD.lastIndex = 0;
-    if (PAREN_CHORD.test(l.text) && /[a-z]{3}/i.test(l.text.replace(PAREN_CHORD, ''))) inline++;
-  }
-  if (inline < PAREN_BOOK_MIN || inline <= square) return { pages, converted: false };
-  const swap = (t) => t.replace(PAREN_CHORD, '[$1]');
-  return {
-    pages: pages.map(p => ({ ...p, lines: p.lines.map(l => (l.text.includes('(') ? { ...l, text: swap(l.text) } : l)) })),
-    converted: true,
-  };
+  const counts = pages.map(p => {
+    let inline = 0, square = 0;
+    for (const l of p.lines) {
+      if (CHORD.test(l.text)) { square++; continue; }
+      PAREN_CHORD.lastIndex = 0;
+      if (PAREN_CHORD.test(l.text) && /[a-z]{3}/i.test(l.text.replace(PAREN_CHORD, ''))) inline++;
+    }
+    return { inline, square };
+  });
+  const inline = counts.reduce((n, c) => n + c.inline, 0);
+  const square = counts.reduce((n, c) => n + c.square, 0);
+  const swap = (p) => ({ ...p, lines: p.lines.map(l => (l.text.includes('(') ? { ...l, text: l.text.replace(PAREN_CHORD, '[$1]') } : l)) });
+  if (inline >= PAREN_BOOK_MIN && inline > square) return { pages: pages.map(swap), converted: true, mixed: false };
+  const own = counts.map(c => c.inline >= PAREN_PAGE_MIN && c.inline > c.square);
+  if (!own.some(Boolean)) return { pages, converted: false, mixed: false };
+  return { pages: pages.map((p, i) => (own[i] ? swap(p) : p)), converted: true, mixed: true };
 }

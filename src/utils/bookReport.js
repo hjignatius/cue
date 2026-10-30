@@ -32,6 +32,10 @@ const CHORDED_GOOD = 0.85;
 // Found by title type and averaging more pages than this per song: songs have
 // probably run together because titles were not bigger than the lyrics.
 const PAGES_PER_SONG_MAX = 3.5;
+// Found by title type or "by" line, ONE song this many pages long has probably
+// swallowed the songs after it. Moogly's averaged 1.6 pages a song, so the
+// average said all was well, while "I Will Survive" ran on for 11.
+const SONG_PAGES_MAX = 4;
 // More than this share of titles that are chord names, a page long, or one
 // character: titles were not found properly.
 const ODD_TITLES_MAX = 0.1;
@@ -71,14 +75,39 @@ const NOT_AN_ARTIST = /^(?:shorter|longer|easier|easy|harder|tab|with tab|instr|
 // its bracket closed.
 const TRAILING_YEAR = /\s*(?:\(\s*~?\s*\d{4}s?\s*\)|~?\s*\d{4}s?)\s*$/;
 const looksLikeChord = (t) => /^[A-G][#b♯♭]?\S{0,6}$/.test(t.trim());
+// Moogly: "Spirit In The Sky-Norman Greenbaum", a bare hyphen. Split only in a
+// book where it is the habit — 14 of Moogly's 40 titles, against 3 of USGB's
+// 1,622, which are "A Hard Rain's A-Gonna Fall" and medleys — and only with
+// two words or more before the hyphen, which "Brown-Eyed Girl" does not have.
+// After it, a capital: "Red Red Wine-UB40", "Be My Baby-Ronettes".
+const GLUED_ARTIST = /^(\S+(?:\s+\S+)+?)-(\p{Lu}\S*(?:\s+\S+)*)$/u;
+const GLUED_BOOK_MIN = 3;
+const GLUED_BOOK_SHARE = 0.1;
+// TUSC: "People are Strange (The Doors)", "JAMMIN’ (Bob Marley)". The same
+// test of habit, and a capital inside — "(from The Jungle Book)", "(x2)" and a
+// year are not artists.
+const BRACKET_ARTIST = /^(.*\S)\s*\(\s*(\p{Lu}[^()]{1,40}?)\s*\)$/u;
+const NOT_A_BRACKET_ARTIST = /^(?:from|live|reprise|part|key|capo|version|instrumental|medley|slow|fast)\b|^\d/i;
+const bracketArtist = (title) => {
+  const m = BRACKET_ARTIST.exec(title);
+  return m && !NOT_A_BRACKET_ARTIST.test(m[2]) && !TRAILING_YEAR.test(`(${m[2]})`) ? m : null;
+};
+// A page number run into the end of a title: "Father Figure — George
+// Michael24", "Britney Spears 11". Only the number this page is printed as, so
+// "Maroon 5" and "Blink-182" keep theirs.
+const TRAILING_NUMBER = /\s*(\d{1,4})\s*$/;
 
 // Tidy one song's title, and fill the artist and key it gives away. Returns the
 // song with its new fields and `tidied`: which kinds of tidying happened, so
 // the report can say so ONCE rather than on every row.
-export function tidySong(song, { secondLineIsArtist = false } = {}) {
+export function tidySong(song, { secondLineIsArtist = false, printedPage = null, gluedArtist = false, bracketedArtist = false } = {}) {
   const tidied = new Set();
-  let title = String(song.title || '').replace(/\s*\*+\s*$/, '').trim();
-  let artist = chordNamesOnly(song.artist || '') ? '' : song.artist || '';
+  const unnumbered = (t) => {
+    const m = TRAILING_NUMBER.exec(t);
+    return m && printedPage != null && +m[1] === printedPage && t.slice(0, m.index).trim() ? t.slice(0, m.index) : t;
+  };
+  let title = unnumbered(String(song.title || '')).replace(/\s*\*+\s*$/, '').trim();
+  let artist = chordNamesOnly(song.artist || '') ? '' : unnumbered(song.artist || '');
   if (secondLineIsArtist && song.titleParts?.length === 2 && !artist && !DIFFICULTY.test(song.titleParts[0])) {
     [title, artist] = song.titleParts;
     tidied.add('artist');
@@ -112,12 +141,30 @@ export function tidySong(song, { secondLineIsArtist = false } = {}) {
       tidied.add('artist');
     }
   }
+  if (!artist && bracketedArtist) {
+    const m = bracketArtist(title);
+    if (m) {
+      title = m[1];
+      artist = m[2];
+      tidied.add('artist');
+    }
+  }
+  if (!artist && gluedArtist) {
+    const m = GLUED_ARTIST.exec(title);
+    if (m) {
+      title = m[1];
+      artist = m[2];
+      tidied.add('artist');
+    }
+  }
   if (artist) {
     const a = artist.replace(/\s*\*+\s*$/, '').replace(TRAILING_YEAR, '').replace(/[\s,;:\-–—]+$/, '').trim();
     artist = a || artist;
   }
 
   title = title.replace(/[\s\-–—:,]+$/, '').replace(/\s{2,}/g, ' ').trim() || song.title;
+  // TUSC quotes some titles whole: "\"Pennies From Heaven\"".
+  title = title.replace(/^["“”](.+)["“”]$/u, '$1');
   const noChords = song.noChords || NOT_A_SONG.test(title);
   const out = { ...song, title, artist, key, noChords, tidied };
   delete out.titleParts;
@@ -126,11 +173,27 @@ export function tidySong(song, { secondLineIsArtist = false } = {}) {
 
 // ---- A whole book -------------------------------------------------------------
 
+// What a book prints as its page numbers, as an offset from the PDF's own: a
+// page of nothing but "25" on the PDF's 27th page is 2. Taken only when most
+// of the numbered pages agree, so a stray "12" in a chart decides nothing.
+function pageOffset(pages) {
+  const counts = new Map();
+  pages.forEach((p, i) => {
+    for (const l of p.lines) {
+      const m = /^\s*(\d{1,4})\s*$/.exec(l.text);
+      if (m) { const off = i + 1 - +m[1]; counts.set(off, (counts.get(off) || 0) + 1); }
+    }
+  });
+  let best = null, most = 0, all = 0;
+  for (const [off, n] of counts) { all += n; if (n > most) { best = off; most = n; } }
+  return most >= 3 && most >= all / 2 ? best : null;
+}
+
 /**
  * pages, marks: as extractSongbookPages returns them.
  * Returns { kind, how, verdict, reasons, tidied, songs, pages: n }.
- *   kind     'square' | 'round' | 'over' | 'pictures' | 'none'
- *   how      'bookmarks' | 'titles' | 'pages'
+ *   kind     'square' | 'round' | 'mixed' | 'over' | 'pictures' | 'none'
+ *   how      'bookmarks' | 'titles' | 'bylines' | 'pages'
  *   verdict  'ok' | 'check' | 'cant'
  *   reasons  plain sentences: why it is 'check' or 'cant'
  *   tidied   { version, difficulty, key, artist } — how many titles each
@@ -145,8 +208,14 @@ export function bookReport(pages = [], marks = []) {
   const tidied = { version: 0, difficulty: 0, key: 0, artist: 0 };
   const chorded = split.filter(s => !s.noChords && !s.pictureOnly);
   const secondLineIsArtist = chorded.filter(s => s.titleParts?.length === 2).length >= chorded.length * TWO_LINE_LAYOUT;
+  const glued = chorded.filter(s => !s.artist && GLUED_ARTIST.test(s.title)).length;
+  const gluedArtist = glued >= GLUED_BOOK_MIN && glued >= chorded.length * GLUED_BOOK_SHARE;
+  const bracketed = chorded.filter(s => !s.artist && bracketArtist(s.title)).length;
+  const bracketedArtist = bracketed >= GLUED_BOOK_MIN && bracketed >= chorded.length * GLUED_BOOK_SHARE;
+  const offset = pageOffset(pages);
   const songs = split.map(s => {
-    const t = tidySong(s, { secondLineIsArtist });
+    const printedPage = offset == null ? null : s.firstPage - offset;
+    const t = tidySong(s, { secondLineIsArtist, gluedArtist, bracketedArtist, printedPage });
     for (const kind of t.tidied) tidied[kind]++;
     delete t.tidied;
     return t;
@@ -160,8 +229,8 @@ export function bookReport(pages = [], marks = []) {
   }
 
   const kind = textPages < n * (1 - PICTURE_BOOK_SHARE) ? 'pictures'
-    : round.converted ? 'round'
-    : square >= over && square > 0 ? 'square'
+    : round.converted && !round.mixed ? 'round'
+    : square >= over && square > 0 ? (round.mixed ? 'mixed' : 'square')
     : over > 0 ? 'over' : 'none';
 
   const real = songs.filter(s => !s.noChords && !s.pictureOnly);
@@ -181,6 +250,10 @@ export function bookReport(pages = [], marks = []) {
     const odd = real.filter(oddTitle).length;
     if (odd > real.length * ODD_TITLES_MAX) reasons.push(`${odd} titles look wrong — they may be chords or lyrics.`);
     if (how === 'titles' && n / real.length > PAGES_PER_SONG_MAX) reasons.push(`The songs average ${Math.round(n / real.length)} pages each. Its titles are no bigger than the lyrics, so some songs have probably run together.`);
+    else if (how === 'titles' || how === 'bylines') {
+      const long = real.filter(s => s.lastPage - s.firstPage + 1 > SONG_PAGES_MAX);
+      if (long.length) reasons.push(`${plural(long.length, 'song')} ${long.length === 1 ? 'runs' : 'run'} longer than ${SONG_PAGES_MAX} pages — “${long[0].title}” is ${long[0].lastPage - long[0].firstPage + 1} — so songs after ${long.length === 1 ? 'it' : 'them'} may have run together.`);
+    }
     if (real.length < songs.length * CHORDED_GOOD) reasons.push(`${songs.length - real.length} have no chords and are left unticked.`);
     if (reasons.length) verdict = 'check';
   }
@@ -292,6 +365,7 @@ export function reportLines(report, inLibrary = 0) {
   lines.push({
     square: 'Charts with chords in [square brackets].',
     round: 'Charts with chords in (round brackets). They become [square brackets], the way Cue writes them.',
+    mixed: 'Charts with chords in [square brackets], and some in (round brackets). The round ones become square, the way Cue writes them.',
     over: 'Charts with the chords written above the lyrics.',
     none: 'Sheets whose chords aren’t written in brackets.',
     pictures: 'Pictures of pages, not text.',
@@ -299,11 +373,12 @@ export function reportLines(report, inLibrary = 0) {
   }[report.kind] || '');
   // The reason already says what a book of pictures or of chords-above-lyrics
   // is; the kind is only worth adding where the reason is about the split.
-  if (report.verdict === 'cant') return report.kind === 'square' || report.kind === 'round' ? lines : [];
+  if (report.verdict === 'cant') return ['square', 'round', 'mixed'].includes(report.kind) ? lines : [];
 
   lines.push({
     bookmarks: `Cue found ${plural(n, 'song')} from the book’s bookmarks.`,
     titles: `Cue found ${plural(n, 'song')} by the large title at the top of each.`,
+    bylines: `Cue found ${plural(n, 'song')} by the title and “by …” line at the top of each.`,
     pages: `Cue found ${plural(n, 'page')} and made each one a song.`,
     sheets: 'Titles, writers and keys are read from the top of each first page.',
   }[report.how]);

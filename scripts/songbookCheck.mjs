@@ -189,8 +189,14 @@ const roundPage = () => page([['(Am) She leads a (G) lonely life'], ['Oh (x4) wh
 const rb = roundBracketChords([roundPage(), roundPage(), roundPage(), roundPage()]);
 check('a book of (G) chords becomes [G]', [rb.converted, rb.pages[0].lines.map(l => l.text)], [true,
   ['[Am] She leads a [G] lonely life', 'Oh (x4) whey (Bb C7)', '[C] [Dm7] [G7/B]', 'and [F#m] more [Bbmaj7] words', 'the [A] end [Dsus4] here']]);
-check('…but a few brackets in a book are left alone', roundBracketChords([roundPage()]).converted, false);
-check('…and a square-bracket book is left alone', roundBracketChords([...book, roundPage()]).converted, false);
+const strayPage = () => page([['Sing it (G) again'], ['and once (Am) more'], ['[C] the rest is square']]);
+check('…but a stray bracket or two is left alone', roundBracketChords([...book, strayPage()]).converted, false);
+check('…and a square-bracket book is left alone', roundBracketChords(book).converted, false);
+// TUSC: "Yellow" in [G], "Faith" in (C). The book as a whole doesn't qualify,
+// so each page is decided on its own.
+const mixed = roundBracketChords([...book, roundPage()]);
+check('a mixed book converts its round pages only', [mixed.converted, mixed.mixed, mixed.pages[0] === book[0], mixed.pages[4].lines[0].text],
+  [true, true, true, '[Am] She leads a [G] lonely life']);
 
 // ---- 10. verdicts -------------------------------------------------------------
 check('a good book looks right', [bookReport(book).verdict, bookReport(book).kind, bookReport(book).how], ['ok', 'square', 'titles']);
@@ -209,6 +215,81 @@ check('the report says it in order', reportLines(bookReport(book), 2), [
   'They come in as charts you can edit and transpose.',
   '2 are already in your library and left unticked.',
 ]);
+
+// ---- 12. titles no bigger than the lyrics: the "by" line ----------------------
+// Brighton: a header on every page, the title in the lyric size with "by …"
+// under it or beside it, and chord diagrams whose names are the largest type.
+const BRIGHTON_HEAD = ['Brighton Ukulele Sundays – Songbook', 12];
+const DIAGRAM = (name) => [name, 20, 2];
+const brighton = bookReport([
+  page([BRIGHTON_HEAD, ['Here Comes The Sun'], ['by George Harrison, 1969'], DIAGRAM('Cmaj7'), ['[G] Here comes the sun'], ['[Cmaj7] Here comes the [A7] sun'], ['22/04/2009 5', 11, 300]]),
+  page([BRIGHTON_HEAD, ['Mister Sandman by Pat Ballard, 1954'], DIAGRAM('C7+5'), ['[C7]Mister [F]Sandman'], ['[A7]Make him the cutest'], ['22/04/2009 6', 11, 300]]),
+  page([BRIGHTON_HEAD, ['[D7]Sandman, I’m so alone'], ['Don’t have [G7]nobody'], ['22/04/2009 7', 11, 300]]),
+  page([BRIGHTON_HEAD, ['Dance Tonight'], ['By Paul McCartney'], ['Recorded by Paul McCartney, 2007'], DIAGRAM('Dsus4'), ['[G] Everybody gonna dance tonight'], ['22/04/2009 8', 11, 300]]),
+]);
+check('a "by" line under the title finds the song', [brighton.how, brighton.verdict], ['bylines', 'ok']);
+check('…titles and writers, from either layout', brighton.songs.map(s => [s.title, s.artist, s.firstPage, s.lastPage]), [
+  ['Here Comes The Sun', 'George Harrison', 1, 1],
+  ['Mister Sandman', 'Pat Ballard', 2, 3],
+  ['Dance Tonight', 'Paul McCartney', 4, 4],
+]);
+check('…and neither the diagram names nor a second credit get into the chart',
+  brighton.songs.some(s => /^(?:Cmaj7|C7\+5|Dsus4)$|Recorded by/m.test(s.text)), false);
+check('the report says how', reportLines(brighton)[1], 'Cue found 3 songs by the title and “by …” line at the top of each.');
+const subtitled = bookReport([
+  page([BRIGHTON_HEAD, ['Dance Tonight'], ['by Paul McCartney'], ['[G] Everybody gonna dance tonight'], ['22/04/2009 8', 11, 300]]),
+  page([BRIGHTON_HEAD, ['Everybody’s Talkin’'], ['(Theme from Midnight Cowboy) by Harry Nilsson'], ['[F] Everybody’s [Am] talking at me'], ['22/04/2009 9', 11, 300]]),
+  page([BRIGHTON_HEAD, ['Do Re Mi'], ['from the Sound of Music (sung by Julie Andrews)'], ['[C] Doe, a deer'], ['22/04/2009 10', 11, 300]]),
+  page([BRIGHTON_HEAD, ['L-O-V-E'], ['Words & Music by Milt Gabler & Bert Kaempfert'], ['Recorded by Nat "King" Cole, 1964'], ['[G] L is for the [Am] way'], ['22/04/2009 11', 11, 300]]),
+  page([BRIGHTON_HEAD, ['Sweet Georgia Brown Words by A. Ken Casey'], ['[A7] No gal made has got a shade'], ['22/04/2009 12', 11, 300]]),
+]);
+check('…a title’s second line, and credits in any case', subtitled.songs.map(s => [s.title, s.artist]), [
+  ['Dance Tonight', 'Paul McCartney'], ['Everybody’s Talkin’ (Theme from Midnight Cowboy)', 'Harry Nilsson'],
+  ['Do Re Mi', 'Julie Andrews'], ['L-O-V-E', 'Milt Gabler & Bert Kaempfert'], ['Sweet Georgia Brown', 'A. Ken Casey']]);
+
+// A chord name or a lone letter in large type is no title; TUSC runs a song's
+// name down its margin one 48pt capital at a time.
+const margin = splitSongbook([
+  page([T('Yellow'), ['[G]Look at the stars'], ['L', 48], ['Look how they shine for [D]you'], ['C#m', 20], ['And everything you [C]do']]),
+  page([T('Faith'), ['Well I guess it would be [C] nice']]),
+]);
+check('lone letters and chord names are not titles', margin.map(s => s.title), ['Yellow', 'Faith']);
+
+// A "by" line in title type straight under its title is the writer…
+const lady = splitSongbook([
+  page([T('Mellow Yellow'), ['[C]I’m just mad about [F]Saffron']]),
+  page([['"Ukulele Lady"', 23], ['by Richard Whiting and Gus Kahn', 28], ['[F]I used to linger'], ['on Hona[Db7]lu[C7]lu [F]bay']]),
+  page([T('Faith'), ['by George Michael', 20], ['Well I guess it would be [C] nice']]),
+]);
+check('a big "by" line is the writer of the line above it', lady.map(s => [s.title, s.artist]),
+  [['Mellow Yellow', ''], ['"Ukulele Lady"', 'Richard Whiting and Gus Kahn'], ['Faith', 'George Michael']]);
+check('…but a song can be called "By Your Hand"', splitSongbook([
+  page([T('Faith'), ['Well I guess it would be [C] nice'], T('By Your Hand'), ['[G] By your hand']]),
+]).map(s => s.title), ['Faith', 'By Your Hand']);
+
+// ---- 13. the book's habits ---------------------------------------------------
+// Moogly: "Spirit In The Sky-Norman Greenbaum", and the page number run into
+// the title, "Father Figure — George Michael24", on the PDF's 26th page.
+const moogly = (titles) => titles.map((title, i) => page([['' + (i + 1), 10], T(title), ['(A)When I die and they (D)lay me to rest'], ['Gonna (E)go to the place that’s the (A)best']]));
+const habit = bookReport([page([['Moogly’s Songbook', 30]]), ...moogly(['Spirit In The Sky-Norman Greenbaum', 'Red Red Wine-UB40',
+  'Brown-Eyed Girl', 'Seasons In The Sun-Terry Jacks', 'Father Figure — George Michael5'])]);
+check('a bare-hyphen artist splits in a book that does it', habit.songs.map(s => [s.title, s.artist]), [
+  ['Spirit In The Sky', 'Norman Greenbaum'], ['Red Red Wine', 'UB40'], ['Brown-Eyed Girl', ''],
+  ['Seasons In The Sun', 'Terry Jacks'], ['Father Figure', 'George Michael']]);
+check('…but not in a book where it is rare', bookReport(moogly(['A Hard Rain’s A-Gonna Fall', 'Hound Dog-Shake Rattle and Roll',
+  'Bye Bye Blackbird-Side by Side', ...Array.from({ length: 30 }, (_, i) => `Tune ${'abcdefghijklmnopqrstuvwxyzABCD'[i]}x`)])).songs[0].title, 'A Hard Rain’s A-Gonna Fall');
+check('a page number keeps a band’s digits', tidySong({ title: 'Harder To Breathe', artist: 'Maroon 5' }, { printedPage: 12 }).artist, 'Maroon 5');
+const tusc = bookReport(moogly(['People are Strange (The Doors)', 'JAMMIN’ (Bob Marley)', 'I Wanna Be Like You (from The Jungle Book)',
+  'Love Me Like You (Magic Numbers)', '"Pennies From Heaven"']));
+check('an artist in brackets, in a book that does it', tusc.songs.map(s => [s.title, s.artist]), [
+  ['People are Strange', 'The Doors'], ['JAMMIN’', 'Bob Marley'], ['I Wanna Be Like You (from The Jungle Book)', ''],
+  ['Love Me Like You', 'Magic Numbers'], ['Pennies From Heaven', '']]);
+
+// One song much longer than the rest has swallowed the ones after it, even
+// when the average is fine.
+const swallowed = bookReport([...moogly(['Yellow', 'Hello', 'Imagine', 'Jolene', 'Respect', 'Wonderwall']), ...verses(), page([['more words [C] here']])]);
+check('one song running long: check the list', [swallowed.verdict, swallowed.reasons.join(' ')],
+  ['check', '1 song runs longer than 4 pages — “Wonderwall” is 6 — so songs after it may have run together.']);
 
 // ---- 11. a sheet from a batch of separate PDFs --------------------------------
 // Farmers Market: a 24pt title, the writer under it, chord diagrams drawn in a
