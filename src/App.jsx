@@ -79,7 +79,7 @@ export default function App() {
     const abort = new AbortController();
     let report, pages;
     try {
-      const [{ extractSongbookPages }, { bookReport, REPORT_PAGES_MIN }] = await Promise.all([
+      const [{ extractSongbookPages }, { bookReport, isBook }] = await Promise.all([
         import('./utils/pdfjs.js'), import('./utils/bookReport.js'),
       ]);
       // Progress at most a few times a second. Every update re-renders the
@@ -95,8 +95,7 @@ export default function App() {
         },
       }));
       report = bookReport(pages, marks);
-      const book = report.pages >= REPORT_PAGES_MIN || (report.verdict !== 'cant' && report.songs.length >= 2);
-      if (!book) { setSongbook(null); return 'page'; }
+      if (!isBook(report)) { setSongbook(null); return 'page'; }
     } catch (e) {
       setSongbook(null);
       return e?.code === 'aborted' ? 'cancel' : 'page';

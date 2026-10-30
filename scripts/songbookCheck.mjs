@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { PDFDocument } from 'pdf-lib';
 
@@ -187,6 +187,7 @@ check('a list of chord names is not an artist', t('X', 'Am F C G E7')[1], '');
 check('", Key of D" at the end moves to the key', [t('OVER THE RIVER, Key of D'), t('LITTLE DRUMMER BOY,.Key of G'), t('The Key of Life')],
   [['OVER THE RIVER', '', 'D'], ['LITTLE DRUMMER BOY', '', 'G'], ['The Key of Life', '', '']]);
 check('a cover page is no song', tidySong({ title: 'HOLIDAY SONGS, Cover Page' }).noChords, true);
+check('ukulele sizes stuck to a title go', t('Bye Bye LoveSopranoBaritone'), ['Bye Bye Love', '', '']);
 check('a contents page is no song', tidySong({ title: 'Ukulele Songbook Table of Contents' }).noChords, true);
 
 // ---- 9. round brackets --------------------------------------------------------
@@ -341,6 +342,14 @@ const marked = [sheetOf('Aloha Week Hula', 'hula'), page([['G     C'], ['more of
 const fromMarks = pickerStart(bookReport(marked, [
   { title: 'Aloha Week Hula', page: 1, top: null }, { title: 'Blue Hawaii', page: 3, top: null }, { title: 'Contents', page: 4, top: null }]), marked);
 check('…or from its bookmarks, leaving the contents out', fromMarks.marks, ['start', 'same', 'start', 'skip']);
+
+// "Beginning Ukulele Songbook": ten pages, chords above the lyrics, a song a
+// page. Not one song, though it can't be split as charts.
+const shortBook = [page([['Index', 16], ['1. Pearly Shells'], ['2. Edelweiss']]), overPage('Pearly Shells'), sheetOf('Edelweiss', 'blossom'), sheetOf('Tiny Bubbles', 'wine')];
+check('a short PDF with songs on several pages is a book', isBook(bookReport(shortBook)), true);
+check('…and the picker leaves its index out', pickerStart(bookReport(shortBook), shortBook).marks, ['skip', 'start', 'start', 'start']);
+check('…one song over two pages is not', isBook(bookReport([overPage('Ripple'), page([['G     C'], ['more of it']])])), false);
+check('…nor is one song with a picture page', isBook(bookReport([overPage('Ripple'), page([])])), false);
 
 // Cutting: the pages asked for, in that order, and nothing else.
 const src = await PDFDocument.create();

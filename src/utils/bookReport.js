@@ -48,6 +48,20 @@ const oddTitle = (s) => looksLikeChord(s.title) || s.title.length > 70 || s.titl
 // a book, and saying why it can't be split beats a silent one-PDF import. A
 // short PDF that is one chart still goes straight in, as it always has.
 export const REPORT_PAGES_MIN = 13;
+// …and a shorter PDF is a book too when songs start on this many different
+// pages, or it has a contents page. "Beginning Ukulele Songbook" is 10 pages:
+// an index, then a song a page, chords above the lyrics — it can't be split as
+// charts, but it is plainly not one song, and the picker can take it apart.
+const BOOK_START_PAGES = 3;
+
+/** Whether a PDF gets the report at all, rather than going in as one song. */
+export function isBook(report) {
+  if (report.pages >= REPORT_PAGES_MIN) return true;
+  if (report.verdict !== 'cant' && report.songs.length >= 2) return true;
+  if (report.kind === 'pictures' || report.kind === 'none') return false;
+  const starts = new Set(report.songs.map(s => s.firstPage));
+  return starts.size >= BOOK_START_PAGES || report.songs.some(s => NOT_A_SONG.test(s.title));
+}
 
 // ---- Titles -----------------------------------------------------------------
 
@@ -77,6 +91,9 @@ const NOT_AN_ARTIST = /^(?:shorter|longer|easier|easy|harder|tab|with tab|instr|
 // its bracket closed.
 const TRAILING_YEAR = /\s*(?:\(\s*~?\s*\d{4}s?\s*\)|~?\s*\d{4}s?)\s*$/;
 const looksLikeChord = (t) => /^[A-G][#b♯♭]?\S{0,6}$/.test(t.trim());
+// Chord diagrams labelled for each size of ukulele, printed beside the title
+// and read into it: "Bye Bye LoveSopranoBaritone".
+const UKE_SIZES = /(?<=\p{Ll})(?:Soprano|Concert|Tenor|Baritone)+$/u;
 // Moogly: "Spirit In The Sky-Norman Greenbaum", a bare hyphen. Split only in a
 // book where it is the habit — 14 of Moogly's 40 titles, against 3 of USGB's
 // 1,622, which are "A Hard Rain's A-Gonna Fall" and medleys — and only with
@@ -108,7 +125,7 @@ export function tidySong(song, { secondLineIsArtist = false, printedPage = null,
     const m = TRAILING_NUMBER.exec(t);
     return m && printedPage != null && +m[1] === printedPage && t.slice(0, m.index).trim() ? t.slice(0, m.index) : t;
   };
-  let title = unnumbered(String(song.title || '')).replace(/\s*\*+\s*$/, '').trim();
+  let title = unnumbered(String(song.title || '')).replace(UKE_SIZES, '').replace(/\s*\*+\s*$/, '').trim();
   let artist = chordNamesOnly(song.artist || '') ? '' : unnumbered(song.artist || '');
   if (secondLineIsArtist && song.titleParts?.length === 2 && !artist && !DIFFICULTY.test(song.titleParts[0])) {
     [title, artist] = song.titleParts;
@@ -316,7 +333,7 @@ export function sheetInfo(pages = [], marks = [], fileName = '') {
   const file = fromFileName(fileName);
   if (pages.length >= REPORT_PAGES_MIN) return null;
   const { songs } = readSongbook(roundBracketChords(pages).pages, marks);
-  if (songs.filter(s => !s.noChords).length > 1) return null;
+  if (songs.filter(s => !s.noChords).length > 1 || isBook(bookReport(pages, marks))) return null;
   const head = sheetTitle(pages[0]?.lines);
   const onPage = head ? tidySong(head) : null;
   // The page's title wins when it is the same song as the file name says —
@@ -491,6 +508,11 @@ export function pickerStart(report, pages = []) {
   } else marks = Array(n).fill('start');
   for (let p = 1; p <= n; p++) {
     if (!titles[p]) titles[p] = pageTitle(content[p - 1]) || { title: `Page ${p}`, artist: '', key: '' };
+  }
+  // A contents or index page, wherever the report or the page itself names it.
+  if (!split) {
+    for (const s of report.songs) if (NOT_A_SONG.test(s.title)) marks[s.firstPage - 1] = 'skip';
+    for (let p = 1; p <= n; p++) if (NOT_A_SONG.test(titles[p].title)) marks[p - 1] = 'skip';
   }
   return { marks, titles };
 }
