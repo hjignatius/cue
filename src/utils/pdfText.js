@@ -35,10 +35,13 @@ const COLUMN_GAP = 2;
 // Items in: pdf.js text items ({ str, transform, width, height, fontName }).
 // Lines out, in reading order, each with the geometry a later pass needs to
 // judge it:
-//   { text, x, y, height, gapBefore, font, pieces? }
+//   { text, x, y, height, gapBefore, font, pieces?, runs? }
 // `font` is the font of the line's first run. `pieces` is there only when the
-// line spans a column gap: [{ text, x, height, font }], left to right.
-export function linesFromItems(items = []) {
+// line spans a column gap: [{ text, x, height, font }], left to right. `runs`
+// only when asked for: every run as [{ str, x, width, height }], which is what
+// it takes to put a chord above the lyrics on the letter under it
+// (chordsAbove.js). Not kept by default: a 5,000-page book doesn't need them.
+export function linesFromItems(items = [], { runs = false } = {}) {
   const rows = [];
   for (const it of items) {
     if (!it || typeof it.str !== 'string' || it.str === '') continue;
@@ -77,8 +80,8 @@ export function linesFromItems(items = []) {
     }
     // Trimmed at both ends. A run of spaces at the start of a row is the PDF
     // positioning the text, not indentation someone typed — and Cue's bracket
-    // format carries no meaning in leading whitespace. (It would in a
-    // chords-ABOVE-lyrics chart, which this path does not claim to handle.)
+    // format carries no meaning in leading whitespace. (A chords-ABOVE-lyrics
+    // chart is read from the runs' x instead — chordsAbove.js.)
     text = text.trim();
     if (!text.trim()) continue;
     lines.push({
@@ -90,6 +93,7 @@ export function linesFromItems(items = []) {
       font: pieces[0].font,
       ...(pieces.filter(pc => pc.text.trim()).length > 1
         ? { pieces: pieces.filter(pc => pc.text.trim()).map(pc => ({ ...pc, text: pc.text.trim() })) } : {}),
+      ...(runs ? { runs: seen.map(it => ({ str: it.str, x: it.x, width: it.width, height: it.height || 0 })) } : {}),
     });
     prevY = row.y;
   }

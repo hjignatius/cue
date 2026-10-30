@@ -149,7 +149,7 @@ export function isChordLine(line) {
   return allValid && hasChord;
 }
 
-function extractChords(chordLine) {
+export function extractChords(chordLine) {
   const chords = [];
 
   // Lift parenthesised notes out before tokenising, so each stays one thing at

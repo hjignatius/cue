@@ -752,8 +752,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         return;
       }
       // Look in the text layer before committing to the page. Only offer the
-      // choice when there is really one to make: a chart written in brackets,
-      // and an editor with nothing in it to strand.
+      // choice when there is really one to make: a chart written in brackets —
+      // or with its chords above the lyrics, which extractPdfText puts into
+      // brackets — and an editor with nothing in it to strand.
       let chart = '';
       try {
         if (!text.trim()) chart = await extractPdfText(file);

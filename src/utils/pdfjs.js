@@ -34,8 +34,11 @@ export function loadPdfjs() {
 // is what you want from a book anyway.
 export const MAX_UNPACK_PAGES = 12;
 
+// A chart with its chords on their own line above the lyrics — how chord
+// websites print them — comes out with the chords put into the lyrics as
+// [brackets], each on the word it is drawn over (chordsAbove.js).
 export async function extractPdfLines(data) {
-  const { linesFromItems } = await import('./pdfText.js');
+  const [{ linesFromItems }, { chordsAbove }] = await Promise.all([import('./pdfText.js'), import('./chordsAbove.js')]);
   const pdfjs = await loadPdfjs();
   const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
@@ -44,7 +47,7 @@ export async function extractPdfLines(data) {
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    pages.push(linesFromItems(content.items));
+    pages.push(chordsAbove(linesFromItems(content.items, { runs: true })).lines);
   }
   return pages;
 }
