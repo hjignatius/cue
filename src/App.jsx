@@ -4,6 +4,7 @@ import EditorView from './views/EditorView.jsx';
 import PresentationView from './views/PresentationView.jsx';
 import UpdateButton from './components/UpdateButton.jsx';
 import SongbookDialog from './components/SongbookDialog.jsx';
+import SheetChartDialog from './components/SheetChartDialog.jsx';
 import PagePicker from './components/PagePicker.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
@@ -45,6 +46,9 @@ export default function App() {
   const [setsImportDialog, setSetsImportDialog] = useState(null);
   // setsImportDialog: { resolve: (choice: 'allow'|'skip'|'cancel') => void }
   const [songbook, setSongbook] = useState(null);
+  // A one-song PDF that reads as a chart: { fileName, chart, resolve } while
+  // you choose between text and the page (askSheetChart).
+  const [sheetOffer, setSheetOffer] = useState(null);
   // songbook: { fileName, reading: {done,total,saving?}, songs: [...]|null, resolve, abort }
 
   async function refresh() {
@@ -227,6 +231,27 @@ export default function App() {
     return { show };
   }
 
+  // A PDF that is one song, not a book. When every page of it reads as a chart
+  // — chords in the lyrics, or drawn above them as chord websites print them —
+  // ask whether it comes in as text or as the page, as the editor's Load PDF
+  // does. Returns { metadata, text } to save as text, 'page' or 'cancel'.
+  async function askSheetChart(file) {
+    let chart = null;
+    try {
+      const [{ extractSheetPages }, { sheetChart }] = await Promise.all([import('./utils/pdfjs.js'), import('./utils/bookReport.js')]);
+      chart = sheetChart(await extractSheetPages(file), file.name);
+    } catch { /* an unreadable text layer — it is a page, then */ }
+    if (!chart) return 'page';
+    const choice = await new Promise(resolve => setSheetOffer({ fileName: file.name, chart, resolve }));
+    setSheetOffer(null);
+    if (choice !== 'text') return choice;
+    const metadata = { title: chart.title };
+    if (chart.artist) metadata.artist = chart.artist;
+    if (chart.key) metadata.key = chart.key;
+    if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
+    return { metadata, text: chart.text };
+  }
+
   // A PDF as one page song, as Cue has always imported a PDF: the bytes stored
   // locally, titled with the file name unless the caller read a better one.
   async function savePdfSong(file, metadata = { title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }, source = undefined) {
@@ -315,7 +340,18 @@ export default function App() {
           const book = await askSongbook(file);
           if (book?.show) showAfter = book.show;
           if (book !== 'page') continue;
-          await savePdfSong(file);
+          const sheet = await askSheetChart(file);
+          if (sheet === 'cancel') continue;
+          if (sheet === 'page') { await savePdfSong(file); continue; }
+          const existing = songs.find(s => normalizeTitle(s.metadata?.title) === normalizeTitle(sheet.metadata.title));
+          let importId = null;
+          if (existing) {
+            const choice = await askConflict(sheet.metadata.title);
+            if (choice === 'cancel') continue;
+            if (choice === 'overwrite') importId = existing.id;
+          }
+          const id = await saveSong({ id: importId, ...sheet, chordStyle: 'brackets', previewMode: 'brackets' });
+          lastImportedSong = { id, ...sheet };
           continue;
         }
 
@@ -846,6 +882,16 @@ export default function App() {
           onAccept={(songs, setName) => songbook.resolve({ songs, setName })}
           onBack={() => songbook.resolve('back')}
           onCancel={() => songbook.resolve('cancel')}
+        />
+      )}
+      {sheetOffer && (
+        <SheetChartDialog
+          dark={dark}
+          fileName={sheetOffer.fileName}
+          chart={sheetOffer.chart}
+          onText={() => sheetOffer.resolve('text')}
+          onPage={() => sheetOffer.resolve('page')}
+          onCancel={() => sheetOffer.resolve('cancel')}
         />
       )}
       {songbook && !songbook.picker && (

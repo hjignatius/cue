@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -312,6 +312,24 @@ check('…and with no title on the page, the file name is the title', [untitled.
 check('a batch of sheets looks right when titles were read', sheetsReport([info, noted]).verdict, 'ok');
 check('…and says to check when many were not', sheetsReport([info, untitled]).verdict, 'check');
 check('a long PDF is a book, not a sheet', sheetInfo(Array.from({ length: 13 }, () => sheet[0]), [], 'x.pdf'), null);
+
+// The same sheet as a chart, once its chords above the lyrics are in them
+// (chordsAbove.js), for Library Import's "Load as text".
+const readSheet = [page([['Ain’t She Sweet?', 24], ['by Milton Ager and Jack Yellen (1927)', 10],
+  ['[C]Ain’t she [C#dim7]sweet? See her [Dm]com-in’ down the [G7]street', 14], ['Now I [C]ask you [E7]very confidentially', 14]])];
+const asChart = sheetChart(readSheet, "Ain't She Sweet - v2d.pdf");
+check('a sheet that reads as a chart comes as one, its title and writer off the page and out of the text',
+  asChart && [asChart.title, asChart.artist, asChart.text],
+  ['Ain’t She Sweet?', 'Milton Ager and Jack Yellen', '[C]Ain’t she [C#dim7]sweet? See her [Dm]com-in’ down the [G7]street\nNow I [C]ask you [E7]very confidentially']);
+check('…a sheet with its chords still over the lyrics is a page', sheetChart(sheet, "Ain't She Sweet - v2d.pdf"), null);
+check('…as is a book', sheetChart(Array.from({ length: 13 }, () => readSheet[0]), 'x.pdf'), null);
+const web = sheetChart([page([['There’s a [D]man in the funny papers we all know', 12], ['He [D]lives way back a [A7]long time ago', 12]])],
+  'Alley-Oop | Audio & Ukulele Chords | By Doctor Uke.pdf');
+check('a chord website’s file name: the song is the part before the bar', web?.title, 'Alley-Oop');
+const uke = sheetChart([page([['ALLEY OOP-D. Frazier', 16], ['4/4 1…2…1234', 12], ['There’s a [D]man in the funny papers we all know', 12], ['He [D]lives way back a [A7]long time ago', 12]])],
+  'Alley-Oop | Audio & Ukulele Chords | By Doctor Uke.pdf');
+check('…its page’s title, set in capitals with the writer glued on, gives the writer and keeps the file’s spelling',
+  uke && [uke.title, uke.artist, uke.text.split('\n')[0]], ['Alley-Oop', 'D. Frazier', '4/4 1…2…1234']);
 
 // ---- 14. the page picker ------------------------------------------------------
 check('marks make songs: a left-out page is in none, a page turn joins',

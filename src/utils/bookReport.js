@@ -287,8 +287,12 @@ export function bookReport(pages = [], marks = []) {
 // prefixes — "1 Aloha Week Hula", "z White Sandy Beach". The title is read
 // off the page where the page has one (it is the club's own spelling, with
 // its punctuation); the file name adds its notes and key.
+//
+// A chord website names its PDFs after the page they were printed from:
+// "Alley-Oop | Audio & Ukulele Chords | By Doctor Uke". The song is the part
+// before the first bar.
 function fromFileName(fileName) {
-  let name = fileName.replace(/\.pdf$/i, '').replace(/_/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  let name = fileName.replace(/\.pdf$/i, '').split(/\s+\|\s+/)[0].replace(/_/g, ' ').replace(/\s{2,}/g, ' ').trim();
   let key = '';
   const k = KEY_OF.exec(name);
   if (k) { key = k[1]; name = name.replace(KEY_OF, ' '); }
@@ -335,11 +339,17 @@ export function sheetInfo(pages = [], marks = [], fileName = '') {
   const { songs } = readSongbook(roundBracketChords(pages).pages, marks);
   if (songs.filter(s => !s.noChords).length > 1 || isBook(bookReport(pages, marks))) return null;
   const head = sheetTitle(pages[0]?.lines);
-  const onPage = head ? tidySong(head) : null;
+  // A chord website heads its sheet "ALLEY OOP-D. Frazier", the writer glued
+  // to the title. Split there when what comes before the hyphen is the song
+  // the file name names.
+  const glued = head && !head.artist && GLUED_ARTIST.exec(head.title);
+  const onPage = head ? tidySong(head, { gluedArtist: !!glued && sameTitle(glued[1], file.title) }) : null;
   // The page's title wins when it is the same song as the file name says —
   // "Ain’t She Sweet?" over "Ain't She Sweet". A sort prefix ("z White Sandy
-  // Beach") goes with it.
-  const title = onPage?.title && (sameTitle(onPage.title, file.title) || !file.title) ? onPage.title : file.title;
+  // Beach") goes with it. Not when the page shouts it: "ALLEY OOP" is the
+  // file's "Alley-Oop".
+  const shouted = onPage?.title && onPage.title === onPage.title.toUpperCase() && file.title !== file.title.toUpperCase();
+  const title = onPage?.title && !shouted && (sameTitle(onPage.title, file.title) || !file.title) ? onPage.title : file.title;
   const notes = file.notes.filter(n => !sameTitle(n, title));
   return {
     title: notes.length ? `${title} (${notes.join(', ')})` : title,
@@ -351,6 +361,24 @@ export function sheetInfo(pages = [], marks = [], fileName = '') {
     firstPage: 1,
     lastPage: Math.max(1, pages.length),
   };
+}
+
+/**
+ * One PDF that is one song, as a chart: when every page of it with words on
+ * reads as one (readsAsChart, below). `pages` as extractSheetPages reads them,
+ * with any chords drawn above the lyrics already put into them. Returns
+ * { title, artist, key, youtubeUrl, text }, or null — not one song, or not a
+ * chart Cue can read throughout, and it comes in as the PDF.
+ */
+export function sheetChart(pages = [], fileName = '') {
+  const info = sheetInfo(pages, [], fileName);
+  if (!info) return null;
+  const round = roundBracketChords(pages).pages;
+  const worded = round.filter(p => p.lines.length);
+  if (!worded.length || !worded.every(readsAsChart)) return null;
+  const chart = chartFromPages(round, info.title);
+  if (!chart?.text.trim()) return null;
+  return { title: info.title, artist: info.artist || chart.artist, key: info.key, youtubeUrl: chart.youtubeUrl, text: chart.text };
 }
 
 // ---- What the report says ---------------------------------------------------
