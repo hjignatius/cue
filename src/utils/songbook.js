@@ -123,9 +123,13 @@ export function chordNamesOnly(text) {
 // "Intro: | D | G D | (X3) | A7 |", as Doctor Uke heads a song with it.
 const PLAYED_LABEL = /^\s*(?:intro|outro|ending|interlude|instrumental|turnaround|vamp|tag|solo|break)\b\s*\d*\s*:?/i;
 const REPEAT = /\(?\s*[x×]\s*\d+\s*\)?|\(?\s*\d+\s*[x×]\s*\)?/gi;
+// The same line with its chords drawn as diagrams over it leaves only the
+// bars in the text: "Intro: | | | (X3) | |".
 function chordsPlayed(text) {
-  const bare = String(text).replace(PLAYED_LABEL, '').replace(REPEAT, ' ').replace(/[|()]/g, ' ');
-  return bare !== String(text) && chordNamesOnly(bare);
+  const line = String(text);
+  const bare = line.replace(PLAYED_LABEL, '').replace(REPEAT, ' ').replace(/[|()]/g, ' ');
+  if (bare === line) return false;
+  return chordNamesOnly(bare) || (PLAYED_LABEL.test(line) && /[|()]/.test(line) && !bare.trim());
 }
 // A title has a word in it. Not a line of chord names — Brighton's chord
 // diagrams print theirs larger than the lyrics — and not a single letter:

@@ -244,7 +244,9 @@ export default function App() {
   // A PDF that is one song, not a book. When every page of it reads as a chart
   // — chords in the lyrics, or drawn above them as chord websites print them —
   // ask whether it comes in as text or as the page, as the editor's Load PDF
-  // does. Returns { metadata, text } to save as text, 'page' or 'cancel'.
+  // does. Returns { metadata, text } to save as text, { metadata, pdf } to keep
+  // as the PDF — `pdf.pages` when it is one copy of a song printed twice over
+  // (sheetChart) — 'page' when there was nothing to ask, or 'cancel'.
   async function askSheetChart(file) {
     let chart = null;
     try {
@@ -254,11 +256,13 @@ export default function App() {
     if (!chart) return 'page';
     const choice = await new Promise(resolve => setSheetOffer({ fileName: file.name, chart, resolve }));
     setSheetOffer(null);
-    if (choice !== 'text') return choice;
+    if (choice === 'cancel') return choice;
     const metadata = { title: chart.title };
     if (chart.artist) metadata.artist = chart.artist;
     if (chart.key) metadata.key = chart.key;
     if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
+    // Kept as the PDF, it still has the title read off the page.
+    if (choice !== 'text') return { metadata, pdf: { pages: choice.pages || null } };
     return { metadata, text: chart.text };
   }
 
@@ -269,6 +273,15 @@ export default function App() {
     const sheet = await askSheetChart(file);
     if (sheet === 'cancel') return null;
     if (sheet === 'page') { await savePdfSong(file); return null; }
+    if (sheet.pdf) {
+      let pdf = file;
+      if (sheet.pdf.pages) {
+        const { openBook } = await import('./utils/pdfCut.js');
+        pdf = new File([await (await openBook(file)).cut(sheet.pdf.pages)], file.name, { type: 'application/pdf' });
+      }
+      await savePdfSong(pdf, sheet.metadata);
+      return null;
+    }
     const existing = songs.find(s => normalizeTitle(s.metadata?.title) === normalizeTitle(sheet.metadata.title));
     let importId = null;
     if (existing) {
@@ -908,6 +921,7 @@ export default function App() {
           chart={sheetOffer.chart}
           onText={() => sheetOffer.resolve('text')}
           onPage={() => sheetOffer.resolve('page')}
+          onPages={(pages) => sheetOffer.resolve({ pages })}
           onCancel={() => sheetOffer.resolve('cancel')}
         />
       )}

@@ -89,6 +89,17 @@ check('a row of chords with no lyric close under it is a line of chords',
 check('a pair keeps the gap above its chords, so verses stay apart',
   textFromLines(page.lines), 'Alley Oop\n[D]He lives way [A7]back\n[G]A long long time ago\n[G]And far away\n\n[D] [G]\n\n[G]A long time ago');
 
+// Doctor Uke leaves room between every pair, and a line's height more between
+// verses: 28pt a pair, 41 at a verse.
+const roomy = read([
+  chordRow('D', 0), [run('April come she will', 0, 0)], 14,
+  chordRow('Em', 0), [run('When streams are ripe', 0, 0)], 27,
+  chordRow('D', 0), [run('June, she will change', 0, 0)], 14,
+  chordRow('Em', 0), [run('In restless walks', 0, 0)],
+]);
+check('a verse on a sheet with room between its pairs is still a verse',
+  textFromLines(roomy.lines), '[D]April come she will\n[Em]When streams are ripe\n\n[D]June, she will change\n[Em]In restless walks');
+
 check('words set apart with no space get one, on a page that is read',
   texts(read([chordRow('G', 0), [run('Heart and soul', 0, 0), run('I fell', 16, 0)], [run('Heart and soul', 0, 0), run('I fell', 16, 0)], ...MORE])),
   ['[G]Heart and soul I fell', 'Heart and soul I fell', '[G]Down the road']);
@@ -127,6 +138,10 @@ check('chords in round brackets belong to the lyrics, not above them',
 check('…but a group of chords in brackets to play again is a row of chords',
   one([chordRow('Em            Bm     (D Dsus D) X2', 0), [run('Resting in my arms', 0, 0)]]),
   ['[Em]Resting in my [Bm]arms [(D Dsus D)] [X2]']);
+
+check('…as is a row with one chord in brackets among plain ones',
+  one([chordRow('Em              Bm  (D)', 0), [run('A love once new has now', 0, 0)]]),
+  ['[Em]A love once new [Bm]has [(D)]now']);
 
 check('a section label under a row of chords is not its lyric',
   two([chordRow('C  G', 0), [run('[Chorus]', 0, 0)]]), ['[C] [G]', '[Chorus]']);

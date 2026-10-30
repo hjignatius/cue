@@ -69,8 +69,10 @@ const isTab = (row) => {
 // A row of chords in round brackets, "(C)(G)(F)(C)", belongs to a book that
 // puts its chords in the lyrics that way (roundBracketChords, songbook.js).
 // Several chords in one pair of brackets are a group played over again:
-// "Em Bm Em Bm (D Dsus D) X2".
-const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !/\([A-G][^\s()]*\)/.test(textOf(row));
+// "Em Bm Em Bm (D Dsus D) X2"; one in a row of plain ones is held or
+// optional: "Em Bm A7sus (D)".
+const roundOnly = (text) => /\([A-G][^\s()]*\)/.test(text) && !/(?:^|\s)[A-G]/.test(text.replace(/\([^()]*\)/g, ' '));
+const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !roundOnly(textOf(row));
 
 // The chords of `row` put into `lyric`, both as letters; null when none of
 // them is over it.
@@ -110,6 +112,7 @@ export function chordsAbove(lines = []) {
   const rows = lines.map(l => (l.runs ? letters(l) : null));
   const chordRow = rows.map(r => (r ? isChordRow(r) : false));
   const out = [];
+  const pairs = [];
   let merged = 0;
   for (let i = 0; i < lines.length; i++) {
     const { runs: _, ...line } = lines[i];
@@ -128,6 +131,7 @@ export function chordsAbove(lines = []) {
       && merge(rows[i], lyric, height);
     if (text) {
       const { runs: __, ...under } = next;
+      pairs.push(out.length);
       out.push({ ...under, text, gapBefore: line.gapBefore });
       merged++;
       i++;
@@ -139,5 +143,22 @@ export function chordsAbove(lines = []) {
   // of its lines is not a reason to rewrite the page.
   const bracketed = lines.filter(l => BRACKETED.test(l.text)).length;
   if (merged < MIN_PAIRS || bracketed > merged) return { lines: lines.map(({ runs: _, ...l }) => l), merged: 0 };
-  return { lines: out, merged };
+  return { lines: verseBreaks(out, pairs), merged };
+}
+
+// A sheet that leaves room between every pair of lines marks a verse with a
+// line's height more: Doctor Uke's go 28pt a pair, 41 between verses. Measured
+// against the gap between lines, as a page of lyrics is (pdfText.js), that is
+// under the half again a blank line needs. So against the pairs: a gap a good
+// part of a line wider than theirs is a verse, and is made wide enough to
+// read as one.
+const VERSE_EXTRA = 0.75;
+function verseBreaks(lines, pairs) {
+  const gaps = pairs.map(i => lines[i].gapBefore).filter(g => g > 0 && Number.isFinite(g)).sort((a, b) => a - b);
+  if (!gaps.length) return lines;
+  const usual = gaps[Math.floor(gaps.length / 2)];
+  const heights = pairs.map(i => lines[i].height || 0).sort((a, b) => a - b);
+  const extra = VERSE_EXTRA * heights[Math.floor(heights.length / 2)];
+  return lines.map(l => (Number.isFinite(l.gapBefore) && l.gapBefore > usual + extra && l.gapBefore < usual * 2
+    ? { ...l, gapBefore: usual * 2 } : l));
 }

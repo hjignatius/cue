@@ -57,6 +57,9 @@ const BOOK_START_PAGES = 3;
 /** Whether a PDF gets the report at all, rather than going in as one song. */
 export function isBook(report) {
   if (report.pages >= REPORT_PAGES_MIN) return true;
+  // One song printed twice over, every copy under the same title, is a sheet
+  // (sheetCopies).
+  if (report.songs.length > 1 && report.songs.every(s => sameTitle(s.title, report.songs[0].title))) return false;
   if (report.verdict !== 'cant' && report.songs.length >= 2) return true;
   if (report.kind === 'pictures' || report.kind === 'none') return false;
   const starts = new Set(report.songs.map(s => s.firstPage));
@@ -337,7 +340,10 @@ export function sheetInfo(pages = [], marks = [], fileName = '') {
   const file = fromFileName(fileName);
   if (pages.length >= REPORT_PAGES_MIN) return null;
   const { songs } = readSongbook(roundBracketChords(pages).pages, marks);
-  if (songs.filter(s => !s.noChords).length > 1 || isBook(bookReport(pages, marks))) return null;
+  // Every song found under the same title is one song printed twice over
+  // (sheetCopies), not a book.
+  const twice = songs.length > 1 && songs.every(s => sameTitle(s.title, songs[0].title));
+  if ((!twice && songs.filter(s => !s.noChords).length > 1) || isBook(bookReport(pages, marks))) return null;
   const head = sheetTitle(pages[0]?.lines);
   // A chord website heads its sheet "ALLEY OOP-D. Frazier", the writer glued
   // to the title. Split there when what comes before the hyphen is the song
@@ -375,11 +381,39 @@ export function sheetChart(pages = [], fileName = '') {
   if (!info) return null;
   const round = roundBracketChords(pages).pages
     .map(p => ({ ...p, lines: p.lines.filter(l => !printedByBrowser(l.text)) }));
-  const worded = round.filter(p => p.lines.length);
-  if (!worded.length || !worded.every(readsAsChart)) return null;
-  const chart = chartFromPages(round, info.title);
+  const reads = (some) => { const worded = some.filter(p => p.lines.length); return worded.length > 0 && worded.every(readsAsChart); };
+  let read = round, copies = null, from = null;
+  if (!reads(round)) {
+    // The song twice over, and one copy reads: that one is the chart, and the
+    // copies are offered as they are (SheetChartDialog).
+    const found = sheetCopies(round).map(nums => ({ pages: nums, chart: reads(nums.map(n => round[n - 1])) }));
+    from = found.find(c => c.chart)?.pages;
+    if (!from) return null;
+    copies = found;
+    read = from.map(n => round[n - 1]);
+  }
+  const chart = chartFromPages(read, info.title);
   if (!chart?.text.trim()) return null;
-  return { title: info.title, artist: info.artist || chart.artist, key: info.key, youtubeUrl: chart.youtubeUrl, text: chart.text };
+  return {
+    title: info.title, artist: info.artist || chart.artist, key: info.key, youtubeUrl: chart.youtubeUrl, text: chart.text,
+    ...(copies ? { copies, pages: from } : {}),
+  };
+}
+
+// A chord website's PDF often has the song twice: Doctor Uke's has it with
+// chord diagrams over the words, then again with the chord names over them —
+// and the diagrams are drawings, with no names in the text to read. Each copy
+// starts with the heading the first page starts with ("APRIL COME SHE
+// WILL-Paul Simon"); a page that goes on with the same song heads itself
+// otherwise ("p.2. April Come She Will"). Returns each copy's page numbers,
+// from 1, or [] when the song is there once.
+function sheetCopies(pages) {
+  const head = (p) => p.lines[0]?.text.replace(/\s+/g, ' ').trim().toLowerCase() || null;
+  const first = head(pages[0] || { lines: [] });
+  if (!first || !titleWorthy(first)) return [];
+  const starts = pages.map((p, i) => (head(p) === first ? i : -1)).filter(i => i >= 0);
+  if (starts.length < 2) return [];
+  return starts.map((s, k) => Array.from({ length: (starts[k + 1] ?? pages.length) - s }, (_, j) => s + j + 1));
 }
 
 // ---- What the report says ---------------------------------------------------

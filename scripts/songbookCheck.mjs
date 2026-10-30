@@ -348,6 +348,25 @@ check('an intro in bars under a sheet’s title is not a second song’s title',
 check('…and what the browser printed round the page is not in the chart', april && /https|6:50/.test(april.text), false);
 check('a line of chords to play is never a title; a song named for one still is',
   ['Intro: | D | G D | (X3) | A7 |', 'Outro: C G (x2)', 'Solo', 'Break Up', 'Tag, You’re It'].map(titleWorthy), [false, false, true, true, true]);
+check('…nor is one whose chords were drawn as diagrams, leaving only its bars',
+  ['Intro: | | | (X3) | | |', 'Outro: ( ) (X3)'].map(titleWorthy), [false, false]);
+
+// Most of Doctor Uke's PDFs have the song twice: with chord diagrams over the
+// words (drawings — no chord names in the text), then with the names over them.
+const twice = [
+  page([['APRIL COME SHE WILL-Paul Simon', 16], ['Intro: | | | (X3) | | |', 14], ['A - pril come she will', 12], ['When streams are ripe and swelled with rain', 12]]),
+  page([['p.2. April Come She Will', 12], ['Au - gust, die she must', 12], ['The autumn winds blow chilly and cold', 12]]),
+  page([['APRIL COME SHE WILL-Paul Simon', 16], ['Intro: | D | G D | (X3) | A7 |', 14],
+    ['[D]A - [D]pril [Dsus]come she [D]will', 12], ['[Em]When streams are [Bm]ripe and [C]swelled with [Bm]rain', 12], ['[D]Au - [D]gust, [Dsus]die she [D]must', 12]]),
+];
+const twiceName = 'April Come She Will | Audio & Ukulele Chords | By Doctor Uke.pdf';
+const both = sheetChart(twice, twiceName);
+check('a song printed twice is one sheet, not a book', isBook(bookReport(twice, [])), false);
+check('…its chart is the copy Cue can read, and the other copy is offered as its pages',
+  both && [both.title, both.artist, both.pages, both.copies, both.text.split('\n').at(-1)],
+  ['April Come She Will', 'Paul Simon', [3], [{ pages: [1, 2], chart: false }, { pages: [3], chart: true }], '[D]Au - [D]gust, [Dsus]die she [D]must']);
+check('…a sheet there once has no copies', 'copies' in (april || {}), false);
+check('…and when neither copy reads, it is a page', sheetChart([twice[0], twice[1], twice[0]], twiceName), null);
 
 // ---- 14. the page picker ------------------------------------------------------
 check('marks make songs: a left-out page is in none, a page turn joins',
