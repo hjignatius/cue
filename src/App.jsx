@@ -113,13 +113,21 @@ export default function App() {
       choice = await new Promise(resolve => setSongbook({ fileName: file.name, report: shown, songs: marked, resolve, book: true }));
       if (choice !== 'pick') break;
       // Picked by hand, page by page. "Back" returns to the report as it was.
-      const { pickerStart } = await import('./utils/bookReport.js');
-      const start = pickerStart(report, pages);
+      // A PDF short enough to be sheets is read again with any chords drawn
+      // above the lyrics put into them, so those pages say Chart too.
+      const [{ pickerStart, sheetPickerStart }, { extractSheetPages, MAX_UNPACK_PAGES }] = await Promise.all([
+        import('./utils/bookReport.js'), import('./utils/pdfjs.js'),
+      ]);
+      let pickPages = pages;
+      if (pages.length <= MAX_UNPACK_PAGES) {
+        try { pickPages = await extractSheetPages(file); } catch { /* as the book reader read them */ }
+      }
+      const start = sheetPickerStart(pickPages, file.name) || pickerStart(report, pickPages);
       const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start }, resolve }));
       if (picked === 'back') continue;
       setSongbook(null);
       if (picked === 'cancel') return 'cancel';
-      return saveCutSongs(file, picked, pages);
+      return saveCutSongs(file, picked, pickPages);
     }
     setSongbook(null);
     if (choice === 'page' || choice === 'cancel') return choice;
@@ -245,15 +253,19 @@ export default function App() {
   // — chords in the lyrics, or drawn above them as chord websites print them —
   // ask whether it comes in as text or as the page, as the editor's Load PDF
   // does. Returns { metadata, text } to save as text, { metadata, pdf } to keep
-  // as the PDF — `pdf.pages` when it is one copy of a song printed twice over
-  // (sheetChart) — 'page' when there was nothing to ask, or 'cancel'.
+  // as the PDF, 'page' when there was nothing to ask, or 'cancel'. A song
+  // printed more than once — Doctor Uke's, with chord diagrams and then chord
+  // names (sheetChart) — goes to the page picker instead, its copies split, to
+  // choose between: { pick: pages }.
   async function askSheetChart(file) {
-    let chart = null;
+    let chart = null, pages = null;
     try {
       const [{ extractSheetPages }, { sheetChart }] = await Promise.all([import('./utils/pdfjs.js'), import('./utils/bookReport.js')]);
-      chart = sheetChart(await extractSheetPages(file), file.name);
+      pages = await extractSheetPages(file);
+      chart = sheetChart(pages, file.name);
     } catch { /* an unreadable text layer — it is a page, then */ }
     if (!chart) return 'page';
+    if (chart.copies) return { pick: pages };
     const choice = await new Promise(resolve => setSheetOffer({ fileName: file.name, chart, resolve }));
     setSheetOffer(null);
     if (choice === 'cancel') return choice;
@@ -262,26 +274,28 @@ export default function App() {
     if (chart.key) metadata.key = chart.key;
     if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
     // Kept as the PDF, it still has the title read off the page.
-    if (choice !== 'text') return { metadata, pdf: { pages: choice.pages || null } };
+    if (choice !== 'text') return { metadata, pdf: true };
     return { metadata, text: chart.text };
   }
 
   // One PDF that is one song: as text when it reads as a chart and you say so
-  // (askSheetChart), otherwise as the page. Returns the song saved as text, to
-  // open, or null.
+  // (askSheetChart), otherwise as the page; printed more than once, the copies
+  // you pick in the page picker. Returns the song saved as text, to open,
+  // { show } when the picker's "Show them" was pressed, or null.
   async function importSheet(file) {
     const sheet = await askSheetChart(file);
     if (sheet === 'cancel') return null;
     if (sheet === 'page') { await savePdfSong(file); return null; }
-    if (sheet.pdf) {
-      let pdf = file;
-      if (sheet.pdf.pages) {
-        const { openBook } = await import('./utils/pdfCut.js');
-        pdf = new File([await (await openBook(file)).cut(sheet.pdf.pages)], file.name, { type: 'application/pdf' });
-      }
-      await savePdfSong(pdf, sheet.metadata);
-      return null;
+    if (sheet.pick) {
+      const { sheetPickerStart } = await import('./utils/bookReport.js');
+      const start = sheetPickerStart(sheet.pick, file.name);
+      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start, noBack: true }, resolve }));
+      setSongbook(null);
+      if (picked === 'cancel' || picked === 'back') return null;
+      const r = await saveCutSongs(file, picked, sheet.pick);
+      return r?.show ? { show: r.show } : null;
     }
+    if (sheet.pdf) { await savePdfSong(file, sheet.metadata); return null; }
     const existing = songs.find(s => normalizeTitle(s.metadata?.title) === normalizeTitle(sheet.metadata.title));
     let importId = null;
     if (existing) {
@@ -381,7 +395,9 @@ export default function App() {
           const book = await askSongbook(file);
           if (book?.show) showAfter = book.show;
           if (book !== 'page') continue;
-          lastImportedSong = (await importSheet(file)) || lastImportedSong;
+          const sheet = await importSheet(file);
+          if (sheet?.show) showAfter = sheet.show;
+          else if (sheet) lastImportedSong = sheet;
           continue;
         }
 
@@ -910,7 +926,7 @@ export default function App() {
           file={songbook.picker.file}
           start={songbook.picker.start}
           onAccept={(songs, setName) => songbook.resolve({ songs, setName })}
-          onBack={() => songbook.resolve('back')}
+          onBack={songbook.picker.noBack ? null : () => songbook.resolve('back')}
           onCancel={() => songbook.resolve('cancel')}
         />
       )}
@@ -921,7 +937,6 @@ export default function App() {
           chart={sheetOffer.chart}
           onText={() => sheetOffer.resolve('text')}
           onPage={() => sheetOffer.resolve('page')}
-          onPages={(pages) => sheetOffer.resolve({ pages })}
           onCancel={() => sheetOffer.resolve('cancel')}
         />
       )}

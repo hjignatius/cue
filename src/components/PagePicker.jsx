@@ -33,7 +33,7 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
   const [marks, setMarks] = useState(start.marks);
   const [titles, setTitles] = useState(start.titles);   // page -> { title, artist, key }
   const [big, setBig] = useState(null);                  // page shown large
-  const [makeSetChoice, setMakeSet] = useState(null);
+  const [makeSetChoice, setMakeSet] = useState(start.makeSet ?? null);
   const [asCharts, setAsCharts] = useState(true);
   const [setName, setSetName] = useState(() => (fileName || '').replace(/\.pdf$/i, ''));
   const gridRef = useRef(null);
@@ -135,7 +135,7 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
           {makeSet && <input value={setName} onChange={e => setSetName(e.target.value)} aria-label="Set name" className={`${field} py-1.5`} />}
         </div>
         <div className="flex gap-2">
-          <button onClick={onBack} className={secondary}>Back</button>
+          {onBack && <button onClick={onBack} className={secondary}>Back</button>}
           <button disabled={!n || failed}
             onClick={() => onAccept(songs.map(s => ({ ...s, chart: asCharts && s.chart, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null)}
             className={primary}>

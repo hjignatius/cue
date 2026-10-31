@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -366,6 +366,11 @@ check('…its chart is the copy Cue can read, and the other copy is offered as i
   both && [both.title, both.artist, both.pages, both.copies, both.text.split('\n').at(-1)],
   ['April Come She Will', 'Paul Simon', [3], [{ pages: [1, 2], chart: false }, { pages: [3], chart: true }], '[D]Au - [D]gust, [Dsus]die she [D]must']);
 check('…a sheet there once has no copies', 'copies' in (april || {}), false);
+const twicePick = sheetPickerStart(twice, twiceName);
+check('…and the page picker starts with each copy a song of its own, under the song’s title, in no new set',
+  twicePick && [twicePick.marks, twicePick.chances, twicePick.titles[3], twicePick.makeSet],
+  [['start', 'same', 'start'], [false, false, true], { title: 'April Come She Will', artist: 'Paul Simon', key: '' }, false]);
+check('…a sheet there once starts the picker the usual way', sheetPickerStart([twice[2]], twiceName), null);
 check('…and when neither copy reads, it is a page', sheetChart([twice[0], twice[1], twice[0]], twiceName), null);
 
 // ---- 14. the page picker ------------------------------------------------------

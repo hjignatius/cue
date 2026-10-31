@@ -385,7 +385,7 @@ export function sheetChart(pages = [], fileName = '') {
   let read = round, copies = null, from = null;
   if (!reads(round)) {
     // The song twice over, and one copy reads: that one is the chart, and the
-    // copies are offered as they are (SheetChartDialog).
+    // copies go to the page picker to choose between (sheetPickerStart).
     const found = sheetCopies(round).map(nums => ({ pages: nums, chart: reads(nums.map(n => round[n - 1])) }));
     from = found.find(c => c.chart)?.pages;
     if (!from) return null;
@@ -675,6 +675,27 @@ export function pickerStart(report, pages = []) {
     for (let p = 1; p <= n; p++) if (NOT_A_SONG.test(titles[p].title)) marks[p - 1] = 'skip';
   }
   return { marks, titles, chances: pageChances(pages) };
+}
+
+/**
+ * Where the picker starts for one song printed more than once (sheetCopies):
+ * each copy a song of its own, all under the title read for the sheet, so you
+ * choose between them — the copy that reads as a chart, the one with its
+ * chord diagrams. Its heading on every copy would otherwise be taken for the
+ * running head a book repeats on its pages, and left out. No new set: it is
+ * one song. `pages` as extractSheetPages reads them. null when the song is
+ * there once.
+ */
+export function sheetPickerStart(pages = [], fileName = '') {
+  const clean = pages.map(p => ({ ...p, lines: p.lines.filter(l => !printedByBrowser(l.text)) }));
+  const copies = sheetCopies(clean);
+  if (!copies.length) return null;
+  const info = sheetInfo(copies[0].map(n => pages[n - 1]), [], fileName);
+  const song = { title: info?.title || fromFileName(fileName).title || 'Page 1', artist: info?.artist || '', key: info?.key || '' };
+  const marks = pages.map(() => 'same');
+  for (const c of copies) marks[c[0] - 1] = 'start';
+  const titles = Object.fromEntries(pages.map((_, i) => [i + 1, song]));
+  return { marks, titles, chances: pageChances(clean), makeSet: false };
 }
 
 /**
