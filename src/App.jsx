@@ -6,7 +6,7 @@ import UpdateButton from './components/UpdateButton.jsx';
 import SongbookDialog from './components/SongbookDialog.jsx';
 import SheetChartDialog from './components/SheetChartDialog.jsx';
 import PagePicker from './components/PagePicker.jsx';
-import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup } from './utils/storage.js';
+import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
 import { CHORD_LIBRARIES } from './data/chordLibraries.js';
@@ -46,15 +46,18 @@ export default function App() {
   const [setsImportDialog, setSetsImportDialog] = useState(null);
   // setsImportDialog: { resolve: (choice: 'allow'|'skip'|'cancel') => void }
   const [songbook, setSongbook] = useState(null);
+  // Books and the shelves they sit on (books.js).
+  const [books, setBooks] = useState([]);
   // A one-song PDF that reads as a chart: { fileName, chart, resolve } while
   // you choose between text and the page (askSheetChart).
   const [sheetOffer, setSheetOffer] = useState(null);
   // songbook: { fileName, reading: {done,total,saving?}, songs: [...]|null, resolve, abort }
 
   async function refresh() {
-    const [s, sets_] = await Promise.all([loadSongs(), loadSets()]);
+    const [s, sets_, books_] = await Promise.all([loadSongs(), loadSets(), loadBooks()]);
     setSongs(s);
     setSets(sets_);
+    setBooks(books_);
   }
 
   useEffect(() => {
@@ -132,12 +135,12 @@ export default function App() {
     setSongbook(null);
     if (choice === 'page' || choice === 'cancel') return choice;
 
-    return saveImported(file.name, marked, choice, (s, title) => {
+    return saveImported(file.name, marked, choice, (s, title, bookId) => {
       const metadata = { title };
       if (s.artist) metadata.artist = s.artist;
       if (s.key) metadata.key = s.key;
       if (s.youtubeUrl) metadata.youtubeUrl = s.youtubeUrl;
-      return saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage } });
+      return saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage }, ...(bookId ? { bookId, mine: false } : {}) });
     });
   }
 
@@ -146,12 +149,12 @@ export default function App() {
   // where it starts and ends — unless you asked for the pages. Every other one
   // has its pages cut out of the book as a PDF of its own (pdfCut.js). Either
   // way the song remembers where it came from.
-  async function saveCutSongs(file, { songs: cut, setName }, pages) {
+  async function saveCutSongs(file, { songs: cut, setName, book: intoBook }, pages) {
     setSongbook({ fileName: file.name, reading: { done: 0, total: cut.length, saving: true } });
     const [{ openBook }, { pickedCharts }] = await Promise.all([import('./utils/pdfCut.js'), import('./utils/bookReport.js')]);
     const charts = pickedCharts(pages, cut);
     const book = cut.some((s, i) => !charts[i]) ? await openBook(file) : null;
-    return saveImported(file.name, cut, { picked: cut.map((_, i) => i), setName, titles: {} }, async (s, title) => {
+    return saveImported(file.name, cut, { picked: cut.map((_, i) => i), setName, titles: {}, book: intoBook }, async (s, title, bookId) => {
       const metadata = { title };
       if (s.artist) metadata.artist = s.artist;
       if (s.key) metadata.key = s.key;
@@ -159,35 +162,45 @@ export default function App() {
       if (chart) {
         if (!metadata.artist && chart.artist) metadata.artist = chart.artist;
         if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
-        return saveSong({ id: null, metadata, text: chart.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage } });
+        return saveSong({ id: null, metadata, text: chart.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage }, ...(bookId ? { bookId, mine: false } : {}) });
       }
       const bytes = await book.cut(s.pages);
       const name = `${title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || `Page ${s.firstPage}`}.pdf`;
-      return savePdfSong(new File([bytes], name, { type: 'application/pdf' }), metadata, { book: file.name, page: s.firstPage });
+      return savePdfSong(new File([bytes], name, { type: 'application/pdf' }), metadata, { book: file.name, page: s.firstPage }, bookId);
     });
   }
 
   // Save what the review list picked, saying how far it has got for a big book,
   // then say what happened — in the dialog, with a way to go and see them.
+  // `choice.book` ({ name, shelfId, newShelf }) makes the songs a book of their
+  // own — on a shelf made here when it names a new one (books.js). saveOne is
+  // given the book's id to save each song into it.
   async function saveImported(fileName, listed, choice, saveOne, batch = false) {
     const ids = [];
     let shown = 0;
+    let bookId = null;
+    if (choice.book && choice.picked.length) {
+      const shelfId = choice.book.newShelf
+        ? (await saveBookRecord({ kind: 'shelf', name: choice.book.newShelf })).id
+        : choice.book.shelfId;
+      bookId = (await saveBookRecord({ kind: 'book', name: choice.book.name, shelfId: shelfId || null, file: batch ? null : fileName })).id;
+    }
     for (const i of choice.picked) {
       if (choice.picked.length > 50 && performance.now() - shown > 150) {
         shown = performance.now();
         setSongbook({ fileName, batch, reading: { done: ids.length, total: choice.picked.length, saving: true } });
       }
-      ids.push(await saveOne(listed[i], choice.titles?.[i] || listed[i].title));
+      ids.push(await saveOne(listed[i], choice.titles?.[i] || listed[i].title, bookId));
     }
     const setId = choice.setName && ids.length ? (await saveSet({ id: null, name: choice.setName, songIds: ids })).id : null;
     const next = await new Promise(resolve => setSongbook({
       fileName,
       batch,
-      outcome: { added: ids.length, setName: setId ? choice.setName : null, leftOut: listed.length - ids.length },
+      outcome: { added: ids.length, setName: setId ? choice.setName : null, bookName: bookId ? choice.book.name : null, leftOut: listed.length - ids.length },
       resolve,
     }));
     setSongbook(null);
-    return { done: true, show: next === 'show' ? { setId } : null };
+    return { done: true, show: next === 'show' ? { setId, bookId } : null };
   }
 
   // Several PDFs picked at once. Each one that is a single song — a club's
@@ -228,15 +241,16 @@ export default function App() {
       const choice = await new Promise(resolve => setSongbook({ fileName: label, batch: true, report, songs: marked, resolve }));
       setSongbook(null);
       if (choice !== 'cancel') {
-        const r = await saveImported(label, marked, choice, (s, title) => {
+        const r = await saveImported(label, marked, choice, (s, title, bookId) => {
           const metadata = { title };
           if (s.artist) metadata.artist = s.artist;
           if (s.key) metadata.key = s.key;
+          const into = bookId ? { source: { book: s.file.name, page: 1 }, bookId, mine: false } : {};
           if (s.chart && choice.asCharts !== false) {
             if (s.chart.youtubeUrl) metadata.youtubeUrl = s.chart.youtubeUrl;
-            return saveSong({ id: null, metadata, text: s.chart.text, chordStyle: 'brackets', previewMode: 'brackets' });
+            return saveSong({ id: null, metadata, text: s.chart.text, chordStyle: 'brackets', previewMode: 'brackets', ...into });
           }
-          return savePdfSong(s.file, metadata);
+          return savePdfSong(s.file, metadata, into.source, bookId);
         }, true);
         show = r.show;
       }
@@ -289,7 +303,7 @@ export default function App() {
     if (sheet.pick) {
       const { sheetPickerStart } = await import('./utils/bookReport.js');
       const start = sheetPickerStart(sheet.pick, file.name);
-      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start, noBack: true }, resolve }));
+      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start: { ...start, asBook: false }, noBack: true }, resolve }));
       setSongbook(null);
       if (picked === 'cancel' || picked === 'back') return null;
       const r = await saveCutSongs(file, picked, sheet.pick);
@@ -309,7 +323,7 @@ export default function App() {
 
   // A PDF as one page song, as Cue has always imported a PDF: the bytes stored
   // locally, titled with the file name unless the caller read a better one.
-  async function savePdfSong(file, metadata = { title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }, source = undefined) {
+  async function savePdfSong(file, metadata = { title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }, source = undefined, bookId = null) {
     const id = await saveSong({
       id: null,
       metadata,
@@ -318,6 +332,7 @@ export default function App() {
       pedalActive: true,
       pdf: { filename: file.name, importedAt: new Date().toISOString() },
       source,
+      ...(bookId ? { bookId, mine: false } : {}),
     });
     await savePdfBlob(id, file);
     return id;
@@ -545,6 +560,8 @@ export default function App() {
               }
               // Restore PDF bytes (base64 in the backup) under the saved ids.
               if (data.pdfs) for (const [oldId, b64] of Object.entries(data.pdfs)) await restorePdfBackup(idMap[oldId] ?? oldId, b64);
+              // Books and shelves, as they were (clearLibrary emptied them).
+              for (const rec of Array.isArray(data.books) ? data.books : []) await saveBookRecord(rec);
               for (const set of data.sets) {
                 const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
                 await saveSet({ id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
@@ -585,6 +602,10 @@ export default function App() {
               }
               // Restore PDF bytes for the songs that came in (base64 in the backup).
               if (data.pdfs) for (const [oldId, b64] of Object.entries(data.pdfs)) await restorePdfBackup(idMap[oldId] ?? oldId, b64);
+              // Books and shelves this device hasn't got. One it has keeps its
+              // name and shelf here: those are choices made on this device.
+              const haveBooks = new Set((await loadBooks()).map(r => r.id));
+              for (const rec of Array.isArray(data.books) ? data.books : []) if (rec?.id && !haveBooks.has(rec.id)) await saveBookRecord(rec);
 
               let setsAdded = 0, setsUpdated = 0, setsSkipped = 0;
 
@@ -784,6 +805,7 @@ export default function App() {
         <LibraryView
           songs={songs}
           sets={sets}
+          books={books}
           onNewSong={() => { setActiveSong(null); setSetlistContext(null); setLibraryContext(null); setView('editor'); }}
           onOpenSong={song => { setActiveSong(song); setSetlistContext(null); setLibraryContext(null); setView('editor'); }}
           onOpenSongFromList={handleOpenFromLibrary}
@@ -925,7 +947,8 @@ export default function App() {
           fileName={songbook.fileName}
           file={songbook.picker.file}
           start={songbook.picker.start}
-          onAccept={(songs, setName) => songbook.resolve({ songs, setName })}
+          records={books}
+          onAccept={(songs, setName, book) => songbook.resolve({ songs, setName, book })}
           onBack={songbook.picker.noBack ? null : () => songbook.resolve('back')}
           onCancel={() => songbook.resolve('cancel')}
         />
@@ -950,7 +973,8 @@ export default function App() {
           report={songbook.report}
           songs={songbook.songs}
           outcome={songbook.outcome}
-          onImport={(picked, setName, titles, asCharts) => songbook.resolve({ picked, setName, titles, asCharts })}
+          records={books}
+          onImport={(picked, setName, titles, asCharts, book) => songbook.resolve({ picked, setName, titles, asCharts, book })}
           onKeepAsPage={songbook.book ? () => songbook.resolve('page') : null}
           onPick={songbook.book ? () => songbook.resolve('pick') : null}
           onCancel={songbook.resolve ? () => songbook.resolve('cancel') : songbook.abort}

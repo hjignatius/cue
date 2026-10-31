@@ -15,7 +15,7 @@ import LongList from '../components/LongList.jsx';
 const ORDER_STAGE   = { idleLabel: 'Ordering the set…',        writeLabel: 'Placing the songs…',     unit: 'song' };
 const TIME_STAGE    = { idleLabel: 'Working out the timing…',  writeLabel: 'Adding it up…',          unit: 'step' };
 const SUGGEST_STAGE = { idleLabel: 'Finding songs…',           writeLabel: 'Picking songs…',         unit: 'song' };
-import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded } from '../utils/storage.js';
+import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded, saveBookRecord, removeBook, removeShelf } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
@@ -51,6 +51,9 @@ import SongSuggestionsDialog from '../components/SongSuggestionsDialog.jsx';
 import RowMenu from '../components/RowMenu.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import { mergedSongIds, mergeCounts, defaultMergeTargetId } from '../utils/mergeSets.js';
+import BooksMenu from '../components/BooksMenu.jsx';
+import BookDialog from '../components/BookDialog.jsx';
+import { songsInView, isMine, normalizeView, MY_SONGS } from '../utils/books.js';
 import { shortDuration } from '../utils/duration.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
@@ -1664,7 +1667,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
       // "Personalize from my library" is on — the same privacy choice that
       // governs the Library-wide suggester.
       const haveTitles = personalizeFromLibrary
-        ? songs.map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
+        ? songs.filter(isMine).map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
         : [];
       setSugResults(await suggestSongsForSet({
         onStage: st => setSugStage(prev => advanceStage(prev, st, SUGGEST_STAGE)),
@@ -1947,7 +1950,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 
 // ---- Library view -----------------------------------------------------------
 
-export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
+export default function LibraryView({ songs, sets, books = [], onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
   const { theme, updatePref, chordColor, accidentals, instrument, symbols, aiLevel, genres, favoriteArtists, personalizeFromLibrary, libraryColumnsOnTablet } = usePrefs();
   const dark = theme === 'dark';
   const searchInputRef = useRef(null);
@@ -1988,7 +1991,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     try {
       // Only send the library when "Personalize from my library" is on.
       const haveTitles = personalizeFromLibrary
-        ? songs.map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
+        ? songs.filter(isMine).map(s => [s.metadata?.artist, s.metadata?.title].filter(Boolean).join(' — ')).filter(Boolean)
         : [];
       const res = await suggestSongsToLearn({ instrument, level: aiLevel, genres, artists: favoriteArtists, haveTitles, model,
         onStage: st => setSuggestStage(prev => advanceStage(prev, st, SUGGEST_STAGE)), signal: startAi('suggestLearn') });
@@ -2024,14 +2027,14 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     setDupOpen(true); setDupBusy(true); setDupErr(''); setDupGroups(null);
     setDupModel(model);
 
-    const { groups: certain, claimed } = duplicateGroups(songs);
+    const { groups: certain, claimed } = duplicateGroups(shelfSongs);
 
     // The certain pass needs no key. Show it and stop rather than sending
     // somebody to Settings for the half that costs nothing.
     if (!hasApiKey()) { setDupGroups(certain); setDupBusy(false); return; }
 
     try {
-      const rest = songs.filter(s => !claimed.has(s.id));
+      const rest = shelfSongs.filter(s => !claimed.has(s.id));
       const fuzzy = rest.length >= 2
         ? await findDuplicateSongs({ songs: rest, model, signal: startAi('dup') })
         : [];
@@ -2355,6 +2358,39 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     try { scrollMemo.current = JSON.parse(sessionStorage.getItem('cue:lib_scroll')) || {}; } catch { scrollMemo.current = {}; }
   }
   const scrollRestored = useRef(false);
+  // What the Library shows: My songs, All songs, a book or a shelf (books.js).
+  // Remembered on this device — a per-viewer convenience, so browser storage.
+  const [libView, setLibViewState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cue:library_view')) || MY_SONGS; } catch { return MY_SONGS; }
+  });
+  const setLibView = (next) => {
+    setLibViewState(next);
+    try { localStorage.setItem('cue:library_view', JSON.stringify(next)); } catch { /* private mode */ }
+  };
+  const shownView = normalizeView(libView, books);
+  const shelfSongs = useMemo(() => songsInView(songs, shownView, books),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [songs, books, shownView.kind, shownView.id]);
+  const [booksOpen, setBooksOpen] = useState(false);
+  const [bookEdit, setBookEdit] = useState(null);   // a book or shelf in BookDialog
+  async function saveBookEdit({ name, shelfId, newShelf }) {
+    const rec = bookEdit;
+    let shelf = shelfId;
+    if (newShelf) shelf = (await saveBookRecord({ kind: 'shelf', name: newShelf })).id;
+    const saved = await saveBookRecord(rec.kind === 'book' ? { ...rec, name, shelfId: shelf } : { ...rec, name });
+    setBookEdit(null);
+    await onRefresh();
+    // A new shelf opens on itself, so you see it is there.
+    if (!rec.id && rec.kind === 'shelf') setLibView({ kind: 'shelf', id: saved.id });
+  }
+  async function removeBookEdit() {
+    const rec = bookEdit;
+    if (rec.kind === 'book') await removeBook(rec.id); else await removeShelf(rec.id);
+    setBookEdit(null);
+    if (shownView.id === rec.id) setLibView(MY_SONGS);
+    setSelected(new Set());
+    await onRefresh();
+  }
   // "Show them", after a songbook import: open the set it made, or — when it
   // made none — the whole library newest first, unfiltered, from the top, which
   // is where the new songs are.
@@ -2362,6 +2398,8 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     const show = (e) => {
       const setId = e.detail?.setId;
       if (setId) { setActiveSetId(setId); setPhonePanel('setlist'); return; }
+      // Songs that came in as a book: open the book.
+      if (e.detail?.bookId) setLibView({ kind: 'book', id: e.detail.bookId });
       setSearch(''); setArtistFilter(null); setKeyFilter(null); setSortBy('newest');
       setPhonePanel('library');
       if (songListRef.current) songListRef.current.scrollTop = 0;
@@ -2393,7 +2431,7 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
   const activeSet = sets.find(s => s.id === activeSetId) || null;
 
-  const filtered = songs.filter(s => {
+  const filtered = shelfSongs.filter(s => {
     if (!search.trim()) return true;
     const q = normSearch(search);
     return (
@@ -2440,16 +2478,16 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
     return 0;
   });
 
-  const uniqueKeys = [...new Set(songs.map(effectiveKey).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const uniqueKeys = [...new Set(shelfSongs.map(effectiveKey).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   // Counted in one pass: a filter of the whole library per artist was a
   // songbook's 2,000 artists times its 4,600 songs on every render.
   const artists = useMemo(() => {
     if (sortBy !== 'artist') return null;
     const counts = new Map();
-    for (const s of songs) if (s.metadata?.artist) counts.set(s.metadata.artist, (counts.get(s.metadata.artist) || 0) + 1);
+    for (const s of shelfSongs) if (s.metadata?.artist) counts.set(s.metadata.artist, (counts.get(s.metadata.artist) || 0) + 1);
     return [...counts.keys()].sort((a, b) => a.localeCompare(b)).map(name => ({ name, count: counts.get(name) }));
-  }, [songs, sortBy]);
+  }, [shelfSongs, sortBy]);
 
   async function handleDuplicate(song) {
     const newId = await saveSong({
@@ -2755,7 +2793,9 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
           <div className={`px-4 py-2 border-b ${border} flex items-center justify-between`}>
             <div className="flex flex-col leading-tight">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Library</span>
-              <span className="text-xs text-gray-400 dark:text-gray-600 tabular-nums">{sorted.length} {sorted.length === 1 ? 'song' : 'songs'}</span>
+              <BooksMenu dark={dark} open={booksOpen} onToggle={setBooksOpen} view={shownView} records={books} songs={songs}
+                shown={sorted.length} onView={(v) => { setLibView(v); setSelected(new Set()); setArtistFilter(null); setKeyFilter(null); }}
+                onEdit={setBookEdit} onNewShelf={() => setBookEdit({ kind: 'shelf' })} />
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -2924,10 +2964,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
 
           {sortBy === 'artist' && artistFilter === null && !search && artists && (
             <div ref={artistListRef} onScroll={saveScroll} data-phone-scroll className="flex-1 overflow-y-auto">
-              {songs.filter(s => !s.metadata?.artist).length > 0 && (
+              {shelfSongs.filter(s => !s.metadata?.artist).length > 0 && (
                 <button onClick={() => setArtistFilter('')} className={`w-full flex items-center justify-between px-4 py-3 border-b ${border} hover:bg-gray-100 dark:hover:bg-gray-900 text-left`}>
                   <span className="text-sm text-gray-400 italic">No artist</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-600">{songs.filter(s => !s.metadata?.artist).length}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-600">{shelfSongs.filter(s => !s.metadata?.artist).length}</span>
                 </button>
               )}
               {artists.map(a => (
@@ -2952,7 +2992,11 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
               )}
               {songs.length > 0 && sorted.length === 0 && (
                 <p className="px-4 py-6 text-sm text-gray-400 dark:text-gray-600 text-center">
-                  {sortBy === 'shared'
+                  {shelfSongs.length === 0 && !search.trim()
+                    ? (shownView.kind === 'mine'
+                        ? 'None of your own songs yet. A song from a book becomes yours when you put it in a set, edit it or ink it.'
+                        : 'No songs here.')
+                    : sortBy === 'shared'
                     ? (search.trim()
                         ? 'No shared songs match your search.'
                         : 'No shared songs yet. Copy a song from a set someone shared with you, or publish a set of your own.')
@@ -3073,6 +3117,10 @@ export default function LibraryView({ songs, sets, onNewSong, onOpenSong, onOpen
         </div>
       )}
 
+      {bookEdit && (
+        <BookDialog dark={dark} record={bookEdit} records={books} songs={songs}
+          onSave={saveBookEdit} onRemove={removeBookEdit} onClose={() => setBookEdit(null)} />
+      )}
       {compareGroup && (
         <SongCompare
           songs={compareGroup}

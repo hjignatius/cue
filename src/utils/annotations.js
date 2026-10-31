@@ -8,7 +8,7 @@
 //
 // Do not add annotation data to song objects. Keep this store separate.
 
-import { getDB } from './storage.js';
+import { getDB, markSongsUsed } from './storage.js';
 
 // ---------------------------------------------------------------------------
 // Write queue — one promise chain per song.
@@ -103,6 +103,8 @@ export async function loadAnnotation(songId) {
 export function saveAnnotation(songId, strokes) {
   if (!songId) return;
   enqueue(songId, strokes);
+  // Ink on a song from a book makes it yours (books.js).
+  if (strokes?.length) markSongsUsed([songId]).catch(() => { /* stays in its book */ });
 }
 
 // Enqueue a delete for a song through the same queue as saveAnnotation so

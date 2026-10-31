@@ -1,8 +1,9 @@
 import { openDB } from 'idb';
 import { sanitizeMetadata } from './songMetadata.js';
+import { booksFromSources, removeBookPlan } from './books.js';
 
 const DB_NAME    = 'cue-db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 // The EXPORT format's version, written into backups — deliberately NOT bumped
 // with DB_VERSION here. v4 only adds a local cache store; nothing about what a
 // backup contains changed, and bumping this would make older Cue refuse files
@@ -41,10 +42,16 @@ export async function getDB() {
         if (!database.objectStoreNames.contains('sharedSets')) {
           database.createObjectStore('sharedSets', { keyPath: 'token' });
         }
+        // v5: books and the shelves they sit on, one record each, told apart
+        // by `kind` (books.js). Backed up with the songs.
+        if (!database.objectStoreNames.contains('books')) {
+          database.createObjectStore('books', { keyPath: 'id' });
+        }
       },
     });
     await migrateFromLocalStorage(_db);
     await runMigrations(_db);
+    await migrateBooks(_db);
   }
   return _db;
 }
@@ -147,6 +154,34 @@ async function runMigrations(database) {
   localStorage.setItem('cue:schema_version', String(SCHEMA_VERSION));
 }
 
+// Songs imported from a book before books existed: one book per book file,
+// and the songs already in a set or inked are yours (books.js,
+// booksFromSources). Once — every import since gives its songs a book.
+const BOOKS_MIGRATED = 'cue:books_v1';
+async function migrateBooks(database) {
+  if (localStorage.getItem(BOOKS_MIGRATED)) return;
+  try {
+    const [songs, sets, inked] = await Promise.all([
+      database.getAll('songs'), database.getAll('sets'), database.getAll('annotations'),
+    ]);
+    const used = new Set([
+      ...sets.flatMap(s => s.songIds || []),
+      ...inked.filter(a => a.strokes?.length).map(a => a.songId),
+    ]);
+    const { books, patches } = booksFromSources(songs, used);
+    if (patches.length) {
+      const byId = new Map(songs.map(s => [s.id, s]));
+      const tx = database.transaction(['songs', 'books'], 'readwrite');
+      for (const b of books) tx.objectStore('books').put(b);
+      for (const p of patches) tx.objectStore('songs').put({ ...byId.get(p.id), bookId: p.bookId, mine: p.mine });
+      await tx.done;
+    }
+    localStorage.setItem(BOOKS_MIGRATED, '1');
+  } catch (err) {
+    console.error('Cue: sorting songs into books failed', err);
+  }
+}
+
 // ---- Songs ------------------------------------------------------------------
 
 export async function loadSongs() {
@@ -170,7 +205,7 @@ const KNOWN_SONG_FIELDS = new Set([
   'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed', 'condensed',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source, bookId, mine }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -197,6 +232,10 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   // every later save (the editor's included, which never passes it) carries it
   // forward through `preserved` above instead of dropping it.
   if (source       !== undefined) entry.source       = source;
+  // The book it is in, and whether it is yours (books.js). Like `source`, given
+  // by an import or a restore and otherwise carried forward untouched.
+  if (bookId       !== undefined) entry.bookId       = bookId;
+  if (mine         !== undefined) entry.mine         = mine;
   if (chordStyle   !== undefined) entry.chordStyle   = chordStyle;
   if (previewMode  !== undefined) entry.previewMode  = previewMode;
   if (diagramScale !== undefined) entry.diagramScale = diagramScale;
@@ -356,6 +395,9 @@ export async function saveSet({ id, name, songIds, sortMode = 'custom', createdA
   const cf = copiedFrom ?? existing?.copiedFrom;
   if (cf) entry.copiedFrom = cf;
   await d.put('sets', entry);
+  // A song from a book in a set is one you use: it is yours now. Here because
+  // every set is saved through this door, however its songs got there.
+  await markSongsUsed(entry.songIds);
   return entry;
 }
 
@@ -454,8 +496,80 @@ export async function loadCachedSharedSet(token) {
 
 export async function clearLibrary() {
   const d = await getDB();
-  const tx = d.transaction(['songs', 'sets'], 'readwrite');
-  await Promise.all([tx.objectStore('songs').clear(), tx.objectStore('sets').clear()]);
+  const tx = d.transaction(['songs', 'sets', 'books'], 'readwrite');
+  await Promise.all([tx.objectStore('songs').clear(), tx.objectStore('sets').clear(), tx.objectStore('books').clear()]);
+  await tx.done;
+  _usedKnown.clear();
+}
+
+// ---- Books and shelves -----------------------------------------------------
+// The records (books.js says what they are). Marking a song used is a DIRECT
+// put, not saveSong: it must not bump updatedAt, or every song put in a
+// published set would make that set read SEND CHANGES.
+
+export async function loadBooks() {
+  return (await getDB()).getAll('books');
+}
+
+export async function saveBookRecord(record) {
+  const entry = { createdAt: new Date().toISOString(), ...record, id: record.id || crypto.randomUUID() };
+  await (await getDB()).put('books', entry);
+  return entry;
+}
+
+// Songs already known to be yours, or not from a book, so ink — saved stroke by
+// stroke — doesn't read the song back every time.
+const _usedKnown = new Set();
+
+// The songs among `ids` that are in a book and not yet yours become yours.
+// Returns how many changed.
+export async function markSongsUsed(ids = []) {
+  const todo = [...new Set(ids)].filter(id => id && !_usedKnown.has(id));
+  if (!todo.length) return 0;
+  const d = await getDB();
+  const tx = d.transaction('songs', 'readwrite');
+  let changed = 0;
+  for (const id of todo) {
+    const song = await tx.store.get(id);
+    if (!song) continue;
+    _usedKnown.add(id);
+    if (song.bookId && song.mine !== true) { await tx.store.put({ ...song, mine: true }); changed++; }
+  }
+  await tx.done;
+  return changed;
+}
+
+// A book away: its songs you never used go (with their PDFs), the ones you did
+// stay, as My songs in no book. Returns { removed, kept } counts.
+export async function removeBook(bookId) {
+  const d = await getDB();
+  const songs = await d.getAll('songs');
+  const { remove, keep } = removeBookPlan(bookId, songs);
+  const byId = new Map(songs.map(s => [s.id, s]));
+  const tx = d.transaction(['songs', 'pdfs', 'annotations', 'books'], 'readwrite');
+  for (const id of remove) {
+    tx.objectStore('songs').delete(id);
+    tx.objectStore('pdfs').delete(id);
+    tx.objectStore('annotations').delete(id);
+  }
+  for (const id of keep) {
+    const { bookId: _, ...rest } = byId.get(id);
+    tx.objectStore('songs').put(rest);
+  }
+  tx.objectStore('books').delete(bookId);
+  await tx.done;
+  for (const id of remove) _pdfMemCache.delete(id);
+  return { removed: remove.length, kept: keep.length };
+}
+
+// A shelf away: its books stay, on no shelf. Never a song.
+export async function removeShelf(shelfId) {
+  const d = await getDB();
+  const tx = d.transaction('books', 'readwrite');
+  for (const r of await tx.store.getAll()) {
+    if (r.kind === 'book' && r.shelfId === shelfId) await tx.store.put({ ...r, shelfId: null });
+  }
+  await tx.store.delete(shelfId);
   await tx.done;
 }
 

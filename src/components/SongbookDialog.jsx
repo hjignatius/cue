@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import LongList from './LongList.jsx';
 import { VERDICT_WORDS, reportLines } from '../utils/bookReport.js';
+import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
+import { bookName } from '../utils/books.js';
 
 // The review list for a songbook PDF, or for several PDFs imported together:
 // the BOOK REPORT on top, then every song Cue found, to tick or untick before
@@ -41,7 +43,7 @@ import { VERDICT_WORDS, reportLines } from '../utils/bookReport.js';
 // No dimmed backdrop, as with every dialog in Cue.
 const SET_DEFAULT_MAX = 100;
 
-export default function SongbookDialog({ dark, batch, fileName, reading, report, songs, outcome, onImport, onKeepAsPage, onPick, onCancel, onShow, onDone }) {
+export default function SongbookDialog({ dark, batch, fileName, records = [], reading, report, songs, outcome, onImport, onKeepAsPage, onPick, onCancel, onShow, onDone }) {
   // A batch of separate PDFs picked together, named by its count ("3 PDFs").
   const sheets = batch || report?.kind === 'sheets';
   const [picked, setPicked] = useState(null);           // Set of indices, once songs arrive
@@ -49,8 +51,12 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
   const [titles, setTitles] = useState({});             // index -> title as fixed by hand
   // A set is what you take to a gig. One holding a whole 4,000-song book is no
   // use for that and takes seconds to open, so past this many it starts off.
+  // A songbook comes in as a book of its own; a batch of sheets may (books.js).
+  // While it is going into a book, a new set starts off too: every song in a
+  // set is one of yours, and a book is where they wait until you use them.
+  const [book, setBook] = useState(() => startBook(!sheets, sheets ? 'Imported sheets' : bookName(fileName)));
   const [makeSetChoice, setMakeSet] = useState(null);
-  const makeSet = makeSetChoice ?? !(songs && songs.length > SET_DEFAULT_MAX);
+  const makeSet = makeSetChoice ?? (!book.on && !(songs && songs.length > SET_DEFAULT_MAX));
   const [setName, setSetName] = useState(() => (sheets ? 'Imported PDFs' : (fileName || '').replace(/\.pdf$/i, '')));
   const [asCharts, setAsCharts] = useState(true);
   const charts = sheets && (songs || []).some(s => s.chart);
@@ -112,7 +118,9 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
         {outcome && (
           <>
             <p className={`text-sm ${head}`}>
-              Added {outcome.added} song{outcome.added === 1 ? '' : 's'}{outcome.setName ? <> to the new set “{outcome.setName}”</> : ' to your library'}.
+              Added {outcome.added} song{outcome.added === 1 ? '' : 's'}
+              {outcome.bookName ? <> to the book “{outcome.bookName}”{outcome.setName ? <> and the new set “{outcome.setName}”</> : null}</>
+                : outcome.setName ? <> to the new set “{outcome.setName}”</> : ' to your library'}.
               {outcome.leftOut ? ` ${outcome.leftOut} ${outcome.leftOut === 1 ? 'was' : 'were'} left out.` : ''}
             </p>
             <div className="flex flex-col gap-2">
@@ -158,6 +166,7 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
                     Make charts of the songs Cue can read
                   </label>
                 )}
+                <BookChoice dark={dark} records={records} value={book} onChange={setBook} />
                 <label className={`flex items-center gap-2 text-sm ${head}`}>
                   <input type="checkbox" checked={makeSet} onChange={e => setMakeSet(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
                   Put them in a new set
@@ -176,7 +185,7 @@ export default function SongbookDialog({ dark, batch, fileName, reading, report,
                     const ids = [...chosen].sort((a, b) => a - b);
                     const fixed = {};
                     for (const i of ids) if (titles[i]?.trim() && titles[i].trim() !== songs[i].title) fixed[i] = titles[i].trim();
-                    onImport(ids, makeSet && setName.trim() ? setName.trim() : null, fixed, asCharts);
+                    onImport(ids, makeSet && setName.trim() ? setName.trim() : null, fixed, asCharts, bookChoice(book));
                   }}
                   className={primary}>
                   Import {n} song{n === 1 ? '' : 's'}

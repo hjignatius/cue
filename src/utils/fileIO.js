@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import { saveFilePicker } from './filePicker.js';
-import { loadSongs, loadSets, collectPdfBackups, SCHEMA_VERSION } from './storage.js';
+import { loadSongs, loadSets, loadBooks, collectPdfBackups, SCHEMA_VERSION } from './storage.js';
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
 import { stripStyling } from './chordPro.js';
 import { normalizeTimeSig, timeSigOrEmpty } from './timeSig.js';
@@ -462,13 +462,15 @@ export async function importJson() {
 
 // Full library backup — all songs + all sets + custom chords in one file. PDF
 // songs' bytes ride along as base64 under `pdfs` (version 3) so a restore brings
-// the lead sheets back; older v2 backups simply have no `pdfs`.
+// the lead sheets back; older v2 backups simply have no `pdfs`. Books and their
+// shelves ride along under `books` (books.js); a backup without them restores
+// every song as one of yours, as it always was.
 export async function exportBackup() {
-  const [songs, sets] = await Promise.all([loadSongs(), loadSets()]);
+  const [songs, sets, books] = await Promise.all([loadSongs(), loadSets(), loadBooks()]);
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
   const pdfs = await collectPdfBackups(songs); // { songId: base64 }
-  const payload = JSON.stringify({ type: 'cue-backup', version: 3, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-backup', version: 3, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, books, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
   return download(`cue-backup-${date}.json`, payload, 'application/json');
 }
 

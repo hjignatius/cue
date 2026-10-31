@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
 import { songsFromMarks } from '../utils/bookReport.js';
+import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
+import { bookName } from '../utils/books.js';
 
 // Picking the songs out of a book by hand, page by page, for a book the report
 // can't split — chords above the lyrics, pages that are pictures — or one whose
@@ -27,12 +29,15 @@ const NEXT = { start: 'same', same: 'skip', skip: 'start' };
 const WORDS = { start: 'New song', same: 'Same song', skip: 'Leave out' };
 const SET_DEFAULT_MAX = 100;
 
-export default function PagePicker({ dark, fileName, file, start, onAccept, onBack, onCancel }) {
+export default function PagePicker({ dark, fileName, file, start, records = [], onAccept, onBack, onCancel }) {
   const [doc, setDoc] = useState(null);
   const [failed, setFailed] = useState(false);
   const [marks, setMarks] = useState(start.marks);
   const [titles, setTitles] = useState(start.titles);   // page -> { title, artist, key }
   const [big, setBig] = useState(null);                  // page shown large
+  // A book's songs come in as a book (books.js); one song printed twice over
+  // (start.asBook false) is yours, as a sheet is.
+  const [book, setBook] = useState(() => startBook(start.asBook !== false, bookName(fileName)));
   const [makeSetChoice, setMakeSet] = useState(start.makeSet ?? null);
   const [asCharts, setAsCharts] = useState(true);
   const [setName, setSetName] = useState(() => (fileName || '').replace(/\.pdf$/i, ''));
@@ -68,7 +73,7 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
     return out;
   }, [marks]);
   const left = marks.filter(m => m === 'skip').length;
-  const makeSet = makeSetChoice ?? songs.length <= SET_DEFAULT_MAX;
+  const makeSet = makeSetChoice ?? (!book.on && songs.length <= SET_DEFAULT_MAX);
 
   const tap = useCallback((p) => setMarks(prev => {
     const next = [...prev];
@@ -127,6 +132,7 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
             Make charts of the songs Cue can read
           </label>
         )}
+        {start.asBook !== false && <BookChoice dark={dark} records={records} value={book} onChange={setBook} />}
         <div className="flex items-center gap-2">
           <label className={`flex items-center gap-2 text-sm shrink-0 ${head}`}>
             <input type="checkbox" checked={makeSet} onChange={e => setMakeSet(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
@@ -137,7 +143,7 @@ export default function PagePicker({ dark, fileName, file, start, onAccept, onBa
         <div className="flex gap-2">
           {onBack && <button onClick={onBack} className={secondary}>Back</button>}
           <button disabled={!n || failed}
-            onClick={() => onAccept(songs.map(s => ({ ...s, chart: asCharts && s.chart, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null)}
+            onClick={() => onAccept(songs.map(s => ({ ...s, chart: asCharts && s.chart, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null, bookChoice(book))}
             className={primary}>
             Make {n} song{n === 1 ? '' : 's'}
           </button>
