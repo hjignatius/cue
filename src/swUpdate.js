@@ -40,6 +40,40 @@ function markUpdateAvailable(worker) {
   set({ updateAvailable: true, dismissed: false });
 }
 
+// Which release a worker is (its CACHE name), or null when it can't say — a
+// worker from before this check existed, or one that doesn't answer in time.
+function workerVersion(worker) {
+  if (!worker) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(null), 3000);
+    channel.port1.onmessage = (e) => { clearTimeout(timer); resolve(e.data); };
+    try {
+      worker.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+    } catch {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+// Safari reports a freshly installed worker on update checks even when sw.js
+// hasn't changed, so "Update Cue" kept coming back with nothing new to offer.
+// Prompt only when the waiting worker is a different release. A same-release
+// twin is let through quietly: identical code and cache, and no reload, because
+// userInitiatedReload stays false.
+async function offerUpdate(worker) {
+  const [next, current] = await Promise.all([
+    workerVersion(worker),
+    workerVersion(navigator.serviceWorker.controller),
+  ]);
+  if (next && next === current) {
+    worker.postMessage({ type: 'SKIP_WAITING' });
+    return;
+  }
+  markUpdateAvailable(worker);
+}
+
 function subscribe(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -92,7 +126,7 @@ export function registerSw() {
       .then((reg) => {
         swRegistration = reg;
         // An update installed in a previous session, already parked in waiting.
-        if (reg.waiting && navigator.serviceWorker.controller) markUpdateAvailable(reg.waiting);
+        if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
 
         reg.addEventListener('updatefound', () => {
           const installing = reg.installing;
@@ -101,7 +135,7 @@ export function registerSw() {
             // 'installed' WITH an existing controller means this is an update,
             // not a first install (first install has no controller yet).
             if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-              markUpdateAvailable(reg.waiting || installing);
+              offerUpdate(reg.waiting || installing);
             }
           });
         });
