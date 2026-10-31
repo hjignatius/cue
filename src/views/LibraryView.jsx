@@ -198,6 +198,17 @@ function SelectCheckbox({ checked, indeterminate = false, onToggle, ariaLabel })
 
 // ---- Song row ---------------------------------------------------------------
 
+// Double-click a song row to open it: a Library song in the editor, a set's song
+// in Present. Edit and Present both stay in the row's ⋮. Not from the
+// checkbox, the drag handle or the ⋮ and its menu (a portal, whose events still
+// bubble here), where two quick clicks mean something else. The word the
+// double-click selected is let go, so it isn't left highlighted.
+function openOnDoubleClick(e, open) {
+  if (e.target.closest?.('button, input, a, [role="menu"], [role="menuitem"]')) return;
+  window.getSelection?.()?.removeAllRanges();
+  open();
+}
+
 function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onMine, onRetryPdf, selected, onToggleCheck, onRowClick, highlighted, hasAnnotation, shared }) {
   const { title, artist, key } = song.metadata || {};
 
@@ -209,6 +220,7 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onMine, onRetryPd
         : 'hover:bg-gray-100 dark:hover:bg-gray-900'
       }`}
       onClick={() => onRowClick(song.id)}
+      onDoubleClick={(e) => openOnDoubleClick(e, onOpen)}
     >
       <SelectCheckbox checked={selected} onToggle={() => onToggleCheck(song.id)} ariaLabel={`Select ${title || 'Untitled'}`} />
       <div className="flex-1 min-w-0">
@@ -1463,6 +1475,7 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
       ref={setNodeRef}
       style={style}
       onClick={onSelect}
+      onDoubleClick={(e) => openOnDoubleClick(e, onPresent)}
       className={`flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-800 group transition-colors cursor-pointer ${
         isSelected ? 'bg-indigo-50 dark:bg-indigo-950/40' : isOver ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
       }`}
