@@ -125,6 +125,7 @@ export async function applyPulledSet({ set, songs }, localSongIds, userId) {
   // preserveTimestamps keeps the cloud's updated_at rather than stamping now(),
   // so the pulled copy reads as in-sync instead of instantly stale.
   await saveSet({
+    markUsed: false,
     id: set.id,
     name: set.name,
     songIds,

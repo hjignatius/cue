@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode, UserPlus, UserMinus } from 'lucide-react';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
@@ -15,7 +15,7 @@ import LongList from '../components/LongList.jsx';
 const ORDER_STAGE   = { idleLabel: 'Ordering the set…',        writeLabel: 'Placing the songs…',     unit: 'song' };
 const TIME_STAGE    = { idleLabel: 'Working out the timing…',  writeLabel: 'Adding it up…',          unit: 'step' };
 const SUGGEST_STAGE = { idleLabel: 'Finding songs…',           writeLabel: 'Picking songs…',         unit: 'song' };
-import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded, saveBookRecord, removeBook, removeShelf } from '../utils/storage.js';
+import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded, saveBookRecord, removeBook, removeShelf, mergeBooks, setSongMine } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
@@ -198,7 +198,7 @@ function SelectCheckbox({ checked, indeterminate = false, onToggle, ariaLabel })
 
 // ---- Song row ---------------------------------------------------------------
 
-function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selected, onToggleCheck, onRowClick, highlighted, hasAnnotation, shared }) {
+function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onMine, onRetryPdf, selected, onToggleCheck, onRowClick, highlighted, hasAnnotation, shared }) {
   const { title, artist, key } = song.metadata || {};
 
   return (
@@ -292,6 +292,10 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onRetryPdf, selec
             { id: 'edit',  label: 'Edit',      icon: SquarePen, onSelect: onOpen },
             { id: 'pres',  label: 'Present',   icon: Tv,        onSelect: () => onPresent(song) },
             { id: 'dup',   label: 'Duplicate', icon: Copy,      onSelect: () => onDuplicate(song) },
+            // A book song is yours when you say so (or put it in a set, or ink it).
+            (song.bookId && onMine) && (song.mine === true
+              ? { id: 'notmine', label: 'Take out of My songs', icon: UserMinus, onSelect: () => onMine(song, false) }
+              : { id: 'mine',    label: 'Add to My songs',      icon: UserPlus,  onSelect: () => onMine(song, true) }),
             (song.type === 'pdf' && song.pdf?.uploaded === false && onRetryPdf) &&
               { id: 'pdfretry', label: 'Retry PDF upload', icon: CloudOff, onSelect: () => onRetryPdf(song) },
           ].filter(Boolean)}
@@ -2391,6 +2395,15 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
     setSelected(new Set());
     await onRefresh();
   }
+  // Merge the book being edited into another; a view of it shows the other.
+  async function mergeBookEdit(intoId) {
+    const rec = bookEdit;
+    await mergeBooks(rec.id, intoId);
+    setBookEdit(null);
+    if (shownView.id === rec.id) setLibView({ kind: 'book', id: intoId });
+    setSelected(new Set());
+    await onRefresh();
+  }
   // "Show them", after a songbook import: open the set it made, or — when it
   // made none — the whole library newest first, unfiltered, from the top, which
   // is where the new songs are.
@@ -2819,49 +2832,6 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                   </>
                 )}
               </div>
-              {/* Library-wide AI actions live in this menu (room to grow). Same
-                  square, bordered AI button style as the editor toolbar. */}
-              <div className="relative">
-                <button
-                  onClick={() => setAiMenuOpen(v => !v)}
-                  aria-haspopup="menu" aria-expanded={aiMenuOpen} aria-label="AI"
-                  title={aiReady ? 'AI helpers for your whole library' : 'AI — add your Anthropic key in Settings to enable'}
-                  className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
-                    aiReady
-                      ? dark ? 'border-gray-700 text-gray-200 hover:text-white' : 'border-gray-300 text-gray-700 hover:text-gray-900'
-                      : dark ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'
-                  }`}
-                >
-                  <Sparkles size={14} /> AI
-                </button>
-                {aiMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setAiMenuOpen(false))} />
-                    <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden py-1">
-                      <button
-                        onClick={() => { setAiMenuOpen(false); runSuggest(); }}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        <Sparkles size={15} className="opacity-70 shrink-0" /> Suggest songs to learn
-                      </button>
-                      <button
-                        onClick={() => { setAiMenuOpen(false); runFindDuplicates(); }}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        <Copy size={15} className="opacity-70 shrink-0" /> Find duplicates
-                      </button>
-                      {!aiReady && (
-                        <button
-                          onClick={() => { setAiMenuOpen(false); openAiSettings(); }}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        >
-                          <Settings size={15} className="opacity-70 shrink-0" /> Set up AI…
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
               <HeaderPill dark={dark} icon={Plus} label="New Song" active hideLabelWhenNarrow onActivate={onNewSong} dataOnboard="new-song-btn" />
             </div>
           </div>
@@ -2943,7 +2913,51 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
             )}
             <div className="flex-1" />
 
-            {/* Right: Add to Set + Delete. */}
+            {/* Right: AI, Add to Set, Delete. */}
+            {/* Library-wide AI actions live in this menu (room to grow), down here
+                beside Add to Set so the header has room for the book switch.
+                Same square, bordered AI button style as the editor toolbar. */}
+            <div className="relative">
+              <button
+                onClick={() => setAiMenuOpen(v => !v)}
+                aria-haspopup="menu" aria-expanded={aiMenuOpen} aria-label="AI"
+                title={aiReady ? 'AI helpers for your whole library' : 'AI — add your Anthropic key in Settings to enable'}
+                className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
+                  aiReady
+                    ? dark ? 'border-gray-700 text-gray-200 hover:text-white' : 'border-gray-300 text-gray-700 hover:text-gray-900'
+                    : dark ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'
+                }`}
+              >
+                <Sparkles size={14} /> AI
+              </button>
+              {aiMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setAiMenuOpen(false))} />
+                  <div className="absolute right-0 top-full mt-1 z-20 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden py-1">
+                    <button
+                      onClick={() => { setAiMenuOpen(false); runSuggest(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Sparkles size={15} className="opacity-70 shrink-0" /> Suggest songs to learn
+                    </button>
+                    <button
+                      onClick={() => { setAiMenuOpen(false); runFindDuplicates(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Copy size={15} className="opacity-70 shrink-0" /> Find duplicates
+                    </button>
+                    {!aiReady && (
+                      <button
+                        onClick={() => { setAiMenuOpen(false); openAiSettings(); }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Settings size={15} className="opacity-70 shrink-0" /> Set up AI…
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
             <HeaderPill
               dark={dark} icon={ListPlus} label="Add to Set" hideLabelWhenNarrow
               title="Add selected songs to a set"
@@ -2994,7 +3008,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                 <p className="px-4 py-6 text-sm text-gray-400 dark:text-gray-600 text-center">
                   {shelfSongs.length === 0 && !search.trim()
                     ? (shownView.kind === 'mine'
-                        ? 'None of your own songs yet. A song from a book becomes yours when you put it in a set, edit it or ink it.'
+                        ? 'None of your own songs yet. A song from a book becomes yours when you put it in a set or ink it, or choose Add to My songs from its ⋮.'
                         : 'No songs here.')
                     : sortBy === 'shared'
                     ? (search.trim()
@@ -3027,6 +3041,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                   // than dead-ending on the one song you picked.
                   onPresent={() => onPresent?.(sorted, idx)}
                   onDuplicate={handleDuplicate}
+                  onMine={async (s, mine) => { await setSongMine(s.id, mine); await onRefresh(); }}
                   onRetryPdf={handleRetryPdf}
                   selected={selected.has(song.id)}
                   onToggleCheck={toggleChecked}
@@ -3119,7 +3134,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
 
       {bookEdit && (
         <BookDialog dark={dark} record={bookEdit} records={books} songs={songs}
-          onSave={saveBookEdit} onRemove={removeBookEdit} onClose={() => setBookEdit(null)} />
+          onSave={saveBookEdit} onRemove={removeBookEdit} onMerge={mergeBookEdit} onClose={() => setBookEdit(null)} />
       )}
       {compareGroup && (
         <SongCompare

@@ -9,9 +9,11 @@
 //   { id, kind: 'shelf', name, createdAt }
 //
 // A song from a book carries `bookId`. It is one of MY SONGS when it is not from
-// a book, or when you have used it — put it in a set, saved it in the editor,
-// inked it — which sets `mine: true` on it for good (storage.js,
-// markSongsUsed). It stays in its book as well: one song, seen in both places.
+// a book, or when you have used it — put it in a set of your own, inked it —
+// which sets `mine: true` on it (storage.js, markSongsUsed), or chosen Add to
+// My songs from its ⋮ (setSongMine, which can take it out again). Editing it
+// doesn't: that is your choice to make after. It stays in its book as well:
+// one song, seen in both places.
 // Removing a book removes the songs you never used and keeps the ones you did.
 
 export const isMine = (song) => !song?.bookId || song.mine === true;

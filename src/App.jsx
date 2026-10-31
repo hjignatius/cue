@@ -6,8 +6,10 @@ import UpdateButton from './components/UpdateButton.jsx';
 import SongbookDialog from './components/SongbookDialog.jsx';
 import SheetChartDialog from './components/SheetChartDialog.jsx';
 import PagePicker from './components/PagePicker.jsx';
-import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord } from './utils/storage.js';
+import BookChoice, { startBook, bookChoice } from './components/BookChoice.jsx';
+import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord, saveBookChoice } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
+import { bookName } from './utils/books.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
 import { CHORD_LIBRARIES } from './data/chordLibraries.js';
 import { usePrefs } from './context/PrefsContext.jsx';
@@ -44,7 +46,7 @@ export default function App() {
   const [backupDialog, setBackupDialog]       = useState(null);
   // backupDialog: { resolve: (choice: 'replace'|'merge'|'cancel') => void }
   const [setsImportDialog, setSetsImportDialog] = useState(null);
-  // setsImportDialog: { resolve: (choice: 'allow'|'skip'|'cancel') => void }
+  // setsImportDialog: { resolve: ({ mode: 'allow'|'skip'|'import'|'cancel', book }) => void, title, book, duplicates }
   const [songbook, setSongbook] = useState(null);
   // Books and the shelves they sit on (books.js).
   const [books, setBooks] = useState([]);
@@ -180,12 +182,7 @@ export default function App() {
     unsavedPdfs.current = 0;
     let shown = 0;
     let bookId = null;
-    if (choice.book && choice.picked.length) {
-      const shelfId = choice.book.newShelf
-        ? (await saveBookRecord({ kind: 'shelf', name: choice.book.newShelf })).id
-        : choice.book.shelfId;
-      bookId = (await saveBookRecord({ kind: 'book', name: choice.book.name, shelfId: shelfId || null, file: batch ? null : fileName })).id;
-    }
+    if (choice.book && choice.picked.length) bookId = await makeBook(choice.book, batch ? null : fileName);
     for (const i of choice.picked) {
       if (choice.picked.length > 50 && performance.now() - shown > 150) {
         shown = performance.now();
@@ -347,11 +344,19 @@ export default function App() {
     return new Promise(resolve => setBackupDialog({ resolve }));
   }
 
-  // Shared duplicate-handling prompt for any bulk import. `title` names what is
-  // being imported (sets vs. songs); the question itself is the same either way.
-  function askSetsImportMode(title = 'Import sets') {
-    return new Promise(resolve => setSetsImportDialog({ resolve, title }));
+  // Shared prompt for any bulk import: whether the songs are kept as a book
+  // (BookChoice — ticked, named after the set or file, so a friend's songs stay
+  // out of My songs until you use them), and, for a Cue .json, what to do with
+  // songs already in your library. `title` names what is being imported.
+  // `duplicates: false` (several .cho files, which ask per song) asks only the
+  // book. Resolves { mode: 'skip'|'allow'|'import'|'cancel', book }.
+  function askSetsImportMode(title = 'Import sets', name = 'Imported songs', duplicates = true) {
+    return new Promise(resolve => setSetsImportDialog({ resolve, title, duplicates, book: startBook(true, name) }));
   }
+
+  const makeBook = saveBookChoice;
+  const inBook = (bookId) => (bookId ? { bookId, mine: false } : {});
+  const toBook = (bookId, book) => (bookId ? ` to the book “${book.name}”` : '');
 
   function handleImport() {
     const input = document.createElement('input');
@@ -407,6 +412,16 @@ export default function App() {
       const pdfFiles = files.filter(isPdf);
       if (pdfFiles.length > 1) showAfter = (await importPdfBatch(pdfFiles))?.show || null;
 
+      // Several song files (.cho / .txt) at once are a group of songs, asked
+      // about as a book like any other; each still asks about its own duplicate.
+      const textFiles = files.filter(f => !isPdf(f) && !/\.(json|html?)$/i.test(f.name));
+      let textBookId = null, textCancelled = false;
+      if (textFiles.length > 1) {
+        const { mode, book } = await askSetsImportMode(`Import ${textFiles.length} songs`, 'Imported songs', false);
+        textCancelled = mode === 'cancel';
+        if (book && !textCancelled) textBookId = await makeBook(book);
+      }
+
       for (const file of files) {
         // PDF lead sheet → a 'pdf' song with the raw bytes stored locally (Stage
         // 1a: local-only, nothing uploads it). Branch BEFORE reading as text.
@@ -452,8 +467,9 @@ export default function App() {
             // was right that a per-SONG prompt is wrong for a set, which can hold
             // dozens. The answer is the batch prompt the multi-set and songs-only
             // bundles already use, not no prompt.
-            const mode = await askSetsImportMode('Import set');
+            const { mode, book } = await askSetsImportMode('Import set', data.set.name || bookName(file.name.replace(/\.json$/i, '')));
             if (mode === 'cancel') continue;
+            const bookId = book ? await makeBook(book) : null;
             const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
             const idMap  = {};
             const pdfMap = {};   // created songs only — a reused song keeps its own PDF
@@ -465,7 +481,7 @@ export default function App() {
                 idMap[s.id] = existing.id;
                 reused++;
               } else {
-                const newId = await saveSong({ ...bundleSongFields(s), id: null });
+                const newId = await saveSong({ ...bundleSongFields(s), id: null, ...inBook(bookId) });
                 idMap[s.id] = newId;
                 pdfMap[s.id] = newId;
                 added++;
@@ -473,6 +489,7 @@ export default function App() {
             }
             await restoreBundlePdfs(data.pdfs, pdfMap);
             await saveSet({
+              markUsed: false,
               id: null,
               name: data.set.name,
               songIds: data.set.songIds.map(id => idMap[id]).filter(Boolean),
@@ -484,21 +501,22 @@ export default function App() {
             if (!restoreChordLibraries(data) && Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
-            alert(`Set imported: “${data.set.name}”.\n${added} song${added === 1 ? '' : 's'} added${reused ? `, ${reused} already in your library and reused` : ''}`);
+            alert(`Set imported: “${data.set.name}”.\n${added} song${added === 1 ? '' : 's'} added${toBook(bookId, book)}${reused ? `, ${reused} already in your library and reused` : ''}`);
 
           } else if (data.type === 'cue-songs' && Array.isArray(data.songs)) {
             // Songs-only bundle, written by the Library panel's Export button.
             // Same duplicate prompt as a multi-set import — a bundle can hold
             // dozens of songs, so one decision covers the batch rather than
             // prompting per song.
-            const mode = await askSetsImportMode('Import songs');
+            const { mode, book } = await askSetsImportMode('Import songs', bookName(file.name.replace(/\.json$/i, '')));
             if (mode === 'cancel') continue;
+            const bookId = book ? await makeBook(book) : null;
             const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
             let added = 0, skipped = 0;
             const idMap = {};
             for (const s of data.songs) {
               if (mode === 'skip' && existingByTitle.has(normalizeTitle(s.metadata?.title))) { skipped++; continue; }
-              idMap[s.id] = await saveSong({ ...bundleSongFields(s), id: null });
+              idMap[s.id] = await saveSong({ ...bundleSongFields(s), id: null, ...inBook(bookId) });
               added++;
             }
             await restoreBundlePdfs(data.pdfs, idMap);
@@ -508,11 +526,12 @@ export default function App() {
             if (!restoreChordLibraries(data) && Array.isArray(data.customChords) && data.customChords.length > 0) {
               mergeCustomChords(data.customChords);
             }
-            alert(`Songs imported.\n${added} added${skipped ? `, ${skipped} skipped (already in library)` : ''}`);
+            alert(`Songs imported.\n${added} added${toBook(bookId, book)}${skipped ? `, ${skipped} skipped (already in library)` : ''}`);
 
           } else if (data.type === 'cue-sets' && data.sets && data.songs) {
-            const mode = await askSetsImportMode();
+            const { mode, book } = await askSetsImportMode('Import sets', bookName(file.name.replace(/\.json$/i, '')));
             if (mode === 'cancel') continue;
+            const bookId = book ? await makeBook(book) : null;
             // Build a lookup of existing songs by normalized title for duplicate detection
             const existingByTitle = new Map(songs.map(s => [normalizeTitle(s.metadata?.title), s]));
             const idMap = {};
@@ -524,7 +543,7 @@ export default function App() {
                 idMap[s.id] = existing.id;
                 reused++;
               } else {
-                const newId = await saveSong({ ...bundleSongFields(s), id: null });
+                const newId = await saveSong({ ...bundleSongFields(s), id: null, ...inBook(bookId) });
                 idMap[s.id] = newId;
                 pdfMap[s.id] = newId;
                 added++;
@@ -533,6 +552,7 @@ export default function App() {
             await restoreBundlePdfs(data.pdfs, pdfMap);
             for (const set of data.sets) {
               await saveSet({
+                markUsed: false,
                 id: null,
                 name: set.name,
                 songIds: set.songIds.map(id => idMap[id]).filter(Boolean),
@@ -546,7 +566,7 @@ export default function App() {
               mergeCustomChords(data.customChords);
             }
             // This path asked what to do and then never said what it did.
-            alert(`Sets imported.\n${data.sets.length} set${data.sets.length === 1 ? '' : 's'}, ${added} song${added === 1 ? '' : 's'} added${reused ? `, ${reused} already in your library and reused` : ''}`);
+            alert(`Sets imported.\n${data.sets.length} set${data.sets.length === 1 ? '' : 's'}, ${added} song${added === 1 ? '' : 's'} added${toBook(bookId, book)}${reused ? `, ${reused} already in your library and reused` : ''}`);
 
           } else if (data.type === 'cue-backup' && data.songs && data.sets) {
             const mode = await askBackupMode();
@@ -569,7 +589,7 @@ export default function App() {
               for (const rec of Array.isArray(data.books) ? data.books : []) await saveBookRecord(rec);
               for (const set of data.sets) {
                 const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
-                await saveSet({ id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
+                await saveSet({ markUsed: false, id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
               }
             } else {
               // Merge: keep whichever version of each song/set has the newer updatedAt.
@@ -617,19 +637,19 @@ export default function App() {
               for (const set of data.sets) {
                 const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
                 if (!set.id) {
-                  await saveSet({ id: null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
+                  await saveSet({ markUsed: false, id: null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
                   setsAdded++;
                   continue;
                 }
                 const existing = setById.get(set.id);
                 if (!existing) {
-                  await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
+                  await saveSet({ markUsed: false, id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
                   setsAdded++;
                 } else {
                   const existingMs = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.savedAt || 0);
                   const incomingMs = set.updatedAt      ? new Date(set.updatedAt).getTime()       : (set.savedAt || 0);
                   if (incomingMs > existingMs) {
-                    await saveSet({ id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
+                    await saveSet({ markUsed: false, id: set.id, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
                     setsUpdated++;
                   } else {
                     setsSkipped++;
@@ -669,6 +689,7 @@ export default function App() {
 
         } else {
           // ChordPro text file (.cho, .chopro, .txt, etc.)
+          if (textCancelled) continue;
           const { metadata, text } = parseCho(content);
           const existing = songs.find(s => normalizeTitle(s.metadata?.title) === normalizeTitle(metadata?.title));
           let importId = null;
@@ -677,7 +698,8 @@ export default function App() {
             if (choice === 'cancel') continue;
             if (choice === 'overwrite') importId = existing.id;
           }
-          const id = await saveSong({ id: importId, metadata, text });
+          // A song you chose to overwrite keeps the place it already had.
+          const id = await saveSong({ id: importId, metadata, text, ...(importId ? {} : inBook(textBookId)) });
           lastImportedSong = { id, metadata, text };
         }
       }
@@ -911,39 +933,43 @@ export default function App() {
         </div>
       )}
 
-      {/* Multi-set import dialog */}
-      {setsImportDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
-            <div className="flex flex-col gap-1">
+      {/* Bulk import dialog: keep as a book, and what to do with duplicates */}
+      {setsImportDialog && (() => {
+        const answer = (mode) => { setsImportDialog.resolve({ mode, book: mode === 'cancel' ? null : bookChoice(setsImportDialog.book) }); setSetsImportDialog(null); };
+        const hint = `text-xs text-center -mt-1 mb-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`;
+        const secondary = `w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+        const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className={`w-[22rem] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{setsImportDialog.title ?? 'Import sets'}</h2>
-              <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>What should happen if a song in this file already exists in your library?</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => { setsImportDialog.resolve('skip'); setSetsImportDialog(null); }}
-                className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
-              >
-                Skip duplicates
-              </button>
-              <p className={`text-xs text-center -mt-1 mb-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>Songs already in your library are reused; no duplicates created</p>
-              <button
-                onClick={() => { setsImportDialog.resolve('allow'); setSetsImportDialog(null); }}
-                className={`w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
-              >
-                Allow duplicates
-              </button>
-              <p className={`text-xs text-center -mt-1 mb-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>All songs imported as new entries alongside existing ones</p>
-              <button
-                onClick={() => { setsImportDialog.resolve('cancel'); setSetsImportDialog(null); }}
-                className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                Cancel
-              </button>
+              <div className="flex flex-col gap-1">
+                <BookChoice dark={dark} records={books} value={setsImportDialog.book} onChange={(book) => setSetsImportDialog(d => ({ ...d, book }))} />
+                <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {setsImportDialog.book.on
+                    ? 'They stay out of My songs until you put one in a set of your own, ink it, or add it to My songs.'
+                    : 'They go straight into My songs.'}
+                </p>
+              </div>
+              {setsImportDialog.duplicates ? (
+                <div className="flex flex-col gap-2">
+                  <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>What should happen if a song in this file already exists in your library?</p>
+                  <button onClick={() => answer('skip')} className={primary}>Skip duplicates</button>
+                  <p className={hint}>Songs already in your library are reused; no duplicates created</p>
+                  <button onClick={() => answer('allow')} className={secondary}>Allow duplicates</button>
+                  <p className={hint}>All songs imported as new entries alongside existing ones</p>
+                  <button onClick={() => answer('cancel')} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={() => answer('cancel')} className={secondary}>Cancel</button>
+                  <button onClick={() => answer('import')} className={primary}>Import</button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Import conflict dialog */}
       {songbook?.picker && (

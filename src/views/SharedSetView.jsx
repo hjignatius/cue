@@ -5,7 +5,7 @@ import PullSpinner from '../components/PullSpinner.jsx';
 import { getSharedSet, describeCloudError } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState } from '../utils/storage.js';
+import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, loadBooks, saveBookChoice, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState } from '../utils/storage.js';
 import { mergeTaggedSongCustoms } from '../utils/fileIO.js';
 import { loadSavedShares, persistSavedShares, syncBookmark } from '../utils/sharedBookmarks.js';
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
@@ -18,6 +18,11 @@ import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import InstallTips from '../components/InstallTips.jsx';
+import BookChoice, { startBook, bookChoice } from '../components/BookChoice.jsx';
+
+// A shared song carries the publisher's book, if it had one; never ours. Spread
+// after it so saveSong leaves the book alone (books.js).
+const NO_BOOK = { bookId: undefined, mine: undefined };
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -145,6 +150,7 @@ export default function SharedSetView() {
   const [copyResult, setCopyResult]     = useState(null);  // { type, ... }
   const [hasCopied, setHasCopied]       = useState(false); // true once any copy/duplicate succeeds
   const [conflictDialog, setConflictDialog] = useState(null); // { conflicts, resolve } | null
+  const [bookAsk, setBookAsk] = useState(null); // { records, book, resolve } | null — Copy set's book choice
 
   // Local library snapshot — powers the Copy / Up to date / Update button and the
   // Update list. Reloaded whenever the share loads or after a copy/update.
@@ -409,6 +415,7 @@ export default function SharedSetView() {
       // fresh id, so its bytes must re-upload on the new owner's next publish.
       const newId = await saveSong({
         ...song,
+        ...NO_BOOK,
         id: null,
         metadata: { ...song.metadata, title: newTitle },
         createdAt: now,
@@ -461,6 +468,19 @@ export default function SharedSetView() {
         .filter(s => !copyBySource.has(s.id) && titleMap.has(normalizeTitle(s.metadata?.title)))
         .map(s => ({ cloudSong: s, localSong: titleMap.get(normalizeTitle(s.metadata?.title)) }));
 
+      // Keep its songs as a book, out of My songs until used (books.js). A set
+      // copied before goes on into the book its songs are already in.
+      const records = await loadBooks();
+      const here = new Set(records.filter(r => r.kind === 'book').map(r => r.id));
+      let bookId = songs.map(s => copyBySource.get(s.id)?.bookId).find(id => here.has(id)) || null;
+      if (!bookId && songs.some(s => !copyBySource.has(s.id))) {
+        const asked = await new Promise(resolve => setBookAsk({ records, book: startBook(true, set.name || 'Shared set'), resolve }));
+        setBookAsk(null);
+        if (asked === null) return; // cancelled
+        if (asked) bookId = await saveBookChoice(asked);
+      }
+      const bookFields = bookId ? { bookId, mine: false } : NO_BOOK;
+
       let choices = {};
       if (conflicts.length > 0) {
         const resolved = await askConflicts(conflicts);
@@ -491,6 +511,7 @@ export default function SharedSetView() {
         if (!hasConflict) {
           const newId = await saveSong({
             ...song,
+            ...bookFields,
             id: null,
             createdAt: now,
             updatedAt: now,
@@ -508,6 +529,7 @@ export default function SharedSetView() {
             allTitles.add(normalizeTitle(newTitle));
             const newId = await saveSong({
               ...song,
+              ...bookFields,
               id: null,
               metadata: { ...song.metadata, title: newTitle },
               createdAt: now,
@@ -529,12 +551,13 @@ export default function SharedSetView() {
       // Reuse the existing local copy of this share's set if there is one, so a
       // re-copy updates it in place rather than making a second set.
       const priorSet = (await loadSets()).find(st => st.copiedFrom?.token === token);
-      await saveSet({ id: priorSet?.id || null, name: set.name, songIds: newSongIds, sortMode: 'custom', copiedFrom: { token, setName: set.name } });
+      await saveSet({ markUsed: false, id: priorSet?.id || null, name: set.name, songIds: newSongIds, sortMode: 'custom', copiedFrom: { token, setName: set.name } });
       // Bring the set's songs' custom chord shapes into the local library, each
       // under the instrument it was published for.
       mergeTaggedSongCustoms(songs);
       if (copied + duplicated > 0) setHasCopied(true);
-      setCopyResult({ type: 'set', setName: set.name, copied, duplicated, skipped });
+      const inBookName = bookId && copied + duplicated ? (await loadBooks()).find(b => b.id === bookId)?.name : null;
+      setCopyResult({ type: 'set', setName: set.name, copied, duplicated, skipped, bookName: inBookName });
     } catch (err) {
       console.error('Copy set failed:', err);
     } finally {
@@ -805,6 +828,7 @@ export default function SharedSetView() {
     const s = shareSong;
     await saveSong({
       ...s,
+      ...NO_BOOK, // the copy keeps its own book; the publisher's isn't ours
       id: local.id,
       metadata: { ...s.metadata, title: local.metadata?.title || s.metadata?.title },
       createdAt: local.createdAt,
@@ -852,6 +876,9 @@ export default function SharedSetView() {
       const shareToLocalId = new Map();
       const allTitles = new Set(localSongs.map(s => normalizeTitle(s.metadata?.title)));
       let updated = 0, added = 0, skipped = 0;
+      // A song the publisher added goes into the book the set's copies are in.
+      const setBookId = updatePlan.songs.map(x => x.local?.bookId).find(Boolean);
+      const bookFields = setBookId && (await loadBooks()).some(b => b.id === setBookId) ? { bookId: setBookId, mine: false } : NO_BOOK;
 
       for (const item of updatePlan.songs) {
         const s = item.shareSong;
@@ -866,7 +893,7 @@ export default function SharedSetView() {
           if (allTitles.has(normalizeTitle(title))) title = makeUniqueTitle(title, allTitles);
           allTitles.add(normalizeTitle(title));
           const newId = await saveSong({
-            ...s, id: null,
+            ...s, ...bookFields, id: null,
             metadata: { ...s.metadata, title },
             createdAt: now, updatedAt: now,
             copiedFrom: { songId: s.id, setName: setData.set?.name || '', copiedAt: now, baseline: contentHash(s) },
@@ -885,7 +912,7 @@ export default function SharedSetView() {
 
       if (updatePlan.localSet) {
         const newIds = setData.songs.map(s => shareToLocalId.get(s.id)).filter(Boolean);
-        await saveSet({ id: updatePlan.localSet.id, name: setData.set?.name || updatePlan.localSet.name, songIds: newIds, sortMode: 'custom', copiedFrom: updatePlan.localSet.copiedFrom });
+        await saveSet({ markUsed: false, id: updatePlan.localSet.id, name: setData.set?.name || updatePlan.localSet.name, songIds: newIds, sortMode: 'custom', copiedFrom: updatePlan.localSet.copiedFrom });
       }
 
       setHasCopied(true);
@@ -1338,6 +1365,26 @@ export default function SharedSetView() {
       </div>
 
       {/* Conflict dialog — shown before any writes when title matches are found */}
+      {bookAsk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className={`w-[22rem] max-w-full rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+            <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Copy “{setData?.set?.name}”</h2>
+            <div className="flex flex-col gap-1">
+              <BookChoice dark={dark} records={bookAsk.records} value={bookAsk.book} onChange={(book) => setBookAsk(a => ({ ...a, book }))} />
+              <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                {bookAsk.book.on
+                  ? 'Its songs stay out of My songs until you put one in a set of your own, ink it, or add it to My songs.'
+                  : 'Its songs go straight into My songs.'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => bookAsk.resolve(null)} className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancel</button>
+              <button onClick={() => bookAsk.resolve(bookChoice(bookAsk.book) || false)} className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Copy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {conflictDialog && (
         <ConflictDialog
           conflicts={conflictDialog.conflicts}
@@ -1430,7 +1477,7 @@ export default function SharedSetView() {
 // ---- Copy result sub-views ---------------------------------------------------
 
 function SetCopyResult({ result, dark, onDone }) {
-  const { setName, copied, duplicated, skipped } = result;
+  const { setName, copied, duplicated, skipped, bookName } = result;
   const parts = [];
   if (copied)     parts.push(`${copied} copied`);
   if (duplicated) parts.push(`${duplicated} duplicated`);
@@ -1444,7 +1491,8 @@ function SetCopyResult({ result, dark, onDone }) {
         </h2>
         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
           Created set{' '}
-          <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>"{setName}"</span>.
+          <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>"{setName}"</span>
+          {bookName ? <>, its songs in the book <span className={`font-medium ${dark ? 'text-gray-200' : 'text-gray-700'}`}>“{bookName}”</span></> : null}.
           {parts.length > 0 && (
             <span className="block mt-1">{parts.join(', ')}.</span>
           )}

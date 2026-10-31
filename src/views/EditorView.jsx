@@ -12,7 +12,7 @@ import AiRetryLink from '../components/AiRetryLink.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, TriangleLeft, TriangleRight, GLASS } from '../components/RoundButton.jsx';
-import { saveSong, saveDraft, savePdfBlob, markSongsUsed } from '../utils/storage.js';
+import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
@@ -773,8 +773,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     // keeps whatever the song already had.
     const pdfMeta = pendingPdf ? { filename: pendingPdf.name, importedAt: new Date().toISOString() } : undefined;
     const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pdf: pdfMeta, fullPage, embed, condensed });
-    // Saved in the editor, a song from a book is yours (books.js).
-    await markSongsUsed([id]);
     if (pendingPdf) {
       await savePdfBlob(id, pendingPdf);
       // Nothing to do about the cloud flag: the pdf record written just above is

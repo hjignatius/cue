@@ -387,7 +387,7 @@ export async function loadSets() {
 // "Newest" sort. Edit callers commonly spread `{ ...set }`, which carries the
 // stale updatedAt; that value is ignored unless preserveTimestamps is set.
 // Backup/restore passes preserveTimestamps: true to keep original edit times.
-export async function saveSet({ id, name, songIds, sortMode = 'custom', createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, preserveTimestamps = false, copiedFrom }) {
+export async function saveSet({ id, name, songIds, sortMode = 'custom', createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, preserveTimestamps = false, copiedFrom, markUsed = true }) {
   const d   = await getDB();
   const sid = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -405,9 +405,15 @@ export async function saveSet({ id, name, songIds, sortMode = 'custom', createdA
   const cf = copiedFrom ?? existing?.copiedFrom;
   if (cf) entry.copiedFrom = cf;
   await d.put('sets', entry);
-  // A song from a book in a set is one you use: it is yours now. Here because
-  // every set is saved through this door, however its songs got there.
-  await markSongsUsed(entry.songIds);
+  // A song from a book you put in a set is one you use: it is yours now. Only
+  // the songs this save ADDS — reordering a friend's set, or taking its
+  // update, doesn't make its songs yours. An import or a restore passes
+  // markUsed: false, since the set came with the songs rather than you
+  // choosing them.
+  if (markUsed) {
+    const had = new Set(existing?.songIds || []);
+    await markSongsUsed(entry.songIds.filter(id => !had.has(id)));
+  }
   return entry;
 }
 
@@ -547,6 +553,38 @@ export async function markSongsUsed(ids = []) {
   }
   await tx.done;
   return changed;
+}
+
+// Your choice, from a book song's ⋮ in the Library: one of My songs, or not.
+// Like markSongsUsed, a direct put that leaves its edit time alone.
+export async function setSongMine(id, mine) {
+  const d = await getDB();
+  const song = await d.get('songs', id);
+  if (!song?.bookId) return;
+  await d.put('songs', { ...song, mine });
+  if (mine) _usedKnown.add(id); else _usedKnown.delete(id);
+}
+
+// A book made by an import, from BookChoice's bookChoice(): { name, shelfId,
+// newShelf } — newShelf is the name of a shelf to make for it. Returns its id.
+export async function saveBookChoice(book, file = null) {
+  const shelfId = book.newShelf ? (await saveBookRecord({ kind: 'shelf', name: book.newShelf })).id : book.shelfId;
+  return (await saveBookRecord({ kind: 'book', name: book.name, shelfId: shelfId || null, file })).id;
+}
+
+// One book into another: every song of `fromId` moves to `intoId`, used or
+// not, and `fromId` is gone. Returns the number of songs moved.
+export async function mergeBooks(fromId, intoId) {
+  if (!fromId || !intoId || fromId === intoId) return 0;
+  const d = await getDB();
+  const tx = d.transaction(['songs', 'books'], 'readwrite');
+  let moved = 0;
+  for (const song of await tx.objectStore('songs').getAll()) {
+    if (song.bookId === fromId) { tx.objectStore('songs').put({ ...song, bookId: intoId }); moved++; }
+  }
+  tx.objectStore('books').delete(fromId);
+  await tx.done;
+  return moved;
 }
 
 // A book away: its songs you never used go (with their PDFs), the ones you did

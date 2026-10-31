@@ -45,7 +45,7 @@ await v4.put('annotations', { songId: 'fm3', strokes: [{ id: 's' }] });
 v4.close();
 
 const S = await import('../src/utils/storage.js');
-const { loadSongs, loadBooks, saveSong, saveSet, markSongsUsed, removeBook, removeShelf, saveBookRecord, savePdfBlob, loadPdfBlob, clearLibrary } = S;
+const { loadSongs, loadBooks, saveSong, saveSet, markSongsUsed, removeBook, removeShelf, saveBookRecord, saveBookChoice, mergeBooks, savePdfBlob, loadPdfBlob, clearLibrary } = S;
 const byId = async () => new Map((await loadSongs()).map(s => [s.id, s]));
 
 // ---- 1. sorted into books, once ---------------------------------------------------
@@ -68,7 +68,14 @@ check('marking a song already yours, or one not from a book, changes nothing', a
 const mo = books.find(b => b.name === 'Moselele').id;
 await saveSong({ ...s.get('mo1'), metadata: { title: 'Edited' }, bookId: undefined, mine: undefined });
 check('a later save that doesn’t mention the book keeps it', (await byId()).get('mo1').bookId, mo);
-check('saving in the editor (then marking it used) makes it yours', [await markSongsUsed(['mo1']), (await byId()).get('mo1').mine], [1, true]);
+check('saving it (as the editor does) doesn’t make it yours', (await byId()).get('mo1').mine, false);
+const editedAt = (await byId()).get('mo1').updatedAt;
+await S.setSongMine('mo1', true);
+check('choosing Add to My songs does, without touching its edit time', [(await byId()).get('mo1').mine, (await byId()).get('mo1').updatedAt], [true, editedAt]);
+await S.setSongMine('mo1', false);
+check('…and Take out of My songs undoes it', (await byId()).get('mo1').mine, false);
+await saveSet({ id: null, name: 'Again', songIds: ['mo1'] });
+check('…after which a set of your own makes it yours again', [(await byId()).get('mo1').mine, await markSongsUsed(['mo1'])], [true, 0]);
 
 // ---- 3. removing a book ----------------------------------------------------------------
 await saveSong(song('fm4', { bookId: fm, mine: false, type: 'pdf' }));
@@ -89,6 +96,32 @@ await removeShelf(club.id);
 books = await loadBooks();
 check('removing a shelf leaves its books, on no shelf, and every song', [books.some(b => b.id === club.id), books.find(b => b.id === mo).shelfId, (await loadSongs()).length],
   [false, null, before]);
+
+// ---- 4b. sets that came with their songs, and merging --------------------------------
+// A friend's set, imported or copied from a share, comes with its songs: they stay
+// in their book, not yours, and reordering that set doesn't change it. Adding one
+// of them to a set of your own does.
+const friends = await saveBookChoice({ name: 'Pat’s set', shelfId: null, newShelf: 'Friends' });
+const fb = (await loadBooks()).find(b => b.id === friends);
+check('…named, on the new shelf', [fb.name, (await loadBooks()).find(r => r.id === fb.shelfId)?.name], ['Pat’s set', 'Friends']);
+await saveSong(song('p1', { bookId: friends, mine: false }));
+await saveSong(song('p2', { bookId: friends, mine: false }));
+const pats = await saveSet({ id: null, name: 'Pat’s set', songIds: ['p1', 'p2'], markUsed: false });
+s = await byId();
+check('a set imported with its songs leaves them in the book', [s.get('p1').mine, s.get('p2').mine], [false, false]);
+await saveSet({ ...pats, songIds: ['p2', 'p1'] });
+s = await byId();
+check('…and reordering it doesn’t make them yours', [s.get('p1').mine, s.get('p2').mine], [false, false]);
+await saveSet({ id: null, name: 'Mine', songIds: ['p2'] });
+check('putting one in a set of your own does', [(await byId()).get('p1').mine, (await byId()).get('p2').mine], [false, true]);
+const other = await saveBookChoice({ name: 'Pat’s other set', shelfId: fb.shelfId, newShelf: null });
+await saveSong(song('p3', { bookId: other, mine: false }));
+check('merging a book moves every song, used or not, and says how many', await mergeBooks(friends, other), 2);
+s = await byId();
+check('…into the other book, each still yours or not as before', ['p1', 'p2', 'p3'].map(id => [s.get(id).bookId === other, s.get(id).mine]),
+  [[true, false], [true, true], [true, false]]);
+check('…and the merged book is gone', (await loadBooks()).some(b => b.id === friends), false);
+check('merging a book into itself does nothing', [await mergeBooks(other, other), (await loadBooks()).some(b => b.id === other)], [0, true]);
 
 // ---- 5. a PDF is stored as bytes --------------------------------------------------
 // Mac Safari kept a book's songs but not their PDFs when the PDF went in as a
