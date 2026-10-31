@@ -156,6 +156,7 @@ export default function SharedSetView() {
   // Update list. Reloaded whenever the share loads or after a copy/update.
   const [localSongs, setLocalSongs] = useState([]);
   const [localSets, setLocalSets]   = useState([]);
+  const [localBooks, setLocalBooks] = useState([]);
   const [updateDialog, setUpdateDialog] = useState(null); // null | { choices } — the Update list
   // WHICH VERSION EACH SONG PLAYS, chosen per song rather than for the set.
   //
@@ -218,7 +219,7 @@ export default function SharedSetView() {
   }, [presenting, reloadInked]);
 
   const refreshLocal = useCallback(async () => {
-    try { setLocalSongs(await loadSongs()); setLocalSets(await loadSets()); } catch { /* offline / no db */ }
+    try { setLocalSongs(await loadSongs()); setLocalSets(await loadSets()); setLocalBooks(await loadBooks()); } catch { /* offline / no db */ }
   }, []);
   useEffect(() => { if (status === 'ok' && setData) refreshLocal(); }, [status, setData, hasCopied, refreshLocal]);
 
@@ -668,8 +669,13 @@ export default function SharedSetView() {
                  : !anyMatched ? 'copy'
                  : actionable ? 'update'
                  : 'uptodate';
-    return { status, songs, localSet, setChanged, orderChanged, mine };
-  }, [setData, localSongs, localSets, token]);
+    // The book this share's copies went into — from songs that came THROUGH
+    // this share only. A song matched by title or content is yours or another
+    // book's, and its book is no guide to where the share's new songs belong.
+    const here = new Set(localBooks.filter(r => r.kind === 'book').map(r => r.id));
+    const bookId = songs.filter(x => x.matchedBy === 'lineage').map(x => x.local.bookId).find(id => here.has(id)) || null;
+    return { status, songs, localSet, setChanged, orderChanged, mine, bookId };
+  }, [setData, localSongs, localSets, localBooks, token]);
 
   // Map share song id -> your local (edited/annotated) copy, for "Follow along
   // with your copy". Presenting then plays your versions where you have them.
@@ -868,7 +874,9 @@ export default function SharedSetView() {
     }
   }
 
-  async function applyUpdate(choices) {
+  // `book` is the Update list's book choice (bookChoice()), for songs added from
+  // a share whose copies aren't in a book yet; null for none.
+  async function applyUpdate(choices, book = null) {
     if (!updatePlan || !setData || copying) return;
     setCopying(true);
     try {
@@ -876,9 +884,11 @@ export default function SharedSetView() {
       const shareToLocalId = new Map();
       const allTitles = new Set(localSongs.map(s => normalizeTitle(s.metadata?.title)));
       let updated = 0, added = 0, skipped = 0;
-      // A song the publisher added goes into the book the set's copies are in.
-      const setBookId = updatePlan.songs.map(x => x.local?.bookId).find(Boolean);
-      const bookFields = setBookId && (await loadBooks()).some(b => b.id === setBookId) ? { bookId: setBookId, mine: false } : NO_BOOK;
+      // A song added goes into the book the set's copies are in, or the one
+      // chosen in the list — made only if something is actually added.
+      const adding = updatePlan.songs.some(x => isAddish(x.state) && (choices?.[x.shareSong.id] ?? defaultUpdateAction(x.state)) === 'add');
+      const bookId = updatePlan.bookId || (book && adding && !updatePlan.mine ? await saveBookChoice(book) : null);
+      const bookFields = bookId ? { bookId, mine: false } : NO_BOOK;
 
       for (const item of updatePlan.songs) {
         const s = item.shareSong;
@@ -910,15 +920,21 @@ export default function SharedSetView() {
         }
       }
 
+      const newIds = setData.songs.map(s => shareToLocalId.get(s.id)).filter(Boolean);
       if (updatePlan.localSet) {
-        const newIds = setData.songs.map(s => shareToLocalId.get(s.id)).filter(Boolean);
         await saveSet({ markUsed: false, id: updatePlan.localSet.id, name: setData.set?.name || updatePlan.localSet.name, songIds: newIds, sortMode: 'custom', copiedFrom: updatePlan.localSet.copiedFrom });
+      } else if (!updatePlan.mine && newIds.length) {
+        // Never copied — the list stood in for Copy because some songs matched
+        // ones you have — so make the set, as Copy would.
+        const name = setData.set?.name || 'Shared set';
+        await saveSet({ markUsed: false, id: null, name, songIds: newIds, sortMode: 'custom', copiedFrom: { token, setName: name } });
       }
 
       setHasCopied(true);
       setUpdateDialog(null);
       await refreshLocal();
-      setCopyResult({ type: 'update', updated, added, skipped });
+      const inBookName = bookId && added ? (await loadBooks()).find(b => b.id === bookId)?.name : null;
+      setCopyResult({ type: 'update', updated, added, skipped, bookName: inBookName, copied: !updatePlan.localSet && !updatePlan.mine, setName: setData.set?.name || '' });
     } catch (err) {
       console.error('Update from share failed:', err);
     } finally {
@@ -1193,6 +1209,19 @@ export default function SharedSetView() {
                 </RoundButton>
               );
             }
+            if (st === 'update' && !updatePlan.localSet && !updatePlan.mine) {
+              // Never copied, but some songs match ones you have: Copy, through
+              // the Update list, which can say which you have (UpdateDialog).
+              return (
+                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
+                  label="Copy songs to my library"
+                  title="Save your own copy of this set. Some of its songs are already in your library — choose which to add."
+                  fill={headerFill} disabled={copying}
+                  onActivate={() => setUpdateDialog({ choices: {} })}>
+                  <Library size={20} />{!compactHeader && <PillLabel>Copy</PillLabel>}
+                </RoundButton>
+              );
+            }
             if (st === 'update') {
               return (
                 <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
@@ -1402,6 +1431,9 @@ export default function SharedSetView() {
           dark={dark}
           busy={copying}
           focusId={updateDialog.focus}
+          records={localBooks}
+          book={updateDialog.book ?? startBook(!updatePlan.localSet, setData?.set?.name || 'Shared set')}
+          onBook={(book) => setUpdateDialog(d => ({ ...d, book }))}
           onChange={(id, action) => setUpdateDialog(d => ({ ...d, choices: { ...d.choices, [id]: action } }))}
           onSetAll={(kind) => setUpdateDialog(d => ({
             ...d,
@@ -1411,7 +1443,7 @@ export default function SharedSetView() {
             ])),
           }))}
           onCancel={() => setUpdateDialog(null)}
-          onApply={() => applyUpdate(updateDialog.choices)}
+          onApply={() => applyUpdate(updateDialog.choices, bookChoice(updateDialog.book ?? startBook(!updatePlan.localSet, setData?.set?.name || 'Shared set')))}
         />
       )}
 
@@ -1532,17 +1564,20 @@ function defaultUpdateAction(state) {
 const isAddish = (state) => state === 'add' || state === 'have';
 
 function UpdateResult({ result, dark, onDone }) {
-  const { updated, added, skipped } = result;
+  const { updated, added, skipped, bookName, copied, setName } = result;
   const parts = [];
   if (updated) parts.push(`${updated} updated`);
   if (added)   parts.push(`${added} added`);
-  if (skipped) parts.push(`${skipped} skipped`);
+  if (skipped) parts.push(copied ? `${skipped} of yours used instead` : `${skipped} skipped`);
+  const em = dark ? 'text-gray-200' : 'text-gray-700';
   return (
     <>
       <div className="flex flex-col gap-1">
-        <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Copies updated</h2>
+        <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{copied ? 'Set copied' : 'Copies updated'}</h2>
         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-          {parts.length ? parts.join(', ') + '.' : 'Everything was already up to date.'}
+          {copied && <>Created set <span className={`font-medium ${em}`}>“{setName}”</span>. </>}
+          {parts.length ? parts.join(', ') : copied ? 'Every song was one you have' : 'Everything was already up to date'}
+          {bookName ? <>, the songs added in the book <span className={`font-medium ${em}`}>“{bookName}”</span></> : null}.
         </p>
       </div>
       <button onClick={onDone} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Done</button>
@@ -1552,7 +1587,12 @@ function UpdateResult({ result, dark, onDone }) {
 
 // The Update-from-share list: one row per song with its state and the action to
 // take (Update / Skip, or Add / Skip for songs not yet in your library).
-function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, onSetAll, onCancel, onApply }) {
+//
+// A share never copied whose songs partly match ones you have opens here, not
+// in Copy, and says Copy: applying it makes the set. Where the songs it adds
+// have no book yet — this share's copies aren't in one — it asks, as Copy does
+// (`book`, BookChoice's value; ticked when never copied).
+function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [], book, onBook, onChange, onSetAll, onCancel, onApply }) {
   // Arriving from ONE row's amber button, in a list that can be 83 rows long.
   // Without this you land somewhere in the middle of a wall of songs with
   // nothing saying which one you came to decide about.
@@ -1584,6 +1624,9 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
   // moved. Without this the row said Update and the dialog said everything was
   // up to date.
   const nothingToDo = actionable.length === 0 && !plan.orderChanged;
+  const firstCopy = !plan.localSet && !plan.mine;
+  const askBook = !plan.bookId && !plan.mine && plan.songs.some(x => isAddish(x.state));
+  const blocked = busy || nothingToDo || (askBook && book?.on && !bookChoice(book));
 
   return (
     /* No scrim, as everywhere else: this screen is about the set behind it, and
@@ -1591,8 +1634,10 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...dismissOnOutside(onCancel, !busy)}>
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex flex-col gap-1">
-          <h2 className={`text-base font-semibold ${em}`}>Update from “{setName}”</h2>
-          <p className={`text-xs ${sub}`}>Refresh your copies with the latest from this shared set. Your own (non-copied) songs are never touched, and your ink annotations are kept — a song keeps its place in your library, only its words and chords change.</p>
+          <h2 className={`text-base font-semibold ${em}`}>{firstCopy ? 'Copy' : 'Update from'} “{setName}”</h2>
+          <p className={`text-xs ${sub}`}>{firstCopy
+            ? 'Some of these songs are already in your library. Choose which to add; the set is copied with the songs you have in their places. Your own songs are never touched.'
+            : 'Refresh your copies with the latest from this shared set. Your own (non-copied) songs are never touched, and your ink annotations are kept — a song keeps its place in your library, only its words and chords change.'}</p>
         </div>
 
         {summary && <p className={`text-xs font-medium ${em}`}>{summary}</p>}
@@ -1673,14 +1718,25 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, onChange, o
           <p className="text-[0.6875rem] text-amber-500">A song you’ve also edited is set to <strong>Skip</strong>, so your version is kept. Choose <strong>Update</strong> only where you’d rather have the shared one — it replaces yours. Your ink annotations are kept either way.</p>
         )}
 
+        {askBook && book && (
+          <div className="flex flex-col gap-1">
+            <BookChoice dark={dark} records={records} value={book} onChange={onBook} />
+            <p className={`text-[0.6875rem] ${sub}`}>
+              {book.on
+                ? 'Songs added stay out of My songs until you put one in a set of your own, ink it, or add it to My songs.'
+                : 'Songs added go straight into My songs.'}
+            </p>
+          </div>
+        )}
+
         <div className="flex gap-2">
           {/* nothingToDo, not actionable.length: a set whose running order moved
               has no per-song work but still has something to apply, and this
               button used to be dead in exactly that case. applyUpdate
               reconciles the order whatever the rows say. */}
-          <button onClick={onApply} disabled={busy || nothingToDo}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${busy || nothingToDo ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
-            {busy ? 'Updating…' : 'Update'}
+          <button onClick={onApply} disabled={blocked}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${blocked ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
+            {busy ? (firstCopy ? 'Copying…' : 'Updating…') : firstCopy ? 'Copy' : 'Update'}
           </button>
           <button onClick={onCancel} disabled={busy}
             className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
