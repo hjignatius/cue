@@ -90,7 +90,18 @@ books = await loadBooks();
 check('removing a shelf leaves its books, on no shelf, and every song', [books.some(b => b.id === club.id), books.find(b => b.id === mo).shelfId, (await loadSongs()).length],
   [false, null, before]);
 
-// ---- 5. a wipe ----------------------------------------------------------------------------
+// ---- 5. a PDF is stored as bytes --------------------------------------------------
+// Mac Safari kept a book's songs but not their PDFs when the PDF went in as a
+// Blob; bytes are stored as plainly as a song is.
+check('a stored PDF says it was stored', await savePdfBlob('p1', new Blob(['%PDF-1.7 x'], { type: 'application/pdf' })), true);
+const raw = await (await S.getDB()).get('pdfs', 'p1');
+check('…as bytes, not a Blob', [raw.bytes instanceof ArrayBuffer, 'blob' in raw, raw.type], [true, false, 'application/pdf']);
+const back = await loadPdfBlob('p1');
+check('…and reads back the same', [back instanceof Blob, back.type, await back.text()], [true, 'application/pdf', '%PDF-1.7 x']);
+await (await S.getDB()).put('pdfs', { songId: 'p0', blob: new Blob(['%PDF old']) });
+check('a PDF stored the old way still opens', await (await loadPdfBlob('p0')).text(), '%PDF old');
+
+// ---- 6. a wipe ----------------------------------------------------------------------------
 await clearLibrary();
 check('clearing the library clears the books too', [(await loadSongs()).length, (await loadBooks()).length], [0, 0]);
 await saveBookRecord({ id: 'b9', kind: 'book', name: 'Again' });

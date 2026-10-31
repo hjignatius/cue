@@ -123,6 +123,11 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], re
                 : outcome.setName ? <> to the new set “{outcome.setName}”</> : ' to your library'}.
               {outcome.leftOut ? ` ${outcome.leftOut} ${outcome.leftOut === 1 ? 'was' : 'were'} left out.` : ''}
             </p>
+            {outcome.unsaved ? (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                This browser wouldn’t save {outcome.unsaved === 1 ? '1 PDF' : `${outcome.unsaved} PDFs`}. They open now but will be gone after a reload — make a backup before closing Cue.
+              </p>
+            ) : null}
             <div className="flex flex-col gap-2">
               <button onClick={onShow} className={primary}>Show them</button>
               <button onClick={onDone} className={secondary}>Done</button>

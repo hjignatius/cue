@@ -288,17 +288,27 @@ export async function deleteSong(id) {
 // wherever IndexedDB does work.
 const _pdfMemCache = new Map();
 
+// Stored as raw bytes ({ songId, bytes, type }), not as the Blob itself: Mac
+// Safari kept the song records of a book import but not their Blobs, so the
+// PDFs opened until the next reload (the memory copy) and then were "not
+// available on this device". Bytes are stored inline, as text songs are.
+// Records written before this hold { songId, blob }; both are read.
+// Returns true when the PDF is stored for good, false when only in memory.
 export async function savePdfBlob(songId, blob) {
   _pdfMemCache.set(songId, blob);
   try {
-    return await (await getDB()).put('pdfs', { songId, blob });
+    const bytes = await blob.arrayBuffer();
+    await (await getDB()).put('pdfs', { songId, bytes, type: blob.type || 'application/pdf' });
+    return true;
   } catch (err) {
     console.warn('[storage] savePdfBlob: IndexedDB write failed; kept in memory', err);
+    return false;
   }
 }
 export async function loadPdfBlob(songId) {
   try {
     const rec = await (await getDB()).get('pdfs', songId);
+    if (rec?.bytes) return new Blob([rec.bytes], { type: rec.type || 'application/pdf' });
     if (rec?.blob) return rec.blob;
   } catch (err) {
     console.warn('[storage] loadPdfBlob: IndexedDB read failed; trying memory', err);

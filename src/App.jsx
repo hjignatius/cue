@@ -177,6 +177,7 @@ export default function App() {
   // given the book's id to save each song into it.
   async function saveImported(fileName, listed, choice, saveOne, batch = false) {
     const ids = [];
+    unsavedPdfs.current = 0;
     let shown = 0;
     let bookId = null;
     if (choice.book && choice.picked.length) {
@@ -196,7 +197,7 @@ export default function App() {
     const next = await new Promise(resolve => setSongbook({
       fileName,
       batch,
-      outcome: { added: ids.length, setName: setId ? choice.setName : null, bookName: bookId ? choice.book.name : null, leftOut: listed.length - ids.length },
+      outcome: { added: ids.length, setName: setId ? choice.setName : null, bookName: bookId ? choice.book.name : null, leftOut: listed.length - ids.length, unsaved: unsavedPdfs.current },
       resolve,
     }));
     setSongbook(null);
@@ -321,6 +322,10 @@ export default function App() {
     return { id, ...sheet };
   }
 
+  // PDFs this device wouldn't store (savePdfBlob kept them in memory only), so
+  // an import can say so instead of their going quietly at the next reload.
+  const unsavedPdfs = useRef(0);
+
   // A PDF as one page song, as Cue has always imported a PDF: the bytes stored
   // locally, titled with the file name unless the caller read a better one.
   async function savePdfSong(file, metadata = { title: file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' }, source = undefined, bookId = null) {
@@ -334,7 +339,7 @@ export default function App() {
       source,
       ...(bookId ? { bookId, mine: false } : {}),
     });
-    await savePdfBlob(id, file);
+    if (!(await savePdfBlob(id, file))) unsavedPdfs.current++;
     return id;
   }
 
