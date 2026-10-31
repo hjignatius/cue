@@ -115,6 +115,9 @@ check('…and reordering it doesn’t make them yours', [s.get('p1').mine, s.get
 await saveSet({ id: null, name: 'Mine', songIds: ['p2'] });
 check('putting one in a set of your own does', [(await byId()).get('p1').mine, (await byId()).get('p2').mine], [false, true]);
 const other = await saveBookChoice({ name: 'Pat’s other set', shelfId: fb.shelfId, newShelf: null });
+const bookCount = (await loadBooks()).length;
+check('a song put into a book already there goes into that one, and makes no new book',
+  [await saveBookChoice({ bookId: other }), (await loadBooks()).length], [other, bookCount]);
 await saveSong(song('p3', { bookId: other, mine: false }));
 check('merging a book moves every song, used or not, and says how many', await mergeBooks(friends, other), 2);
 s = await byId();

@@ -566,8 +566,10 @@ export async function setSongMine(id, mine) {
 }
 
 // A book made by an import, from BookChoice's bookChoice(): { name, shelfId,
-// newShelf } — newShelf is the name of a shelf to make for it. Returns its id.
+// newShelf } — newShelf is the name of a shelf to make for it — or { bookId },
+// one already there. Returns its id.
 export async function saveBookChoice(book, file = null) {
+  if (book.bookId) return book.bookId;
   const shelfId = book.newShelf ? (await saveBookRecord({ kind: 'shelf', name: book.newShelf })).id : book.shelfId;
   return (await saveBookRecord({ kind: 'book', name: book.name, shelfId: shelfId || null, file })).id;
 }

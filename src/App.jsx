@@ -50,8 +50,8 @@ export default function App() {
   const [songbook, setSongbook] = useState(null);
   // Books and the shelves they sit on (books.js).
   const [books, setBooks] = useState([]);
-  // A one-song PDF that reads as a chart: { fileName, chart, resolve } while
-  // you choose between text and the page (askSheetChart).
+  // A one-song PDF: { fileName, chart, title, bookId, resolve } while you
+  // choose text or the page, and whether it goes into a book (askSheetChart).
   const [sheetOffer, setSheetOffer] = useState(null);
   // songbook: { fileName, reading: {done,total,saving?}, songs: [...]|null, resolve, abort }
 
@@ -194,11 +194,11 @@ export default function App() {
     const next = await new Promise(resolve => setSongbook({
       fileName,
       batch,
-      outcome: { added: ids.length, setName: setId ? choice.setName : null, bookName: bookId ? choice.book.name : null, leftOut: listed.length - ids.length, unsaved: unsavedPdfs.current },
+      outcome: { added: ids.length, setName: setId ? choice.setName : null, bookName: bookId ? choice.book.name || books.find(b => b.id === bookId)?.name : null, leftOut: listed.length - ids.length, unsaved: unsavedPdfs.current },
       resolve,
     }));
     setSongbook(null);
-    return { done: true, show: next === 'show' ? { setId, bookId } : null };
+    return { done: true, bookId, show: next === 'show' ? { setId, bookId } : null };
   }
 
   // Several PDFs picked at once. Each one that is a single song — a club's
@@ -264,50 +264,75 @@ export default function App() {
   // A PDF that is one song, not a book. When every page of it reads as a chart
   // — chords in the lyrics, or drawn above them as chord websites print them —
   // ask whether it comes in as text or as the page, as the editor's Load PDF
-  // does. Returns { metadata, text } to save as text, { metadata, pdf } to keep
-  // as the PDF, 'page' when there was nothing to ask, or 'cancel'. A song
-  // printed more than once — Doctor Uke's, with chord diagrams and then chord
-  // names (sheetChart) — goes to the page picker instead, its copies split, to
+  // does; when it doesn't, it is the page, titled as a batch of sheets would
+  // title it (sheetInfo). Either way you're asked whether it goes into a book
+  // (SheetChartDialog). Returns { metadata, text, book } to save as text,
+  // { metadata, pdf, book } to keep as the PDF, or 'cancel'. A song printed
+  // more than once — Doctor Uke's, with chord diagrams and then chord names
+  // (sheetChart) — goes to the page picker instead, its copies split, to
   // choose between: { pick: pages }.
   async function askSheetChart(file) {
-    let chart = null, pages = null;
+    let chart = null, pages = null, info = null;
     try {
-      const [{ extractSheetPages }, { sheetChart }] = await Promise.all([import('./utils/pdfjs.js'), import('./utils/bookReport.js')]);
+      const [{ extractSheetPages }, { sheetChart, sheetInfo }] = await Promise.all([import('./utils/pdfjs.js'), import('./utils/bookReport.js')]);
       pages = await extractSheetPages(file);
       chart = sheetChart(pages, file.name);
+      if (!chart) info = sheetInfo(pages, [], file.name);
     } catch { /* an unreadable text layer — it is a page, then */ }
-    if (!chart) return 'page';
-    if (chart.copies) return { pick: pages };
-    const choice = await new Promise(resolve => setSheetOffer({ fileName: file.name, chart, resolve }));
+    if (chart?.copies) return { pick: pages };
+    const asPage = { title: info?.title || file.name.replace(/\.pdf$/i, '') || 'Lead Sheet' };
+    if (info?.artist) asPage.artist = info.artist;
+    const choice = await new Promise(resolve => setSheetOffer({ fileName: file.name, chart, title: asPage.title, bookId: lastSheetBook(), resolve }));
     setSheetOffer(null);
     if (choice === 'cancel') return choice;
+    const { how, book } = choice;
+    if (!chart) return { metadata: asPage, pdf: true, book };
     const metadata = { title: chart.title };
     if (chart.artist) metadata.artist = chart.artist;
     if (chart.key) metadata.key = chart.key;
     if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
     // Kept as the PDF, it still has the title read off the page.
-    if (choice !== 'text') return { metadata, pdf: true };
-    return { metadata, text: chart.text };
+    if (how !== 'text') return { metadata, pdf: true, book };
+    return { metadata, text: chart.text, book };
+  }
+
+  // The book a single sheet last went into, offered first next time; given an
+  // id, remembers it. Per device, as a convenience: losing it loses nothing.
+  function lastSheetBook(id) {
+    try {
+      if (id) localStorage.setItem('cue:sheet-book', id);
+      return id || localStorage.getItem('cue:sheet-book') || '';
+    } catch { return id || ''; }
   }
 
   // One PDF that is one song: as text when it reads as a chart and you say so
   // (askSheetChart), otherwise as the page; printed more than once, the copies
-  // you pick in the page picker. Returns the song saved as text, to open,
+  // you pick in the page picker. Into a book when you chose one — the one
+  // offered first next time. Returns the song saved as text, to open,
   // { show } when the picker's "Show them" was pressed, or null.
   async function importSheet(file) {
     const sheet = await askSheetChart(file);
     if (sheet === 'cancel') return null;
-    if (sheet === 'page') { await savePdfSong(file); return null; }
     if (sheet.pick) {
       const { sheetPickerStart } = await import('./utils/bookReport.js');
       const start = sheetPickerStart(sheet.pick, file.name);
-      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start: { ...start, asBook: false }, noBack: true }, resolve }));
+      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start: { ...start, asBook: false, bookId: lastSheetBook() }, noBack: true }, resolve }));
       setSongbook(null);
       if (picked === 'cancel' || picked === 'back') return null;
       const r = await saveCutSongs(file, picked, sheet.pick);
+      if (r?.bookId) lastSheetBook(r.bookId);
       return r?.show ? { show: r.show } : null;
     }
-    if (sheet.pdf) { await savePdfSong(file, sheet.metadata); return null; }
+    const intoBook = async () => {
+      if (!sheet.book) return {};
+      const bookId = lastSheetBook(await makeBook(sheet.book));
+      return { bookId, source: { book: file.name, page: 1 } };
+    };
+    if (sheet.pdf) {
+      const { bookId = null, source } = await intoBook();
+      await savePdfSong(file, sheet.metadata, source, bookId);
+      return null;
+    }
     const existing = songs.find(s => normalizeTitle(s.metadata?.title) === normalizeTitle(sheet.metadata.title));
     let importId = null;
     if (existing) {
@@ -315,8 +340,11 @@ export default function App() {
       if (choice === 'cancel') return null;
       if (choice === 'overwrite') importId = existing.id;
     }
-    const id = await saveSong({ id: importId, ...sheet, chordStyle: 'brackets', previewMode: 'brackets' });
-    return { id, ...sheet };
+    // A song you chose to overwrite keeps the place it already had.
+    const { bookId, source } = importId ? {} : await intoBook();
+    const { metadata, text } = sheet;
+    const id = await saveSong({ id: importId, metadata, text, chordStyle: 'brackets', previewMode: 'brackets', ...(bookId ? { bookId, mine: false, source } : {}) });
+    return { id, metadata, text };
   }
 
   // PDFs this device wouldn't store (savePdfBlob kept them in memory only), so
@@ -989,8 +1017,11 @@ export default function App() {
           dark={dark}
           fileName={sheetOffer.fileName}
           chart={sheetOffer.chart}
-          onText={() => sheetOffer.resolve('text')}
-          onPage={() => sheetOffer.resolve('page')}
+          title={sheetOffer.title}
+          records={books}
+          bookId={sheetOffer.bookId}
+          onText={(book) => sheetOffer.resolve({ how: 'text', book })}
+          onPage={(book) => sheetOffer.resolve({ how: 'page', book })}
           onCancel={() => sheetOffer.resolve('cancel')}
         />
       )}
