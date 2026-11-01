@@ -1184,76 +1184,6 @@ export default function SharedSetView() {
           >
             {isBookmarked ? <BookmarkCheck size={22} /> : <Bookmark size={22} />}
           </RoundButton>
-          {/* Copy whole set to library — becomes "Up to date" / "Update" once the
-              set has been copied, reflecting whether the share has since changed. */}
-          {enriched.length > 0 && (() => {
-            const st = updatePlan?.status || 'copy';
-            if (st === 'mine') {
-              return (
-                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
-                  label="This is your own set"
-                  title="You published this set. These are your songs — there is nothing to copy or update."
-                  fill={headerFill} disabled>
-                  <UserCheck size={20} />{!compactHeader && <PillLabel>Your set</PillLabel>}
-                </RoundButton>
-              );
-            }
-            if (st === 'uptodate') {
-              // NEUTRAL, BUT STILL A DOOR. Nothing here is waiting, so it does not
-              // nag in amber — but it stays tappable, because "nothing waiting"
-              // now also covers a share full of songs you own a different version
-              // of. Disabling it would have taken away the only deliberate route
-              // to the publisher's arrangement of a song you already have.
-              //
-              // "Up to date" is not strictly true in that second case — nothing is
-              // pending, but 72 of 83 songs may be different versions rather than
-              // matching copies. Raised with Howard on 2026-09-30 and left alone
-              // deliberately: every shorter alternative was worse, and opening it
-              // says exactly what is in there. Leave the wording be.
-              return (
-                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
-                  label="Nothing waiting — review this set"
-                  title="Nothing here is waiting for you. Open it to look through the set anyway — anything you already have is set to leave alone."
-                  fill={headerFill} disabled={copying}
-                  onActivate={() => setUpdateDialog({ choices: {} })}>
-                  <Check size={20} />{!compactHeader && <PillLabel>Up to date</PillLabel>}
-                </RoundButton>
-              );
-            }
-            if (st === 'update' && !updatePlan.localSet && !updatePlan.mine) {
-              // Never copied, but some songs match ones you have: Copy, through
-              // the Update list, which can say which you have (UpdateDialog).
-              return (
-                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
-                  label="Copy songs to my library"
-                  title="Save your own copy of this set. Some of its songs are already in your library — choose which to add."
-                  fill={headerFill} disabled={copying}
-                  onActivate={() => setUpdateDialog({ choices: {} })}>
-                  <Library size={20} />{!compactHeader && <PillLabel>Copy</PillLabel>}
-                </RoundButton>
-              );
-            }
-            if (st === 'update') {
-              return (
-                <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
-                  label="Update my copies from this shared set"
-                  title="This shared set has changed since you copied it — review and update your copies."
-                  fill={SHARE_NEWER} disabled={copying}
-                  onActivate={() => setUpdateDialog({ choices: {} })}>
-                  <Download size={18} />{!compactHeader && <PillLabel>Update</PillLabel>}
-                </RoundButton>
-              );
-            }
-            return (
-              <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
-                label="Copy songs to my library"
-                title="Save your own copy: adds all of these songs to your Cue library, where you can open, edit, and keep them."
-                fill={headerFill} disabled={copying}
-                onActivate={handleCopySet}>
-                <Library size={20} />{!compactHeader && <PillLabel>Copy</PillLabel>}
-              </RoundButton>
-            );
-          })()}
           {/* Present — indigo anchor action */}
           <RoundButton
             size={ROUND_SIZE_ACTION} pill={!compactHeader}
@@ -1276,38 +1206,9 @@ export default function SharedSetView() {
         </div>
       </header>
 
-      {/* ONE BULK ACTION, NOT A MODE. The whole-set toggle that used to live here
-          overrode every row, which made it a second answer to a question the rows
-          already answer. This WRITES the rows instead: after pressing it the
-          state is nothing you could not have set by hand, and any row can be
-          turned back on its own.
-
-          It can only tick songs you actually have something of — a song you have
-          not copied, or copied and not touched, has no "yours" to choose, so it
-          is left alone and the count says how many were set. */}
-      {choosable.size > 0 && (() => {
-        const allMine = [...choosable].every(id => playMineIds.has(id));
-        return (
-          <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0 flex items-center gap-2">
-            <RoundButton
-              size={ROUND_SIZE_COMPACT} pill
-              label={allMine ? 'Play the shared version of every song' : 'Play your version of every song you have changed'}
-              title={allMine
-                ? 'Switch every song back to the publisher’s version. Each song can still be set on its own.'
-                : 'Tick every song you have edited or annotated, so Present plays your copy of each. Each song can still be unticked on its own.'}
-              fill={headerFill}
-              onActivate={() => setPlayMinePersisted(allMine ? new Set() : new Set(choosable))}
-            >
-              <UserCheck size={16} /><PillLabel>{allMine ? 'Use shared for all' : 'Use mine for all'}</PillLabel>
-            </RoundButton>
-            <span className={`text-xs ${muted}`}>
-              {playMineIds.size === 0
-                ? `— ${choosable.size} ${choosable.size === 1 ? 'song has' : 'songs have'} your changes`
-                : `— playing your copy of ${playMineIds.size} of ${choosable.size}`}
-            </span>
-          </div>
-        );
-      })()}
+      {/* No "Use mine for all" here any more. It was a second control for what
+          each row's amber button already sets, and one confusing button too
+          many (Howard, 2026-11-01). Each song's choice is made on its row. */}
 
       {/* Showing a cached copy. Stated plainly with its date: this is the set as
           it was, and the publisher may have changed it since. Not an error
@@ -1331,26 +1232,115 @@ export default function SharedSetView() {
         </div>
       )}
 
-      {/* Sort view — publisher's order or A–Z. View only; never changes the set. */}
-      {enriched.length > 1 && (
-        <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0">
-          {/* Same sliding pill as the editor's Text/Preview/Chords and the
-              Library's panel switcher, so one control behaves one way. */}
-          <SegmentedControl
-            ariaLabel="Song order"
-            options={[
-              // A medal rather than lucide's `Badge`: at 18px that icon's scalloped
-              // edge collapses into a plain ring, indistinguishable from a circle.
-              { id: 'custom', label: 'Original', icon: <Award size={18} strokeWidth={2} /> },
-              { id: 'alpha',  label: 'A–Z',      icon: <ArrowDownAZ size={18} strokeWidth={2} /> },
-            ]}
-            value={sortMode}
-            onChange={setSortMode}
-            size="stack"
-            segmentPadX={14}
-          />
+      {/* Sort view — publisher's order or A–Z. View only; never changes the set.
+          The set's Copy / Update button shares its line, on the right, and the
+          key sits under both: all three stay put while the songs scroll. */}
+      <div className="max-w-2xl mx-auto w-full px-4 pt-3 shrink-0">
+        <div className="flex items-center gap-3 pr-[1.3125rem]">
+          {enriched.length > 1 && (
+            <div>
+              {/* Same sliding pill as the editor's Text/Preview/Chords and the
+                  Library's panel switcher, so one control behaves one way. */}
+              <SegmentedControl
+                ariaLabel="Song order"
+                options={[
+                  // A medal rather than lucide's `Badge`: at 18px that icon's scalloped
+                  // edge collapses into a plain ring, indistinguishable from a circle.
+                  { id: 'custom', label: 'Original', icon: <Award size={18} strokeWidth={2} /> },
+                  { id: 'alpha',  label: 'A–Z',      icon: <ArrowDownAZ size={18} strokeWidth={2} /> },
+                ]}
+                value={sortMode}
+                onChange={setSortMode}
+                size="stack"
+                segmentPadX={14}
+              />
+            </div>
+          )}
+          <div className="ml-auto">
+            {/* Copy whole set to library — becomes "Up to date" / "Update" once the
+                set has been copied, reflecting whether the share has since changed.
+                Above the songs' own buttons, not in the header (Howard, 2026-11-01):
+                the set's action sits over the column of per-song actions it sums up. */}
+            {enriched.length > 0 && (() => {
+              const st = updatePlan?.status || 'copy';
+              if (st === 'mine') {
+                return (
+                  <RoundButton size={ROUND_SIZE_COMPACT} pill
+                    label="This is your own set"
+                    title="You published this set. These are your songs — there is nothing to copy or update."
+                    fill={headerFill} disabled>
+                    <UserCheck size={17} /><PillLabel>Your set</PillLabel>
+                  </RoundButton>
+                );
+              }
+              if (st === 'uptodate') {
+                // NEUTRAL, BUT STILL A DOOR. Nothing here is waiting, so it does not
+                // nag in amber — but it stays tappable, because "nothing waiting"
+                // now also covers a share full of songs you own a different version
+                // of. Disabling it would have taken away the only deliberate route
+                // to the publisher's arrangement of a song you already have.
+                //
+                // "Up to date" is not strictly true in that second case — nothing is
+                // pending, but 72 of 83 songs may be different versions rather than
+                // matching copies. Raised with Howard on 2026-09-30 and left alone
+                // deliberately: every shorter alternative was worse, and opening it
+                // says exactly what is in there. Leave the wording be.
+                return (
+                  <RoundButton size={ROUND_SIZE_COMPACT} pill
+                    label="Nothing waiting — review this set"
+                    title="Nothing here is waiting for you. Open it to look through the set anyway — anything you already have is set to leave alone."
+                    fill={headerFill} disabled={copying}
+                    onActivate={() => setUpdateDialog({ choices: {} })}>
+                    <Check size={17} /><PillLabel>Up to date</PillLabel>
+                  </RoundButton>
+                );
+              }
+              if (st === 'update' && !updatePlan.localSet && !updatePlan.mine) {
+                // Never copied, but some songs match ones you have: Copy, through
+                // the Update list, which can say which you have (UpdateDialog).
+                return (
+                  <RoundButton size={ROUND_SIZE_COMPACT} pill
+                    label="Copy songs to my library"
+                    title="Save your own copy of this set. Some of its songs are already in your library — choose which to add."
+                    fill={headerFill} disabled={copying}
+                    onActivate={() => setUpdateDialog({ choices: {} })}>
+                    <Library size={17} /><PillLabel>Copy</PillLabel>
+                  </RoundButton>
+                );
+              }
+              if (st === 'update') {
+                return (
+                  <RoundButton size={ROUND_SIZE_COMPACT} pill
+                    label="Update my copies from this shared set"
+                    title="This shared set has changed since you copied it — review and update your copies."
+                    fill={SHARE_NEWER} disabled={copying}
+                    onActivate={() => setUpdateDialog({ choices: {} })}>
+                    <Download size={17} /><PillLabel>Update</PillLabel>
+                  </RoundButton>
+                );
+              }
+              return (
+                <RoundButton size={ROUND_SIZE_COMPACT} pill
+                  label="Copy songs to my library"
+                  title="Save your own copy: adds all of these songs to your Cue library, where you can open, edit, and keep them."
+                  fill={headerFill} disabled={copying}
+                  onActivate={handleCopySet}>
+                  <Library size={17} /><PillLabel>Copy</PillLabel>
+                </RoundButton>
+              );
+            })()}
+          </div>
         </div>
-      )}
+        <SongKey
+          dark={dark}
+          kinds={displayed.map(song =>
+            bothChanged.has(song.id) ? 'both'
+            : behindShare.has(song.id) ? 'newer'
+            : yoursById.has(song.id) ? (!choosable.has(song.id) ? 'same' : playMineIds.has(song.id) ? 'mine' : 'differs')
+            : updatePlan?.mine && !missingHere.has(song.id) ? null
+            : 'copy')}
+        />
+      </div>
 
       {/* Song list */}
       <div ref={ptrRef} className="flex-1 overflow-y-auto overscroll-contain">
@@ -1401,15 +1391,6 @@ export default function SharedSetView() {
               />
             ))
           )}
-          <SongKey
-            dark={dark}
-            kinds={displayed.map(song =>
-              bothChanged.has(song.id) ? 'both'
-              : behindShare.has(song.id) ? 'newer'
-              : yoursById.has(song.id) ? (choosable.has(song.id) ? 'differs' : 'same')
-              : updatePlan?.mine && !missingHere.has(song.id) ? null
-              : 'copy')}
-          />
         </div>
       </div>
 
@@ -1911,13 +1892,14 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Key -----------------------------------------------------------------------
 
-// What the row buttons mean, under the list. Colour and shape alone were too
+// What the row buttons mean, above the list. Colour and shape alone were too
 // much to learn, so the key says it in words — only for the buttons this set
 // actually shows, so a set with nothing to decide gets a short key.
 const KEY = [
   ['copy',    null,         Plus,             'Not in your library — copy it'],
   ['same',    SAME,         Check,            'Same as shared'],
   ['differs', YOURS_DIFFER, Pencil,           'Yours differs — tap to play yours'],
+  ['mine',    YOURS_DIFFER, Check,            'Present plays yours'],
   ['newer',   SHARE_NEWER,  Download,         'Newer in the share — tap to get it'],
   ['both',    SHARE_NEWER,  GitCompareArrows, 'You both changed it — tap to choose'],
 ];
@@ -1927,10 +1909,10 @@ function SongKey({ kinds, dark }) {
   const rows = KEY.filter(([kind]) => shown.has(kind));
   if (!rows.length) return null;
   return (
-    <div className={`flex flex-wrap gap-x-4 gap-y-1.5 px-1 pt-2 text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+    <div className={`flex flex-wrap gap-x-4 gap-y-1.5 px-1 pt-2.5 text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
       {rows.map(([kind, colour, Icon, text]) => (
         <span key={kind} className="inline-flex items-center gap-1.5">
-          <span className="inline-flex items-center justify-center w-[1.125rem] h-[1.125rem] rounded-full text-white shrink-0"
+          <span className="inline-flex items-center justify-center w-[1.125rem] h-[1.125rem] rounded-[0.3125rem] text-white shrink-0"
             style={{ background: colour || (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME) }}>
             <Icon size={11} strokeWidth={2.5} />
           </span>
@@ -1989,7 +1971,7 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
                choice rather than taking it, since taking it here would write over
                your own edit — so it has its own compare arrows. */
             <RoundButton
-              size={ROUND_SIZE_COMPACT}
+              size={ROUND_SIZE_COMPACT} square
               label="You and the publisher both changed this song — decide what to do"
               title={`The publisher has changed this song, and so have you${changed?.length ? ` — ${changed.join(', ')}` : ''}. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`}
               fill={SHARE_NEWER} disabled={copying}
@@ -1999,7 +1981,7 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
             </RoundButton>
           ) : onTakeNewer ? (
             <RoundButton
-              size={ROUND_SIZE_COMPACT}
+              size={ROUND_SIZE_COMPACT} square
               label="Take the newer version of this song"
               title={`The publisher has changed this song since you copied it${changed?.length ? ` — ${changed.join(', ')}` : ''}. This replaces your copy with their newer version — your ink annotations are kept.`}
               fill={SHARE_NEWER} disabled={copying}
@@ -2018,7 +2000,7 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
                vanished and a different one took its place, which reads as two
                things happening when only one did. */
             <RoundButton
-              size={ROUND_SIZE_COMPACT}
+              size={ROUND_SIZE_COMPACT} square
               label={!onToggleMine
                 ? 'Your copy matches the shared version'
                 : playingMine
@@ -2040,7 +2022,7 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
             </RoundButton>
           ) : onCopy && (
             <RoundButton
-              size={ROUND_SIZE_COMPACT}
+              size={ROUND_SIZE_COMPACT} square
               label="Copy this song to my library"
               title="Add just this song to your Cue library, where you can open, edit, and keep it."
               fill={fill} disabled={copying}
@@ -2050,7 +2032,7 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
             </RoundButton>
           )}
           <RoundButton
-            size={ROUND_SIZE_COMPACT}
+            size={ROUND_SIZE_COMPACT} square
             /* THE PRESENT BUTTON IS QUIET AGAIN. It was amber for "this will play
                your copy" because nothing else on the row could say so. The
                selector beside it says it now, so this is just the action — one

@@ -99,6 +99,9 @@ export default function RoundButton({
   disabled = false,
   active = false,
   pill = false,
+  // A rounded square instead of a circle — the Share window's song rows
+  // (Howard's pick from the Cue² mock-ups, 2026-11-01). Circles everywhere else.
+  square = false,
   // Glass variant: translucent, blurred, hairline border, and its own ink colour
   // instead of the white that works on a solid fill. Pass GLASS(dark).
   glass = false,
@@ -146,8 +149,11 @@ export default function RoundButton({
         </span>
       ) : (
         <span
-          className={`flex items-center justify-center rounded-full select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90 ${glass ? 'backdrop-blur-md border shadow-lg' : 'text-white'}`}
-          style={{ width: size, height: size, background: bg, opacity, borderColor: border, color }}
+          className={`flex items-center justify-center ${square ? '' : 'rounded-full'} select-none transition-[transform,filter] group-active:scale-95 group-active:brightness-90 ${glass ? 'backdrop-blur-md border shadow-lg' : 'text-white'}`}
+          // `border` on a solid button is a ring round it (the Share rows' "playing
+          // yours"). It used to set only a border colour, with no border to colour.
+          style={{ width: size, height: size, borderRadius: square ? Math.round(size / 4) : undefined, background: bg, opacity, borderColor: border, color,
+                   boxShadow: border && !glass ? `0 0 0 2px ${border}` : undefined }}
         >
           {children}
         </span>
