@@ -15,7 +15,6 @@ import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, UserCheck,
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
-import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import InstallTips from '../components/InstallTips.jsx';
 import BookChoice, { startBook, bookChoice } from '../components/BookChoice.jsx';
@@ -997,7 +996,6 @@ export default function SharedSetView() {
   // which left 33px for the Cue mark and the set's name — so the name was already
   // truncated to nothing, and a full-size mark would have overflowed the bar.
   // Icon-only takes that group to 200px, which pays for both.
-  const compactHeader = useIsNarrow(640);
 
   // ---- Render -----------------------------------------------------------------
 
@@ -1214,16 +1212,8 @@ export default function SharedSetView() {
           >
             {isBookmarked ? <BookmarkCheck size={22} /> : <Bookmark size={22} />}
           </RoundButton>
-          {/* Present — indigo anchor action */}
-          <RoundButton
-            size={ROUND_SIZE_ACTION} pill={!compactHeader}
-            label="Present the whole set"
-            title="Play the set full-screen, one song at a time — big chords and lyrics for performing. No account needed."
-            fill={headerFill} active={enriched.length > 0} disabled={enriched.length === 0}
-            onActivate={() => present(displayed, 0)}
-          >
-            <Tv size={20} />{!compactHeader && <PillLabel>Present</PillLabel>}
-          </RoundButton>
+          {/* No whole-set Present button: Howard never used it (2026-11-01).
+              Tapping a song's title presents the set from that song. */}
           {/* Settings */}
           <RoundButton
             size={ROUND_SIZE_ACTION}
