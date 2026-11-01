@@ -1967,7 +1967,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 
 // ---- Library view -----------------------------------------------------------
 
-export default function LibraryView({ songs, sets, books = [], onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSong, onPresent, onEditSong, presenting = false }) {
+export default function LibraryView({ songs, sets, books = [], onNewSong, onOpenSong, onOpenSongFromList, onImport, onRefresh, onDeleteSongs, onPresent, onEditSong, presenting = false }) {
   const { theme, updatePref, chordColor, accidentals, instrument, symbols, aiLevel, genres, favoriteArtists, personalizeFromLibrary, libraryColumnsOnTablet } = usePrefs();
   const dark = theme === 'dark';
   const searchInputRef = useRef(null);
@@ -2176,8 +2176,8 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
     return { keeper, extras, repoint };
   }
 
-  // Repoint, THEN delete — and in that order for a reason. handleDeleteSong ends
-  // with removeSongFromAllSets, so deleting first would drop the song out of every
+  // Repoint, THEN delete — and in that order for a reason. handleDeleteSongs
+  // runs removeSongFromAllSets, so deleting first would drop the song out of every
   // set that used it and leave a set one song shorter. Moving the references to
   // the keeper first means the set still holds the same song, by a different id.
   //
@@ -2202,7 +2202,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
       }
       await saveSet({ ...st, songIds: next });
     }
-    for (const id of extraIds) await onDeleteSong(id);
+    await onDeleteSongs(extraIds);
     setDupGroups(gs => (gs || [])
       .map(g => ({ ...g, songs: g.songs.filter(x => !extras.has(x.id)) }))
       .filter(g => g.songs.length >= 2));
@@ -2702,7 +2702,8 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
   // Apply a confirmed song delete, then tidy up whatever raised it.
   function performSongDelete() {
     const { ids = [], source } = songDeleteConfirm || {};
-    for (const id of ids) onDeleteSong(id);
+    // Together, so a book they empty goes once they're all gone.
+    onDeleteSongs(ids);
     if (source === 'bulk') setSelected(new Set());
     if (source === 'dup') {
       setDupGroups(gs => (gs || [])

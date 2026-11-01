@@ -612,6 +612,22 @@ export async function removeBook(bookId) {
   return { removed: remove.length, kept: keep.length };
 }
 
+// Books left with no songs go: Cue makes a book only to put songs in it, so one
+// whose last song was deleted is of no use. Run after songs are deleted and
+// once as Cue opens, never during an import (which makes its book before the
+// songs). Shelves stay, even empty. Returns how many books went.
+export async function dropEmptyBooks() {
+  const d = await getDB();
+  const used = new Set((await d.getAll('songs')).map(s => s.bookId).filter(Boolean));
+  const tx = d.transaction('books', 'readwrite');
+  let dropped = 0;
+  for (const r of await tx.store.getAll()) {
+    if (r.kind === 'book' && !used.has(r.id)) { await tx.store.delete(r.id); dropped++; }
+  }
+  await tx.done;
+  return dropped;
+}
+
 // A shelf away: its books stay, on no shelf. Never a song.
 export async function removeShelf(shelfId) {
   const d = await getDB();

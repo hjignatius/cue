@@ -7,7 +7,7 @@ import SongbookDialog from './components/SongbookDialog.jsx';
 import SheetChartDialog from './components/SheetChartDialog.jsx';
 import PagePicker from './components/PagePicker.jsx';
 import BookChoice, { startBook, bookChoice } from './components/BookChoice.jsx';
-import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord, saveBookChoice } from './utils/storage.js';
+import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord, saveBookChoice, dropEmptyBooks } from './utils/storage.js';
 import { normalizeTitle } from './utils/contentHash.js';
 import { bookName } from './utils/books.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
@@ -63,7 +63,9 @@ export default function App() {
   }
 
   useEffect(() => {
-    refresh().then(() => setLoading(false));
+    // Any book already left empty (its songs deleted before books tidied
+    // themselves away) goes as Cue opens.
+    dropEmptyBooks().catch(() => {}).then(refresh).then(() => setLoading(false));
   }, []);
 
   // Returns a Promise that resolves when the user picks Overwrite / Duplicate / Cancel.
@@ -840,9 +842,14 @@ export default function App() {
     setReturnToPresenting(null);
   }
 
-  async function handleDeleteSong(id) {
-    await deleteSong(id);
-    await removeSongFromAllSets(id);
+  // Songs deleted together go one after another, then any book they leave
+  // empty goes with them, once.
+  async function handleDeleteSongs(ids) {
+    for (const id of ids) {
+      await deleteSong(id);
+      await removeSongFromAllSets(id);
+    }
+    await dropEmptyBooks().catch(() => {});
     refresh();
   }
 
@@ -866,7 +873,7 @@ export default function App() {
           onOpenSongFromList={handleOpenFromLibrary}
           onImport={handleImport}
           onRefresh={refresh}
-          onDeleteSong={handleDeleteSong}
+          onDeleteSongs={handleDeleteSongs}
           onPresent={(presentSongs, idx = 0) => { if (presentSongs?.length) { setPresentEntryView('library'); setPresenting({ songs: presentSongs, startIndex: idx }); } }}
           onEditSong={handleEditFromSetlist}
           presenting={!!presenting}

@@ -45,7 +45,7 @@ await v4.put('annotations', { songId: 'fm3', strokes: [{ id: 's' }] });
 v4.close();
 
 const S = await import('../src/utils/storage.js');
-const { loadSongs, loadBooks, saveSong, saveSet, markSongsUsed, removeBook, removeShelf, saveBookRecord, saveBookChoice, mergeBooks, savePdfBlob, loadPdfBlob, clearLibrary } = S;
+const { loadSongs, loadBooks, saveSong, saveSet, markSongsUsed, removeBook, removeShelf, saveBookRecord, saveBookChoice, mergeBooks, dropEmptyBooks, deleteSong, savePdfBlob, loadPdfBlob, clearLibrary } = S;
 const byId = async () => new Map((await loadSongs()).map(s => [s.id, s]));
 
 // ---- 1. sorted into books, once ---------------------------------------------------
@@ -136,6 +136,19 @@ const back = await loadPdfBlob('p1');
 check('…and reads back the same', [back instanceof Blob, back.type, await back.text()], [true, 'application/pdf', '%PDF-1.7 x']);
 await (await S.getDB()).put('pdfs', { songId: 'p0', blob: new Blob(['%PDF old']) });
 check('a PDF stored the old way still opens', await (await loadPdfBlob('p0')).text(), '%PDF old');
+
+// ---- 5b. a book whose last song is deleted -----------------------------------------
+const shelf = await saveBookRecord({ kind: 'shelf', name: 'Tidy' });
+const tidy = await saveBookChoice({ name: 'Two songs', shelfId: shelf.id, newShelf: null });
+await saveSong(song('t1', { bookId: tidy, mine: false }));
+await saveSong(song('t2', { bookId: tidy, mine: true }));
+const keptBooks = (await loadBooks()).filter(b => b.kind === 'book').map(b => b.id).sort();
+await deleteSong('t1');
+check('a book with a song left stays, even when that song is yours', [await dropEmptyBooks(), (await loadBooks()).some(b => b.id === tidy)], [0, true]);
+await deleteSong('t2');
+check('deleting its last song takes the book', [await dropEmptyBooks(), (await loadBooks()).some(b => b.id === tidy)], [1, false]);
+check('…but not its shelf, now empty', (await loadBooks()).some(b => b.id === shelf.id), true);
+check('…nor any other book', (await loadBooks()).filter(b => b.kind === 'book').map(b => b.id).sort(), keptBooks.filter(id => id !== tidy));
 
 // ---- 6. a wipe ----------------------------------------------------------------------------
 await clearLibrary();
