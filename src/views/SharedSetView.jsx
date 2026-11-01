@@ -11,8 +11,8 @@ import { loadSavedShares, persistSavedShares, syncBookmark } from '../utils/shar
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Pencil, Plus, Download, GitCompareArrows } from 'lucide-react';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Download, Cloud, CloudDownload, Equal, EqualNot, ArrowLeft, ArrowRight, ArrowLeftRight } from 'lucide-react';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
@@ -24,14 +24,10 @@ import BookChoice, { startBook, bookChoice } from '../components/BookChoice.jsx'
 // after it so saveSong leaves the book alone (books.js).
 const NO_BOOK = { bookId: undefined, mine: undefined };
 
-// COLOUR SAYS WHICH WAY, chosen by Howard on 2026-11-01 (mock-up C) after the
-// rows proved too hard to read. Amber is only ever YOUR version — it differs,
-// and you choose what plays. Blue is only ever THEIRS — something newer in the
-// share to take or decide about. Before this, amber meant three things and the
-// library icon meant both "copy" and "replace mine".
+// Blue is kept for one thing in this window: something newer in the share
+// (the set's Update button, a row's cloud with a down-arrow). Howard,
+// 2026-11-01 — before, amber meant three different things here.
 const SHARE_NEWER = '#2563eb';
-const YOURS_DIFFER = '#d97706';
-const SAME = '#16a34a';
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -601,6 +597,15 @@ export default function SharedSetView() {
     // written over the top of one Cue was never told was a copy.
     const byHash = new Map();
     for (const ls of localSongs) { const h = contentHash(ls); if (!byHash.has(h)) byHash.set(h, ls); }
+    // THE ORIGINAL ITSELF. A published song keeps its id, and so does a song
+    // restored from a full backup, so a local song with the share song's own id
+    // IS its source — your own set, opened through its link. Same content is
+    // 'uptodate'; different is 'have' (never Update: Cue can't tell whether you
+    // edited it here or the published one moved on, and overwriting your own
+    // original from your own share is the last thing to offer). Needed once
+    // same-title songs stopped counting as yours (below): your own edited
+    // original must not read as "not on this device".
+    const byId = new Map(localSongs.map(ls => [ls.id, ls]));
     // THIRD, and weakest: same title, different content. NOT the same song — a
     // friend's arrangement of one you own is a real, different thing and Cue
     // must not pretend otherwise. But it must not pre-tick Add for it either. A
@@ -612,6 +617,11 @@ export default function SharedSetView() {
     const songs = setData.songs.map(s => {
       const local = bySource.get(s.id) || null;
       if (!local) {
+        const self = byId.get(s.id);
+        if (self) {
+          const same = contentHash(self) === contentHash(s);
+          return { shareSong: s, local: self, state: same ? 'uptodate' : 'have', matchedBy: 'origin', changed: same ? undefined : contentDiffFields(self, s) };
+        }
         const twin = byHash.get(contentHash(s));
         if (twin) return { shareSong: s, local: twin, state: 'uptodate', matchedBy: 'content' };
         const sameName = byTitle.get(normalizeTitle(s.metadata?.title));
@@ -692,7 +702,7 @@ export default function SharedSetView() {
   // with your copy". Presenting then plays your versions where you have them.
   const localBySource = useMemo(() => {
     const m = new Map();
-    (updatePlan?.songs || []).forEach(x => { if (x.local) m.set(x.shareSong.id, x.local); });
+    (updatePlan?.songs || []).forEach(x => { if (x.local && x.matchedBy !== 'title') m.set(x.shareSong.id, x.local); });
     return m;
   }, [updatePlan]);
 
@@ -739,7 +749,7 @@ export default function SharedSetView() {
   // since deleted.
   const missingHere = useMemo(() => {
     const s = new Set();
-    (updatePlan?.songs || []).forEach(x => { if (!x.local) s.add(x.shareSong.id); });
+    (updatePlan?.songs || []).forEach(x => { if (!x.local || x.matchedBy === 'title') s.add(x.shareSong.id); });
     return s;
   }, [updatePlan]);
 
@@ -758,7 +768,10 @@ export default function SharedSetView() {
   const yoursById = useMemo(() => {
     const m = new Map();
     (updatePlan?.songs || []).forEach(x => {
-      if (!x.local) return;
+      // A song that only shares a TITLE is not yours to play here (Howard,
+      // 2026-11-01): your arrangement, or one from a book or PDF, is a
+      // different song. The row shows + for it, as for one you don't have.
+      if (!x.local || x.matchedBy === 'title') return;
       // "DIFFERS", NOT "EDITED" — because for half these songs Cue cannot know
       // who changed them, and the button does not need to know.
       //
@@ -801,6 +814,23 @@ export default function SharedSetView() {
     (updatePlan?.songs || []).forEach(x => { if (x.state === 'conflict') s.add(x.shareSong.id); });
     return s;
   }, [updatePlan]);
+
+  // WHAT A ROW SHOWS — Howard's three symbols (2026-11-01), replacing a colour
+  // that meant three things. Left, this device: + not here, = yours and
+  // unchanged, ≠ yours and changed (edited or inked). Middle, a TV whose arrow
+  // points at what Present plays. Right, the share: a cloud, with a down-arrow
+  // when there is something newer in it ('take' when only they moved, 'decide'
+  // when you both did).
+  function rowOf(song) {
+    const y = yoursById.get(song.id);
+    const lib = !y ? '+' : choosable.has(song.id) ? '≠' : '=';
+    return {
+      lib,
+      newer: bothChanged.has(song.id) ? 'decide' : behindShare.has(song.id) ? 'take' : null,
+      inkOnly: !!y && y.inked && !y.edited,
+      playingMine: lib === '≠' && playMineIds.has(song.id),
+    };
+  }
 
 
 
@@ -1331,15 +1361,7 @@ export default function SharedSetView() {
             })()}
           </div>
         </div>
-        <SongKey
-          dark={dark}
-          kinds={displayed.map(song =>
-            bothChanged.has(song.id) ? 'both'
-            : behindShare.has(song.id) ? 'newer'
-            : yoursById.has(song.id) ? (!choosable.has(song.id) ? 'same' : playMineIds.has(song.id) ? 'mine' : 'differs')
-            : updatePlan?.mine && !missingHere.has(song.id) ? null
-            : 'copy')}
-        />
+        <SongKey dark={dark} rows={displayed.map(rowOf)} />
       </div>
 
       {/* Song list */}
@@ -1368,8 +1390,7 @@ export default function SharedSetView() {
                 index={idx}
                 dark={dark}
                 muted={muted}
-                yours={yoursById.get(song.id)}
-                playingMine={playMineIds.has(song.id)}
+                row={rowOf(song)}
                 onToggleMine={choosable.has(song.id) ? () => {
                   const next = new Set(playMineIds);
                   if (next.has(song.id)) next.delete(song.id); else next.add(song.id);
@@ -1384,9 +1405,9 @@ export default function SharedSetView() {
                   // your own songs back from.
                   updatePlan?.mine && !missingHere.has(song.id) ? undefined : () => handleCopySong(song)
                 }
-                onTakeNewer={behindShare.has(song.id) ? () => updateOneSong(song) : undefined}
+                onCloud={bothChanged.has(song.id) ? () => setUpdateDialog({ choices: {}, focus: song.id })
+                  : behindShare.has(song.id) ? () => updateOneSong(song) : undefined}
                 changed={diffBySong.get(song.id)}
-                onDecide={bothChanged.has(song.id) ? () => setUpdateDialog({ choices: {}, focus: song.id }) : undefined}
                 copying={copying}
               />
             ))
@@ -1892,29 +1913,33 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 
 // ---- Key -----------------------------------------------------------------------
 
-// What the row buttons mean, above the list. Colour and shape alone were too
-// much to learn, so the key says it in words — only for the buttons this set
-// actually shows, so a set with nothing to decide gets a short key.
+// What the row symbols mean, above the list — only the ones this set shows, so
+// a set with nothing to decide gets a short key.
 const KEY = [
-  ['copy',    null,         Plus,             'Not in your library — copy it'],
-  ['same',    SAME,         Check,            'Same as shared'],
-  ['differs', YOURS_DIFFER, Pencil,           'Yours differs — tap to play yours'],
-  ['mine',    YOURS_DIFFER, Check,            'Present plays yours'],
-  ['newer',   SHARE_NEWER,  Download,         'Newer in the share — tap to get it'],
-  ['both',    SHARE_NEWER,  GitCompareArrows, 'You both changed it — tap to choose'],
+  ['plus',     Plus,          'Not on this device — tap to copy'],
+  ['equal',    Equal,         'Same as shared'],
+  ['notequal', EqualNot,      'Yours is changed'],
+  ['newer',    CloudDownload, 'Newer in the share — tap to get it'],
+  ['tv',       Tv,            'Arrow points at what plays — tap to switch'],
 ];
 
-function SongKey({ kinds, dark }) {
-  const shown = new Set(kinds);
-  const rows = KEY.filter(([kind]) => shown.has(kind));
-  if (!rows.length) return null;
+function SongKey({ rows, dark }) {
+  const shown = new Set();
+  for (const r of rows) {
+    shown.add(r.lib === '+' ? 'plus' : r.lib === '=' ? 'equal' : 'notequal');
+    if (r.lib === '≠') shown.add('tv');
+    if (r.newer) shown.add('newer');
+  }
+  const items = KEY.filter(([kind]) => shown.has(kind));
+  if (!items.length) return null;
   return (
     <div className={`flex flex-wrap gap-x-4 gap-y-1.5 px-1 pt-2.5 text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-      {rows.map(([kind, colour, Icon, text]) => (
+      {items.map(([kind, Icon, text]) => (
         <span key={kind} className="inline-flex items-center gap-1.5">
-          <span className="inline-flex items-center justify-center w-[1.125rem] h-[1.125rem] rounded-[0.3125rem] text-white shrink-0"
-            style={{ background: colour || (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME) }}>
-            <Icon size={11} strokeWidth={2.5} />
+          <span className={`inline-flex items-center justify-center w-[1.125rem] h-[1.125rem] rounded-[0.3125rem] border shrink-0 ${
+            kind === 'newer' ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+            : kind === 'tv' ? 'border-transparent' : dark ? 'border-gray-600 text-gray-200' : 'border-gray-300 text-gray-800'}`}>
+            <Icon size={kind === 'tv' ? 15 : 12} strokeWidth={2.5} />
           </span>
           {text}
         </span>
@@ -1925,127 +1950,108 @@ function SongKey({ kinds, dark }) {
 
 // ---- Song row ----------------------------------------------------------------
 
-function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleMine, onPresent, onCopy, onTakeNewer, onDecide, changed, copying }) {
+// One of the row's two outlined boxes: this device on the left, the share on
+// the right. The one Present will play is drawn dark; on a = row both are,
+// being the same song. Blue is kept for the one thing waiting on you — a newer
+// version in the share.
+function SymbolBox({ label, title, plays, accent, onActivate, disabled, dark, children }) {
+  const live = !!onActivate && !disabled;
+  const look = accent
+    ? `${plays ? 'border-2' : 'border'} border-blue-500 ${dark ? 'text-blue-400' : 'text-blue-600'}`
+    : plays
+      ? `border-2 ${dark ? 'border-white text-white bg-gray-800' : 'border-gray-900 text-gray-900 bg-gray-50'}`
+      : `border ${dark ? 'border-gray-600 text-gray-500' : 'border-gray-300 text-gray-400'}`;
+  return (
+    <button
+      type="button" aria-label={label} title={title}
+      aria-disabled={!live || undefined}
+      onClick={live ? onActivate : undefined}
+      className="group flex items-center justify-center shrink-0 bg-transparent"
+      style={{ width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, cursor: live ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}
+    >
+      <span className={`flex items-center justify-center w-[2.375rem] h-[2.375rem] rounded-[0.5625rem] select-none ${look} ${live ? 'transition-transform group-active:scale-95' : ''}`}>
+        {children}
+      </span>
+    </button>
+  );
+}
+
+function SharedSongRow({ song, index, dark, muted, row, onToggleMine, onPresent, onCopy, onCloud, changed, copying }) {
   const meta = song.metadata || {};
-  const fill = dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME;
+  const { lib, newer, inkOnly, playingMine } = row;
+  const changedNote = changed?.length ? ` — ${changed.join(', ')}` : '';
+  // A = row with nothing newer is the same song on both sides, so both boxes
+  // are drawn as playing and there is nothing to switch.
+  const same = lib === '=' && !newer;
+  const status = lib === '+' ? 'Not on this device'
+    : newer === 'decide' ? 'You both changed it — tap the cloud to choose'
+    : newer === 'take' ? 'Newer in the share — tap the cloud to get it'
+    : lib === '=' ? 'On this device, same as shared'
+    : `${inkOnly ? 'You drew on your copy' : 'You changed your copy'} — ${playingMine ? 'yours plays' : 'shared plays'}`;
+  const Arrow = onToggleMine ? (playingMine ? ArrowLeft : ArrowRight) : same ? ArrowLeftRight : ArrowRight;
 
   return (
     <div className={`rounded-xl border p-4 ${dark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
       <div className="flex items-start gap-3">
         <span className={`text-xs pt-0.5 shrink-0 tabular-nums ${muted}`}>{index + 1}</span>
-        <div className="flex-1 min-w-0">
+        {/* The title presents the song: the TV is the switch now. */}
+        <button type="button" onClick={onPresent} title="Present this song"
+          className="flex-1 min-w-0 text-left bg-transparent" style={{ WebkitTapHighlightColor: 'transparent' }}>
           <p className={`font-medium truncate ${dark ? 'text-white' : 'text-gray-900'}`}>
             {meta.title || 'Untitled'}
           </p>
           {meta.artist && (
             <p className={`text-sm mt-0.5 truncate ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{meta.artist}</p>
           )}
+          <p className={`text-xs mt-1 ${newer ? (dark ? 'text-blue-400' : 'text-blue-600') : dark ? 'text-gray-400' : 'text-gray-500'}`}>{status}</p>
           {/* The key this song plays in. `song` is enriched, so displayKey already
               folds in any stored viewer key; fall back to the song's original key.
               Shown to the viewer simply as "Key". */}
           {(song.displayKey || meta.key) && (
-            <div className="mt-2">
-              <span className={`text-xs ${muted}`}>Key: {song.displayKey || meta.key}</span>
-            </div>
+            <p className={`text-xs mt-1.5 ${muted}`}>Key: {song.displayKey || meta.key}</p>
           )}
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Round-button language: neutral copy circle, indigo present circle.
-              Absent entirely on your own set — copying a song to the library it
-              already lives in only makes a second one.
-
-              WHEN THE COPY IS BEHIND, this button takes the newer version
-              instead. Tapping it used to run the copy, which found the title
-              already present and reported "skipped" — technically true and
-              useless, because there WAS something to take. The button sits right
-              beside the marker saying so, which makes it the thing anyone would
-              press. */}
-          {/* Behind the share: blue, with a download arrow — something of
-              theirs to take. A separate 13px refresh arrow beside the title was
-              too small to read — this is one control carrying both the state and
-              the action, which is also fewer things on the row. */}
-          {onDecide ? (
-            /* Both of you changed this one. Blue, like a plain behind-the-share
-               row, because the news is the same: there is something in the share
-               you have not got. The ACTION is not the same — this opens the
-               choice rather than taking it, since taking it here would write over
-               your own edit — so it has its own compare arrows. */
-            <RoundButton
-              size={ROUND_SIZE_COMPACT} square
-              label="You and the publisher both changed this song — decide what to do"
-              title={`The publisher has changed this song, and so have you${changed?.length ? ` — ${changed.join(', ')}` : ''}. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`}
-              fill={SHARE_NEWER} disabled={copying}
-              onActivate={onDecide}
-            >
-              <GitCompareArrows size={16} />
-            </RoundButton>
-          ) : onTakeNewer ? (
-            <RoundButton
-              size={ROUND_SIZE_COMPACT} square
-              label="Take the newer version of this song"
-              title={`The publisher has changed this song since you copied it${changed?.length ? ` — ${changed.join(', ')}` : ''}. This replaces your copy with their newer version — your ink annotations are kept.`}
-              fill={SHARE_NEWER} disabled={copying}
-              onActivate={onTakeNewer}
-            >
-              <Download size={16} />
-            </RoundButton>
-          ) : yours ? (
-            /* ONE BUTTON THAT CHANGES COLOUR, which is what Howard asked for and
-               what I kept building as two. Green while your copy is the share —
-               inert, because there is nothing to choose. The moment you edit or
-               annotate it, the SAME button turns amber and becomes a control:
-               tap it and the tick says Present uses your version of this song.
-
-               A separate green and a separate amber made a row where a button
-               vanished and a different one took its place, which reads as two
-               things happening when only one did. */
-            <RoundButton
-              size={ROUND_SIZE_COMPACT} square
-              label={!onToggleMine
-                ? 'Your copy matches the shared version'
-                : playingMine
-                  ? 'Playing your version of this song. Tap to play the shared version instead.'
-                  : 'Your version of this song differs from the shared one. Tap to play yours instead.'}
-              title={!onToggleMine
-                ? 'This song is in your library and matches the shared version — nothing to choose.'
-                : playingMine
-                  ? 'Present will play YOUR copy of this song, with your ink.'
-                  : (yours.attributable
-                      ? 'You have changed this copy. Present will play the publisher’s version — tap to play yours instead.'
-                      : 'This copy and the shared version differ. Present will play the publisher’s — tap to play yours instead.')}
-              fill={onToggleMine ? YOURS_DIFFER : SAME}
-              disabled={!onToggleMine} disabledOpacity={1}
-              border={playingMine ? (dark ? '#fff' : '#111827') : undefined}
-              onActivate={onToggleMine}
-            >
-              {onToggleMine && !playingMine ? <Pencil size={15} /> : <Check size={16} />}
-            </RoundButton>
-          ) : onCopy && (
-            <RoundButton
-              size={ROUND_SIZE_COMPACT} square
-              label="Copy this song to my library"
-              title="Add just this song to your Cue library, where you can open, edit, and keep it."
-              fill={fill} disabled={copying}
-              onActivate={onCopy}
-            >
-              <Plus size={16} />
-            </RoundButton>
-          )}
-          <RoundButton
-            size={ROUND_SIZE_COMPACT} square
-            /* THE PRESENT BUTTON IS QUIET AGAIN. It was amber for "this will play
-               your copy" because nothing else on the row could say so. The
-               selector beside it says it now, so this is just the action — one
-               less control trying to encode two jobs in a colour. */
-            label={playingMine ? 'Present this song — playing your copy' : 'Present this song'}
-            title={playingMine
-              ? 'You have your own version of this song — this plays it full-screen for performing.'
-              : 'Play just this song full-screen — big chords and lyrics for performing.'}
-            fill={fill} active
-            onActivate={onPresent}
+        </button>
+        <div className="flex items-center shrink-0 -my-1">
+          <SymbolBox
+            dark={dark}
+            label={lib === '+' ? 'Not on this device — copy this song to my library' : lib === '=' ? 'On this device, unchanged' : 'On this device, changed'}
+            title={lib === '+' ? 'Add just this song to your Cue library, where you can open, edit, and keep it.'
+              : lib === '=' ? 'Your copy hasn’t been changed.'
+              : inkOnly ? 'You have drawn on your copy.' : `Your copy differs from the shared one${changedNote}.`}
+            plays={same || playingMine}
+            onActivate={lib === '+' ? onCopy : undefined}
+            disabled={copying}
           >
-            <Tv size={16} />
-          </RoundButton>
+            {lib === '+' ? <Plus size={19} strokeWidth={2.5} /> : lib === '=' ? <Equal size={19} strokeWidth={2.5} /> : <EqualNot size={19} strokeWidth={2.5} />}
+          </SymbolBox>
+          <button
+            type="button"
+            aria-label={onToggleMine ? (playingMine ? 'Playing your version. Switch to the shared one.' : 'Playing the shared version. Switch to yours.') : 'Which version plays'}
+            title={onToggleMine ? (playingMine ? 'Present plays your version — tap to play the shared one.' : 'Present plays the shared version — tap to play yours.')
+              : lib === '+' ? 'Present plays the shared version — there isn’t one on this device.'
+              : same ? 'Your copy and the shared one are the same song.' : 'Present plays the newer shared version.'}
+            aria-disabled={!onToggleMine || undefined}
+            onClick={onToggleMine}
+            className={`relative flex items-center justify-center shrink-0 bg-transparent ${onToggleMine ? (dark ? 'text-white' : 'text-gray-900') : dark ? 'text-gray-600' : 'text-gray-300'}`}
+            style={{ width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, cursor: onToggleMine ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}
+          >
+            <Tv size={32} strokeWidth={1.75} />
+            <Arrow size={13} strokeWidth={3} className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2" />
+          </button>
+          <SymbolBox
+            dark={dark}
+            label={newer === 'decide' ? 'You and the publisher both changed this song — decide what to do'
+              : newer === 'take' ? 'Get the newer shared version of this song' : 'The shared version'}
+            title={newer === 'decide' ? `The publisher has changed this song, and so have you${changedNote}. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`
+              : newer === 'take' ? `The publisher has changed this song since you copied it${changedNote}. This replaces your copy with their newer version — your ink annotations are kept.`
+              : 'The version in the shared set.'}
+            plays={!playingMine}
+            accent={!!newer}
+            onActivate={newer ? onCloud : undefined}
+            disabled={copying}
+          >
+            {newer ? <CloudDownload size={19} strokeWidth={2.25} /> : <Cloud size={19} strokeWidth={2.25} />}
+          </SymbolBox>
         </div>
       </div>
     </div>
