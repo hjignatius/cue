@@ -11,7 +11,7 @@ import { loadSavedShares, persistSavedShares, syncBookmark } from '../utils/shar
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, RefreshCw, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Pencil } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Pencil, Plus, Download, GitCompareArrows } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
@@ -23,6 +23,15 @@ import BookChoice, { startBook, bookChoice } from '../components/BookChoice.jsx'
 // A shared song carries the publisher's book, if it had one; never ours. Spread
 // after it so saveSong leaves the book alone (books.js).
 const NO_BOOK = { bookId: undefined, mine: undefined };
+
+// COLOUR SAYS WHICH WAY, chosen by Howard on 2026-11-01 (mock-up C) after the
+// rows proved too hard to read. Amber is only ever YOUR version — it differs,
+// and you choose what plays. Blue is only ever THEIRS — something newer in the
+// share to take or decide about. Before this, amber meant three things and the
+// library icon meant both "copy" and "replace mine".
+const SHARE_NEWER = '#2563eb';
+const YOURS_DIFFER = '#d97706';
+const SAME = '#16a34a';
 
 // Visible label inside a RoundButton pill (white via RoundButton's text-white).
 function PillLabel({ children }) {
@@ -1229,9 +1238,9 @@ export default function SharedSetView() {
                 <RoundButton size={ROUND_SIZE_ACTION} pill={!compactHeader}
                   label="Update my copies from this shared set"
                   title="This shared set has changed since you copied it — review and update your copies."
-                  fill="#d97706" disabled={copying}
+                  fill={SHARE_NEWER} disabled={copying}
                   onActivate={() => setUpdateDialog({ choices: {} })}>
-                  <RefreshCw size={18} />{!compactHeader && <PillLabel>Update</PillLabel>}
+                  <Download size={18} />{!compactHeader && <PillLabel>Update</PillLabel>}
                 </RoundButton>
               );
             }
@@ -1392,6 +1401,15 @@ export default function SharedSetView() {
               />
             ))
           )}
+          <SongKey
+            dark={dark}
+            kinds={displayed.map(song =>
+              bothChanged.has(song.id) ? 'both'
+              : behindShare.has(song.id) ? 'newer'
+              : yoursById.has(song.id) ? (choosable.has(song.id) ? 'differs' : 'same')
+              : updatePlan?.mine && !missingHere.has(song.id) ? null
+              : 'copy')}
+          />
         </div>
       </div>
 
@@ -1595,7 +1613,7 @@ function UpdateResult({ result, dark, onDone }) {
 // have no book yet — this share's copies aren't in one — it asks, as Copy does
 // (`book`, BookChoice's value; ticked when never copied).
 function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [], book, onBook, onChange, onSetAll, onCancel, onApply }) {
-  // Arriving from ONE row's amber button, in a list that can be 83 rows long.
+  // Arriving from ONE row's blue button, in a list that can be 83 rows long.
   // Without this you land somewhere in the middle of a wall of songs with
   // nothing saying which one you came to decide about.
   //
@@ -1671,12 +1689,12 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
                   key={i}
                   ref={s.id === focusId ? focusRow : undefined}
                   className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${
-                    s.id === focusId ? 'border-amber-500 ring-1 ring-amber-500' : dark ? 'border-gray-700' : 'border-gray-200'
+                    s.id === focusId ? 'border-blue-500 ring-1 ring-blue-500' : dark ? 'border-gray-700' : 'border-gray-200'
                   }`}
                 >
                   <span className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium truncate ${em}`}>{title}</span>
-                    <span className={`text-[0.6875rem] ${item.state === 'conflict' ? 'text-amber-500' : sub}`}>
+                    <span className={`text-[0.6875rem] ${item.state === 'conflict' ? 'text-blue-500' : sub}`}>
                       {item.state === 'uptodate' && 'Up to date'}
                       {item.state === 'update' && (item.changed?.length
                         ? `Changed in the share — ${item.changed.join(', ')}`
@@ -1891,6 +1909,38 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
   );
 }
 
+// ---- Key -----------------------------------------------------------------------
+
+// What the row buttons mean, under the list. Colour and shape alone were too
+// much to learn, so the key says it in words — only for the buttons this set
+// actually shows, so a set with nothing to decide gets a short key.
+const KEY = [
+  ['copy',    null,         Plus,             'Not in your library — copy it'],
+  ['same',    SAME,         Check,            'Same as shared'],
+  ['differs', YOURS_DIFFER, Pencil,           'Yours differs — tap to play yours'],
+  ['newer',   SHARE_NEWER,  Download,         'Newer in the share — tap to get it'],
+  ['both',    SHARE_NEWER,  GitCompareArrows, 'You both changed it — tap to choose'],
+];
+
+function SongKey({ kinds, dark }) {
+  const shown = new Set(kinds);
+  const rows = KEY.filter(([kind]) => shown.has(kind));
+  if (!rows.length) return null;
+  return (
+    <div className={`flex flex-wrap gap-x-4 gap-y-1.5 px-1 pt-2 text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+      {rows.map(([kind, colour, Icon, text]) => (
+        <span key={kind} className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center justify-center w-[1.125rem] h-[1.125rem] rounded-full text-white shrink-0"
+            style={{ background: colour || (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME) }}>
+            <Icon size={11} strokeWidth={2.5} />
+          </span>
+          {text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ---- Song row ----------------------------------------------------------------
 
 function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleMine, onPresent, onCopy, onTakeNewer, onDecide, changed, copying }) {
@@ -1928,34 +1978,34 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
               useless, because there WAS something to take. The button sits right
               beside the marker saying so, which makes it the thing anyone would
               press. */}
-          {/* Behind the share: the SAME library circle, in amber. A separate
-              13px refresh arrow beside the title was too small to read — this is
-              one control carrying both the state and the action, which is also
-              fewer things on the row. */}
+          {/* Behind the share: blue, with a download arrow — something of
+              theirs to take. A separate 13px refresh arrow beside the title was
+              too small to read — this is one control carrying both the state and
+              the action, which is also fewer things on the row. */}
           {onDecide ? (
-            /* Both of you changed this one. Amber, like a plain behind-the-share
+            /* Both of you changed this one. Blue, like a plain behind-the-share
                row, because the news is the same: there is something in the share
                you have not got. The ACTION is not the same — this opens the
                choice rather than taking it, since taking it here would write over
-               your own edit. */
+               your own edit — so it has its own compare arrows. */
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="You and the publisher both changed this song — decide what to do"
               title={`The publisher has changed this song, and so have you${changed?.length ? ` — ${changed.join(', ')}` : ''}. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`}
-              fill="#d97706" disabled={copying}
+              fill={SHARE_NEWER} disabled={copying}
               onActivate={onDecide}
             >
-              <Library size={16} />
+              <GitCompareArrows size={16} />
             </RoundButton>
           ) : onTakeNewer ? (
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label="Take the newer version of this song"
               title={`The publisher has changed this song since you copied it${changed?.length ? ` — ${changed.join(', ')}` : ''}. This replaces your copy with their newer version — your ink annotations are kept.`}
-              fill="#d97706" disabled={copying}
+              fill={SHARE_NEWER} disabled={copying}
               onActivate={onTakeNewer}
             >
-              <Library size={16} />
+              <Download size={16} />
             </RoundButton>
           ) : yours ? (
             /* ONE BUTTON THAT CHANGES COLOUR, which is what Howard asked for and
@@ -1981,7 +2031,7 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
                   : (yours.attributable
                       ? 'You have changed this copy. Present will play the publisher’s version — tap to play yours instead.'
                       : 'This copy and the shared version differ. Present will play the publisher’s — tap to play yours instead.')}
-              fill={onToggleMine ? '#d97706' : '#16a34a'}
+              fill={onToggleMine ? YOURS_DIFFER : SAME}
               disabled={!onToggleMine} disabledOpacity={1}
               border={playingMine ? (dark ? '#fff' : '#111827') : undefined}
               onActivate={onToggleMine}
@@ -1996,7 +2046,7 @@ function SharedSongRow({ song, index, dark, muted, yours, playingMine, onToggleM
               fill={fill} disabled={copying}
               onActivate={onCopy}
             >
-              <Library size={16} />
+              <Plus size={16} />
             </RoundButton>
           )}
           <RoundButton
