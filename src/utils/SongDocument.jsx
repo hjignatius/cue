@@ -4,6 +4,7 @@ import { wrapUnits, continuationIndent } from './lineWrap.js';
 import { transposeChord } from './transpose.js';
 import { PdfChordDiagram } from './PdfChordDiagram.jsx';
 import { registerPdfFonts, FONT_SANS, FONT_MONO } from './pdfFonts.js';
+import { slotSize } from './pdfSlots.js';
 
 // Embed Unicode-capable fonts so arrows, symbols and smart quotes render (the
 // built-in Courier/Helvetica can't). Idempotent, safe to call at module load.
@@ -133,7 +134,7 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
 }
 
 // Reusable song page — can be embedded in SongDocument or SetDocument
-function SongPage({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordColor, embed = false, shapeFor = null }) {
+function SongPage({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordColor, embed = false, shapeFor = null, note = null }) {
   const styles = buildStyles(scale, chordColor);
   // Guard against a song with missing/null metadata — otherwise destructuring
   // throws and, inside a SetDocument, one bad song aborts the whole PDF.
@@ -166,6 +167,7 @@ function SongPage({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = f
           ) : null}
         </View>
       ) : null}
+      {note ? <Text style={{ ...styles.meta, textAlign: 'center', marginBottom: 12 * scale }}>{note}</Text> : null}
 
       <View>
         {lines.map((line, i) => {
@@ -221,8 +223,10 @@ export function SongDocument({ metadata, parsedLines, semitones = 0, capo = 0, u
 export function SetDocument({ songs, chordDiagrams, chordColor, tuning, instrumentName }) {
   return (
     <Document>
-      {songs.map((song, i) => (
-        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} capo={song.capo || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} />
+      {/* A song kept as PDF pages leaves a slot that its own pages fill
+          afterwards (pdfSlots.js). */}
+      {songs.map((song, i) => song.slot != null ? <Page key={i} size={slotSize(song.slot)} /> : (
+        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} capo={song.capo || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} note={song.note} />
       ))}
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>

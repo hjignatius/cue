@@ -8,6 +8,8 @@ import { getActiveLibrary, DEFAULT_INSTRUMENT } from '../data/chordLibraries.js'
 import { SongDocument, SetDocument } from './SongDocument.jsx';
 import { saveFilePicker } from './filePicker.js';
 import { sanitizeForPdf } from './pdfFonts.js';
+import { loadPdfBlob } from './storage.js';
+import { openForSlot, fillSlots } from './pdfSlots.js';
 
 function sanitize(name) {
   return (name || 'song').replace(/[/\\:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 100) || 'song';
@@ -21,6 +23,12 @@ function metaForPdf(metadata) {
 }
 
 export async function exportToPdf(song, { displayKey, includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
+  // A song kept as PDF pages exports as those pages (and its chords, if asked).
+  if (song.type === 'pdf') {
+    const blob = await renderSongs(await shapeSongs([song], accidentals), { includeChords, instrument });
+    await saveFilePicker(blob, `${sanitize(song.metadata?.title)}.pdf`);
+    return;
+  }
   const { metadata, text } = song;
   const semitones  = displaySemitones(metadata, displayKey);
   const useFlats   = flatsForKey(accidentals, displayKey);
@@ -49,25 +57,47 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
 // spelling (the same render lens as Preview/Present). 0 semitones (no displayKey,
 // or equal to the real key) prints in the written key. Order follows the given
 // sets, then each set's own song order.
-function songsForPdf(sets, allSongs, accidentals) {
+async function songsForPdf(sets, allSongs, accidentals) {
   const byId = new Map(allSongs.map(s => [s.id, s]));
+  return shapeSongs(sets.flatMap(set => (set.songIds || []).map(id => byId.get(id)).filter(Boolean)), accidentals);
+}
+
+// A song kept as PDF pages prints as those pages: it gets a slot, and `docs`
+// holds its opened PDF. It is never transposed — Cue can't move chords drawn on
+// a page, and doesn't in Preview or Present either — so its chords (the ones
+// typed to match the sheet, for the Chord Reference page) stay as written. One
+// whose PDF isn't on this device prints from its words, saying so.
+async function shapeSongs(list, accidentals) {
   const out = [];
-  for (const set of sets) {
-    for (const id of set.songIds || []) {
-      const song = byId.get(id);
-      if (!song) continue;
-      out.push({
-        metadata:    metaForPdf(song.metadata),
-        parsedLines: (() => { const p = parseChordPro(convertToBrackets(sanitizeForPdf(song.text || ''))); return song.condensed === true ? p : expandSections(p); })(),
-        text:        song.text || '',
-        semitones:   displaySemitones(song.metadata, song.displayKey),
-        capo:        capoFrets(song.metadata),
-        useFlats:    flatsForKey(accidentals, song.displayKey),
-        chordPrefs:  song.chordPrefs || {},
-      });
-    }
+  const docs = [];
+  for (const song of list) {
+    const isPage = song.type === 'pdf';
+    const doc = isPage ? await openForSlot(await loadPdfBlob(song.id)) : null;
+    if (doc) docs.push(doc);
+    out.push({
+      metadata:    metaForPdf(song.metadata),
+      parsedLines: (() => { const p = parseChordPro(convertToBrackets(sanitizeForPdf(song.text || ''))); return song.condensed === true ? p : expandSections(p); })(),
+      text:        song.text || '',
+      semitones:   isPage ? 0 : displaySemitones(song.metadata, song.displayKey),
+      capo:        capoFrets(song.metadata),
+      useFlats:    flatsForKey(accidentals, song.displayKey),
+      chordPrefs:  song.chordPrefs || {},
+      slot:        doc ? docs.length - 1 : null,
+      note:        isPage && !doc ? 'The PDF for this song isn’t on this device, so only its words are here.' : null,
+    });
   }
+  out.docs = docs;
   return out;
+}
+
+// The finished PDF for shaped songs: Cue's own pages, each page song's slot
+// filled with its own pages, and the Chord Reference page last when asked.
+async function renderSongs(songs, { includeChords = false, instrument = DEFAULT_INSTRUMENT } = {}) {
+  const lib = getActiveLibrary(instrument);
+  const chordDiagrams = (includeChords && instrument !== 'none') ? chordDiagramsFor(songs, instrument) : null;
+  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name })).toBlob();
+  if (!songs.docs.length) return blob;
+  return new Blob([await fillSlots(await blob.arrayBuffer(), songs.docs)], { type: 'application/pdf' });
 }
 
 // Unique chord diagrams across the shaped songs, matching each song's transposed,
@@ -90,20 +120,14 @@ function chordDiagramsFor(songs, instrument = DEFAULT_INSTRUMENT) {
 }
 
 export async function exportSetToPdf(set, allSongs, { includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
-  const songs = songsForPdf([set], allSongs, accidentals);
-  const lib = getActiveLibrary(instrument);
-  const chordDiagrams = (includeChords && instrument !== 'none') ? chordDiagramsFor(songs, instrument) : null;
-  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name })).toBlob();
+  const blob = await renderSongs(await songsForPdf([set], allSongs, accidentals), { includeChords, instrument });
   await saveFilePicker(blob, `${sanitize(set.name)}.pdf`);
 }
 
 // Several sets as one combined PDF — every selected set's songs as consecutive
 // pages (in selection order), sharing a single Chord Reference page when asked.
 export async function exportSetsToPdf(sets, allSongs, { includeChords = false, chordColor, accidentals, instrument = DEFAULT_INSTRUMENT } = {}) {
-  const songs = songsForPdf(sets, allSongs, accidentals);
-  const lib = getActiveLibrary(instrument);
-  const chordDiagrams = (includeChords && instrument !== 'none') ? chordDiagramsFor(songs, instrument) : null;
-  const blob = await pdf(SetDocument({ songs, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name })).toBlob();
+  const blob = await renderSongs(await songsForPdf(sets, allSongs, accidentals), { includeChords, instrument });
   const date = new Date().toISOString().slice(0, 10);
   await saveFilePicker(blob, `cue-sets-${date}.pdf`);
 }
