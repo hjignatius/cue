@@ -29,15 +29,17 @@ function PillLabel({ children }) {
   return <span className="text-sm font-medium leading-none whitespace-nowrap">{children}</span>;
 }
 
-// The Cue app icon — indigo rounded square with a white "C" arc, matching
-// public/cue-icon.svg (the home-screen mark). Inlined as SVG so it stays crisp
+// The Cue app icon — indigo rounded square, a white "C" arc and the 2 of Cue²
+// inside it, matching public/cue-icon.svg (the home-screen mark; both come from
+// scripts/makeIcons.mjs). Inlined as SVG so it stays crisp
 // at small sizes, needs no asset load, and works offline. Its own indigo fill
 // reads on both light and dark headers.
 function CueMark({ size = 26 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="Cue" className="shrink-0 block">
       <rect width="100" height="100" rx="23" fill="#4f46e5" />
-      <path d="M66.7 30.1 A26 26 0 1 0 66.7 69.9" fill="none" stroke="#ffffff" strokeWidth="11" strokeLinecap="round" />
+      <path d="M69.284 27.019 A30 30 0 1 0 69.284 72.981" fill="none" stroke="#ffffff" strokeWidth="10" strokeLinecap="round" />
+      <path transform="translate(38.413 62.5) scale(0.016447 -0.016447)" d="M590 283L1247 283L1247 0L162 0L162 283L707 764Q780 830 815 893Q850 956 850 1024Q850 1129 779.5 1193Q709 1257 592 1257Q502 1257 395 1218.5Q288 1180 166 1104L166 1432Q296 1475 423 1497.5Q550 1520 672 1520Q940 1520 1088.5 1402Q1237 1284 1237 1073Q1237 951 1174 845.5Q1111 740 909 563Z" fill="#ffffff" />
     </svg>
   );
 }

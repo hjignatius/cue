@@ -7,7 +7,8 @@
 const CACHE = 'cue-v211';
 
 // App shell + icons. NOT the hashed JS/CSS (names unknown here — cached at
-// runtime on first online launch) and NOT cue-icon-square.svg (unreferenced).
+// runtime on first online launch) and NOT cue-icon-square.svg or cue-icon-maskable.svg
+// (sources for the PNGs, unreferenced).
 const PRECACHE_URLS = [
   '/',
   '/index.html',
