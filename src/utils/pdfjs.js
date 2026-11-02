@@ -18,6 +18,14 @@ export function loadPdfjs() {
   return _pdfjsPromise;
 }
 
+// A song's extra quarter turns (song.pdfRotate) on top of the page's own /Rotate.
+// pdf.js's `rotation` REPLACES the page's rotation rather than adding to it, so a
+// page that was already stored turned would lose that turn without this sum.
+export const QUARTER_TURNS = [0, 90, 180, 270];
+export function pageRotation(page, turn = 0) {
+  return (((page?.rotate || 0) + (turn || 0)) % 360 + 360) % 360;
+}
+
 // Pull a PDF's text layer out as lines of text, with the blank lines the format
 // never stored put back (see pdfText.js for how, and why it matters).
 //

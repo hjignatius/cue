@@ -20,11 +20,14 @@ export function slotOf(page) {
 
 // Open a song's stored PDF to go into an export, or null when it won't open —
 // that song then prints from its words, as before.
-export async function openForSlot(blob) {
+// `turn` is the song's pdfRotate, added to each page's own rotation so the
+// export prints the sheet the way up it presents.
+export async function openForSlot(blob, turn = 0) {
   if (!blob) return null;
   try {
-    const { PDFDocument } = await import('pdf-lib');
+    const { PDFDocument, degrees } = await import('pdf-lib');
     const doc = await PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption: true, updateMetadata: false });
+    if (turn) for (const page of doc.getPages()) page.setRotation(degrees((page.getRotation().angle + turn) % 360));
     return doc.getPageCount() ? doc : null;
   } catch (err) {
     console.warn('[pdfSlots] a song’s PDF would not open for the export', err);

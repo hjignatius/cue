@@ -100,6 +100,7 @@ export async function applyPulledSet({ set, songs }, localSongIds, userId) {
       pedalActive: c.pedalActive,
       fullPage: c.fullPage,
       pdf: c.pdf,
+      pdfRotate: c.pdfRotate,
       createdAt: toIsoTs(row.created_at),
       updatedAt: toIsoTs(row.updated_at),
     });

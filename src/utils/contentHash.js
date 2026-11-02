@@ -13,6 +13,9 @@ export function contentSig(song) {
     md: { title: m.title || '', artist: m.artist || '', key: m.key || '', tempo: m.tempo || '', duration: m.duration || '', timeSig: m.timeSig || '', youtubeUrl: m.youtubeUrl || '', capo: m.capo || '' },
     cs: song?.chordStyle || '', pm: song?.previewMode || '',
     fp: !!song?.fullPage, em: !!song?.embed, type: song?.type || 'text',
+    // Only when turned, so every song hashed before rotation existed keeps its
+    // hash (and its copies' baselines keep matching).
+    ...(song?.pdfRotate ? { rot: song.pdfRotate } : {}),
   });
 }
 
@@ -50,6 +53,7 @@ const SIG_FIELDS = [
   ['the full-page setting',(s) => String(!!s?.fullPage)],
   ['the chord diagrams',   (s) => String(!!s?.embed)],
   ['the song type',        (s) => s?.type || 'text'],
+  ['which way up the PDF is', (s) => String(s?.pdfRotate || 0)],
 ];
 
 export function contentDiffFields(a, b) {

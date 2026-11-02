@@ -205,7 +205,7 @@ const KNOWN_SONG_FIELDS = new Set([
   'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed', 'condensed',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source, bookId, mine }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source, bookId, mine, pdfRotate }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -236,6 +236,10 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   // by an import or a restore and otherwise carried forward untouched.
   if (bookId       !== undefined) entry.bookId       = bookId;
   if (mine         !== undefined) entry.mine         = mine;
+  // A pdf song's quarter turns clockwise (0/90/180/270) — for a sheet that was
+  // scanned upside down or sideways. Given by the editor; otherwise carried
+  // forward through `preserved` like `source`.
+  if (pdfRotate    !== undefined) entry.pdfRotate    = pdfRotate;
   if (chordStyle   !== undefined) entry.chordStyle   = chordStyle;
   if (previewMode  !== undefined) entry.previewMode  = previewMode;
   if (diagramScale !== undefined) entry.diagramScale = diagramScale;

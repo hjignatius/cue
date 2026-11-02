@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileWarning } from 'lucide-react';
-import { loadPdfjs } from '../utils/pdfjs.js';
+import { loadPdfjs, pageRotation } from '../utils/pdfjs.js';
 import { loadPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -15,7 +15,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 // `blob` is an optional override for the bytes: the editor passes a PDF the user
 // just picked but has not saved yet, which has no songId key in the pdfs store
 // to load from. When absent (every other caller) the bytes come from storage.
-export default function PdfPageStack({ songId, blob: blobOverride, onReady, dark }) {
+export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, onReady, dark }) {
   const { user } = useAuth();
   const wrapRef = useRef(null);
   const docRef  = useRef(null);
@@ -98,8 +98,9 @@ export default function PdfPageStack({ songId, blob: blobOverride, onReady, dark
         try {
           const page = await doc.getPage(n);
           if (cancelled) return;
-          const base = page.getViewport({ scale: 1 });
-          const viewport = page.getViewport({ scale: (cssWidth / base.width) * dpr });
+          const rotation = pageRotation(page, turn);
+          const base = page.getViewport({ scale: 1, rotation });
+          const viewport = page.getViewport({ scale: (cssWidth / base.width) * dpr, rotation });
           canvas.width  = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           canvas.style.width  = cssWidth + 'px';
@@ -113,7 +114,7 @@ export default function PdfPageStack({ songId, blob: blobOverride, onReady, dark
       }
     })();
     return () => { cancelled = true; tasks.forEach(t => { try { t.cancel(); } catch { /* ignore */ } }); };
-  }, [status, numPages, renderTick]);
+  }, [status, numPages, renderTick, turn]);
 
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
 

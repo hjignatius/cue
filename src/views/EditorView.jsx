@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, ChevronLeft, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation } from 'lucide-react';
+import { Save, Search, X, ChevronLeft, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation, RotateCw } from 'lucide-react';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -462,6 +462,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // A PDF the user just picked, held in memory until Save: the pdfs store is
   // keyed by song id, and a brand-new song has no id to key it under yet.
   const [pendingPdf, setPendingPdf] = useState(null);
+  // Quarter turns clockwise for a sheet scanned upside down or sideways. Saved
+  // with the song; Present, the preview and PDF exports all draw it turned.
+  const [pdfRotate, setPdfRotate] = useState(song?.pdfRotate || 0);
   const [pdfErr, setPdfErr]         = useState('');
   // Per-song Full Page mode (top-level song field, not metadata). Off by default:
   // continuous scroll. On: discrete full pages. Applies to text and pdf alike.
@@ -704,6 +707,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Today's behaviour: the PDF becomes the song, shown as its pages.
   function attachPdf(file) {
     setPendingPdf(file);
+    setPdfRotate(0);   // a new sheet starts the way up it was made
     setSongType('pdf');
     setIsDirty(true);
     // Name the song after the file, as Import does — but never overwrite a
@@ -772,7 +776,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     // A freshly picked PDF carries its own reference record; otherwise saveSong
     // keeps whatever the song already had.
     const pdfMeta = pendingPdf ? { filename: pendingPdf.name, importedAt: new Date().toISOString() } : undefined;
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pdf: pdfMeta, fullPage, embed, condensed });
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pdf: pdfMeta, fullPage, embed, condensed, pdfRotate: songType === 'pdf' ? pdfRotate : undefined });
     if (pendingPdf) {
       await savePdfBlob(id, pendingPdf);
       // Nothing to do about the cloud flag: the pdf record written just above is
@@ -796,7 +800,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setAiRetry(null);
     setAiMsg('');
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
-    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
+    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate });
     return id; // callers that need the id of a just-created song (see Present)
   }
 
@@ -1684,7 +1688,28 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // A pdf song previews the sheet itself — continuous, fit to width. The text
   // pane stays available either way: a pdf song's text feeds the chord panel.
   // `pendingPdf` renders a file Save has not written to the pdfs store yet.
-  const pdfPreview = <PdfPageStack songId={songId} blob={pendingPdf} dark={dark} />;
+  const pdfPreview = (
+    <>
+      <div className="flex items-center justify-end gap-2 mb-2">
+        {pdfRotate !== 0 && hasAnnotation && (
+          <span className={`text-xs ${dark ? 'text-amber-400' : 'text-amber-600'}`}>Ink doesn’t turn with the page</span>
+        )}
+        <button
+          type="button"
+          onClick={() => { setPdfRotate(r => (r + 90) % 360); setIsDirty(true); }}
+          title="Turn the pages a quarter turn clockwise. Twice turns an upside-down sheet the right way up."
+          /* Fixed width: tapped several times in a row, and a label that grew
+             with "· 90°" walked the button out from under the finger. */
+          className={`flex items-center justify-center gap-1.5 w-[7.5rem] py-1.5 rounded border text-xs tabular-nums transition-colors ${
+            dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-600'
+                 : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}
+        >
+          <RotateCw size={14} className="opacity-70" /> Rotate{pdfRotate ? ` · ${pdfRotate}°` : ''}
+        </button>
+      </div>
+      <PdfPageStack songId={songId} blob={pendingPdf} turn={pdfRotate} dark={dark} />
+    </>
+  );
 
   // Transpose is locked OFF for a PDF: its chords are entered to match the fixed
   // printed sheet, so the diagrams render at that key (View Key must not move them).
@@ -2701,7 +2726,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               fill={headerFill}
               onActivate={async () => {
                 const id = pendingPdf ? await handleSave() : songId; // as Present, below
-                onReturn({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed });
+                onReturn({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate });
               }}
             >
               <Undo2 size={22} strokeWidth={2} />
@@ -2717,7 +2742,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 // has no id to key it under), so Present would show the missing
                 // placeholder. Save first, and present the id that comes back.
                 const id = pendingPdf ? await handleSave() : songId;
-                onPresent?.([{ id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed }], 0);
+                onPresent?.([{ id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed, pdfRotate }], 0);
               }}
             >
               <Tv size={22} strokeWidth={2} />{!isNarrow && <PillLabel>Present</PillLabel>}

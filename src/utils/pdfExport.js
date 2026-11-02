@@ -72,7 +72,7 @@ async function shapeSongs(list, accidentals) {
   const docs = [];
   for (const song of list) {
     const isPage = song.type === 'pdf';
-    const doc = isPage ? await openForSlot(await loadPdfBlob(song.id)) : null;
+    const doc = isPage ? await openForSlot(await loadPdfBlob(song.id), song.pdfRotate) : null;
     if (doc) docs.push(doc);
     out.push({
       metadata:    metaForPdf(song.metadata),

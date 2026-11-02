@@ -2528,6 +2528,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
       pedalActive: song.pedalActive,
       fullPage: song.fullPage,
       pdf: song.pdf,
+      pdfRotate: song.pdfRotate,
     });
     // A pdf song's bytes live in a separate local store — copy them to the new id
     // so the duplicate renders. (Stage 1a: purely local.)

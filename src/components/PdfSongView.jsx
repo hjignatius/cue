@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileWarning } from 'lucide-react';
-import { loadPdfjs } from '../utils/pdfjs.js';
+import { loadPdfjs, pageRotation } from '../utils/pdfjs.js';
 import { loadPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 // FAIL SOFT: a missing blob or a load/render error shows a clear placeholder and
 // never throws into Present mode. Tap zones (left = previous, right = next) call
 // the parent so page-turn stays unified with the pedal/keyboard handler.
-export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNext, dark }) {
+export default function PdfSongView({ songId, page, turn = 0, onReady, onTapPrev, onTapNext, dark }) {
   const { user } = useAuth();
   const wrapRef   = useRef(null);
   const canvasRef = useRef(null);
@@ -94,11 +94,12 @@ export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNex
         const dpr = window.devicePixelRatio || 1;
         const cssWidth  = wrap.clientWidth;
         const cssHeight = wrap.clientHeight;
-        const base = pdfPage.getViewport({ scale: 1 });
+        const rotation = pageRotation(pdfPage, turn);
+        const base = pdfPage.getViewport({ scale: 1, rotation });
         // Full Page mode: fit the WHOLE page inside the area (min of width- and
         // height-fit) so a tall page is never clipped — the entire page shows.
         const fit = Math.min(cssWidth / base.width, cssHeight / base.height);
-        const viewport = pdfPage.getViewport({ scale: fit * dpr });
+        const viewport = pdfPage.getViewport({ scale: fit * dpr, rotation });
         canvas.width  = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
         canvas.style.width  = Math.floor(viewport.width / dpr) + 'px';
@@ -114,7 +115,7 @@ export default function PdfSongView({ songId, page, onReady, onTapPrev, onTapNex
       }
     })();
     return () => { cancelled = true; try { taskRef.current?.cancel(); } catch { /* ignore */ } };
-  }, [status, page, renderTick]);
+  }, [status, page, renderTick, turn]);
 
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
 
