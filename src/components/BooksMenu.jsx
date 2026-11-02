@@ -40,9 +40,9 @@ export default function BooksMenu({ dark, open, onToggle, view, records, songs, 
   );
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <button onClick={() => onToggle(!open)} aria-haspopup="menu" aria-expanded={open}
-        className="flex items-center gap-1 text-xs tabular-nums text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 max-w-[16rem]">
+        className="flex items-center gap-1 text-xs tabular-nums text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 max-w-[min(16rem,100%)]">
         <span className={`font-medium truncate ${v.kind === 'mine' ? '' : 'text-indigo-600 dark:text-indigo-400'}`}>{viewName(v, records)}</span>
         <span className="shrink-0">· {plural(shown)}</span>
         <ChevronDown size={13} className="shrink-0" />

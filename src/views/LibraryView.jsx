@@ -2817,14 +2817,16 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
             ? (phonePanel === 'library' ? '@container w-full min-w-0 min-h-0 flex flex-col overflow-hidden' : 'hidden')
             : `@container flex-1 min-w-0 min-h-0 flex flex-col border-r ${border} overflow-hidden`}
         >
-          <div className={`px-4 py-2 border-b ${border} flex items-center justify-between`}>
-            <div className="flex flex-col leading-tight">
+          {/* The book name gives way, not the buttons: a long one pushed New Song
+              past the column edge and under the Sets panel on an iPad. */}
+          <div className={`px-4 py-2 border-b ${border} flex items-center justify-between gap-2`}>
+            <div className="flex flex-col leading-tight min-w-0">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Library</span>
               <BooksMenu dark={dark} open={booksOpen} onToggle={setBooksOpen} view={shownView} records={books} songs={songs}
                 shown={sorted.length} onView={(v) => { setLibView(v); setSelected(new Set()); setArtistFilter(null); setKeyFilter(null); }}
                 onEdit={setBookEdit} onNewShelf={() => setBookEdit({ kind: 'shelf' })} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <div className="relative">
                 <HeaderPill
                   dark={dark} icon={Upload} label="Export" hideLabelWhenNarrow
