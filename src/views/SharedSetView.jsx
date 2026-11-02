@@ -630,8 +630,8 @@ export default function SharedSetView() {
       const incoming = contentHash(s);
       const here = contentHash(local);
       const baseline = local.copiedFrom?.baseline;
-      let state;
-      if (baseline == null) state = incoming === here ? 'uptodate' : 'update'; // legacy copy — no baseline to attribute
+      let state, unsure = false;
+      if (baseline == null) ({ state, unsure } = legacyCopyState(local, s, incoming === here));
       else if (incoming === baseline) state = 'uptodate';                      // publisher unchanged
       else if (here === baseline) state = 'update';                            // publisher changed, you didn't
       else state = 'conflict';                                                 // both changed
@@ -644,7 +644,7 @@ export default function SharedSetView() {
       // Carried on the plan rather than computed in the dialog so both the row's
       // tooltip and the Update list read the same answer.
       const changed = contentDiffFields(local, s);
-      return { shareSong: s, local, state, matchedBy: 'lineage', changed };
+      return { shareSong: s, local, state, matchedBy: 'lineage', changed, unsure };
     });
     const anyMatched = songs.some(x => x.local);
     // Your OWN set, opened through its own share link — something Howard does
@@ -813,6 +813,9 @@ export default function SharedSetView() {
     (updatePlan?.songs || []).forEach(x => { if (x.state === 'conflict') s.add(x.shareSong.id); });
     return s;
   }, [updatePlan]);
+  // Conflicts an old copy's dates could not explain (legacyCopyState): the two
+  // differ, and Cue cannot say who changed what.
+  const unsureIds = useMemo(() => new Set((updatePlan?.songs || []).filter(x => x.unsure).map(x => x.shareSong.id)), [updatePlan]);
 
   // WHAT A ROW SHOWS — Howard's three symbols (2026-11-01), replacing a colour
   // that meant three things. Left, this device: + not here, = yours and
@@ -826,6 +829,7 @@ export default function SharedSetView() {
     return {
       lib,
       newer: bothChanged.has(song.id) ? 'decide' : behindShare.has(song.id) ? 'take' : null,
+      unsure: unsureIds.has(song.id),
       inkOnly: !!y && y.inked && !y.edited,
       playingMine: lib === '≠' && playMineIds.has(song.id),
     };
@@ -1552,6 +1556,31 @@ function SetCopyResult({ result, dark, onDone }) {
   );
 }
 
+// A COPY WITH NO BASELINE — made before v1.5.0 (2026-09-03), when Cue recorded
+// where a song came from but not what it looked like then. A plain hash compare
+// cannot say WHO moved, and it used to call every difference "newer in the
+// share": Howard's own edit to a three-month-old copy showed the blue arrow, and
+// one tap would have replaced his version with the librarian's.
+//
+// The dates can say who moved: the copy's copiedAt against when the publisher
+// last saved the song and when you last saved yours. They are the two devices'
+// own clocks, and a local save that changed nothing still counts as yours — but
+// every mistake that makes lands on 'conflict', which asks rather than takes.
+// `unsure` marks a difference neither date explains, so the wording can stop
+// claiming you both changed it.
+const SAVED_WITH_THE_COPY_MS = 60_000;   // a copy's own save lands a moment after copiedAt
+function legacyCopyState(local, shareSong, same) {
+  if (same) return { state: 'uptodate', unsure: false };
+  const copied = Date.parse(local.copiedFrom?.copiedAt);
+  const theirsAt = Date.parse(shareSong.updatedAt), yoursAt = Date.parse(local.updatedAt);
+  if ([copied, theirsAt, yoursAt].some(Number.isNaN)) return { state: 'conflict', unsure: true };
+  const theirs = theirsAt - copied > SAVED_WITH_THE_COPY_MS;
+  const yours = yoursAt - copied > SAVED_WITH_THE_COPY_MS;
+  if (theirs && !yours) return { state: 'update', unsure: false };
+  if (yours && !theirs) return { state: 'uptodate', unsure: false };   // only you changed it, as with a baseline
+  return { state: 'conflict', unsure: !(theirs && yours) };
+}
+
 // What each per-song row starts on when the Update list opens.
 //
 // A CONFLICT DEFAULTS TO SKIP. Both sides changed that song, so taking the
@@ -1624,11 +1653,12 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
   // four situations — songs you have never copied, songs the publisher changed,
   // songs you BOTH changed, and a set whose running order moved — and no one
   // word can carry that. The counts can.
-  const n = plan.songs.reduce((a, x) => ({ ...a, [x.state]: (a[x.state] || 0) + 1 }), {});
+  const n = plan.songs.reduce((a, x) => { const k = x.unsure ? 'unsure' : x.state; return { ...a, [k]: (a[k] || 0) + 1 }; }, {});
   const summary = [
     n.add      && `${n.add} to copy`,
     n.update   && `${n.update} changed in the share`,
     n.conflict && `${n.conflict} you’ve also edited`,
+    n.unsure   && `${n.unsure} that differ${n.unsure === 1 ? 's' : ''} from yours`,
     n.have     && `${n.have} already in your library`,
     n.uptodate && `${n.uptodate} already up to date`,
   ].filter(Boolean).join(' · ');
@@ -1691,7 +1721,9 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
                       {item.state === 'update' && (item.changed?.length
                         ? `Changed in the share — ${item.changed.join(', ')}`
                         : 'Changed in the share')}
-                      {item.state === 'conflict' && 'Changed in the share — you also edited your copy'}
+                      {item.state === 'conflict' && (item.unsure
+                        ? 'Yours and the shared one differ — Cue can’t tell who changed it'
+                        : 'Changed in the share — you also edited your copy')}
                       {/* Not "New — not in your library": the list matches by
                           LINEAGE, not by title or content, so all it knows is
                           that this song has not arrived from this share. Saying
@@ -1968,13 +2000,13 @@ function SymbolBox({ label, title, plays, accent, onActivate, disabled, dark, ch
 
 function SharedSongRow({ song, index, dark, muted, row, onToggleMine, onPresent, onCopy, onCloud, changed, copying }) {
   const meta = song.metadata || {};
-  const { lib, newer, inkOnly, playingMine } = row;
+  const { lib, newer, inkOnly, playingMine, unsure } = row;
   const changedNote = changed?.length ? ` — ${changed.join(', ')}` : '';
   // A = row with nothing newer is the same song on both sides, so both boxes
   // are drawn as playing and there is nothing to switch.
   const same = lib === '=' && !newer;
   const status = lib === '+' ? 'Not on this device'
-    : newer === 'decide' ? 'You both changed it — tap the cloud to choose'
+    : newer === 'decide' ? (unsure ? 'Yours and the shared one differ — tap the cloud to choose' : 'You both changed it — tap the cloud to choose')
     : newer === 'take' ? 'Newer in the share — tap the cloud to get it'
     : lib === '=' ? 'On this device, same as shared'
     : `${inkOnly ? 'You drew on your copy' : 'You changed your copy'} — ${playingMine ? 'yours plays' : 'shared plays'}`;
@@ -2030,9 +2062,11 @@ function SharedSongRow({ song, index, dark, muted, row, onToggleMine, onPresent,
           </button>
           <SymbolBox
             dark={dark}
-            label={newer === 'decide' ? 'You and the publisher both changed this song — decide what to do'
+            label={newer === 'decide' && unsure ? 'Your copy and the shared one differ — decide what to do'
+              : newer === 'decide' ? 'You and the publisher both changed this song — decide what to do'
               : newer === 'take' ? 'Get the newer shared version of this song' : 'The shared version'}
-            title={newer === 'decide' ? `The publisher has changed this song, and so have you${changedNote}. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`
+            title={newer === 'decide' && unsure ? `Your copy and the shared one differ${changedNote}, and your copy is too old for Cue to tell who changed it. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`
+              : newer === 'decide' ? `The publisher has changed this song, and so have you${changedNote}. Nothing is taken automatically: this opens the list so you can keep yours or take theirs.`
               : newer === 'take' ? `The publisher has changed this song since you copied it${changedNote}. This replaces your copy with their newer version — your ink annotations are kept.`
               : 'The version in the shared set.'}
             plays={!playingMine}
