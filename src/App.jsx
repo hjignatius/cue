@@ -8,6 +8,7 @@ import SheetChartDialog from './components/SheetChartDialog.jsx';
 import PagePicker from './components/PagePicker.jsx';
 import BookChoice, { startBook, bookChoice } from './components/BookChoice.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord, saveBookChoice, dropEmptyBooks } from './utils/storage.js';
+import { APP_VERSION, isNewerVersion } from './utils/appVersion.js';
 import { normalizeTitle } from './utils/contentHash.js';
 import { bookName } from './utils/books.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
@@ -473,6 +474,14 @@ export default function App() {
         if (file.name.toLowerCase().endsWith('.json')) {
           let data;
           try { data = JSON.parse(content); } catch { alert(`Invalid JSON: ${file.name}`); continue; }
+
+          // A file from a NEWER Cue can carry things this one would quietly
+          // drop — books, a turned PDF — so ask for the update first
+          // (appVersion.js). Updating is a reload while online.
+          if (isNewerVersion(data?.appVersion, APP_VERSION)) {
+            alert(`“${file.name}” was made by Cue ${data.appVersion}, and this is Cue ${APP_VERSION}. Importing it here could lose parts of it.\n\nUpdate Cue first: open it while connected to the internet, and tap Update Cue if it asks. Then import the file again.`);
+            continue;
+          }
 
           if (data.type === 'cue-setlist' && data.setlist) data = { ...data, type: 'cue-set', set: data.setlist };
 

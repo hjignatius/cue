@@ -5,6 +5,7 @@ import { PrefsProvider } from './context/PrefsContext.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { YouTubeProvider } from './context/YouTubeContext.jsx';
 import YouTubePlayer from './components/YouTubePlayer.jsx';
+import DbNotice from './components/DbNotice.jsx';
 import App from './App.jsx';
 import SharedSetView from './views/SharedSetView.jsx';
 import { registerSw } from './swUpdate.js';
@@ -35,6 +36,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/*" element={<App />} />
             </Routes>
             <YouTubePlayer />
+            <DbNotice />
           </YouTubeProvider>
         </AuthProvider>
       </PrefsProvider>

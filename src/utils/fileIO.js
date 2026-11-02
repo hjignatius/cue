@@ -1,6 +1,7 @@
 import { zipSync } from 'fflate';
 import { saveFilePicker } from './filePicker.js';
 import { loadSongs, loadSets, loadBooks, collectPdfBackups, SCHEMA_VERSION } from './storage.js';
+import { APP_VERSION } from './appVersion.js';
 import { loadAllAnnotations } from './annotations.js';
 import { loadSavedShares } from './sharedBookmarks.js';
 import { convertToBrackets, detectChordStyle } from './chordStyle.js';
@@ -324,7 +325,7 @@ export async function exportSetsJson(sets, allSongs) {
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
   const pdfs = await collectPdfBackups(songs);
-  const payload = JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-sets', version: 2, appVersion: APP_VERSION, sets, songs, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
   download(`cue-sets-${date}.json`, payload, 'application/json');
 }
 
@@ -335,7 +336,7 @@ export async function exportSongsJson(selectedSongs) {
   const songs = selectedSongs.map(s => songMap.get(s.id) || s);
   const date = new Date().toISOString().slice(0, 10);
   const pdfs = await collectPdfBackups(songs);
-  const payload = JSON.stringify({ type: 'cue-songs', version: 2, songs, pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-songs', version: 2, appVersion: APP_VERSION, songs, pdfs }, null, 2);
   download(`cue-export-${date}.json`, payload, 'application/json');
 }
 
@@ -394,8 +395,8 @@ export async function shareSongsJson(selectedSongs) {
   const date = new Date().toISOString().slice(0, 10);
   const pdfs = await collectPdfBackups(songs);
   const payload = one
-    ? JSON.stringify({ type: 'cue-song', version: 2, song: one, pdfs }, null, 2)
-    : JSON.stringify({ type: 'cue-songs', version: 2, songs, pdfs }, null, 2);
+    ? JSON.stringify({ type: 'cue-song', version: 2, appVersion: APP_VERSION, song: one, pdfs }, null, 2)
+    : JSON.stringify({ type: 'cue-songs', version: 2, appVersion: APP_VERSION, songs, pdfs }, null, 2);
   const filename = one ? `${sanitizeFilename(one.metadata?.title)}.json` : `cue-songs-${date}.json`;
   const title = one ? `Cue song: ${one.metadata?.title || 'Untitled'}` : `Cue songs (${songs.length})`;
   const text  = `${one ? `"${one.metadata?.title || 'Untitled'}"` : `${songs.length} songs`} from Cue. Open in Cue: Import → pick this .json file.`;
@@ -422,8 +423,8 @@ export async function shareSetsJson(sets, allSongs) {
   const date = new Date().toISOString().slice(0, 10);
   const tagged = chordLibrarySnapshot();
   const payload = one
-    ? JSON.stringify({ type: 'cue-set', version: 2, set: one, songs, customChords, ...tagged, pdfs }, null, 2)
-    : JSON.stringify({ type: 'cue-sets', version: 2, sets, songs, customChords, ...tagged, pdfs }, null, 2);
+    ? JSON.stringify({ type: 'cue-set', version: 2, appVersion: APP_VERSION, set: one, songs, customChords, ...tagged, pdfs }, null, 2)
+    : JSON.stringify({ type: 'cue-sets', version: 2, appVersion: APP_VERSION, sets, songs, customChords, ...tagged, pdfs }, null, 2);
   const filename = one ? `${sanitizeFilename(one.name)}.json` : `cue-sets-${date}.json`;
   const title = one ? `Cue set: ${one.name}` : `Cue sets (${sets.length})`;
   const text  = `${one ? `"${one.name}"` : `${sets.length} sets`} from Cue. Open in Cue: Import → pick this .json file.`;
@@ -434,7 +435,7 @@ export async function shareSetsJson(sets, allSongs) {
 
 export async function exportSongJson(song) {
   const pdfs = await collectPdfBackups([song]);
-  const payload = JSON.stringify({ type: 'cue-song', version: 2, song, pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-song', version: 2, appVersion: APP_VERSION, song, pdfs }, null, 2);
   download(`${sanitizeFilename(song.metadata.title)}.json`, payload, 'application/json');
 }
 
@@ -445,7 +446,7 @@ export async function exportSetJson(set, allSongs) {
   const songs = set.songIds.map(id => songMap.get(id) || allSongs.find(s => s.id === id)).filter(Boolean);
   const customChords = loadCustomChords();
   const pdfs = await collectPdfBackups(songs);
-  const payload = JSON.stringify({ type: 'cue-set', version: 2, set, songs, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-set', version: 2, appVersion: APP_VERSION, set, songs, customChords, ...chordLibrarySnapshot(), pdfs }, null, 2);
   download(`${sanitizeFilename(set.name)}.json`, payload, 'application/json');
 }
 
@@ -475,7 +476,7 @@ export async function exportBackup() {
   const date = new Date().toISOString().slice(0, 10);
   const customChords = loadCustomChords();
   const pdfs = await collectPdfBackups(songs); // { songId: base64 }
-  const payload = JSON.stringify({ type: 'cue-backup', version: 3, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, books, customChords, ...chordLibrarySnapshot(), pdfs, annotations, sharedWithMe }, null, 2);
+  const payload = JSON.stringify({ type: 'cue-backup', version: 3, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), songs, sets, books, customChords, ...chordLibrarySnapshot(), pdfs, annotations, sharedWithMe }, null, 2);
   return download(`cue-backup-${date}.json`, payload, 'application/json');
 }
 

@@ -13,10 +13,30 @@ export const SCHEMA_VERSION = 3;
 // Singleton — opened once, reused everywhere
 let _db = null;
 
+// ANOTHER COPY OF CUE IN THE WAY. An upgrade to the library can't start while an
+// older Cue still has it open in another tab or window, and the browser simply
+// waits — a blank Cue with no reason given. So both sides say so (DbNotice):
+// 'blocked' here, waiting on the other copy; 'blocking' there, the older copy
+// asked to step aside. Never a reload without a tap, as with Update Cue.
+//
+// The browser says 'blocked' only once. Reload a waiting Cue and the new page
+// queues behind the old page's request and hears nothing, so a library that
+// still hasn't opened after a few seconds says the same thing. Opening it
+// normally takes well under one.
+const SLOW_OPEN_MS = 4000;
+let _dbWait = null;
+export const dbWait = () => _dbWait;
+function setDbWait(v) {
+  if (_dbWait === v) return;
+  _dbWait = v;
+  window.dispatchEvent(new Event('cue:db-wait'));
+}
+
 // Exported so that annotation utilities (annotations.js) can share the same
 // connection rather than opening a competing one at a different version.
 export async function getDB() {
   if (!_db) {
+    const slow = setTimeout(() => setDbWait('blocked'), SLOW_OPEN_MS);
     _db = await openDB(DB_NAME, DB_VERSION, {
       upgrade(database) {
         if (!database.objectStoreNames.contains('songs')) {
@@ -48,7 +68,10 @@ export async function getDB() {
           database.createObjectStore('books', { keyPath: 'id' });
         }
       },
-    });
+      blocked() { setDbWait('blocked'); },
+      blocking() { setDbWait('blocking'); },
+    }).finally(() => clearTimeout(slow));
+    if (_dbWait === 'blocked') setDbWait(null);
     await migrateFromLocalStorage(_db);
     await runMigrations(_db);
     await migrateBooks(_db);
