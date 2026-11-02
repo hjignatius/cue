@@ -92,6 +92,14 @@ function pdfRefForCopy(pdf) {
 }
 
 // Find the lowest available "(N)" suffix so the new title is unique.
+// The titles a copy has to stand apart from. Into a book, only that book's: the
+// book's name already says whose version it is, and a "(2)" is part of the
+// title, carried into Present, printed PDFs and anything shared onward. Into
+// My songs, the whole library, as before.
+function titlesAt(localSongs, bookId) {
+  return new Set(localSongs.filter(s => !bookId || s.bookId === bookId).map(s => normalizeTitle(s.metadata?.title)));
+}
+
 function makeUniqueTitle(baseTitle, existingTitlesSet) {
   const cleanBase = (baseTitle || 'Untitled').replace(/ \(\d+\)$/, '');
   let n = 2;
@@ -468,13 +476,6 @@ export default function SharedSetView() {
         if (src && !copyBySource.has(src)) copyBySource.set(src, ls);
       }
 
-      // Collect conflicts: cloud songs whose title already exists locally — but
-      // skip any already copied (handled by provenance below), so we don't prompt
-      // for songs we're going to reuse silently.
-      const conflicts = songs
-        .filter(s => !copyBySource.has(s.id) && titleMap.has(normalizeTitle(s.metadata?.title)))
-        .map(s => ({ cloudSong: s, localSong: titleMap.get(normalizeTitle(s.metadata?.title)) }));
-
       // Keep its songs as a book, out of My songs until used (books.js). A set
       // copied before goes on into the book its songs are already in.
       const records = await loadBooks();
@@ -488,6 +489,15 @@ export default function SharedSetView() {
       }
       const bookFields = bookId ? { bookId, mine: false } : NO_BOOK;
 
+      // Collect conflicts: cloud songs whose title already exists locally — but
+      // skip any already copied (handled by provenance below), so we don't prompt
+      // for songs we're going to reuse silently. None at all into a book: the
+      // book keeps the share's version beside yours, so there is nothing to
+      // choose between and no "(2)" to tell them apart (titlesAt).
+      const conflicts = bookId ? [] : songs
+        .filter(s => !copyBySource.has(s.id) && titleMap.has(normalizeTitle(s.metadata?.title)))
+        .map(s => ({ cloudSong: s, localSong: titleMap.get(normalizeTitle(s.metadata?.title)) }));
+
       let choices = {};
       if (conflicts.length > 0) {
         const resolved = await askConflicts(conflicts);
@@ -497,7 +507,7 @@ export default function SharedSetView() {
       }
 
       // Running set of normalized titles (grows as we add songs, prevents suffix collisions)
-      const allTitles = new Set(localSongs.map(s => normalizeTitle(s.metadata?.title)));
+      const allTitles = titlesAt(localSongs, bookId);
       let copied = 0, duplicated = 0, skipped = 0;
       const newSongIds = [];
       const now = new Date().toISOString();
@@ -513,22 +523,26 @@ export default function SharedSetView() {
         }
 
         const titleKey    = normalizeTitle(song.metadata?.title);
-        const hasConflict = titleMap.has(titleKey);
+        const hasConflict = !bookId && titleMap.has(titleKey);
 
         if (!hasConflict) {
+          // Only a title already in this same book still takes a number.
+          const clash = allTitles.has(titleKey);
+          const newTitle = clash ? makeUniqueTitle(song.metadata?.title || 'Untitled', allTitles) : null;
           const newId = await saveSong({
             ...song,
             ...bookFields,
             id: null,
+            ...(clash ? { metadata: { ...song.metadata, title: newTitle } } : {}),
             createdAt: now,
             updatedAt: now,
             copiedFrom: { songId: song.id, setName: set.name, copiedAt: now, baseline: contentHash(song) },
             pdf: pdfRefForCopy(song.pdf),
           });
           if (song.type === 'pdf') { const blob = await loadPdfBlob(song.id); if (blob) await savePdfBlob(newId, blob); }
-          allTitles.add(titleKey);
+          allTitles.add(clash ? normalizeTitle(newTitle) : titleKey);
           newSongIds.push(newId);
-          copied++;
+          if (clash) duplicated++; else copied++;
         } else {
           const choice = choices[song.id] ?? 'skip';
           if (choice === 'duplicate') {
@@ -926,13 +940,13 @@ export default function SharedSetView() {
     try {
       const now = new Date().toISOString();
       const shareToLocalId = new Map();
-      const allTitles = new Set(localSongs.map(s => normalizeTitle(s.metadata?.title)));
       let updated = 0, added = 0, skipped = 0;
       // A song added goes into the book the set's copies are in, or the one
       // chosen in the list — made only if something is actually added.
       const adding = updatePlan.songs.some(x => isAddish(x.state) && (choices?.[x.shareSong.id] ?? defaultUpdateAction(x.state)) === 'add');
       const bookId = updatePlan.bookId || (book && adding && !updatePlan.mine ? await saveBookChoice(book) : null);
       const bookFields = bookId ? { bookId, mine: false } : NO_BOOK;
+      const allTitles = titlesAt(localSongs, bookId);
 
       for (const item of updatePlan.songs) {
         const s = item.shareSong;
@@ -1754,8 +1768,9 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
         {n.have > 0 && (
           <p className={`text-[0.6875rem] ${sub}`}>
             A song you already have is set to <strong>Skip</strong>. Choosing <strong>Add</strong> brings the
-            publisher’s version in as a <em>separate</em> song with a numbered name — your own copy is never
-            changed or replaced.
+            publisher’s version in as a <em>separate</em> song{plan.bookId || (askBook && book?.on)
+              ? ' in the book, under its own title'
+              : ' with a numbered name'} — your own copy is never changed or replaced.
           </p>
         )}
         {anyConflict && (
