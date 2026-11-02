@@ -276,7 +276,7 @@ function manualHTML() {
 <p><strong>Which key the Library shows:</strong> the key beside each song title — and the key used for search, the <em>By Key</em> sort, and the key filter — is the song's <strong>View Key</strong> (the key you actually perform it in). If a song has no View Key set, its written key is used instead. So a song written in C but set to play in G shows, sorts, and is found as <strong>G</strong>. Hover the key to see the original written key when the two differ.</p>
 
 <h2>Backup &amp; Restore</h2>
-<p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file — including the bytes of any <strong>PDF</strong> lead sheets, so a restore brings the PDFs back too. It also carries your <strong>custom chord shapes for every instrument</strong> — Ukulele, Baritone and Guitar — and the built-in shapes you have deleted, so a restored device looks up chords the same way this one does.</p>
+<p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file — including the bytes of any <strong>PDF</strong> lead sheets, so a restore brings the PDFs back too. It also carries your <strong>custom chord shapes for every instrument</strong> — Ukulele, Baritone and Guitar — and the built-in shapes you have deleted, so a restored device looks up chords the same way this one does. Your <strong>ink</strong> and your <strong>Shared with me</strong> list are in it too, so deleting Cue from the home screen and adding it again (which empties that app’s storage on an iPhone or iPad) loses nothing a restore can’t bring back.</p>
 <p>To restore, tap <strong>Import</strong> and select a backup file. Cue asks how to handle the import:</p>
 <ul>
   <li><strong>Replace library</strong> — clears all current songs and sets, then loads the backup exactly as it was. Use this when moving to a new device or doing a clean restore.</li>
@@ -830,7 +830,9 @@ Pulling will discard them. Continue?</pre>
 <pre>{ "type": "cue-backup", "version": 3, "exportedAt": "...", "songs": [ ... ], "sets": [ ... ],
   "customChordsByInstrument": { "ukulele_gcea": [ ... ], "guitar": [ ... ] },
   "hiddenChordsByInstrument": { "ukulele_gcea": [ ... ] },
-  "pdfs": { "songId": "base64..." } }</pre>
+  "pdfs": { "songId": "base64..." },
+  "annotations": [ { "songId": "...", "strokes": [ ... ], "updatedAt": "..." } ],
+  "sharedWithMe": [ { "token": "...", "setName": "..." } ] }</pre>
 <p>Chord shapes are tagged by instrument so a guitar shape is never read as a ukulele one. Older backups carry a single untagged <code>customChords</code> list instead; those are treated as Ukulele, exactly as they always were, and still restore correctly.</p>
 <p>Import a backup file via <strong>Import</strong> to restore all songs and sets in one step.</p>
 

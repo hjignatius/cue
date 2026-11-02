@@ -393,6 +393,12 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
 
   // Shared-with-me bookmarks (viewer-side, localStorage only)
   const [savedShares, setSavedShares] = useState(loadSavedShares);
+  // A backup restore can add to the list (restoreSavedShares).
+  useEffect(() => {
+    const reload = () => setSavedShares(loadSavedShares());
+    window.addEventListener('cue:library-restored', reload);
+    return () => window.removeEventListener('cue:library-restored', reload);
+  }, []);
   // The Shared with me row whose Pass-on window is open.
   const [passOnShare, setPassOnShare] = useState(null);
 
@@ -2223,9 +2229,11 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
     reloadAnnotated();
     document.addEventListener('visibilitychange', reloadAnnotated);
     window.addEventListener('focus', reloadAnnotated);
+    window.addEventListener('cue:library-restored', reloadAnnotated);
     return () => {
       document.removeEventListener('visibilitychange', reloadAnnotated);
       window.removeEventListener('focus', reloadAnnotated);
+      window.removeEventListener('cue:library-restored', reloadAnnotated);
     };
   }, [reloadAnnotated]);
 

@@ -11,6 +11,8 @@ import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSe
 import { normalizeTitle } from './utils/contentHash.js';
 import { bookName } from './utils/books.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
+import { restoreAnnotations } from './utils/annotations.js';
+import { restoreSavedShares } from './utils/sharedBookmarks.js';
 import { CHORD_LIBRARIES } from './data/chordLibraries.js';
 import { usePrefs } from './context/PrefsContext.jsx';
 import { useSwUpdate, applyUpdate, dismissUpdate } from './swUpdate.js';
@@ -621,6 +623,9 @@ export default function App() {
                 const resolvedSongIds = set.songIds.map(id => idMap[id] ?? id).filter(Boolean);
                 await saveSet({ markUsed: false, id: set.id || null, name: set.name, songIds: resolvedSongIds, sortMode: set.sortMode || 'custom', createdAt: set.createdAt, updatedAt: set.updatedAt, preserveTimestamps: true });
               }
+              const inked = await restoreAnnotations(data.annotations, 'replace');
+              const shares = restoreSavedShares(data.sharedWithMe);
+              alert(`Backup restored.\n${data.songs.length} song${data.songs.length === 1 ? '' : 's'}, ${data.sets.length} set${data.sets.length === 1 ? '' : 's'}${inked ? `, ink on ${inked} song${inked === 1 ? '' : 's'}` : ''}${shares ? `, ${shares} set${shares === 1 ? '' : 's'} shared with you` : ''}`);
             } else {
               // Merge: keep whichever version of each song/set has the newer updatedAt.
               const [existingSongs, existingSets] = await Promise.all([loadSongs(), loadSets()]);
@@ -687,9 +692,14 @@ export default function App() {
                 }
               }
 
+              const inked = await restoreAnnotations(data.annotations, 'merge');
+              const shares = restoreSavedShares(data.sharedWithMe);
+
               const parts = [];
               if (data.songs.length)  parts.push(`Songs: ${songsAdded} added, ${songsUpdated} updated, ${songsSkipped} unchanged`);
               if (data.sets.length)   parts.push(`Sets: ${setsAdded} added, ${setsUpdated} updated, ${setsSkipped} unchanged`);
+              if (inked)              parts.push(`Ink: on ${inked} song${inked === 1 ? '' : 's'}`);
+              if (shares)             parts.push(`Shared with me: ${shares} added`);
               alert(`Backup merged.\n${parts.join('\n')}`);
             }
 
@@ -735,6 +745,8 @@ export default function App() {
       }
 
       await refresh();
+      // Ink and Shared with me live outside the song list refresh() reloads.
+      window.dispatchEvent(new Event('cue:library-restored'));
 
       // "Show them": the Library opens the new set, or lists newest first.
       if (showAfter) window.dispatchEvent(new CustomEvent('cue:show-imported', { detail: showAfter }));

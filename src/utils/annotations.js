@@ -114,6 +114,36 @@ export function deleteAnnotation(songId) {
   enqueue(songId, DELETE);
 }
 
+// FULL BACKUPS — the one export ink does travel in. Everything above keeps ink
+// out of publishing and sharing, because it is yours; a backup is yours too, and
+// without it deleting the home-screen app (iOS wipes its storage) took every
+// drawing with it. Records go as stored, keyed by song id: a backup restores
+// songs under their own ids, so the ink lands back on the song it was drawn on.
+export async function loadAllAnnotations() {
+  await flushAllAnnotationQueues();
+  return (await (await getDB()).getAll('annotations')).filter(a => a.strokes?.length);
+}
+
+// Written directly, not through saveAnnotation: a restore must not mark songs as
+// used (the backup already says which are yours). 'replace' takes the backup's
+// ink; 'merge' keeps this device's unless the backup's was drawn later.
+export async function restoreAnnotations(records, mode = 'merge') {
+  if (!Array.isArray(records) || !records.length) return 0;
+  await flushAllAnnotationQueues();
+  const d = await getDB();
+  let n = 0;
+  for (const r of records) {
+    if (!r?.songId || !r.strokes?.length) continue;
+    if (mode !== 'replace') {
+      const here = await d.get('annotations', r.songId);
+      if (here?.strokes?.length && (here.updatedAt || '') >= (r.updatedAt || '')) continue;
+    }
+    await d.put('annotations', { songId: r.songId, strokes: r.strokes, updatedAt: r.updatedAt || new Date().toISOString() });
+    n++;
+  }
+  return n;
+}
+
 // Return a Set of song IDs that have at least one stored stroke.
 // Used by LibraryView to show the pencil badge.
 export async function loadAnnotatedSongIds() {

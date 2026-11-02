@@ -21,6 +21,18 @@ export function persistSavedShares(arr) {
   try { localStorage.setItem(SHARED_WITH_ME_KEY, JSON.stringify(arr)); } catch { /* storage unavailable */ }
 }
 
+// From a full backup: add the sets someone sent you that this device hasn't got.
+// Never removes one, and a bookmark already here keeps its own name and dates.
+// Returns how many were added.
+export function restoreSavedShares(list) {
+  if (!Array.isArray(list)) return 0;
+  const here = loadSavedShares();
+  const have = new Set(here.map(s => s.token));
+  const added = list.filter(s => s?.token && !have.has(s.token));
+  if (added.length) persistSavedShares([...here, ...added]);
+  return added.length;
+}
+
 // Bring one bookmark up to date from a freshly loaded share. Returns a NEW array
 // when something changed, or null when there is nothing to write.
 //
