@@ -290,8 +290,9 @@ export async function exportCho(song) {
   download(`${sanitizeFilename(song.metadata.title)}.cho`, songToCho(song), 'text/plain');
 }
 
-// Export a selection of songs as a ZIP of individual .cho files.
-export async function exportSongsZip(songs) {
+// Export a selection of songs as a ZIP of individual .cho files. `name` names
+// the file when the selection is a book.
+export async function exportSongsZip(songs, name = null) {
   const enc = new TextEncoder();
   const files = {};
   const usedNames = new Set();
@@ -305,7 +306,7 @@ export async function exportSongsZip(songs) {
   }
   const zipped = zipSync(files, { level: 0 });
   const date = new Date().toISOString().slice(0, 10);
-  await saveFilePicker(new Blob([zipped], { type: 'application/zip' }), `cue-export-${date}.zip`);
+  await saveFilePicker(new Blob([zipped], { type: 'application/zip' }), `${name ? sanitizeFilename(name) : `cue-export-${date}`}.zip`);
 }
 
 // Export multiple sets (with all their referenced songs) as a single JSON bundle.
@@ -329,15 +330,16 @@ export async function exportSetsJson(sets, allSongs) {
   download(`cue-sets-${date}.json`, payload, 'application/json');
 }
 
-// Export a selection of songs as a JSON bundle.
-export async function exportSongsJson(selectedSongs) {
+// Export a selection of songs as a JSON bundle. Named after a book, the file
+// offers that name again when it is imported.
+export async function exportSongsJson(selectedSongs, name = null) {
   const fresh = await loadSongs();
   const songMap = new Map(fresh.map(s => [s.id, s]));
   const songs = selectedSongs.map(s => songMap.get(s.id) || s);
   const date = new Date().toISOString().slice(0, 10);
   const pdfs = await collectPdfBackups(songs);
   const payload = JSON.stringify({ type: 'cue-songs', version: 2, appVersion: APP_VERSION, songs, pdfs }, null, 2);
-  download(`cue-export-${date}.json`, payload, 'application/json');
+  download(`${name ? sanitizeFilename(name) : `cue-export-${date}`}.json`, payload, 'application/json');
 }
 
 export async function importCho() {
@@ -387,7 +389,7 @@ async function shareJsonFile(payload, filename, { title, text } = {}) {
 }
 
 // Share the selected song(s) as a .json (single-song bundle when one is picked).
-export async function shareSongsJson(selectedSongs) {
+export async function shareSongsJson(selectedSongs, name = null) {
   const fresh = await loadSongs();
   const songMap = new Map(fresh.map(s => [s.id, s]));
   const songs = selectedSongs.map(s => songMap.get(s.id) || s);
@@ -397,7 +399,7 @@ export async function shareSongsJson(selectedSongs) {
   const payload = one
     ? JSON.stringify({ type: 'cue-song', version: 2, appVersion: APP_VERSION, song: one, pdfs }, null, 2)
     : JSON.stringify({ type: 'cue-songs', version: 2, appVersion: APP_VERSION, songs, pdfs }, null, 2);
-  const filename = one ? `${sanitizeFilename(one.metadata?.title)}.json` : `cue-songs-${date}.json`;
+  const filename = one ? `${sanitizeFilename(one.metadata?.title)}.json` : `${name ? sanitizeFilename(name) : `cue-songs-${date}`}.json`;
   const title = one ? `Cue song: ${one.metadata?.title || 'Untitled'}` : `Cue songs (${songs.length})`;
   const text  = `${one ? `"${one.metadata?.title || 'Untitled'}"` : `${songs.length} songs`} from Cue. Open in Cue: Import → pick this .json file.`;
   return shareJsonFile(payload, filename, { title, text });

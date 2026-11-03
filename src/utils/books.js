@@ -102,6 +102,48 @@ export function removeBookPlan(bookId, songs = []) {
 }
 
 /**
+ * The books a selection takes every song of, as ids. `ids` is any list or Set
+ * of song ids.
+ */
+export function wholeBooks(ids, songs = []) {
+  const ticked = new Set(ids);
+  const books = new Map();
+  for (const s of songs) {
+    if (!s.bookId) continue;
+    books.set(s.bookId, (books.get(s.bookId) ?? true) && ticked.has(s.id));
+  }
+  return [...books].filter(([, all]) => all).map(([id]) => id);
+}
+
+/**
+ * The book a selection IS, for naming what is exported: its name when the
+ * selection is that one book and nothing else, otherwise null.
+ */
+export function selectionBook(ids, songs = [], records = []) {
+  const [id, another] = wholeBooks(ids, songs);
+  if (!id || another || songs.filter(s => s.bookId === id).length !== new Set(ids).size) return null;
+  return records.find(r => r.id === id)?.name || null;
+}
+
+/**
+ * What to ask before a Delete that takes all of a book, when some of its songs
+ * are ones you've used: Delete takes those too, where removing the book would
+ * keep them. Returns { books: [id], used: [ids], rest: [ids], names: [name] } —
+ * `rest` being what's ticked outside those books — or null with nothing to ask.
+ */
+export function wholeBookDelete(ids, songs = [], records = []) {
+  const books = wholeBooks(ids, songs);
+  const used = songs.filter(s => books.includes(s.bookId) && s.mine === true).map(s => s.id);
+  if (!used.length) return null;
+  const inBooks = new Set(songs.filter(s => books.includes(s.bookId)).map(s => s.id));
+  return {
+    books, used,
+    rest: [...new Set(ids)].filter(id => !inBooks.has(id)),
+    names: books.map(id => records.find(r => r.id === id)?.name).filter(Boolean),
+  };
+}
+
+/**
  * Songs imported from a book before books existed carry only `source: { book,
  * page }` — the book's file name. One book each, and the songs already in a set
  * or inked are yours. Returns { books: [record], patches: [{ id, bookId, mine }] }.

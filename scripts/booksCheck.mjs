@@ -3,7 +3,7 @@
 // how songs imported before books existed are sorted into them.
 //
 // Run: node scripts/booksCheck.mjs
-import { isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName } from '../src/utils/books.js';
+import { isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName, wholeBooks, selectionBook, wholeBookDelete } from '../src/utils/books.js';
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -78,6 +78,17 @@ check('one book per book file, named after it', sorted.books.map(b => [b.id, b.n
 check('…each song into its book, yours when it is in a set or inked; a song with a book already is left',
   sorted.patches, [{ id: 's1', bookId: 'b1', mine: false }, { id: 's2', bookId: 'b1', mine: true }, { id: 's3', bookId: 'b2', mine: false }]);
 check('a book’s name is its file’s, without the .pdf', [bookName('Moselele_Book_7.pdf'), bookName('X.PDF'), bookName('')], ['Moselele_Book_7', 'X', 'Book']);
+
+// ---- selections that are whole books -----------------------------------------
+check('a selection takes a book only with every song of it', [wholeBooks(['b'], songs), wholeBooks(['b', 'c', 'd'], songs)], [[], ['fm', 'mos']]);
+check('…a song in no book is in none', wholeBooks(['a'], songs), []);
+check('an export is named for the book it is', selectionBook(new Set(['b', 'c']), songs, records), 'Farmers Market');
+check('…not part of one', selectionBook(['b'], songs, records), null);
+check('…not one with more besides', [selectionBook(['b', 'c', 'a'], songs, records), selectionBook(['b', 'c', 'd'], songs, records)], [null, null]);
+check('deleting all of a book asks about the songs you’ve used',
+  wholeBookDelete(['a', 'b', 'c'], songs, records), { books: ['fm'], used: ['c'], rest: ['a'], names: ['Farmers Market'] });
+check('…not when you’ve used none of them', wholeBookDelete(['d'], songs, records), null);
+check('…nor when it’s only part of the book', wholeBookDelete(['c'], songs, records), null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

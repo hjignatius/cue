@@ -53,7 +53,7 @@ import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import { mergedSongIds, mergeCounts, defaultMergeTargetId } from '../utils/mergeSets.js';
 import BooksMenu from '../components/BooksMenu.jsx';
 import BookDialog from '../components/BookDialog.jsx';
-import { songsInView, isMine, normalizeView, MY_SONGS } from '../utils/books.js';
+import { songsInView, isMine, normalizeView, MY_SONGS, selectionBook, wholeBookDelete } from '../utils/books.js';
 import { shortDuration } from '../utils/duration.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
@@ -2655,7 +2655,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
     if (selectedSongs.length === 1) {
       exportCho(selectedSongs[0]);
     } else {
-      exportSongsZip(selectedSongs);
+      exportSongsZip(selectedSongs, selectionBook(selected, songs, books));
     }
     setExportDropOpen(false);
     setSelected(new Set());
@@ -2667,7 +2667,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
     if (selectedSongs.length === 1) {
       exportSongJson(selectedSongs[0]);
     } else {
-      exportSongsJson(selectedSongs);
+      exportSongsJson(selectedSongs, selectionBook(selected, songs, books));
     }
     setExportDropOpen(false);
     setSelected(new Set());
@@ -2679,13 +2679,14 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
     const selectedSongs = sorted.filter(s => selected.has(s.id));
     if (selectedSongs.length === 0) return;
     setExportDropOpen(false);
-    try { await shareSongsJson(selectedSongs); } catch (err) { console.error('Share failed', err); }
+    try { await shareSongsJson(selectedSongs, selectionBook(selected, songs, books)); } catch (err) { console.error('Share failed', err); }
     setSelected(new Set());
   }
 
   async function handleExportSelectedPdf(includeChords = false) {
     const selectedSongs = sorted.filter(s => selected.has(s.id));
     if (selectedSongs.length === 0) return;
+    const book = selectionBook(selected, songs, books);
     setExportDropOpen(false);
     setSelected(new Set());
     try {
@@ -2695,7 +2696,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
         await exportToPdf(s, { displayKey: s.displayKey, includeChords, chordColor, accidentals, instrument });
       } else {
         // Multiple selected → one combined PDF, via a one-off synthesized set.
-        await exportSetToPdf({ name: 'Songs', songIds: selectedSongs.map(s => s.id) }, songs, { includeChords, chordColor, accidentals, instrument });
+        await exportSetToPdf({ name: book || 'Songs', songIds: selectedSongs.map(s => s.id) }, songs, { includeChords, chordColor, accidentals, instrument });
       }
     } catch (err) {
       console.error('PDF export failed:', err);
@@ -2705,7 +2706,19 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
 
   function handleDeleteSelected() {
     if (!selected.size) return;
-    setSongDeleteConfirm({ ids: [...selected], source: 'bulk' });
+    const ids = [...selected];
+    setSongDeleteConfirm({ ids, source: 'bulk', whole: wholeBookDelete(ids, songs, books) });
+  }
+
+  // Delete, ticked all of a book, keeping the songs you've used: as deleting
+  // the book from its ⋮ does, which leaves them in My songs.
+  async function keepUsedAndDelete() {
+    const { books: whole, rest } = songDeleteConfirm.whole;
+    setSongDeleteConfirm(null);
+    for (const id of whole) await removeBook(id);
+    setSelected(new Set());
+    if (whole.includes(shownView.id)) setLibView(MY_SONGS);
+    await onDeleteSongs(rest);
   }
 
   // Apply a confirmed song delete, then tidy up whatever raised it.
@@ -3454,6 +3467,8 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
       {songDeleteConfirm && (() => {
         const n = songDeleteConfirm.ids.length;
         const plan = songDeleteConfirm.source === 'dupExtras' ? songDeleteConfirm.plan : null;
+        const whole = songDeleteConfirm.whole;
+        const used = whole?.used.length ?? 0;
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" {...dismissOnOutside(() => setSongDeleteConfirm(null))}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
@@ -3467,10 +3482,17 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                 <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
                   {plan
                     ? <>Keeping <span className={dark ? 'text-gray-200 font-medium' : 'text-gray-700 font-medium'}>{plan.keeperTitle}</span>. The copies are identical, so nothing is lost{plan.repoint?.length ? <> — {plan.repoint.length === 1 ? 'the set' : 'the sets'} <span className={dark ? 'text-gray-200' : 'text-gray-700'}>{plan.repoint.join(', ')}</span> {plan.repoint.length === 1 ? 'is' : 'are'} pointed at the copy that stays</> : null}.</>
-                    : n === 1 ? 'It will also be removed from any sets it appears in.' : 'They will be removed from your library and any sets they appear in.'}
+                    : whole
+                      ? <>That’s all of {whole.names.length === 1 ? <span className={dark ? 'text-gray-200 font-medium' : 'text-gray-700 font-medium'}>{whole.names[0]}</span> : `${whole.names.length} books`}. {used === 1 ? 'One of these songs is' : `${used} of these songs are`} in your sets, inked or in My songs. Keep {used === 1 ? 'it' : 'them'}, or delete {used === 1 ? 'it' : 'them'} too, from your sets as well?</>
+                      : n === 1 ? 'It will also be removed from any sets it appears in.' : 'They will be removed from your library and any sets they appear in.'}
                 </p>
               </div>
               <div className="flex flex-col gap-2">
+                {whole && (
+                  <button onClick={keepUsedAndDelete} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">
+                    {used === n ? 'Keep them, delete the book' : `Keep ${used}, delete the other ${n - used}`}
+                  </button>
+                )}
                 <button
                   onClick={() => (plan ? applyRemoveExtras({ keeperId: plan.keeperId, extraIds: songDeleteConfirm.ids }) : performSongDelete())}
                   className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors"

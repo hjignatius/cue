@@ -3,10 +3,10 @@ import { shelves, removeBookPlan } from '../utils/books.js';
 
 // One book or shelf, from its ⋮ in the Library's switch (BooksMenu): rename it,
 // put a book on a shelf — one already there, or a new one named here — or
-// merge it into another book, or remove it. Merging moves every one of its
-// songs into the other book and removes this one. Removing says what it will do before it does it: a book's songs
-// you never used go, the ones you did stay as My songs; a shelf's books stay,
-// on no shelf, and no song goes.
+// merge it into another book, or delete it. Merging moves every one of its
+// songs into the other book and removes this one. Deleting says what it will do before it does it: a book's songs
+// you never used go, the ones you did stay as My songs. Removing a shelf: its
+// books stay, on no shelf, and no song goes.
 //
 // `record` is the book or shelf, or { kind: 'shelf' } for a new shelf.
 // onSave({ name, shelfId, newShelf }) — newShelf is a name, when the book goes
@@ -69,7 +69,7 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
             )}
             {!isNew && (
               <button onClick={() => setConfirming(true)} className="text-xs py-1 text-center text-red-600 dark:text-red-400 hover:underline">
-                {isBook ? 'Remove book…' : 'Remove shelf…'}
+                {isBook ? 'Delete book…' : 'Remove shelf…'}
               </button>
             )}
           </>
@@ -97,17 +97,17 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
 
         {confirming && (
           <>
-            <p className={`text-sm ${head}`}>Remove “{record.name}”?</p>
+            <p className={`text-sm ${head}`}>{isBook ? 'Delete' : 'Remove'} “{record.name}”?</p>
             <p className={`text-sm ${muted}`}>
               {isBook
-                ? <>{plan.remove.length ? <>{n(plan.remove.length, 'song')} you haven’t used will be removed.</> : <>Every song in it is one you’ve used.</>}{' '}
+                ? <>{plan.remove.length ? <>{n(plan.remove.length, 'song')} you haven’t used will be deleted.</> : <>Every song in it is one you’ve used.</>}{' '}
                     {plan.keep.length ? <>{n(plan.keep.length, 'song')} you’ve put in a set, inked or added to My songs {plan.keep.length === 1 ? 'stays' : 'stay'}, in My songs.</> : null}</>
                 : <>{onShelf ? <>Its {n(onShelf, 'book')} {onShelf === 1 ? 'stays' : 'stay'}, on no shelf.</> : <>There are no books on it.</>} No songs are removed.</>}
             </p>
             <div className="flex gap-2">
               <button onClick={() => setConfirming(false)} className={secondary}>Back</button>
               <button onClick={onRemove} className="flex-1 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
-                {isBook ? 'Remove book' : 'Remove shelf'}
+                {isBook ? 'Delete book' : 'Remove shelf'}
               </button>
             </div>
           </>
