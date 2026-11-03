@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import BookChoice, { startOne, bookChoice } from './BookChoice.jsx';
+import { stepWords } from '../utils/bookReport.js';
 
 // A PDF imported into the Library that is one song. When it turned out to be a
 // chord chart: load it as text, or keep the page — the same choice the
@@ -10,11 +11,12 @@ import BookChoice, { startOne, bookChoice } from './BookChoice.jsx';
 //
 // onText(book) / onPage(book): book is bookChoice()'s answer, or null.
 // No dimmed backdrop, as everywhere in Cue: nothing is lost by either answer.
-export default function SheetChartDialog({ dark, fileName, chart, title, records = [], bookId = '', onText, onPage, onCancel }) {
+export default function SheetChartDialog({ dark, fileName, chart, title, records = [], bookId = '', step = null, onStop, onText, onPage, onCancel }) {
   const [book, setBook] = useState(() => startOne(records, bookId));
   const lines = chart ? chart.text.split('\n').filter(l => l.trim()) : [];
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
   const into = bookChoice(book);
+  const more = step ? step.total - step.to : 0;
   const ready = !book.on || into;
   const secondary = `w-full py-2 text-sm font-medium rounded-xl border transition-colors disabled:opacity-40 ${dark ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
   const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors';
@@ -22,6 +24,7 @@ export default function SheetChartDialog({ dark, fileName, chart, title, records
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={onCancel}>
       <div className={`w-[26rem] max-w-full max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
         <div className="flex flex-col gap-1">
+          {step && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{stepWords(step)}</p>}
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{chart ? <>There&rsquo;s a chord chart in this PDF</> : 'Import a song'}</h2>
           <p className={`text-xs break-words ${muted}`}>{fileName}</p>
           {chart && (
@@ -54,7 +57,8 @@ export default function SheetChartDialog({ dark, fileName, chart, title, records
           <button onClick={() => onPage(into)} disabled={!ready} className={chart ? secondary : primary}>
             {chart ? 'Keep it as a page' : 'Import'}
           </button>
-          <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+          <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>{more ? 'Skip this PDF' : 'Cancel'}</button>
+          {more > 0 && <button onClick={onStop} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Stop here, skip {more} more</button>}
         </div>
       </div>
     </div>

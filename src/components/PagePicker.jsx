@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
-import { songsFromMarks } from '../utils/bookReport.js';
+import { songsFromMarks, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 
@@ -29,7 +29,7 @@ const NEXT = { start: 'same', same: 'skip', skip: 'start' };
 const WORDS = { start: 'New song', same: 'Same song', skip: 'Leave out' };
 const SET_DEFAULT_MAX = 100;
 
-export default function PagePicker({ dark, fileName, file, start, records = [], onAccept, onBack, onCancel }) {
+export default function PagePicker({ dark, fileName, file, start, records = [], step = null, onStop, onAccept, onBack, onCancel }) {
   const [doc, setDoc] = useState(null);
   const [failed, setFailed] = useState(false);
   const [marks, setMarks] = useState(start.marks);
@@ -97,11 +97,13 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const secondary = `w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
   const field = `w-full rounded-lg px-3 py-2 text-sm border ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
   const n = songs.length;
+  const more = step ? step.total - step.to : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className={`relative w-full max-w-4xl h-[94vh] sm:h-[85vh] rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-2 sm:gap-3 ${panel}`}>
         <div className="flex flex-col gap-1">
+          {step && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{stepWords(step)}</p>}
           <h2 className={`text-base font-semibold ${head}`}>Pick the songs <span className={`font-normal text-sm ${muted} break-words`}>“{fileName}”</span></h2>
           <p className={`text-xs sm:text-sm ${head}`}>
             Tap a page to change it: <b>New song</b>, <b>Same song</b> or <b>Leave out</b>. Tap a title to fix it.
@@ -150,7 +152,8 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
             Make {n} song{n === 1 ? '' : 's'}
           </button>
         </div>
-        <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Cancel</button>
+        <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>{more ? 'Skip this PDF' : 'Cancel'}</button>
+        {more > 0 && <button onClick={onStop} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Stop here, skip {more} more</button>}
 
         {big && (
           <BigPage doc={doc} p={big} count={marks.length} mark={shown[big - 1]} chart={!!chances?.[big - 1]}

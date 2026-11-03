@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -467,6 +467,11 @@ check('a book of titles over artists: the first heading line is the title, the n
   [sgStart.titles[1], sgStart.titles[2].title], [{ title: 'Africa', artist: 'Toto', key: '' }, 'Act Yr Age']);
 check('…a page with no title, or no text, is the song before it carried over',
   sgStart.marks.slice(9), ['start', 'same', 'same']);
+
+// Several PDFs picked together come up one at a time, and say how far along.
+check('a PDF of several says how many are left', stepWords({ from: 2, to: 2, total: 3 }), 'PDF 2 of 3 · 1 more after this');
+check('…and when it is the last', stepWords({ from: 3, to: 3, total: 3 }), 'PDF 3 of 3 · the last one');
+check('…sheets share a list, and count as what they are', stepWords({ from: 1, to: 4, total: 6 }), 'PDFs 1–4 of 6 · 2 more after these');
 
 // Cutting: the pages asked for, in that order, and nothing else.
 const src = await PDFDocument.create();

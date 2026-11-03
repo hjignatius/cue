@@ -425,6 +425,18 @@ function sheetCopies(pages) {
 
 // ---- What the report says ---------------------------------------------------
 
+/**
+ * Where you are in several PDFs picked together, which come up one book at a
+ * time: "PDF 2 of 3 · 1 more after this". `from` to `to` are the PDFs on screen,
+ * counted from 1 — more than one for the sheets, which share a list.
+ */
+export function stepWords({ from, to, total }) {
+  const one = from === to;
+  const where = one ? `PDF ${from} of ${total}` : `PDFs ${from}–${to} of ${total}`;
+  const left = total - to;
+  return `${where} · ${left ? `${left} more after ${one ? 'this' : 'these'}` : `the last ${one ? 'one' : 'of them'}`}`;
+}
+
 export const VERDICT_WORDS = { ok: 'Looks right', check: 'Check the list', cant: 'Can’t split this book' };
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

@@ -56,6 +56,10 @@ export default function App() {
   // A one-song PDF: { fileName, chart, title, bookId, resolve } while you
   // choose text or the page, and whether it goes into a book (askSheetChart).
   const [sheetOffer, setSheetOffer] = useState(null);
+  // Several PDFs come up one book at a time: which we're on, { from, to, total }
+  // (stepWords, bookReport.js), so you can see how many are left and stop.
+  const [importStep, setImportStep] = useState(null);
+  const stopImport = useRef(false);
   // songbook: { fileName, reading: {done,total,saving?}, songs: [...]|null, resolve, abort }
 
   async function refresh() {
@@ -235,34 +239,40 @@ export default function App() {
     setSongbook(null);
 
     let show = null;
-    if (sheets.length === 1) await importSheet(sheets[0].file);
-    else if (sheets.length > 1) {
-      const { sheetsReport } = await import('./utils/bookReport.js');
-      const have = new Set((await loadSongs()).map(s => normalizeTitle(s.metadata?.title)));
-      const marked = sheets.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
-      const report = { ...sheetsReport(marked), songs: marked };
-      const choice = await new Promise(resolve => setSongbook({ fileName: label, batch: true, report, songs: marked, resolve }));
-      setSongbook(null);
-      if (choice !== 'cancel') {
-        const r = await saveImported(label, marked, choice, (s, title, bookId) => {
-          const metadata = { title };
-          if (s.artist) metadata.artist = s.artist;
-          if (s.key) metadata.key = s.key;
-          const into = bookId ? { source: { book: s.file.name, page: 1 }, bookId, mine: false } : {};
-          if (s.chart && choice.asCharts !== false) {
-            if (s.chart.youtubeUrl) metadata.youtubeUrl = s.chart.youtubeUrl;
-            return saveSong({ id: null, metadata, text: s.chart.text, chordStyle: 'brackets', previewMode: 'brackets', ...into });
-          }
-          return savePdfSong(s.file, metadata, into.source, bookId);
-        }, true);
-        show = r.show;
+    stopImport.current = false;
+    if (sheets.length && books.length) setImportStep({ from: 1, to: sheets.length, total: files.length });
+    try {
+      if (sheets.length === 1) await importSheet(sheets[0].file);
+      else if (sheets.length > 1) {
+        const { sheetsReport } = await import('./utils/bookReport.js');
+        const have = new Set((await loadSongs()).map(s => normalizeTitle(s.metadata?.title)));
+        const marked = sheets.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
+        const report = { ...sheetsReport(marked), songs: marked };
+        const choice = await new Promise(resolve => setSongbook({ fileName: label, batch: true, report, songs: marked, resolve }));
+        setSongbook(null);
+        if (choice !== 'cancel') {
+          const r = await saveImported(label, marked, choice, (s, title, bookId) => {
+            const metadata = { title };
+            if (s.artist) metadata.artist = s.artist;
+            if (s.key) metadata.key = s.key;
+            const into = bookId ? { source: { book: s.file.name, page: 1 }, bookId, mine: false } : {};
+            if (s.chart && choice.asCharts !== false) {
+              if (s.chart.youtubeUrl) metadata.youtubeUrl = s.chart.youtubeUrl;
+              return saveSong({ id: null, metadata, text: s.chart.text, chordStyle: 'brackets', previewMode: 'brackets', ...into });
+            }
+            return savePdfSong(s.file, metadata, into.source, bookId);
+          }, true);
+          show = r.show;
+        }
       }
-    }
-    for (const { file, read } of books) {
-      const r = await askSongbook(file, read);
-      if (r === 'page') await savePdfSong(file);
-      else if (r?.show) show = r.show;
-    }
+      for (const [i, { file, read }] of books.entries()) {
+        if (stopImport.current) break;
+        setImportStep({ from: sheets.length + i + 1, to: sheets.length + i + 1, total: files.length });
+        const r = await askSongbook(file, read);
+        if (r === 'page') await savePdfSong(file);
+        else if (r?.show) show = r.show;
+      }
+    } finally { setImportStep(null); }
     return { show };
   }
 
@@ -1035,6 +1045,8 @@ export default function App() {
           file={songbook.picker.file}
           start={songbook.picker.start}
           records={books}
+          step={importStep}
+          onStop={() => { stopImport.current = true; songbook.resolve('cancel'); }}
           onAccept={(songs, setName, book) => songbook.resolve({ songs, setName, book })}
           onBack={songbook.picker.noBack ? null : () => songbook.resolve('back')}
           onCancel={() => songbook.resolve('cancel')}
@@ -1048,6 +1060,8 @@ export default function App() {
           title={sheetOffer.title}
           records={books}
           bookId={sheetOffer.bookId}
+          step={importStep}
+          onStop={() => { stopImport.current = true; sheetOffer.resolve('cancel'); }}
           onText={(book) => sheetOffer.resolve({ how: 'text', book })}
           onPage={(book) => sheetOffer.resolve({ how: 'page', book })}
           onCancel={() => sheetOffer.resolve('cancel')}
@@ -1064,6 +1078,8 @@ export default function App() {
           songs={songbook.songs}
           outcome={songbook.outcome}
           records={books}
+          step={importStep}
+          onStop={() => { stopImport.current = true; songbook.resolve?.('cancel'); }}
           onImport={(picked, setName, titles, asCharts, book) => songbook.resolve({ picked, setName, titles, asCharts, book })}
           onKeepAsPage={songbook.book ? () => songbook.resolve('page') : null}
           onPick={songbook.book ? () => songbook.resolve('pick') : null}

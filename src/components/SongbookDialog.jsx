@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import LongList from './LongList.jsx';
-import { VERDICT_WORDS, reportLines } from '../utils/bookReport.js';
+import { VERDICT_WORDS, reportLines, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 
@@ -43,7 +43,7 @@ import { bookName } from '../utils/books.js';
 // No dimmed backdrop, as with every dialog in Cue.
 const SET_DEFAULT_MAX = 100;
 
-export default function SongbookDialog({ dark, batch, fileName, records = [], reading, report, songs, outcome, onImport, onKeepAsPage, onPick, onCancel, onShow, onDone }) {
+export default function SongbookDialog({ dark, batch, fileName, records = [], step = null, reading, report, songs, outcome, onImport, onKeepAsPage, onPick, onStop, onCancel, onShow, onDone }) {
   // A batch of separate PDFs picked together, named by its count ("3 PDFs").
   const sheets = batch || report?.kind === 'sheets';
   const [picked, setPicked] = useState(null);           // Set of indices, once songs arrive
@@ -91,11 +91,13 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], re
   const saving = reading?.saving;
   const cant = report?.verdict === 'cant';
   const unit = saving ? 'Song' : sheets ? 'PDF' : 'Page';
+  const more = step ? step.total - step.to : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className={`w-full max-w-lg max-h-[92vh] sm:max-h-[85vh] rounded-2xl shadow-2xl p-5 flex flex-col gap-3 ${panel}`}>
         <div className="flex flex-col gap-1">
+          {step && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{stepWords(step)}</p>}
           <h2 className={`text-base font-semibold ${head}`}>{sheets ? 'PDFs' : 'Songbook'}</h2>
           <p className={`text-sm ${muted} break-words`}>
             {/* A batch is named by its count, "3 PDFs" — not a file name to quote. */}
@@ -129,8 +131,12 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], re
               </p>
             ) : null}
             <div className="flex flex-col gap-2">
-              <button onClick={onShow} className={primary}>Show them</button>
-              <button onClick={onDone} className={secondary}>Done</button>
+              {more > 0
+                ? <button onClick={onDone} className={primary}>Next PDF</button>
+                : <>
+                    <button onClick={onShow} className={primary}>Show them</button>
+                    <button onClick={onDone} className={secondary}>Done</button>
+                  </>}
             </div>
           </>
         )}
@@ -206,8 +212,9 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], re
                 <button onClick={onPick} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Or pick the pages myself</button>
               )}
               {onCancel && (
-                <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Cancel</button>
+                <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>{more ? (sheets ? 'Skip these PDFs' : 'Skip this PDF') : 'Cancel'}</button>
               )}
+              {more > 0 && <button onClick={onStop} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Stop here, skip {more} more</button>}
             </div>
           </>
         )}
