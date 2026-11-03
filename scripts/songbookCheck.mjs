@@ -372,6 +372,15 @@ check('…and the page picker starts with each copy a song of its own, under the
   [['start', 'same', 'start'], [false, false, true], { title: 'April Come She Will', artist: 'Paul Simon', key: '' }, false]);
 check('…a sheet there once starts the picker the usual way', sheetPickerStart([twice[2]], twiceName), null);
 check('…and when neither copy reads, it is a page', sheetChart([twice[0], twice[1], twice[0]], twiceName), null);
+// Jim's Ukulele Songbook starts all 5,155 pages with the date it was made: a
+// running head, not the one song 5,155 times under the book's name.
+const dated = (title) => page([['Date Created - Jul-22 ,2026', 9], [title, 16], ['[C] Pearly shells from the [G] ocean'], ['[F] Shining in the [C] sun']]);
+const datedBook = ['Pearly Shells', 'Edelweiss', 'Tiny Bubbles', 'Happy Days', 'Ripple', 'Blue Moon', 'Moon River', 'Stand By Me', 'Let It Be', 'Yesterday', 'Hey Jude', 'Imagine', 'Daydream', 'Sloop John B'].map(dated);
+const datedName = "Jim's Ukulele Songbook (pCEA Tuning).pdf";
+check('a book with one line atop every page is not one song printed over and over', sheetPickerStart(datedBook, datedName), null);
+check('…nor is a short one', sheetPickerStart(datedBook.slice(0, 6), datedName), null);
+check('…and the picker keeps its titles, not the file name',
+  [1, 2, 14].map(p => pickerStart(bookReport(datedBook), datedBook).titles[p].title), ['Pearly Shells', 'Edelweiss', 'Sloop John B']);
 
 // ---- 14. the page picker ------------------------------------------------------
 check('marks make songs: a left-out page is in none, a page turn joins',

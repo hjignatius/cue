@@ -407,12 +407,19 @@ export function sheetChart(pages = [], fileName = '') {
 // WILL-Paul Simon"); a page that goes on with the same song heads itself
 // otherwise ("p.2. April Come She Will"). Returns each copy's page numbers,
 // from 1, or [] when the song is there once.
+//
+// A sheet, not a book: a book can start every page with the same line — Jim's
+// has "Date Created - Jul-22 ,2026" on all 5,155 — and that is a running head,
+// not 5,155 copies of one song. Doctor Uke's has two copies; COPIES_MAX allows
+// for a third and a fourth.
+const COPIES_MAX = 4;
 function sheetCopies(pages) {
+  if (pages.length >= REPORT_PAGES_MIN) return [];
   const head = (p) => p.lines[0]?.text.replace(/\s+/g, ' ').trim().toLowerCase() || null;
   const first = head(pages[0] || { lines: [] });
   if (!first || !titleWorthy(first)) return [];
   const starts = pages.map((p, i) => (head(p) === first ? i : -1)).filter(i => i >= 0);
-  if (starts.length < 2) return [];
+  if (starts.length < 2 || starts.length > COPIES_MAX) return [];
   return starts.map((s, k) => Array.from({ length: (starts[k + 1] ?? pages.length) - s }, (_, j) => s + j + 1));
 }
 
