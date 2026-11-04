@@ -3277,7 +3277,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   headerRight={previewStyleBar}
                   overlay={showAnnotations && hasAnnotation && songId ? (
                     <AnnotationCanvas
-                      key={`editor-annot-narrow-${songId}`}
+                      key={`editor-annot-narrow-${songId}-${annotationStamp}`}
                       songId={songId}
                       annotating={false}
                       dark={dark}
@@ -3348,8 +3348,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     // Canvas is mounted inside SongPreview's scrollable content wrapper
                     // so its origin is below the "PREVIEW" header bar and it scrolls
                     // with the lyrics — much closer to PresentationView's coordinate origin.
+                    // The stamp in its key brings it back with ink just drawn in
+                    // Present, as for the PDF preview above.
                     <AnnotationCanvas
-                      key={`editor-annot-${songId}`}
+                      key={`editor-annot-${songId}-${annotationStamp}`}
                       songId={songId}
                       annotating={false}
                       dark={dark}
