@@ -16,6 +16,7 @@ import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
+import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, flatsForKey, transposeText, transposeChord, displaySemitones } from '../utils/transpose.js';
 import { detectChordStyle, convertToOver, convertToBrackets, bracketSourceMap } from '../utils/chordStyle.js';
@@ -1707,7 +1708,23 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <RotateCw size={14} className="opacity-70" /> Rotate{pdfRotate ? ` · ${pdfRotate}°` : ''}
         </button>
       </div>
-      <PdfPageStack songId={songId} blob={pendingPdf} turn={pdfRotate} dark={dark} />
+      {/* Laid out as in Present: the ink has to share a relative box with the
+          pages it finds by data-page, so that it scrolls with them. The stamp is
+          in the key because this view stays mounted under Present, and the
+          canvas only reads a song's strokes when it mounts: without it, ink just
+          drawn there wouldn't be here on the way back. */}
+      <div className="relative">
+        <PdfPageStack songId={songId} blob={pendingPdf} turn={pdfRotate} dark={dark} />
+        {showAnnotations && hasAnnotation && songId && (
+          <PdfAnnotationCanvas
+            key={`editor-pdf-ink-${songId}-${annotationStamp}`}
+            songId={songId}
+            annotating={false}
+            dark={dark}
+            onHasStrokes={setHasAnnotation}
+          />
+        )}
+      </div>
     </>
   );
 
