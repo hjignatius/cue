@@ -16,6 +16,7 @@ import { resolveChordShape } from '../utils/chordLookup.js';
 import { loadCustomChords, loadHiddenChords } from '../utils/chordStorage.js';
 import { readableChordColor } from '../utils/chordColor.js';
 import SongChordPanel from '../components/SongChordPanel.jsx';
+import { songHasChords, chordPanelOpen } from '../utils/chordPanelOpen.js';
 import PdfSongView from '../components/PdfSongView.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
 import PresentSettings from '../components/PresentSettings.jsx';
@@ -447,7 +448,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Entering phone width (e.g. rotating an iPhone to portrait) collapses the
   // chord panel so it never eats a docked column on a screen with no room to
   // spare. The panel is otherwise the same docked, resizable panel everywhere.
-  useEffect(() => { if (isPhone) setShowChords(false); }, [isPhone]);
+  useEffect(() => { if (isPhone) { setShowChords(false); setChordlessOpenAt(null); } }, [isPhone]);
+  // C pressed on a song with no chords opens the panel for that song alone (see
+  // chordPanelOpen.js). Holds the index rather than a yes/no, so the next song
+  // never gets a frame of the panel before the reset below lands, and the reset
+  // means coming back to this song finds it closed again.
+  const [chordlessOpenAt, setChordlessOpenAt] = useState(null);
+  useEffect(() => { setChordlessOpenAt(null); }, [index]);
   // Restores the pre-e6eeb0f key and range, so a width saved before the panel
   // became flex-1 comes back. Docking is new; the width mechanism is the old one.
   const [chordsWidth, chordsHandleProps] = useResizePanel(208, 150, 450, 'cue:present_chords_px');
@@ -522,6 +529,12 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // into the song's text (e.g. [G] [C] [D]), NOT from the PDF — so drop the type
   // gate and let the Chords On/Off toggle show them over the lead sheet.
   const chordControlsAvailable = chordsAvailable;
+  const hasChords = useMemo(() => songHasChords(song?.text), [song?.text]);
+  const chordsOpen = chordPanelOpen({ hasChords, showChords, openedForThisSong: chordlessOpenAt === index });
+  const toggleChords = () => {
+    if (hasChords) setShowChords(v => !v);
+    else setChordlessOpenAt(at => (at === index ? null : index));
+  };
 
   // Same resolver the chord panel, Imbed and the PDF export use, so a peeked
   // shape is the one this song is set to play — custom shapes and the song's
@@ -649,7 +662,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Horizontal padding inside the lyric scroller, which does NOT scale with the
   // type and so has to be taken off both sides of the fit ratio below.
   const lyricPad = stageW >= MD_BREAKPOINT ? LYRIC_COL_PADDING : LYRIC_COL_PADDING_SM;
-  const chordsShown = chordControlsAvailable && showChords;
+  const chordsShown = chordControlsAvailable && chordsOpen;
   // Is there enough stage left to put the lyrics BESIDE the panel? If not, the
   // panel floats over them exactly as it used to.
   const chordFits = stageW > 0 && stageW - chordsWidth - lyricPad >= MIN_LYRIC_TEXT_W;
@@ -1288,10 +1301,10 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     {chordControlsAvailable && (
     <RoundButton
       size={panel.button}
-      label={showChords ? 'Hide chord diagrams' : 'Show chord diagrams'}
+      label={chordsOpen ? 'Hide chord diagrams' : 'Show chord diagrams'}
       fill={actionFill}
-      active={showChords}
-      onActivate={() => setShowChords(v => !v)}
+      active={chordsOpen}
+      onActivate={toggleChords}
     >
       <span className="font-bold leading-none" style={{ fontSize: tg(20) }}>C</span>
     </RoundButton>
@@ -1490,7 +1503,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
             PresentControls (z-40) so the control pill stays reachable.
             overflow-hidden lives on the inner column, not here, so the handle's
             44px touch target can overflow the panel's left edge. */}
-        {chordControlsAvailable && showChords && (
+        {chordsShown && (
           <div
             className={`absolute right-0 inset-y-0 z-30 flex border-l ${dark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-200 bg-gray-50'}`}
             style={{ width: chordsWidth }}
