@@ -102,6 +102,9 @@ export default function RoundButton({
   // A rounded square instead of a circle — the Share window's song rows
   // (Howard's pick from the Cue² mock-ups, 2026-11-01). Circles everywhere else.
   square = false,
+  // The tap area runs the full height of the row it sits in, with the circle
+  // centred in it: the large page's arrows in the PDF page picker.
+  tall = false,
   // Glass variant: translucent, blurred, hairline border, and its own ink colour
   // instead of the white that works on a solid fill. Pass GLASS(dark).
   glass = false,
@@ -127,12 +130,13 @@ export default function RoundButton({
       aria-expanded={ariaExpanded}
       aria-disabled={disabled || undefined}
       onClick={disabled ? undefined : onActivate}
-      className="group flex items-center justify-center shrink-0 bg-transparent"
+      className={`group flex items-center justify-center shrink-0 bg-transparent ${tall ? 'self-stretch' : ''}`}
       style={{
         // Pill: auto width, min-width the touch target. Circle: square hit box.
         width: pill ? undefined : hit,
         minWidth: pill ? hit : undefined,
-        height: hit,
+        height: tall ? undefined : hit,
+        minHeight: tall ? hit : undefined,
         cursor: disabled ? 'default' : 'pointer',
         touchAction,
         WebkitTapHighlightColor: 'transparent',

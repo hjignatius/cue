@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
 import { songsFromMarks, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 import CornerClose from './CornerClose.jsx';
+import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 
 // Picking the songs out of a book by hand, page by page, for a book the report
 // can't split — chords above the lyrics, pages that are pictures — or one whose
@@ -110,7 +111,7 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className={`relative w-full max-w-4xl h-[94vh] sm:h-[85vh] rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-2 sm:gap-3 ${panel}`}>
         <CornerClose dark={dark} label={more ? `Stop here, skip ${more} more` : 'Cancel'} onClick={() => leave(more ? onStop : onCancel)} />
-        <div className="flex flex-col gap-1 pr-8">
+        <div className="flex flex-col gap-1 pr-9">
           {step && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{stepWords(step)}</p>}
           <h2 className={`text-base font-semibold ${head}`}>Pick the songs <span className={`font-normal text-sm ${muted} break-words`}>“{fileName}”</span></h2>
           <p className={`text-xs sm:text-sm ${head}`}>
@@ -323,23 +324,28 @@ function BigPage({ doc, p, count, mark, chart, title, onMark, onRetitle, onGo, o
   const choice = (m) => `flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${mark === m
     ? 'bg-indigo-600 text-white'
     : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
-  // Sized in pixels, so the text-size setting can't shrink them below a finger.
-  // The side arrows run the page's full height and reach into the dialog's
-  // margin, so on a phone the page loses no width to them.
-  const arrow = `flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg disabled:opacity-30 ${dark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'}`;
+  // The same glass circles as the way out of Present. Their tap areas run the
+  // page's full height and reach into the dialog's margin, so on a phone the
+  // page loses no width to them.
+  const glass = GLASS(dark);
+  const arrow = { size: ROUND_SIZE_ACTION, tall: true, glass: true, fill: glass.fill, border: glass.border, color: glass.ink, touchAction: 'manipulation' };
   return (
     <div className={`absolute inset-0 rounded-2xl p-5 flex flex-col gap-3 ${panel}`}>
-      <div className="flex items-center gap-2">
+      <CornerClose dark={dark} label="Back to all the pages" onClick={onClose} />
+      <div className="flex items-center gap-2 pr-8">
         <h3 className={`text-base font-semibold whitespace-nowrap shrink-0 ${head}`}>Page {p} <span className={`font-normal ${muted}`}>of {count}</span></h3>
         <span className={`text-xs ${muted}`}><Chance chart={chart} /> {chart ? 'Cue can read this page as a chart' : 'This page comes in as a PDF'}</span>
-        <button onClick={onClose} aria-label="Back to all the pages" className={`ml-auto -my-1 -mr-2 shrink-0 ${arrow}`}><X size={22} /></button>
       </div>
       <div className="flex-1 min-h-0 flex items-center gap-2">
-        <button onClick={() => onGo(p - 1)} disabled={p <= 1} aria-label="Page before" className={`self-stretch shrink-0 -ml-3 ${arrow}`}><ChevronLeft size={28} /></button>
+        <div className="flex self-stretch -ml-3">
+          <RoundButton {...arrow} label="Page before" disabled={p <= 1} onActivate={() => onGo(p - 1)}><ChevronLeft size={26} strokeWidth={2.5} /></RoundButton>
+        </div>
         <div ref={boxRef} className="flex-1 h-full min-w-0 flex items-center justify-center">
           <canvas ref={canvasRef} className="bg-white shadow" />
         </div>
-        <button onClick={() => onGo(p + 1)} disabled={p >= count} aria-label="Page after" className={`self-stretch shrink-0 -mr-3 ${arrow}`}><ChevronRight size={28} /></button>
+        <div className="flex self-stretch -mr-3">
+          <RoundButton {...arrow} label="Page after" disabled={p >= count} onActivate={() => onGo(p + 1)}><ChevronRight size={26} strokeWidth={2.5} /></RoundButton>
+        </div>
       </div>
       <div className="flex gap-2">
         {['start', 'same', 'skip'].map(m => (
