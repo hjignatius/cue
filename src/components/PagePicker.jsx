@@ -195,9 +195,10 @@ const PageCell = memo(function PageCell({ p, doc, root, mark, title, chart, onTa
             <Chance chart={chart} />
           </span>
         </button>
+        {/* A finger's width to tap, around a badge that hides less of the page. */}
         <button onClick={() => onBig(p)} aria-label={`Show page ${p} large`} title="Show it large"
-          className="absolute bottom-1 right-1 p-1 rounded bg-black/50 text-white hover:bg-black/70">
-          <Maximize2 size={12} />
+          className="group absolute bottom-0 right-0 w-[44px] h-[44px] flex items-end justify-end p-1">
+          <span className="p-1 rounded bg-black/50 text-white group-hover:bg-black/70"><Maximize2 size={15} /></span>
         </button>
       </div>
       {title != null && (
