@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Merge, Save, Trash2 } from 'lucide-react';
 import { shelves, removeBookPlan } from '../utils/books.js';
 import { CloseCircle } from './CornerClose.jsx';
 import RoundButton, { ROUND_FILL_DANGER, ROUND_SIZE_ACTION } from './RoundButton.jsx';
@@ -64,10 +64,10 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
             )}
             <div className="flex items-center gap-2">
               {others.length > 0 && (
-                <button onClick={() => setMergeInto(others[0].id)} className={`${secondary} h-11`}>Merge…</button>
+                <button onClick={() => setMergeInto(others[0].id)} className={`${secondary} h-11 flex items-center justify-center gap-2`}><Merge size={18} /> Merge…</button>
               )}
-              <button onClick={save} disabled={!ok} className="flex-1 h-11 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors">
-                {isNew ? 'Make shelf' : 'Save'}
+              <button onClick={save} disabled={!ok} className="flex-1 h-11 py-2 flex items-center justify-center gap-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors">
+                {isNew ? 'Make shelf' : <><Save size={18} /> Save</>}
               </button>
               {!isNew && (
                 <RoundButton size={ROUND_SIZE_ACTION} label={isBook ? 'Delete book' : 'Remove shelf'} title={isBook ? 'Delete book' : 'Remove shelf'}
