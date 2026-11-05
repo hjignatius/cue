@@ -10,7 +10,8 @@
 // Discovery only, in both cases. Cue never copies a chart — each pick links out
 // to a real source and the player imports what they like.
 
-import { Sparkles, X, ExternalLink, ListPlus, Check } from 'lucide-react';
+import { Sparkles, ExternalLink, ListPlus, Check } from 'lucide-react';
+import { CloseCircle } from './CornerClose.jsx';
 import { AiProgress, AiCaution } from './AiCaution.jsx';
 import { stageProgress } from '../utils/aiStage.js';
 import AiRetryLink from './AiRetryLink.jsx';
@@ -43,7 +44,7 @@ export default function SongSuggestionsDialog({
             <Sparkles size={16} className="text-indigo-500" />
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{heading}</h2>
           </div>
-          <button onClick={onClose} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-500 hover:bg-gray-100'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={onClose} className="-mt-1 -mb-2 -mr-3" />
         </div>
 
         <div className="overflow-y-auto px-5 py-4 flex flex-col gap-3">

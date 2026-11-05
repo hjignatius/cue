@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { CloseCircle } from './CornerClose.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import { normalizePanelSize } from '../utils/presentPanelSize.js';
@@ -65,7 +65,7 @@ export default function PresentSettings({ onClose }) {
             <h2 className={`text-base font-semibold ${label}`}>Present settings</h2>
             <p className={`text-xs mt-0.5 ${muted}`}>These apply to every song.</p>
           </div>
-          <button onClick={onClose} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={onClose} className="-mt-4 -mr-4" />
         </div>
 
         {/* Controls fade */}

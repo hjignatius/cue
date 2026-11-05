@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, ChevronRight} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { CloseCircle } from './CornerClose.jsx';
 import { usePrefs, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
@@ -328,12 +329,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
       >
         <div className={`px-5 py-4 border-b ${border} flex items-center justify-between shrink-0`}>
           <h2 className={`text-sm font-semibold ${label}`}>Settings</h2>
-          <button
-            onClick={onClose}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${dark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
-          >
-            <X size={16} />
-          </button>
+          <CloseCircle dark={dark} onClick={onClose} className="-mr-2" />
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-7">

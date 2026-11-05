@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Save, Search, X, ChevronLeft, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation, RotateCw } from 'lucide-react';
+import { CloseCircle } from '../components/CornerClose.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -1955,7 +1956,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               {metadata.title ? <>Sources for <span className="font-medium">{metadata.title}</span>{metadata.artist ? <> · {metadata.artist}</> : null}, favouring {chordLibraryToInstrument(instrument)}.</> : 'Add a title in the metadata bar for better results.'}
             </p>
           </div>
-          <button onClick={() => closeFind()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={() => closeFind()} className="-mt-4 -mr-4" />
         </div>
         {findResult.loading && (() => {
           const p = stageProgress(findStage, FIND_STAGE);
@@ -2009,7 +2010,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-full overflow-hidden rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
           <div className="flex items-start justify-between gap-3">
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
-            <button onClick={() => setFillAsk(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+            <CloseCircle dark={dark} onClick={() => setFillAsk(false)} className="-mt-4 -mr-4" />
           </div>
           {/* Where the answer comes from. Reading the chart is the cheap one —
               nothing is searched, so it costs a fraction of a look-up — and the
@@ -2100,7 +2101,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-full overflow-hidden rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
         <div className="flex items-start justify-between gap-3">
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Fill in song details</h2>
-          <button onClick={() => closeFill()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={() => closeFill()} className="-mt-4 -mr-4" />
         </div>
         {fillResult.loading && (() => {
           const p = fillProgress(fillStage, !!text.trim());
@@ -2311,7 +2312,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Transposing advice</h2>
             <p className={`text-xs ${mutedText}`}>For {chordLibraryToInstrument(instrument)} · {aiLevel} level{metadata.key ? <> · currently in {metadata.key}</> : null}</p>
           </div>
-          <button onClick={() => closeAdvice()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={() => closeAdvice()} className="-mt-4 -mr-4" />
         </div>
         {adviceResult.loading && (
           <AiProgress label="Working out your options…" percent={advicePct} dark={dark} onCancel={closeAdvice} />
@@ -2369,7 +2370,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Ask about music</h2>
             <p className={`text-xs ${mutedText}`}>Answers at {aiLevel} level, aware of this song. Playing, theory, chords, technique.</p>
           </div>
-          <button onClick={() => closeAsk()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={() => closeAsk()} className="-mt-4 -mr-4" />
         </div>
         <textarea
           value={askQuestion}
@@ -2413,7 +2414,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <p className={`text-xs ${mutedText}`}>Undefined chords: {chordResult.missing.join(', ')}</p>
             )}
           </div>
-          <button onClick={() => closeChords()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={() => closeChords()} className="-mt-4 -mr-4" />
         </div>
         {chordResult.loading && (
           <AiWaiting label="Working out the shapes…" dark={dark} onCancel={closeChords} />
@@ -2521,7 +2522,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   : `Pick a chord from this song to see other ways to play it on ${inst}.`}
               </p>
             </div>
-            <button onClick={() => closeVoicings()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+            <CloseCircle dark={dark} onClick={() => closeVoicings()} className="-mt-4 -mr-4" />
           </div>
 
           {/* STEP ONE — the song's chords, each showing what the library already

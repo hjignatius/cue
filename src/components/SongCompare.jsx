@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { X, Trash2, SquarePen } from 'lucide-react';
+import { Trash2, SquarePen } from 'lucide-react';
+import { CloseCircle } from './CornerClose.jsx';
 import { convertToOver } from '../utils/chordStyle.js';
 import { stripStyling } from '../utils/chordPro.js';
 import { diffLines, countChanges } from '../utils/lineDiff.js';
@@ -209,7 +210,7 @@ export default function SongCompare({ songs, dark, setsBySongId, annotatedIds, o
               {' '}Shown as it will be played. The charts cannot be edited here — Rename and Delete are the only changes on offer.
             </p>
           </div>
-          <button onClick={onClose} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+          <CloseCircle dark={dark} onClick={onClose} className="-mt-1 -mr-3" />
         </div>
 
         <div className="shrink-0 px-5 pt-4 pb-3 flex flex-col gap-3">

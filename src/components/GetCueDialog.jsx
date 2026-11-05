@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { CloseCircle } from './CornerClose.jsx';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import LinkQrPanel from './LinkQrPanel.jsx';
 import InstallTips from './InstallTips.jsx';
@@ -35,13 +35,7 @@ export default function GetCueDialog({ onClose }) {
             <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Get Cue</h2>
             <p className={`mt-0.5 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>The link to Cue itself — no set attached</p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className={`p-1.5 rounded-lg transition-colors ${dark ? 'text-gray-500 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
-          >
-            <X size={16} />
-          </button>
+          <CloseCircle dark={dark} onClick={onClose} className="-mt-3 -mb-1 -mr-4" />
         </div>
 
         <div className="px-6 py-5 flex flex-col gap-4">

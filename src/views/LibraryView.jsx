@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, X, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode, UserPlus, UserMinus } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode, UserPlus, UserMinus } from 'lucide-react';
+import { CloseCircle } from '../components/CornerClose.jsx';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
 import { stageProgress, advanceStage } from '../utils/aiStage.js';
@@ -1876,7 +1877,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
           <div onClick={e => e.stopPropagation()} className={`w-full max-w-md max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex items-start justify-between gap-3">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Suggested set order</h2>
-              <button onClick={() => closeOrder()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+              <CloseCircle dark={dark} onClick={() => closeOrder()} className="-mt-4 -mr-4" />
             </div>
             {orderResult.loading && (() => {
               const p = stageProgress(orderStage, ORDER_STAGE);
@@ -1928,7 +1929,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
             <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className="flex items-start justify-between gap-3">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Estimated set time</h2>
-                <button onClick={() => closeTime()} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`} aria-label="Close"><X size={18} /></button>
+                <CloseCircle dark={dark} onClick={() => closeTime()} className="-mt-4 -mr-4" />
               </div>
               {timeResult.loading && (() => {
                 const p = stageProgress(timeStage, TIME_STAGE);
@@ -3219,7 +3220,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                 <Copy size={16} className="text-indigo-500" />
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Duplicate songs</h2>
               </div>
-              <button onClick={() => setDupOpen(false)} className={`p-1 rounded-lg ${dark ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-500 hover:bg-gray-100'}`} aria-label="Close"><X size={18} /></button>
+              <CloseCircle dark={dark} onClick={() => setDupOpen(false)} className="-mt-1 -mb-2 -mr-3" />
             </div>
             <div className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
               {dupBusy ? (
