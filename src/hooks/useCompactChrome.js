@@ -53,3 +53,21 @@ export function usePhoneLandscape() {
   }, []);
   return landscape;
 }
+
+// A device with a touch screen, whatever else is plugged into it: an iPad with
+// a mouse still counts. False on a Mac.
+const TOUCH_QUERY = '(any-pointer: coarse)';
+
+export function useTouchDevice() {
+  const [touch, setTouch] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(TOUCH_QUERY).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(TOUCH_QUERY);
+    const update = () => setTouch(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+  return touch;
+}
