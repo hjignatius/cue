@@ -249,7 +249,10 @@ function Thumb({ doc, p, root }) {
 }
 
 // One page large enough to read, with the same three choices as buttons and
-// arrows to the pages either side.
+// arrows to the pages either side. Choosing moves on to the next page, so a
+// book can be gone through without reaching for the arrow: the choice already
+// lit counts too, agreeing with Cue's guess being a decision like any other.
+// After the last page, back to all the pages, where Make is.
 function BigPage({ doc, p, count, mark, chart, title, onMark, onRetitle, onGo, onClose, dark, panel, head, muted, field }) {
   const boxRef = useRef(null);
   const canvasRef = useRef(null);
@@ -289,6 +292,12 @@ function BigPage({ doc, p, count, mark, chart, title, onMark, onRetitle, onGo, o
     return () => window.removeEventListener('keydown', onKey);
   }, [p, count, onGo, onClose]);
 
+  const decide = (m) => {
+    onMark(p, m);
+    if (p < count) onGo(p + 1);
+    else onClose();
+  };
+
   const choice = (m) => `flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${mark === m
     ? 'bg-indigo-600 text-white'
     : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
@@ -309,7 +318,7 @@ function BigPage({ doc, p, count, mark, chart, title, onMark, onRetitle, onGo, o
       </div>
       <div className="flex gap-2">
         {['start', 'same', 'skip'].map(m => (
-          <button key={m} onClick={() => onMark(p, m)} className={choice(m)} aria-pressed={mark === m}>{WORDS[m]}</button>
+          <button key={m} onClick={() => decide(m)} className={choice(m)} aria-pressed={mark === m}>{WORDS[m]}</button>
         ))}
       </div>
       {mark === 'start' && (
