@@ -40,6 +40,7 @@
 // character.
 
 import { textFromLines } from './pdfText.js';
+import { capoInLine } from './readChart.js';
 
 // Title type has to stand clearly above the lyric type. 16pt over 12pt is 1.33;
 // 1.2 leaves room for a book that is less emphatic without catching the odd
@@ -281,6 +282,31 @@ function placeMarks(pages, marks) {
   return placed.filter((x, i) => !i || x.page !== placed[i - 1].page || top(x) !== top(placed[i - 1]));
 }
 
+// A video link and a capo above a chart's first chord, wherever they sit there:
+// takeHeader only reads the first lines under a title, and stops at anything it
+// doesn't know, like the "(Thanks to San Jose Ukulele Club)" over the link in
+// (Up a) Lazy River. Often the two share a line, "https://youtu.be/… capo 3".
+// Below the first chord it's the song's own words, and left alone. A line that
+// held nothing else goes, as it has become the song's details; one with words
+// besides stays.
+//
+// Returns { youtubeUrl, capo, text }.
+export function headerFields(text) {
+  const lines = String(text ?? '').split('\n');
+  const first = lines.findIndex(l => CHORD.test(l));
+  const fields = { youtubeUrl: '', capo: '' };
+  const kept = lines.filter((line, i) => {
+    if (first >= 0 && i >= first) return true;
+    const video = (line.match(URL_RE) || []).map(youtubeOf).find(Boolean);
+    const capo = capoInLine(line);
+    if (video && !fields.youtubeUrl) fields.youtubeUrl = video;
+    if (capo && !fields.capo) fields.capo = capo;
+    const rest = line.replace(URL_RE, '').replace(/\bcapo\b\W*(?:on|at|the|fret)?\W*\d+(?:st|nd|rd|th)?(?:\s+fret)?/i, '');
+    return !(video || capo) || /\w/.test(rest);
+  });
+  return { ...fields, text: kept.join('\n').replace(/^\s*\n/, '') };
+}
+
 // The header that sits between a title and its chart: the writer, a video link,
 // the link's caption. Shared by both ways of finding a song. Returns true when
 // the line was header and is used up, false when it is the chart.
@@ -355,14 +381,15 @@ export function readSongbook(pages = [], marks = []) {
     const byLines = byByLines(pages);
     if (wellFound(byLines) > wellFound(found)) { found = byLines; how = 'bylines'; }
   }
-  const songs = found.map(s => ({
+  const songs = found.map(s => ({ s, header: headerFields(textFromLines(s.lines)) })).map(({ s, header }) => ({
     title: s.title || (s.lines[0]?.text ?? '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim() || `Page ${s.firstPage}`,
     // The title-type lines one by one, when a title ran to two: a wrapped
     // title, or — in a book that does it for every song — title over artist.
     titleParts: s.titleParts?.length > 1 ? s.titleParts : undefined,
     artist: s.artist,
-    youtubeUrl: s.youtubeUrl,
-    text: textFromLines(s.lines),
+    youtubeUrl: s.youtubeUrl || header.youtubeUrl,
+    capo: header.capo,
+    text: header.text,
     firstPage: s.firstPage,
     lastPage: s.lastPage,
     noChords: !s.lines.some(l => CHORD.test(l.text)),
@@ -624,7 +651,8 @@ export function chartFromPages(pages = [], title = '') {
   }
   const lines = all.slice(from).map((x, i, kept) => (
     !i ? { ...x.line, gapBefore: 0 } : x.page !== kept[i - 1].page ? { ...x.line, gapBefore: Infinity } : x.line));
-  return { artist, youtubeUrl, text: textFromLines(lines) };
+  const header = headerFields(textFromLines(lines));
+  return { artist, youtubeUrl: youtubeUrl || header.youtubeUrl, capo: header.capo, text: header.text };
 }
 
 // ROUND BRACKETS. A common way to write a chart without ChordPro: "(Am) She

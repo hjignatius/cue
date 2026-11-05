@@ -373,7 +373,7 @@ export function sheetInfo(pages = [], marks = [], fileName = '') {
  * One PDF that is one song, as a chart: when every page of it with words on
  * reads as one (readsAsChart, below). `pages` as extractSheetPages reads them,
  * with any chords drawn above the lyrics already put into them. Returns
- * { title, artist, key, youtubeUrl, text }, or null — not one song, or not a
+ * { title, artist, key, youtubeUrl, capo, text }, or null — not one song, or not a
  * chart Cue can read throughout, and it comes in as the PDF.
  */
 export function sheetChart(pages = [], fileName = '') {
@@ -395,7 +395,7 @@ export function sheetChart(pages = [], fileName = '') {
   const chart = chartFromPages(read, info.title);
   if (!chart?.text.trim()) return null;
   return {
-    title: info.title, artist: info.artist || chart.artist, key: info.key, youtubeUrl: chart.youtubeUrl, text: chart.text,
+    title: info.title, artist: info.artist || chart.artist, key: info.key, youtubeUrl: chart.youtubeUrl, capo: chart.capo, text: chart.text,
     ...(copies ? { copies, pages: from } : {}),
   };
 }

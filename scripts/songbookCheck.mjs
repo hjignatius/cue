@@ -6,7 +6,7 @@
 // ways a book can be laid out.
 //
 // Run: node scripts/songbookCheck.mjs
-import { splitSongbook, roundBracketChords, titleWorthy } from '../src/utils/songbook.js';
+import { splitSongbook, roundBracketChords, titleWorthy, headerFields } from '../src/utils/songbook.js';
 import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
@@ -472,6 +472,28 @@ check('…a page with no title, or no text, is the song before it carried over',
 check('a PDF of several says how many are left', stepWords({ from: 2, to: 2, total: 3 }), 'PDF 2 of 3 · 1 more after this');
 check('…and when it is the last', stepWords({ from: 3, to: 3, total: 3 }), 'PDF 3 of 3 · the last one');
 check('…sheets share a list, and count as what they are', stepWords({ from: 1, to: 4, total: 6 }), 'PDFs 1–4 of 6 · 2 more after these');
+
+// A video and a capo over a chart, past anything takeHeader stops at.
+const lazy = headerFields('(Thanks to San Jose Ukulele Club)\nhttps://www.youtube.com/watch?v=B2F2xDtgNdA capo 3\n\nIntro: [C] I like lazy wea-[G7]ther');
+check('the link and the capo on one line are both read', [lazy.youtubeUrl, lazy.capo], ['https://www.youtube.com/watch?v=B2F2xDtgNdA', '3']);
+check('…the line goes, and the credit over it stays', lazy.text, '(Thanks to San Jose Ukulele Club)\n\nIntro: [C] I like lazy wea-[G7]ther');
+check('a capo with words beside it keeps the line', headerFields('Capo 2 for the recording\n[G] Hello').text, 'Capo 2 for the recording\n[G] Hello');
+check('…and is still read', headerFields('Capo 2 for the recording\n[G] Hello').capo, '2');
+check('"Capo: 2nd fret" alone goes', headerFields('Capo: 2nd fret\n[G] Hello'), { youtubeUrl: '', capo: '2', text: '[G] Hello' });
+check('a regional YouTube host comes out as www', headerFields('https://au.youtube.com/watch?v=abc\n[G] Hi').youtubeUrl, 'https://www.youtube.com/watch?v=abc');
+check('a capo below the first chord is the song\'s words', headerFields('[G] Hello\ncapo 3 in the lyric'), { youtubeUrl: '', capo: '', text: '[G] Hello\ncapo 3 in the lyric' });
+check('a web page that isn\'t YouTube stays', headerFields('https://example.com/song\n[G] Hi'), { youtubeUrl: '', capo: '', text: 'https://example.com/song\n[G] Hi' });
+check('a capo past the frets is not one', headerFields('capo 99\n[G] Hi').capo, '');
+const lazyPages = [{ links: [], lines: [
+  ['(Up a) Lazy River', 746, 25, 12], ['artist:Bobby Darin writer:Sidney Arodin', 713, 17, 33],
+  ['(Thanks to San Jose Ukulele Club)', 680, 15, 33], ['https://www.youtube.com/watch?v=B2F2xDtgNdA capo 3', 658, 15, 22],
+  ['Intro: [C] I like lazy wea-[G7]ther, [C] I like lazy [G7] days', 621, 15, 37],
+  ['[C] Can\'t be blamed for [E7] having lazy [F] ways [A7]', 599, 15, 22],
+  ['[Dm] Some old lazy [A7] river [Dm] sleeps beside my [A7] door', 578, 15, 22],
+].map(([text, y, height, gapBefore]) => ({ text, x: 48, y, height, gapBefore })) }];
+const lazyChart = sheetChart(lazyPages, 'lazy.pdf');
+check('a one-song PDF carries its video and capo', [lazyChart?.youtubeUrl, lazyChart?.capo], ['https://www.youtube.com/watch?v=B2F2xDtgNdA', '3']);
+check('a song in a book does too', (() => { const s = splitSongbook(lazyPages)[0]; return [s?.youtubeUrl, s?.capo]; })(), ['https://www.youtube.com/watch?v=B2F2xDtgNdA', '3']);
 
 // Cutting: the pages asked for, in that order, and nothing else.
 const src = await PDFDocument.create();

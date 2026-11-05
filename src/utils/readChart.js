@@ -61,6 +61,12 @@ function validate(field, value) {
   }
 }
 
+// The capo a line of a chart mentions, as a fret, or ''.
+export function capoInLine(line) {
+  const m = String(line ?? '').match(CAPO_IN_TEXT);
+  return m ? capoOrEmpty(m[1]) : '';
+}
+
 function capoOrEmpty(value) {
   const n = Math.trunc(Number(String(value).match(/\d{1,2}/)?.[0]));
   return Number.isFinite(n) && n > 0 && n <= MAX_CAPO ? String(n) : '';
@@ -103,8 +109,7 @@ export function readChartMetadata(text) {
     // offered for removal on account of a capo: it usually carries a note worth
     // keeping, and a capo mentioned inside a lyric is a lyric.
     if (!fields.capo) {
-      const m = trimmed.match(CAPO_IN_TEXT);
-      const kept = m && capoOrEmpty(m[1]);
+      const kept = capoInLine(trimmed);
       if (kept) fields.capo = kept;
     }
   }

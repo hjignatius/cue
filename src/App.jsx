@@ -152,6 +152,7 @@ export default function App() {
       if (s.artist) metadata.artist = s.artist;
       if (s.key) metadata.key = s.key;
       if (s.youtubeUrl) metadata.youtubeUrl = s.youtubeUrl;
+      if (s.capo) metadata.capo = s.capo;
       return saveSong({ id: null, metadata, text: s.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage }, ...(bookId ? { bookId, mine: false } : {}) });
     });
   }
@@ -174,6 +175,7 @@ export default function App() {
       if (chart) {
         if (!metadata.artist && chart.artist) metadata.artist = chart.artist;
         if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
+        if (chart.capo) metadata.capo = chart.capo;
         return saveSong({ id: null, metadata, text: chart.text, chordStyle: 'brackets', previewMode: 'brackets', source: { book: file.name, page: s.firstPage }, ...(bookId ? { bookId, mine: false } : {}) });
       }
       const bytes = await book.cut(s.pages);
@@ -259,6 +261,7 @@ export default function App() {
             const into = bookId ? { source: { book: s.file.name, page: 1 }, bookId, mine: false } : {};
             if (s.chart && choice.asCharts !== false) {
               if (s.chart.youtubeUrl) metadata.youtubeUrl = s.chart.youtubeUrl;
+              if (s.chart.capo) metadata.capo = s.chart.capo;
               return saveSong({ id: null, metadata, text: s.chart.text, chordStyle: 'brackets', previewMode: 'brackets', ...into });
             }
             return savePdfSong(s.file, metadata, into.source, bookId);
@@ -309,7 +312,8 @@ export default function App() {
     if (chart.youtubeUrl) metadata.youtubeUrl = chart.youtubeUrl;
     // Kept as the PDF, it still has the title read off the page.
     if (how !== 'text') return { metadata, pdf: true, book };
-    return { metadata, text: chart.text, book };
+    // The capo only as text: a PDF's chords are printed, and can't move with it.
+    return { metadata: chart.capo ? { ...metadata, capo: chart.capo } : metadata, text: chart.text, book };
   }
 
   // The book a single sheet last went into, offered first next time; given an
