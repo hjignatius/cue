@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { shelves, removeBookPlan } from '../utils/books.js';
+import { CloseCircle } from './CornerClose.jsx';
+import RoundButton, { ROUND_FILL_DANGER, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 
 // One book or shelf, from its ⋮ in the Library's switch (BooksMenu): rename it,
 // put a book on a shelf — one already there, or a new one named here — or
@@ -37,7 +40,10 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={onClose}>
       <div className={`w-[24rem] max-w-full rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
-        <h2 className={`text-base font-semibold ${head}`}>{isNew ? 'New shelf' : isBook ? 'Book' : 'Shelf'}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className={`text-base font-semibold ${head}`}>{isNew ? 'New shelf' : isBook ? 'Book' : 'Shelf'}</h2>
+          <CloseCircle dark={dark} label="Cancel" onClick={onClose} className="-mt-3 -mb-1 -mr-4" />
+        </div>
 
         {!confirming && mergeInto === null && (
           <>
@@ -56,22 +62,20 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
                 {making && <input value={newShelf} onChange={e => setNewShelf(e.target.value)} placeholder="Shelf name, e.g. Club" aria-label="New shelf name" className={field} />}
               </label>
             )}
-            <div className="flex gap-2">
-              <button onClick={onClose} className={secondary}>Cancel</button>
-              <button onClick={save} disabled={!ok} className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors">
+            <div className="flex items-center gap-2">
+              {others.length > 0 && (
+                <button onClick={() => setMergeInto(others[0].id)} className={`${secondary} h-11`}>Merge…</button>
+              )}
+              <button onClick={save} disabled={!ok} className="flex-1 h-11 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors">
                 {isNew ? 'Make shelf' : 'Save'}
               </button>
+              {!isNew && (
+                <RoundButton size={ROUND_SIZE_ACTION} label={isBook ? 'Delete book' : 'Remove shelf'} title={isBook ? 'Delete book' : 'Remove shelf'}
+                  onActivate={() => setConfirming(true)} fill={ROUND_FILL_DANGER} color="#fff" touchAction="manipulation">
+                  <Trash2 size={20} />
+                </RoundButton>
+              )}
             </div>
-            {others.length > 0 && (
-              <button onClick={() => setMergeInto(others[0].id)} className="text-xs py-1 -mb-3 text-center text-indigo-600 dark:text-indigo-400 hover:underline">
-                Merge into another book…
-              </button>
-            )}
-            {!isNew && (
-              <button onClick={() => setConfirming(true)} className="text-xs py-1 text-center text-red-600 dark:text-red-400 hover:underline">
-                {isBook ? 'Delete book…' : 'Remove shelf…'}
-              </button>
-            )}
           </>
         )}
 
