@@ -6,6 +6,7 @@ import UpdateButton from './components/UpdateButton.jsx';
 import SongbookDialog from './components/SongbookDialog.jsx';
 import SheetChartDialog from './components/SheetChartDialog.jsx';
 import PagePicker from './components/PagePicker.jsx';
+import CornerClose from './components/CornerClose.jsx';
 import BookChoice, { startBook, bookChoice } from './components/BookChoice.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord, saveBookChoice, dropEmptyBooks } from './utils/storage.js';
 import { APP_VERSION, isNewerVersion } from './utils/appVersion.js';
@@ -968,8 +969,9 @@ export default function App() {
       {/* Backup restore dialog */}
       {backupDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
-            <div className="flex flex-col gap-1">
+          <div className={`relative w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+            <CornerClose dark={dark} onClick={() => { backupDialog.resolve('cancel'); setBackupDialog(null); }} />
+            <div className="flex flex-col gap-1 pr-7">
               <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Restore backup</h2>
               <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>How would you like to import this backup?</p>
             </div>
@@ -988,12 +990,6 @@ export default function App() {
                 Merge into library
               </button>
               <p className={`text-xs text-center -mt-1 mb-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>Adds backup songs &amp; sets alongside what you already have</p>
-              <button
-                onClick={() => { backupDialog.resolve('cancel'); setBackupDialog(null); }}
-                className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </div>
@@ -1007,8 +1003,9 @@ export default function App() {
         const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors';
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className={`w-[22rem] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
-              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{setsImportDialog.title ?? 'Import sets'}</h2>
+            <div className={`relative w-[22rem] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+              <CornerClose dark={dark} onClick={() => answer('cancel')} />
+              <h2 className={`text-base font-semibold pr-7 ${dark ? 'text-white' : 'text-gray-900'}`}>{setsImportDialog.title ?? 'Import sets'}</h2>
               <div className="flex flex-col gap-1">
                 <BookChoice dark={dark} records={books} value={setsImportDialog.book} onChange={(book) => setSetsImportDialog(d => ({ ...d, book }))} />
                 <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -1024,13 +1021,9 @@ export default function App() {
                   <p className={hint}>Songs already in your library are reused; no duplicates created</p>
                   <button onClick={() => answer('allow')} className={secondary}>Allow duplicates</button>
                   <p className={hint}>All songs imported as new entries alongside existing ones</p>
-                  <button onClick={() => answer('cancel')} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <button onClick={() => answer('cancel')} className={secondary}>Cancel</button>
-                  <button onClick={() => answer('import')} className={primary}>Import</button>
-                </div>
+                <button onClick={() => answer('import')} className={primary}>Import</button>
               )}
             </div>
           </div>
@@ -1079,7 +1072,7 @@ export default function App() {
           outcome={songbook.outcome}
           records={books}
           step={importStep}
-          onStop={() => { stopImport.current = true; songbook.resolve?.('cancel'); }}
+          onStop={() => { stopImport.current = true; if (songbook.resolve) songbook.resolve('cancel'); else songbook.abort?.(); }}
           onImport={(picked, setName, titles, asCharts, book) => songbook.resolve({ picked, setName, titles, asCharts, book })}
           onKeepAsPage={songbook.book ? () => songbook.resolve('page') : null}
           onPick={songbook.book ? () => songbook.resolve('pick') : null}

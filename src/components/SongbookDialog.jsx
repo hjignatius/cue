@@ -4,6 +4,7 @@ import LongList from './LongList.jsx';
 import { VERDICT_WORDS, reportLines, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
+import CornerClose from './CornerClose.jsx';
 
 // The review list for a songbook PDF, or for several PDFs imported together:
 // the BOOK REPORT on top, then every song Cue found, to tick or untick before
@@ -92,11 +93,14 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
   const cant = report?.verdict === 'cant';
   const unit = saving ? 'Song' : sheets ? 'PDF' : 'Page';
   const more = step ? step.total - step.to : 0;
+  // Nothing to leave once it is saving, or finished: Done says that.
+  const canLeave = onCancel && !outcome;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className={`w-full max-w-lg max-h-[92vh] sm:max-h-[85vh] rounded-2xl shadow-2xl p-5 flex flex-col gap-3 ${panel}`}>
-        <div className="flex flex-col gap-1">
+      <div className={`relative w-full max-w-lg max-h-[92vh] sm:max-h-[85vh] rounded-2xl shadow-2xl p-5 flex flex-col gap-3 ${panel}`}>
+        {canLeave && <CornerClose dark={dark} label={more ? `Stop here, skip ${more} more` : 'Cancel'} onClick={more ? onStop : onCancel} />}
+        <div className="flex flex-col gap-1 pr-8">
           {step && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{stepWords(step)}</p>}
           <h2 className={`text-base font-semibold ${head}`}>{sheets ? 'PDFs' : 'Songbook'}</h2>
           <p className={`text-sm ${muted} break-words`}>
@@ -211,17 +215,12 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
               {!cant && onPick && (
                 <button onClick={onPick} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Or pick the pages myself</button>
               )}
-              {onCancel && (
-                <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>{more ? (sheets ? 'Skip these PDFs' : 'Skip this PDF') : 'Cancel'}</button>
-              )}
-              {more > 0 && <button onClick={onStop} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Stop here, skip {more} more</button>}
+              {canLeave && more > 0 && <button onClick={onCancel} className={secondary}>{sheets ? 'Skip these PDFs' : 'Skip this PDF'}</button>}
             </div>
           </>
         )}
 
-        {!report && !outcome && onCancel && (
-          <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Cancel</button>
-        )}
+        {!report && canLeave && more > 0 && <button onClick={onCancel} className={secondary}>Skip this PDF</button>}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import BookChoice, { startOne, bookChoice } from './BookChoice.jsx';
 import { stepWords } from '../utils/bookReport.js';
+import CornerClose from './CornerClose.jsx';
 
 // A PDF imported into the Library that is one song. When it turned out to be a
 // chord chart: load it as text, or keep the page — the same choice the
@@ -22,8 +23,11 @@ export default function SheetChartDialog({ dark, fileName, chart, title, records
   const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors';
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={onCancel}>
-      <div className={`w-[26rem] max-w-full max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
-        <div className="flex flex-col gap-1">
+      <div className={`relative w-[26rem] max-w-full rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+        <CornerClose dark={dark} label={more ? `Stop here, skip ${more} more` : 'Cancel'} onClick={more ? onStop : onCancel} />
+        {/* Scrolls inside the panel, so the X stays put on a short screen. */}
+        <div className="max-h-[85vh] overflow-y-auto rounded-2xl p-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-1 pr-7">
           {step && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{stepWords(step)}</p>}
           <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{chart ? <>There&rsquo;s a chord chart in this PDF</> : 'Import a song'}</h2>
           <p className={`text-xs break-words ${muted}`}>{fileName}</p>
@@ -57,8 +61,8 @@ export default function SheetChartDialog({ dark, fileName, chart, title, records
           <button onClick={() => onPage(into)} disabled={!ready} className={chart ? secondary : primary}>
             {chart ? 'Keep it as a page' : 'Import'}
           </button>
-          <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>{more ? 'Skip this PDF' : 'Cancel'}</button>
-          {more > 0 && <button onClick={onStop} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Stop here, skip {more} more</button>}
+          {more > 0 && <button onClick={onCancel} className={secondary}>Skip this PDF</button>}
+        </div>
         </div>
       </div>
     </div>

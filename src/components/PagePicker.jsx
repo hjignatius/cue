@@ -4,6 +4,7 @@ import { loadPdfjs } from '../utils/pdfjs.js';
 import { songsFromMarks, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
+import CornerClose from './CornerClose.jsx';
 
 // Picking the songs out of a book by hand, page by page, for a book the report
 // can't split — chords above the lyrics, pages that are pictures — or one whose
@@ -23,6 +24,10 @@ import { bookName } from '../utils/books.js';
 // chart, unless you'd rather have the pages; the rest come in as their own
 // PDF, exactly as printed (pdfCut.js).
 //
+// The X in the corner leaves, as Cancel or, partway through several PDFs, as
+// "stop here". Marks are a lot to lose to a stray tap — the large page's own X
+// sits almost on top of it — so once any have changed, it asks first.
+//
 // No dimmed backdrop, as with every dialog in Cue.
 
 const NEXT = { start: 'same', same: 'skip', skip: 'start' };
@@ -35,6 +40,7 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const [marks, setMarks] = useState(start.marks);
   const [titles, setTitles] = useState(start.titles);   // page -> { title, artist, key }
   const [big, setBig] = useState(null);                  // page shown large
+  const [asking, setAsking] = useState(null);            // the way out, held until "Discard" is pressed
   // A book's songs come in as a book (books.js); one song printed twice over
   // (start.asBook false) is yours, as a sheet is, unless you put it in a book
   // — start.bookId's, the one last used, offered first.
@@ -92,17 +98,19 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const panel = dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200';
   const head  = dark ? 'text-white' : 'text-gray-900';
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
-  const quiet = dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600';
   const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors';
   const secondary = `w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
   const field = `w-full rounded-lg px-3 py-2 text-sm border ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
   const n = songs.length;
   const more = step ? step.total - step.to : 0;
+  const changed = titles !== start.titles || marks.some((m, i) => m !== start.marks[i]);
+  const leave = (go) => (changed ? setAsking(() => go) : go());
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className={`relative w-full max-w-4xl h-[94vh] sm:h-[85vh] rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-2 sm:gap-3 ${panel}`}>
-        <div className="flex flex-col gap-1">
+        <CornerClose dark={dark} label={more ? `Stop here, skip ${more} more` : 'Cancel'} onClick={() => leave(more ? onStop : onCancel)} />
+        <div className="flex flex-col gap-1 pr-8">
           {step && <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{stepWords(step)}</p>}
           <h2 className={`text-base font-semibold ${head}`}>Pick the songs <span className={`font-normal text-sm ${muted} break-words`}>“{fileName}”</span></h2>
           <p className={`text-xs sm:text-sm ${head}`}>
@@ -152,13 +160,26 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
             Make {n} song{n === 1 ? '' : 's'}
           </button>
         </div>
-        <button onClick={onCancel} className={`text-xs py-1 text-center transition-colors ${quiet}`}>{more ? 'Skip this PDF' : 'Cancel'}</button>
-        {more > 0 && <button onClick={onStop} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Stop here, skip {more} more</button>}
+        {more > 0 && <button onClick={() => leave(onCancel)} className={secondary}>Skip this PDF</button>}
 
         {big && (
           <BigPage doc={doc} p={big} count={marks.length} mark={shown[big - 1]} chart={!!chances?.[big - 1]}
             title={titles[big]?.title ?? ''} onMark={mark} onRetitle={retitle} onGo={setBig} onClose={() => setBig(null)}
             dark={dark} panel={panel} head={head} muted={muted} field={field} />
+        )}
+
+        {/* An in-app question, not confirm(): that is suppressed in a home-screen app. */}
+        {asking && (
+          <div className="absolute inset-0 rounded-2xl flex items-center justify-center p-4" onClick={() => setAsking(null)}>
+            <div className={`w-72 max-w-full rounded-2xl shadow-2xl p-5 flex flex-col gap-3 ${panel}`} onClick={e => e.stopPropagation()}>
+              <h3 className={`text-base font-semibold ${head}`}>Discard your picks?</h3>
+              <p className={`text-sm ${muted}`}>The changes you’ve made to these pages will be lost.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setAsking(null)} className={secondary}>Keep picking</button>
+                <button onClick={asking} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">Discard</button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
