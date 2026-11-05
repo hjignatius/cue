@@ -29,7 +29,7 @@ import CornerClose from './CornerClose.jsx';
 //
 // A book that can't be split — or whose split is wrong — can be picked apart
 // by hand instead, page by page (PagePicker): the main way on for a book that
-// can't be split, a quieter one for a book that can.
+// can't be split, a second choice for a book that can.
 //
 // Several PDFs picked together, one song each, mark which ones Cue can read as
 // charts ("Chart") and which come in as their pages ("PDF"), as the page
@@ -84,7 +84,6 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
   const head  = dark ? 'text-white' : 'text-gray-900';
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
   const rule  = dark ? 'border-gray-800' : 'border-gray-100';
-  const quiet = dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600';
   const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors';
   const secondary = `w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
   const n = chosen.size;
@@ -213,7 +212,7 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
                 </button>
               )}
               {!cant && onPick && (
-                <button onClick={onPick} className={`text-xs py-1 text-center transition-colors ${quiet}`}>Or pick the pages myself</button>
+                <button onClick={onPick} className={secondary}>Or pick the pages myself</button>
               )}
               {canLeave && more > 0 && <button onClick={onCancel} className={secondary}>{sheets ? 'Skip these PDFs' : 'Skip this PDF'}</button>}
             </div>
