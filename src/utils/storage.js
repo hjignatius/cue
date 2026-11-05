@@ -228,7 +228,7 @@ const KNOWN_SONG_FIELDS = new Set([
   'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed', 'condensed',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source, bookId, mine, pdfRotate }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source, bookId, mine, pdfRotate, pdfPageTurns }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -263,6 +263,8 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   // scanned upside down or sideways. Given by the editor; otherwise carried
   // forward through `preserved` like `source`.
   if (pdfRotate    !== undefined) entry.pdfRotate    = pdfRotate;
+  // Turns for single pages, on top of that (pageTurns.js). Carried the same way.
+  if (pdfPageTurns !== undefined) entry.pdfPageTurns = pdfPageTurns;
   if (chordStyle   !== undefined) entry.chordStyle   = chordStyle;
   if (previewMode  !== undefined) entry.previewMode  = previewMode;
   if (diagramScale !== undefined) entry.diagramScale = diagramScale;

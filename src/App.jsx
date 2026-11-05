@@ -433,7 +433,7 @@ export default function App() {
         chordStyle: s.chordStyle, previewMode: s.previewMode, diagramScale: s.diagramScale,
         chordPrefs: s.chordPrefs, displayKey: s.displayKey,
         type: s.type, pdf: s.pdf, pedalActive: s.pedalActive,
-        fullPage: s.fullPage, embed: s.embed, condensed: s.condensed, pdfRotate: s.pdfRotate,
+        fullPage: s.fullPage, embed: s.embed, condensed: s.condensed, pdfRotate: s.pdfRotate, pdfPageTurns: s.pdfPageTurns,
       });
 
       // Restore a bundle's embedded PDF bytes (version 2+ song/set .json files

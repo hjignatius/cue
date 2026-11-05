@@ -48,6 +48,13 @@ check('each slot becomes its song’s pages, in order, between Cue’s own', siz
 check('no slot is left', after.getPages().some(p => slotOf(p) >= 0), false);
 
 // ---- 3. a PDF that won't open --------------------------------------------------------
+// ---- the way up each page exports --------------------------------------------
+const angles = (doc) => doc.getPages().map(p => p.getRotation().angle);
+check('no turns: as stored', angles(await openForSlot(await songPdf(790, 791, 792))), [0, 0, 0]);
+check('a turn for every page', angles(await openForSlot(await songPdf(790, 791, 792), 90)), [90, 90, 90]);
+check('one page turned', angles(await openForSlot(await songPdf(790, 791, 792), 0, { 2: 90 })), [0, 90, 0]);
+check('a page turn adds to the song turn', angles(await openForSlot(await songPdf(790, 791, 792), 90, { 3: 270 })), [90, 90, 0]);
+
 console.warn = () => {};   // openForSlot says why; not wanted in the test output
 check('no PDF on this device', await openForSlot(null), null);
 check('a file that isn’t a PDF', await openForSlot(new Blob(['not a pdf'])), null);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileWarning } from 'lucide-react';
+import { FileWarning, RotateCw } from 'lucide-react';
 import { loadPdfjs, pageRotation } from '../utils/pdfjs.js';
+import { pageTurn } from '../utils/pageTurns.js';
 import { loadPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -15,10 +16,17 @@ import { useAuth } from '../context/AuthContext.jsx';
 // `blob` is an optional override for the bytes: the editor passes a PDF the user
 // just picked but has not saved yet, which has no songId key in the pdfs store
 // to load from. When absent (every other caller) the bytes come from storage.
-export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, onReady, dark }) {
+//
+// `turn` turns every page; `pageTurns` adds to it page by page (pageTurns.js).
+// `onTurnPage(n)` is the editor's: it puts a rotate button on each page of a PDF
+// with more than one. A PDF with one has the Rotate above it, which does the same.
+export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, pageTurns, onTurnPage, onReady, dark }) {
   const { user } = useAuth();
   const wrapRef = useRef(null);
   const docRef  = useRef(null);
+  // What each page's canvas holds, so turning one page redraws that page rather
+  // than blanking the whole stack.
+  const drawnRef = useRef(new Map());
   const [numPages, setNumPages] = useState(0);
   const [status, setStatus]     = useState('loading'); // loading | ready | missing | error
   const [reloadKey, setReloadKey] = useState(0);
@@ -43,6 +51,7 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, onR
     let cancelled = false;
     setStatus('loading');
     docRef.current = null;
+    drawnRef.current = new Map();
     setNumPages(0);
     (async () => {
       try {
@@ -98,7 +107,10 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, onR
         try {
           const page = await doc.getPage(n);
           if (cancelled) return;
-          const rotation = pageRotation(page, turn);
+          const rotation = pageRotation(page, turn + pageTurn(pageTurns, n));
+          const drawing = `${cssWidth}|${dpr}|${rotation}`;
+          if (drawnRef.current.get(n) === drawing) continue;
+          drawnRef.current.delete(n);
           const base = page.getViewport({ scale: 1, rotation });
           const viewport = page.getViewport({ scale: (cssWidth / base.width) * dpr, rotation });
           canvas.width  = Math.floor(viewport.width);
@@ -108,13 +120,14 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, onR
           const task = page.render({ canvasContext: canvas.getContext('2d'), viewport });
           tasks.push(task);
           await task.promise;
+          drawnRef.current.set(n, drawing);
         } catch (err) {
           if (err?.name !== 'RenderingCancelledException') console.error('[PdfPageStack] render page', n, err);
         }
       }
     })();
     return () => { cancelled = true; tasks.forEach(t => { try { t.cancel(); } catch { /* ignore */ } }); };
-  }, [status, numPages, renderTick, turn]);
+  }, [status, numPages, renderTick, turn, pageTurns]);
 
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
 
@@ -149,9 +162,28 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, onR
   return (
     <div ref={wrapRef} className="flex flex-col items-center gap-3">
       {status === 'loading' && <p className={`text-sm py-8 ${muted}`}>Loading…</p>}
-      {Array.from({ length: numPages }, (_, i) => (
-        <canvas key={i + 1} data-page={i + 1} className="block max-w-full shadow-sm" />
-      ))}
+      {Array.from({ length: numPages }, (_, i) => {
+        const n = i + 1;
+        const page = <canvas key={n} data-page={n} className="block max-w-full shadow-sm" />;
+        if (!onTurnPage || numPages < 2) return page;
+        const turned = pageTurn(pageTurns, n);
+        return (
+          <div key={n} className="relative max-w-full">
+            {page}
+            <button
+              type="button"
+              onClick={() => onTurnPage(n)}
+              title={`Turn page ${n} a quarter turn clockwise`}
+              aria-label={`Turn page ${n} a quarter turn clockwise`}
+              className={`absolute top-1 right-1 z-10 flex items-center justify-center gap-1 min-w-11 h-11 px-2 rounded-full border text-xs tabular-nums shadow transition-colors ${
+                dark ? 'bg-gray-800/90 border-gray-600 text-gray-200 hover:text-white'
+                     : 'bg-white/90 border-gray-300 text-gray-600 hover:text-gray-900'}`}
+            >
+              <RotateCw size={16} className="opacity-70" />{turned ? ` ${turned}°` : ''}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

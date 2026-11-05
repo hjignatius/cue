@@ -1356,6 +1356,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           songId={song?.id}
           page={pdfPage}
           turn={song?.pdfRotate}
+          pageTurns={song?.pdfPageTurns}
           onReady={setPdfCount}
           onTapPrev={() => pdfTapTurn(-1)}
           onTapNext={() => pdfTapTurn(1)}
@@ -1378,7 +1379,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
       {songIsPdf && mode === 'scroll' && (
         <div ref={scrollRef} className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} px-4 md:px-8 py-4`}>
           <div className="relative">
-            <PdfPageStack songId={song?.id} turn={song?.pdfRotate} onReady={setPdfCount} dark={dark} />
+            <PdfPageStack songId={song?.id} turn={song?.pdfRotate} pageTurns={song?.pdfPageTurns} onReady={setPdfCount} dark={dark} />
             {song?.id && !inkOff && (
               <PdfAnnotationCanvas key={`pdf-${song.id}`} songId={song.id} annotating={annotating} dark={dark} onCleared={stopAnnotating} />
             )}

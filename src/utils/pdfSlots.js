@@ -7,6 +7,8 @@
 //
 // pdf-lib is loaded only when an export has a page song in it.
 
+import { pageTurn } from './pageTurns.js';
+
 export const SLOT_WIDTH = 11;
 
 // The size of slot `i`'s page, for react-pdf.
@@ -20,14 +22,18 @@ export function slotOf(page) {
 
 // Open a song's stored PDF to go into an export, or null when it won't open —
 // that song then prints from its words, as before.
-// `turn` is the song's pdfRotate, added to each page's own rotation so the
-// export prints the sheet the way up it presents.
-export async function openForSlot(blob, turn = 0) {
+// `turn` is the song's pdfRotate and `pageTurns` its turns for single pages
+// (pageTurns.js), added to each page's own rotation so the export prints the
+// sheet the way up it presents.
+export async function openForSlot(blob, turn = 0, pageTurns) {
   if (!blob) return null;
   try {
     const { PDFDocument, degrees } = await import('pdf-lib');
     const doc = await PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption: true, updateMetadata: false });
-    if (turn) for (const page of doc.getPages()) page.setRotation(degrees((page.getRotation().angle + turn) % 360));
+    doc.getPages().forEach((page, i) => {
+      const extra = (turn || 0) + pageTurn(pageTurns, i + 1);
+      if (extra) page.setRotation(degrees((page.getRotation().angle + extra) % 360));
+    });
     return doc.getPageCount() ? doc : null;
   } catch (err) {
     console.warn('[pdfSlots] a song’s PDF would not open for the export', err);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileWarning } from 'lucide-react';
 import { loadPdfjs, pageRotation } from '../utils/pdfjs.js';
+import { pageTurn } from '../utils/pageTurns.js';
 import { loadPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -12,7 +13,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 // FAIL SOFT: a missing blob or a load/render error shows a clear placeholder and
 // never throws into Present mode. Tap zones (left = previous, right = next) call
 // the parent so page-turn stays unified with the pedal/keyboard handler.
-export default function PdfSongView({ songId, page, turn = 0, onReady, onTapPrev, onTapNext, dark }) {
+export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady, onTapPrev, onTapNext, dark }) {
   const { user } = useAuth();
   const wrapRef   = useRef(null);
   const canvasRef = useRef(null);
@@ -94,7 +95,7 @@ export default function PdfSongView({ songId, page, turn = 0, onReady, onTapPrev
         const dpr = window.devicePixelRatio || 1;
         const cssWidth  = wrap.clientWidth;
         const cssHeight = wrap.clientHeight;
-        const rotation = pageRotation(pdfPage, turn);
+        const rotation = pageRotation(pdfPage, turn + pageTurn(pageTurns, pageNum));
         const base = pdfPage.getViewport({ scale: 1, rotation });
         // Full Page mode: fit the WHOLE page inside the area (min of width- and
         // height-fit) so a tall page is never clipped — the entire page shows.
@@ -115,7 +116,7 @@ export default function PdfSongView({ songId, page, turn = 0, onReady, onTapPrev
       }
     })();
     return () => { cancelled = true; try { taskRef.current?.cancel(); } catch { /* ignore */ } };
-  }, [status, page, renderTick, turn]);
+  }, [status, page, renderTick, turn, pageTurns]);
 
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
 

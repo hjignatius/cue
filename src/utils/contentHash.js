@@ -6,6 +6,8 @@
 //
 // Shared between SharedSetView (which writes the baseline) and LibraryView (which
 // reads it) so both compute an identical hash — they MUST agree byte-for-byte.
+import { cleanPageTurns, hasPageTurns } from './pageTurns.js';
+
 export function contentSig(song) {
   const m = song?.metadata || {};
   return JSON.stringify({
@@ -16,6 +18,7 @@ export function contentSig(song) {
     // Only when turned, so every song hashed before rotation existed keeps its
     // hash (and its copies' baselines keep matching).
     ...(song?.pdfRotate ? { rot: song.pdfRotate } : {}),
+    ...(hasPageTurns(song?.pdfPageTurns) ? { pageRot: cleanPageTurns(song.pdfPageTurns) } : {}),
   });
 }
 
@@ -53,7 +56,7 @@ const SIG_FIELDS = [
   ['the full-page setting',(s) => String(!!s?.fullPage)],
   ['the chord diagrams',   (s) => String(!!s?.embed)],
   ['the song type',        (s) => s?.type || 'text'],
-  ['which way up the PDF is', (s) => String(s?.pdfRotate || 0)],
+  ['which way up the PDF is', (s) => `${s?.pdfRotate || 0} ${JSON.stringify(cleanPageTurns(s?.pdfPageTurns))}`],
 ];
 
 export function contentDiffFields(a, b) {

@@ -16,6 +16,7 @@ import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
+import { nextPageTurns, hasPageTurns } from '../utils/pageTurns.js';
 import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { AiWaiting, AiCaution, AiProgress, AiInlineProgress } from '../components/AiCaution.jsx';
 import { KEY_NAMES, semitonesBetween, flatsForKey, transposeText, transposeChord, displaySemitones } from '../utils/transpose.js';
@@ -466,6 +467,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Quarter turns clockwise for a sheet scanned upside down or sideways. Saved
   // with the song; Present, the preview and PDF exports all draw it turned.
   const [pdfRotate, setPdfRotate] = useState(song?.pdfRotate || 0);
+  const [pdfPageTurns, setPdfPageTurns] = useState(song?.pdfPageTurns || {});
+  const [pdfPages, setPdfPages] = useState(0);
   const [pdfErr, setPdfErr]         = useState('');
   // Per-song Full Page mode (top-level song field, not metadata). Off by default:
   // continuous scroll. On: discrete full pages. Applies to text and pdf alike.
@@ -672,6 +675,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     displayKey,
     fullPage,
     condensed,
+    pdfRotate,
+    pdfPageTurns,
   });
 
   // Re-check annotation existence whenever the song changes OR when returning from
@@ -709,6 +714,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   function attachPdf(file) {
     setPendingPdf(file);
     setPdfRotate(0);   // a new sheet starts the way up it was made
+    setPdfPageTurns({});
     setSongType('pdf');
     setIsDirty(true);
     // Name the song after the file, as Import does — but never overwrite a
@@ -777,7 +783,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     // A freshly picked PDF carries its own reference record; otherwise saveSong
     // keeps whatever the song already had.
     const pdfMeta = pendingPdf ? { filename: pendingPdf.name, importedAt: new Date().toISOString() } : undefined;
-    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pdf: pdfMeta, fullPage, embed, condensed, pdfRotate: songType === 'pdf' ? pdfRotate : undefined });
+    const id = await saveSong({ id: songId, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, pdf: pdfMeta, fullPage, embed, condensed, pdfRotate: songType === 'pdf' ? pdfRotate : undefined, pdfPageTurns: songType === 'pdf' ? pdfPageTurns : undefined });
     if (pendingPdf) {
       await savePdfBlob(id, pendingPdf);
       // Nothing to do about the cloud flag: the pdf record written just above is
@@ -801,7 +807,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setAiRetry(null);
     setAiMsg('');
     baselineRef.current = snapshotState(); // Revert target becomes the just-saved state
-    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate });
+    onSaved?.({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns });
     return id; // callers that need the id of a just-created song (see Present)
   }
 
@@ -826,6 +832,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     setDisplayKey(b.displayKey);
     if (b.fullPage !== undefined) setFullPage(b.fullPage);
     if (b.condensed !== undefined) setCondensed(b.condensed);
+    if (b.pdfRotate !== undefined) setPdfRotate(b.pdfRotate);
+    if (b.pdfPageTurns !== undefined) setPdfPageTurns(b.pdfPageTurns);
     // Discard a PDF picked since the baseline — the bytes were never written.
     if (b.songType !== undefined) setSongType(b.songType);
     setPendingPdf(null);
@@ -1692,20 +1700,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const pdfPreview = (
     <>
       <div className="flex items-center justify-end gap-2 mb-2">
-        {pdfRotate !== 0 && hasAnnotation && (
+        {(pdfRotate !== 0 || hasPageTurns(pdfPageTurns)) && hasAnnotation && (
           <span className={`text-xs ${dark ? 'text-amber-400' : 'text-amber-600'}`}>Ink doesn’t turn with the page</span>
         )}
         <button
           type="button"
           onClick={() => { setPdfRotate(r => (r + 90) % 360); setIsDirty(true); }}
-          title="Turn the pages a quarter turn clockwise. Twice turns an upside-down sheet the right way up."
+          title="Turn every page a quarter turn clockwise. Twice turns an upside-down sheet the right way up."
           /* Fixed width: tapped several times in a row, and a label that grew
              with "· 90°" walked the button out from under the finger. */
           className={`flex items-center justify-center gap-1.5 w-[7.5rem] py-1.5 rounded border text-xs tabular-nums transition-colors ${
             dark ? 'border-gray-700 text-gray-300 hover:text-white hover:border-gray-600'
                  : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}
         >
-          <RotateCw size={14} className="opacity-70" /> Rotate{pdfRotate ? ` · ${pdfRotate}°` : ''}
+          <RotateCw size={14} className="opacity-70" /> Rotate{pdfPages > 1 ? ' all' : ''}{pdfRotate ? ` · ${pdfRotate}°` : ''}
         </button>
       </div>
       {/* Laid out as in Present: the ink has to share a relative box with the
@@ -1714,7 +1722,15 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           canvas only reads a song's strokes when it mounts: without it, ink just
           drawn there wouldn't be here on the way back. */}
       <div className="relative">
-        <PdfPageStack songId={songId} blob={pendingPdf} turn={pdfRotate} dark={dark} />
+        <PdfPageStack
+          songId={songId}
+          blob={pendingPdf}
+          turn={pdfRotate}
+          pageTurns={pdfPageTurns}
+          onTurnPage={(n) => { setPdfPageTurns(t => nextPageTurns(t, n)); setIsDirty(true); }}
+          onReady={setPdfPages}
+          dark={dark}
+        />
         {showAnnotations && hasAnnotation && songId && (
           <PdfAnnotationCanvas
             key={`editor-pdf-ink-${songId}-${annotationStamp}`}
@@ -2743,7 +2759,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               fill={headerFill}
               onActivate={async () => {
                 const id = pendingPdf ? await handleSave() : songId; // as Present, below
-                onReturn({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate });
+                onReturn({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns });
               }}
             >
               <Undo2 size={22} strokeWidth={2} />
@@ -2759,7 +2775,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 // has no id to key it under), so Present would show the missing
                 // placeholder. Save first, and present the id that comes back.
                 const id = pendingPdf ? await handleSave() : songId;
-                onPresent?.([{ id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed, pdfRotate }], 0);
+                onPresent?.([{ id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns }], 0);
               }}
             >
               <Tv size={22} strokeWidth={2} />{!isNarrow && <PillLabel>Present</PillLabel>}
