@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Save, Search, X, ChevronLeft, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation, RotateCw } from 'lucide-react';
 import { CloseCircle } from '../components/CornerClose.jsx';
-import SelectStrip from '../components/SelectStrip.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
 import MetadataForm from '../components/MetadataForm.jsx';
@@ -9,9 +8,9 @@ import SettingsPanel from '../components/SettingsPanel.jsx';
 import SongPreview from '../components/SongPreview.jsx';
 import SongChordPanel from '../components/SongChordPanel.jsx';
 import ResizeHandle from '../components/ResizeHandle.jsx';
-import SegmentedControl, { PILL_BOTTOM, PILL_CLEARANCE, SEGMENTED_HEIGHT } from '../components/SegmentedControl.jsx';
+import SegmentedControl, { PILL_BOTTOM, PILL_CLEARANCE } from '../components/SegmentedControl.jsx';
 import AiRetryLink from '../components/AiRetryLink.jsx';
-import { useCompactChrome, usePhoneLandscape, useTouchDevice } from '../hooks/useCompactChrome.js';
+import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, TriangleLeft, TriangleRight, GLASS } from '../components/RoundButton.jsx';
 import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
@@ -444,10 +443,6 @@ function FormatIcon({ kind, size = 18 }) {
   );
 }
 
-// The floating Select strip on a phone: its height, and its gap above the pill.
-const STRIP_HEIGHT = 46;
-const STRIP_GAP = 8;
-
 export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi }) {
   const { theme, chordColor, chordDiagramSize, accidentals, symbols, instrument, aiLevel, updatePref } = usePrefs();
   // 'none' turns chord diagrams off entirely: no panel, no toggle, no Chords tab.
@@ -534,10 +529,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   const oneAtATime = compactChrome && !phoneLandscape;
   // Lifts the floating panel pill clear of the on-screen keyboard; 0 otherwise.
   const kbInset = useKeyboardInset();
-  // The Select strip (SelectStrip.jsx): a row across the top of the panes, since
-  // on an iPad in portrait the Text pane alone is too narrow for it. On a phone
-  // it floats over the pill, where the keyboard can't push it out of sight.
-  const touchDevice = useTouchDevice();
   // Format toggle (OL/B) sits inline on the compact toolbar at every phone width
   // now that Find/Save/Revert are icon-only and free up the room — so it's no
   // longer tucked in the overflow menu (which then appears only for annotations).
@@ -1661,10 +1652,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // have already written would strand it), and never shows on a pdf song.
   const canLoadPdf = songType === 'text' && text.trim() === '';
 
-  const selectStrip = touchDevice && !oneAtATime && (
-    <SelectStrip textareaRef={textareaRef} dark={dark} onPaste={() => { pastedRef.current = true; }} />
-  );
-
   const textarea = (
     <div className="relative flex-1 flex flex-col min-h-0">
     <textarea
@@ -1685,7 +1672,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       placeholder="Paste chords-over-lyrics or ChordPro text here…"
       className={`flex-1 resize-none font-mono text-sm p-4 outline-none leading-relaxed whitespace-pre overflow-auto ${dark ? 'bg-gray-950 text-gray-100 placeholder-gray-800' : 'bg-white text-gray-900 placeholder-gray-400'}`}
       // Room to scroll the last line out from under the floating pill.
-      style={oneAtATime ? { paddingBottom: touchDevice ? `calc(${PILL_CLEARANCE} + ${STRIP_HEIGHT + STRIP_GAP}px)` : PILL_CLEARANCE } : undefined}
+      style={oneAtATime ? { paddingBottom: PILL_CLEARANCE } : undefined}
     />
     {canLoadPdf && (
       /* Overlay, not flow: the textarea stays full-size and focusable, so
@@ -3272,7 +3259,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
 
       {/* Main content */}
-      {selectStrip}
       <div className="flex-1 flex overflow-hidden min-h-0">
 
         {oneAtATime ? (
@@ -3457,18 +3443,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           fixed-bottom pill would have taken that away, and a <textarea> gives you
           no button to dismiss the keyboard with. z-30 sits above the panes but
           below the dialog layer (z-50). */}
-      {oneAtATime && touchDevice && narrowTab === 'editor' && (
-        <div
-          className="fixed inset-x-2 z-30 flex justify-center pointer-events-none [transition:bottom_160ms_ease] motion-reduce:[transition:none]"
-          style={{ bottom: `calc(${PILL_BOTTOM + SEGMENTED_HEIGHT.stack + STRIP_GAP + kbInset}px + env(safe-area-inset-bottom))` }}
-        >
-          <div className="pointer-events-auto max-w-full">
-            <SelectStrip textareaRef={textareaRef} dark={dark} floating
-              covered={SEGMENTED_HEIGHT.stack + STRIP_HEIGHT + PILL_BOTTOM + STRIP_GAP}
-              onPaste={() => { pastedRef.current = true; }} />
-          </div>
-        </div>
-      )}
       {oneAtATime && (
         <div
           className="fixed left-1/2 z-30 [transition:bottom_160ms_ease] motion-reduce:[transition:none]"
