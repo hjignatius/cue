@@ -75,6 +75,8 @@ export async function getDB() {
     await migrateFromLocalStorage(_db);
     await runMigrations(_db);
     await migrateBooks(_db);
+    // Not awaited: PDFs can be large and Cue shouldn't wait on them to open.
+    convertOldPdfs(_db).catch(err => console.warn('[storage] converting old PDFs stopped', err));
   }
   return _db;
 }
@@ -205,6 +207,39 @@ async function migrateBooks(database) {
   }
 }
 
+// PDFs saved before they were stored as bytes (see savePdfBlob) are still Blobs,
+// the form Mac Safari can lose, so they are rewritten as bytes while they can
+// still be read. Only the 'pdfs' store is touched: no song changes, so no set
+// reads SEND CHANGES. A PDF that won't read keeps its record and is tried again
+// next launch; the flag goes up only once none is left. One at a time, so a big
+// library is never all in memory at once.
+const PDFS_CONVERTED = 'cue:pdf_bytes_v1';
+export async function convertOldPdfs(database) {
+  if (localStorage.getItem(PDFS_CONVERTED)) return { converted: 0, failed: 0 };
+  let converted = 0, failed = 0;
+  for (const songId of await database.getAllKeys('pdfs')) {
+    try {
+      const rec = await database.get('pdfs', songId);
+      if (!rec?.blob || rec.bytes) continue;
+      const bytes = await rec.blob.arrayBuffer();
+      if (!bytes.byteLength) { failed++; continue; }
+      // Read again inside the write: a PDF replaced while the old one was being
+      // read must not be overwritten with the old one.
+      const tx = database.transaction('pdfs', 'readwrite');
+      const now = await tx.store.get(songId);
+      const stillOld = now?.blob && !now.bytes;
+      if (stillOld) await tx.store.put({ songId, bytes, type: rec.blob.type || 'application/pdf' });
+      await tx.done;
+      if (stillOld) converted++;
+    } catch (err) {
+      failed++;
+      console.warn('[storage] could not convert a PDF; it stays as it was', songId, err);
+    }
+  }
+  if (!failed) localStorage.setItem(PDFS_CONVERTED, '1');
+  return { converted, failed };
+}
+
 // ---- Songs ------------------------------------------------------------------
 
 export async function loadSongs() {
@@ -321,7 +356,8 @@ const _pdfMemCache = new Map();
 // Safari kept the song records of a book import but not their Blobs, so the
 // PDFs opened until the next reload (the memory copy) and then were "not
 // available on this device". Bytes are stored inline, as text songs are.
-// Records written before this hold { songId, blob }; both are read.
+// Records written before this hold { songId, blob }; both are read, and
+// convertOldPdfs rewrites the old ones.
 // Returns true when the PDF is stored for good, false when only in memory.
 export async function savePdfBlob(songId, blob) {
   _pdfMemCache.set(songId, blob);
