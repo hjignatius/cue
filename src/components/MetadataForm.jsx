@@ -54,7 +54,10 @@ function TapTempo({ bpm, onBpm, timeSig, onTimeSig }) {
       <button
         type="button"
         onPointerDown={handleTap}
-        className={tapBtnCls}
+        // Wide enough for three digits whatever it says, so ▶ beside it stays
+        // put while the tempo crosses 100 mid-tapping. In rem, to grow with the
+        // app's text size.
+        className={`${tapBtnCls} w-[3.25rem] shrink-0 text-center tabular-nums`}
         title="Tap in rhythm to set BPM"
       >
         {display === null ? 'Tap' : display === '...' ? '...' : `${display}`}
