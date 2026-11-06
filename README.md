@@ -111,8 +111,8 @@ Opt-in Claude-powered helpers, gated on a user-supplied Anthropic API key saved 
 - **Progress is counted, never estimated.** `jsonProgress`/`countKeys`/`countItems`/`countOrder` in `src/lib/ai.js` supply the numerator; the denominator is exact where the reply's shape is fixed (its keys; a permutation of *n* songs) and a documented cap where it is not (8 suggestions, 5 sources). `echoProgress` covers the two tools that hand the chart back, measuring characters returned against characters sent. `src/utils/aiStage.js` turns an event into a label, a detail line and a percentage, and is shared by both views so no two bars can disagree. Find duplicates has no denominator and renders indeterminate (`AiProgress percent={null}`).
 - **Cancellable.** Both transports take an `AbortSignal` in the body; `useAiAbort` holds one controller per named action, and every dialog's close path cancels. `aborted` is the one error code callers swallow — no message, no retry offer, and no result state, which is what stops a closed dialog reopening when its request lands.
 
-### Supporting Cue
-- A **Support Cue** link at the foot of Settings opens PayPal in the browser. Cue takes no payment, runs no payment code and stores nothing — it is an outbound link and nothing more.
+### Supporting Cue and suggestions
+- A card at the foot of Settings has a **Support Cue** button, which opens PayPal in the browser, and a **Send a suggestion** button, which starts an email to usecueapp@gmail.com. Each also has a QR code to scan with a phone. Cue takes no payment, runs no payment code and stores nothing — both are outbound links and nothing more.
 
 ### Onboarding Tour
 A 7-step spotlight tour runs on first launch, covering the library, import, sets, setlist, and editor features. Dismissed once and never shown again (stored in `localStorage`).

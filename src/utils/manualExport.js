@@ -255,8 +255,9 @@ function manualHTML() {
 <h2>Account</h2>
 <p>The Account section appears only when cloud sharing is configured. Enter your email address and Cue emails you a numeric code; type it into the app to sign in. The email also contains a sign-in link, which works on desktop — but on an iPhone or iPad with Cue installed to the Home Screen, use the code. A tapped link always opens in Safari, and the session it creates lives in Safari's storage, not the installed app's, so the app would still show you as signed out. Once signed in, your email is shown with a <strong>Sign out</strong> button. An account is needed only to <em>publish</em> a shared set link — viewing a shared link requires no account.</p>
 
-<h2>Supporting Cue</h2>
-<p>At the foot of Settings there is a <strong>Support Cue</strong> link, which opens PayPal in your browser. Cue is free and takes no payment itself — it runs no payment code and stores nothing. It is an outbound link and nothing more.</p>
+<h2>Supporting Cue and sending suggestions</h2>
+<p>At the foot of Settings there is a card with two buttons. <strong>Support Cue</strong> opens PayPal in your browser. Cue is free and takes no payment itself — it runs no payment code and stores nothing. <strong>Send a suggestion</strong> starts an email to usecueapp@gmail.com, which is also written out with a Copy button.</p>
+<p>Beside each button is a QR code button, which shows the same link as a code to scan with your phone. That is useful on a Mac or iPad: you can pay on your phone, or email from it if the device you are using has no mail set up.</p>
 
 <!-- 3 -->
 <h1>3. The Library</h1>

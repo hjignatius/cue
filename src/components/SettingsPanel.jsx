@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { CloseCircle } from './CornerClose.jsx';
+import SupportCard from './SupportCard.jsx';
 import { usePrefs, AI_LEVELS, MUSIC_GENRES } from '../context/PrefsContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { supportsExportFolder, getExportFolderName, chooseExportFolder, clearExportFolder } from '../utils/filePicker.js';
@@ -863,37 +864,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
             <span className={label}>Present</span> — tap the wrench, then the gear.
           </p>
 
-          {/* Support link. An outbound link, not a control: Cue takes no payment,
-              runs no payment code and stores nothing — this just opens PayPal in
-              the browser. Written https even though the link is usually quoted as
-              http; paypal.me redirects either way, but there is no reason to make
-              the first hop plaintext.
-              "Support", not "Donate" — but that reasoning was overstated here
-              and is corrected rather than deleted, because it nearly settled a
-              question it should not have.
-
-              What IS charity-only is the reduced charity fee rate and PayPal
-              Giving Fund. The Donate BUTTON itself appears to be open to an
-              ordinary account: ozbcoz — Jim's Ukulele Songbook, one person and
-              no charity — has a PayPal donation page with the amount box, the
-              monthly tick and the card option. So "Donate" is probably
-              available if it is ever wanted; creating a Donate button in the
-              PayPal account is the two-minute way to find out. Not verified,
-              and PayPal's terms vary by country.
-
-              Raised 2026-10-20 and left as it is, deliberately. */}
-          <p className={`text-xs ${muted}`}>
-            Cue is free and always will be.{' '}
-            <a
-              href="https://paypal.me/howardignatius"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-            >
-              Support Cue
-            </a>{' '}
-            if it earns its keep.
-          </p>
+          <SupportCard dark={dark} />
         </div>
       </div>
     </>
