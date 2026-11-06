@@ -12,7 +12,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 //
 // FAIL SOFT: a missing blob or a load/render error shows a clear placeholder and
 // never throws into Present mode. Tap zones (left = previous, right = next) call
-// the parent so page-turn stays unified with the pedal/keyboard handler.
+// the parent so page-turn stays unified with the pedal/keyboard handler. A song
+// that can't open counts as one page, so the parent isn't left waiting on it.
 export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady, onTapPrev, onTapNext, dark }) {
   const { user } = useAuth();
   const wrapRef   = useRef(null);
@@ -49,7 +50,7 @@ export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady
       try {
         const blob = await loadPdfBlob(songId);
         if (cancelled) return;
-        if (!blob) { setStatus('missing'); return; }
+        if (!blob) { setStatus('missing'); onReady?.(1); return; }
         const pdfjs = await loadPdfjs();
         const data = new Uint8Array(await blob.arrayBuffer());
         if (cancelled) return;
@@ -60,7 +61,7 @@ export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady
         setStatus('ready');
       } catch (err) {
         console.error('[PdfSongView] failed to load PDF', err);
-        if (!cancelled) setStatus('error');
+        if (!cancelled) { setStatus('error'); onReady?.(1); }
       }
     })();
     return () => {
@@ -110,7 +111,8 @@ export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady
         taskRef.current = task;
         await task.promise;
       } catch (err) {
-        if (err?.name !== 'RenderingCancelledException') {
+        // The song changed mid-render, so its document has already been closed.
+        if (err?.name !== 'RenderingCancelledException' && docRef.current === doc) {
           console.error('[PdfSongView] render failed', err);
         }
       }

@@ -13,7 +13,7 @@ import AiRetryLink from '../components/AiRetryLink.jsx';
 import { useCompactChrome, usePhoneLandscape } from '../hooks/useCompactChrome.js';
 import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, TriangleLeft, TriangleRight, GLASS } from '../components/RoundButton.jsx';
-import { saveSong, saveDraft, savePdfBlob } from '../utils/storage.js';
+import { saveSong, saveDraft, savePdfBlob, loadSongs } from '../utils/storage.js';
 import { loadAnnotation, deleteAnnotation } from '../utils/annotations.js';
 import AnnotationCanvas from '../components/AnnotationCanvas.jsx';
 import PdfPageStack from '../components/PdfPageStack.jsx';
@@ -2776,7 +2776,14 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 // has no id to key it under), so Present would show the missing
                 // placeholder. Save first, and present the id that comes back.
                 const id = pendingPdf ? await handleSave() : songId;
-                onPresent?.([{ id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns }], 0);
+                const here = { id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns };
+                if (!inSetlist) { onPresent?.([here], 0); return; }
+                // Opened from a list: Present the list, from this song, so ◀/▶
+                // go on through it as they do from the Library. This song as it
+                // stands here, the others as saved, not as they were when the
+                // list was opened.
+                const saved = await loadSongs();
+                onPresent?.(setlistSongs.map((s, i) => (i === setlistIdx ? here : saved.find(x => x.id === s.id) ?? s)), setlistIdx);
               }}
             >
               <Tv size={22} strokeWidth={2} />{!isNarrow && <PillLabel>Present</PillLabel>}

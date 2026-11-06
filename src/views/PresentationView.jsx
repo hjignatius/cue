@@ -27,6 +27,7 @@ import PdfAnnotationCanvas from '../components/PdfAnnotationCanvas.jsx';
 import { usePrefs, PRESENT_NO_FADE } from '../context/PrefsContext.jsx';
 import { useIsNarrow } from '../hooks/useIsNarrow.js';
 import { isPdfSong } from '../utils/songType.js';
+import { pdfTurn } from '../utils/pdfTurn.js';
 import { songBodyWidthChars, songHeaderWidthChars } from '../utils/songWidth.js';
 import { mmss } from '../utils/duration.js';
 
@@ -183,6 +184,8 @@ function SongBody({ text, semitones, useFlats, fontPx, dark, chordColor, chordLa
 // panel already uses; the time bound rejects a slow drag that ends near where it
 // started, which distance alone lets through.
 const TAP_SLOP = 8;
+// How long a ◀/▶ press waits for a Full Page PDF to open before moving on anyway.
+const PDF_OPEN_WAIT_MS = 2000;
 const TAP_MS   = 500;
 // How long a peeked shape stays up with no further input.
 //
@@ -603,9 +606,14 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     peekTimer.current = setTimeout(() => setChordPeek(null), CHORD_PEEK_MS);
   }, [annotating, chordsAvailable, peekShapeFor]);
 
-  // PDF paging state (1-based); pdfCount comes from the rendered document.
+  // PDF paging state (1-based); pdfCount comes from the rendered document, and
+  // is null while a Full Page PDF is still opening: nothing yet says how many
+  // pages it has. pdfOpenedAt is when that began, pdfNextHeld a Next pressed
+  // during it.
   const [pdfPage, setPdfPage]   = useState(1);
   const [pdfCount, setPdfCount] = useState(1);
+  const pdfOpenedAt = useRef(0);
+  const pdfNextHeld = useRef(false);
 
   // The song's own width, in characters — what it actually needs rather than the
   // one-size-fits-all LYRIC_TARGET_CHARS. Capped there so no song is ever given a
@@ -830,8 +838,13 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     pagingTargetRef.current = null;
     cancelAnimationFrame(pageAnimRef.current);
     setPdfPage(1);
-    setPdfCount(1);
   }, [index]);
+  useEffect(() => {
+    const opening = songIsPdf && mode === 'page';
+    setPdfCount(opening ? null : 1);
+    pdfOpenedAt.current = performance.now();
+    pdfNextHeld.current = false;
+  }, [index, songIsPdf, mode]);
 
   // Pedal paging: move within the current song by ~one screenful (dir 1 = down,
   // -1 = up), keeping a small overlap so the reader doesn't lose their place.
@@ -888,23 +901,39 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     }
   }, [glideMs, pageFraction, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
 
-  // PDF within-song advance for the pedal/keyboard: turn a page, and at the last
-  // page (or before the first) cross to the next/previous song — mirroring the
-  // scroll path's roll-to-next behavior. No wrap at the set's ends.
+  // PDF within-song advance for the pedal/keyboard: turn a page, and past either
+  // end of the song cross to the next/previous one (see pdfTurn).
+  //
+  // A Next pressed while the song is still opening waits for it: the page count
+  // isn't known yet, and counting the song as one page would skip the rest of
+  // it. An iPad takes long enough for this to matter. The wait has a limit, so a
+  // PDF that never finishes opening can't leave the button dead. Previous needs
+  // no wait, since a song that has just opened is on its first page.
   const pdfAdvance = useCallback((dir) => {
-    if (dir > 0) {
-      if (pdfPage < pdfCount) setPdfPage(p => p + 1);
-      else if (index < total - 1) goTo(index + 1);
-    } else {
-      if (pdfPage > 1) setPdfPage(p => p - 1);
-      else if (index > 0) goTo(index - 1);
+    if (dir > 0 && pdfCount === null && performance.now() - pdfOpenedAt.current < PDF_OPEN_WAIT_MS) {
+      pdfNextHeld.current = true;
+      return;
     }
+    const turn = pdfTurn({ dir, page: pdfPage, count: pdfCount ?? 1, index, total });
+    if (turn?.page) setPdfPage(turn.page);
+    else if (turn) goTo(turn.index);
   }, [pdfPage, pdfCount, index, total, goTo]);
+
+  // The PDF on screen has opened: make the Next that was waiting, if there was
+  // one. A song that can't open reports one page, so that press still moves on.
+  const pdfReady = useCallback((count) => {
+    setPdfCount(count);
+    if (!pdfNextHeld.current) return;
+    pdfNextHeld.current = false;
+    const turn = pdfTurn({ dir: 1, page: 1, count, index, total });
+    if (turn?.page) setPdfPage(turn.page);
+    else if (turn) goTo(turn.index);
+  }, [index, total, goTo]);
 
   // PDF tap zones: pure page turn for manual reading — clamp at the ends (tapping
   // never jumps you into another song; the ◀/▶ buttons or the pedal do that).
   const pdfTapTurn = useCallback((dir) => {
-    setPdfPage(p => Math.max(1, Math.min(pdfCount, p + dir)));
+    setPdfPage(p => Math.max(1, Math.min(pdfCount ?? 1, p + dir)));
   }, [pdfCount]);
 
   // The single within-song advance seam, driven by advanceMode (Full Page flag),
@@ -1357,7 +1386,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           page={pdfPage}
           turn={song?.pdfRotate}
           pageTurns={song?.pdfPageTurns}
-          onReady={setPdfCount}
+          onReady={pdfReady}
           onTapPrev={() => pdfTapTurn(-1)}
           onTapNext={() => pdfTapTurn(1)}
           dark={dark}
@@ -1657,8 +1686,8 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         }
         onPrev={prev}
         onNext={next}
-        canPrev={advancesWithinSong || index > 0}
-        canNext={advancesWithinSong || index < total - 1}
+        canPrev={mode === 'page' ? pdfPage > 1 || index > 0 : advancesWithinSong || index > 0}
+        canNext={mode === 'page' ? pdfCount === null || pdfPage < pdfCount || index < total - 1 : advancesWithinSong || index < total - 1}
         onFaster={fasterScroll}
         onSlower={slowerScroll}
         canFaster={speedMult < MAX_SPEED}
