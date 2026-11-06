@@ -11,6 +11,8 @@ import { loadSavedShares, persistSavedShares, syncBookmark } from '../utils/shar
 import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '../utils/contentHash.js';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
+import VersionPicker from '../components/VersionPicker.jsx';
+import { readPlayChoices, sameTitleSongs, chosenSong } from '../utils/shareVersions.js';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Download, Cloud, CloudDownload, Equal, EqualNot, ArrowLeft, ArrowRight, ArrowLeftRight } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
@@ -176,19 +178,21 @@ export default function SharedSetView() {
   //
   // One switch for the whole set could not say the thing people actually want —
   // "follow the share except the two I marked up" — so it is gone. This is a map
-  // of share-song id -> true meaning "play mine". Absent means the share's.
+  // of share-song id -> true for your copy, or the id of a same-title song you
+  // picked (see shareVersions.js). Absent means the share's.
   //
   // Kept against the TOKEN, because it is a fact about this share rather than
   // about the library, and it goes when the bookmark goes.
   const PLAY_MINE_KEY = sharePlayMineKey(token);
-  const [playMineIds, setPlayMineIds] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(PLAY_MINE_KEY) || '[]')); }
-    catch { return new Set(); }
+  const [playChoices, setPlayChoices] = useState(() => {
+    try { return readPlayChoices(localStorage.getItem(PLAY_MINE_KEY)); }
+    catch { return {}; }
   });
-  const setPlayMinePersisted = useCallback((next) => {
-    setPlayMineIds(next);
-    try { localStorage.setItem(PLAY_MINE_KEY, JSON.stringify([...next])); } catch { /* private mode */ }
+  const setPlayChoicesPersisted = useCallback((next) => {
+    setPlayChoices(next);
+    try { localStorage.setItem(PLAY_MINE_KEY, JSON.stringify(next)); } catch { /* private mode */ }
   }, [PLAY_MINE_KEY]);
+  const [picking, setPicking] = useState(null); // the shared song whose versions are open
 
   // Songs carrying ink, by LOCAL id. Ink lives in its own store keyed by song id,
   // so this is the only way to know a copy has marks on it.
@@ -361,7 +365,7 @@ export default function SharedSetView() {
     // The share goes and its choices go with it — which version each song plays
     // is a fact about this share, not about the library.
     forgetShareState(token);
-    setPlayMineIds(new Set());
+    setPlayChoices({});
   }
 
   // Navigate to the main app. Prompt to save if not yet bookmarked/copied.
@@ -398,32 +402,16 @@ export default function SharedSetView() {
         return;
       }
 
-      const titleMap   = buildTitleMap(localSongs);
-      const titleKey   = normalizeTitle(song.metadata?.title);
-      const hasConflict = titleMap.has(titleKey);
-
-      let outcome = 'copied';
-      let newTitle = title;
-
-      if (hasConflict) {
-        const choices = await askConflicts([{ cloudSong: song, localSong: titleMap.get(titleKey) }]);
-        setConflictDialog(null);
-        if (choices === null) return; // cancelled
-        outcome = choices[song.id] ?? 'skip';
-      }
-
+      // No "already in your library" question, and the copy keeps its title even
+      // when one of yours has it. You only get here from + (nothing by that name)
+      // or from the version picker, which has already shown you what you have and
+      // where Copy is a decision. Skip used to be the answer that quietly made no
+      // copy, leaving your song with no link to this share. And a title changed to
+      // "(2)" would read as your edit from then on, since the title is part of
+      // what's compared.
+      const outcome = 'copied';
       const now = new Date().toISOString();
       const copiedFrom = { songId: song.id, setName: setData?.set?.name || '', copiedAt: now, baseline: contentHash(song) };
-
-      if (outcome === 'skip') {
-        setCopyResult({ type: 'song', title, outcome: 'skipped' });
-        return;
-      }
-
-      if (outcome === 'duplicate') {
-        const allTitles = new Set(localSongs.map(s => normalizeTitle(s.metadata?.title)));
-        newTitle = makeUniqueTitle(title, allTitles);
-      }
 
       // Spread the whole song so type / pdf / fullPage survive (a subset copy
       // silently degraded a shared PDF to an empty text song). A copied pdf gets a
@@ -432,7 +420,6 @@ export default function SharedSetView() {
         ...song,
         ...NO_BOOK,
         id: null,
-        metadata: { ...song.metadata, title: newTitle },
         createdAt: now,
         updatedAt: now,
         copiedFrom,
@@ -450,8 +437,13 @@ export default function SharedSetView() {
       // under the instrument they were published for.
       mergeTaggedSongCustoms([song]);
 
+      // A pick made before there was a copy doesn't carry over to it.
+      if (playChoices[song.id]) {
+        const { [song.id]: _dropped, ...rest } = playChoices;
+        setPlayChoicesPersisted(rest);
+      }
       setHasCopied(true);
-      setCopyResult({ type: 'song', title, outcome, newTitle: outcome === 'duplicate' ? newTitle : undefined });
+      setCopyResult({ type: 'song', title, outcome });
     } catch (err) {
       console.error('Copy song failed:', err);
     } finally {
@@ -837,15 +829,47 @@ export default function SharedSetView() {
   // points at what Present plays. Right, the share: a cloud, with a down-arrow
   // when there is something newer in it ('take' when only they moved, 'decide'
   // when you both did).
+  //
+  // ≠ also covers a song you don't have a copy of but do have the title of. Cue
+  // won't call that the same song, but it will offer it: ≠ opens the picker, and
+  // you say which plays.
+  // Your same-title songs per shared song, for the picker. Only a ≠ row opens
+  // it: on a = row your copy and the shared one are the same song.
+  const sameTitleById = useMemo(() => {
+    const m = new Map();
+    (updatePlan?.songs || []).forEach(x => {
+      const linked = x.matchedBy === 'title' ? null : x.local;
+      m.set(x.shareSong.id, sameTitleSongs(x.shareSong, localSongs, linked?.id));
+    });
+    return m;
+  }, [updatePlan, localSongs]);
+  const songsById = useMemo(() => new Map(localSongs.map(s => [s.id, s])), [localSongs]);
+  const bookNames = useMemo(() => new Map(localBooks.map(b => [b.id, b.name])), [localBooks]);
+  // The song of yours that plays instead of this shared one, or null.
+  const playedInstead = (id) => chosenSong(playChoices[id], localBySource.get(id), songsById);
+
+  function chooseVersion(shareId, picked) {
+    const next = { ...playChoices };
+    if (!picked) delete next[shareId];
+    else next[shareId] = picked.id === localBySource.get(shareId)?.id ? true : picked.id;
+    setPlayChoicesPersisted(next);
+    setPicking(null);
+  }
+
   function rowOf(song) {
     const y = yoursById.get(song.id);
-    const lib = !y ? '+' : choosable.has(song.id) ? '≠' : '=';
+    const others = sameTitleById.get(song.id)?.length || 0;
+    const lib = y ? (choosable.has(song.id) ? '≠' : '=') : others ? '≠' : '+';
+    const played = playedInstead(song.id);
     return {
       lib,
       newer: bothChanged.has(song.id) ? 'decide' : behindShare.has(song.id) ? 'take' : null,
       unsure: unsureIds.has(song.id),
       inkOnly: !!y && y.inked && !y.edited,
-      playingMine: lib === '≠' && playMineIds.has(song.id),
+      titleOnly: y ? 0 : others,
+      playingMine: lib === '≠' && !!played,
+      // The key shown is the key it plays in, and yours may not be the share's.
+      playsKey: lib === '≠' && played ? (played.displayKey || played.metadata?.key) : (song.displayKey || song.metadata?.key),
     };
   }
 
@@ -867,7 +891,7 @@ export default function SharedSetView() {
   function present(base, startIndex) {
     const annotatable = new Set();
     const songs = base.map(s => {
-      const local = playMineIds.has(s.id) ? localBySource.get(s.id) : null;
+      const local = rowOf(s).playingMine ? playedInstead(s.id) : null;
       if (local) { annotatable.add(local.id); return local; }
       return s;
     });
@@ -1399,11 +1423,7 @@ export default function SharedSetView() {
                 dark={dark}
                 muted={muted}
                 row={rowOf(song)}
-                onToggleMine={choosable.has(song.id) ? () => {
-                  const next = new Set(playMineIds);
-                  if (next.has(song.id)) next.delete(song.id); else next.add(song.id);
-                  setPlayMinePersisted(next);
-                } : undefined}
+                onChoose={rowOf(song).lib === '≠' ? () => setPicking(song) : undefined}
                 onPresent={() => present(displayed, idx)}
                 onCopy={
                   // On your own set a song you STILL HAVE needs no copy button —
@@ -1442,6 +1462,22 @@ export default function SharedSetView() {
             </div>
           </div>
         </div>
+      )}
+
+      {picking && (
+        <VersionPicker
+          dark={dark}
+          song={picking}
+          linked={localBySource.get(picking.id)}
+          linkedWord={yoursById.get(picking.id)?.edited ? 'Your copy, changed' : 'Your copy, with your ink'}
+          others={sameTitleById.get(picking.id) || []}
+          chosen={playedInstead(picking.id)}
+          bookNames={bookNames}
+          onChoose={(picked) => chooseVersion(picking.id, picked)}
+          onCopy={localBySource.has(picking.id) || (updatePlan?.mine && !missingHere.has(picking.id)) ? undefined
+            : () => { const song = picking; setPicking(null); handleCopySong(song); }}
+          onClose={() => setPicking(null)}
+        />
       )}
 
       {conflictDialog && (
@@ -1955,9 +1991,9 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
 const KEY = [
   ['plus',     Plus,          'Not on this device — tap to copy'],
   ['equal',    Equal,         'Same as shared'],
-  ['notequal', EqualNot,      'Yours is changed'],
+  ['notequal', EqualNot,      'Yours differs — tap to choose'],
   ['newer',    CloudDownload, 'Newer in the share — tap to get it'],
-  ['tv',       Tv,            'Arrow points at what plays — tap to switch'],
+  ['tv',       Tv,            'Arrow points at what plays'],
 ];
 
 function SongKey({ rows, dark }) {
@@ -2013,9 +2049,9 @@ function SymbolBox({ label, title, plays, accent, onActivate, disabled, dark, ch
   );
 }
 
-function SharedSongRow({ song, index, dark, muted, row, onToggleMine, onPresent, onCopy, onCloud, changed, copying }) {
+function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onCopy, onCloud, changed, copying }) {
   const meta = song.metadata || {};
-  const { lib, newer, inkOnly, playingMine, unsure } = row;
+  const { lib, newer, inkOnly, titleOnly, playingMine, playsKey, unsure } = row;
   const changedNote = changed?.length ? ` — ${changed.join(', ')}` : '';
   // A = row with nothing newer is the same song on both sides, so both boxes
   // are drawn as playing and there is nothing to switch.
@@ -2024,8 +2060,9 @@ function SharedSongRow({ song, index, dark, muted, row, onToggleMine, onPresent,
     : newer === 'decide' ? (unsure ? 'Yours and the shared one differ — tap the cloud to choose' : 'You both changed it — tap the cloud to choose')
     : newer === 'take' ? 'Newer in the share — tap the cloud to get it'
     : lib === '=' ? 'On this device, same as shared'
-    : `${inkOnly ? 'You drew on your copy' : 'You changed your copy'} — ${playingMine ? 'yours plays' : 'shared plays'}`;
-  const Arrow = onToggleMine ? (playingMine ? ArrowLeft : ArrowRight) : same ? ArrowLeftRight : ArrowRight;
+    : `${titleOnly ? (titleOnly === 1 ? 'You have a song with this title' : `You have ${titleOnly} songs with this title`)
+        : inkOnly ? 'You drew on your copy' : 'You changed your copy'} — ${playingMine ? 'yours plays' : 'shared plays'}`;
+  const Arrow = onChoose ? (playingMine ? ArrowLeft : ArrowRight) : same ? ArrowLeftRight : ArrowRight;
 
   return (
     <div className={`rounded-xl border p-4 ${dark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -2042,35 +2079,37 @@ function SharedSongRow({ song, index, dark, muted, row, onToggleMine, onPresent,
           )}
           <p className={`text-xs mt-1 ${newer ? (dark ? 'text-blue-400' : 'text-blue-600') : dark ? 'text-gray-400' : 'text-gray-500'}`}>{status}</p>
           {/* The key this song plays in. `song` is enriched, so displayKey already
-              folds in any stored viewer key; fall back to the song's original key.
-              Shown to the viewer simply as "Key". */}
-          {(song.displayKey || meta.key) && (
-            <p className={`text-xs mt-1.5 ${muted}`}>Key: {song.displayKey || meta.key}</p>
+              folds in any stored viewer key; rowOf falls back to the song's
+              original key, or takes yours when yours plays. Shown to the viewer
+              simply as "Key". */}
+          {playsKey && (
+            <p className={`text-xs mt-1.5 ${muted}`}>Key: {playsKey}</p>
           )}
         </button>
         <div className="flex items-center shrink-0 -my-1">
           <SymbolBox
             dark={dark}
-            label={lib === '+' ? 'Not on this device — copy this song to my library' : lib === '=' ? 'On this device, unchanged' : 'On this device, changed'}
+            label={lib === '+' ? 'Not on this device — copy this song to my library' : lib === '=' ? 'On this device, unchanged' : 'Yours differs — choose which version plays'}
             title={lib === '+' ? 'Add just this song to your Cue library, where you can open, edit, and keep it.'
               : lib === '=' ? 'Your copy hasn’t been changed.'
+              : titleOnly ? 'You have a song with this title. Tap to choose which version plays.'
               : inkOnly ? 'You have drawn on your copy.' : `Your copy differs from the shared one${changedNote}.`}
             plays={same || playingMine}
-            onActivate={lib === '+' ? onCopy : undefined}
+            onActivate={lib === '+' ? onCopy : onChoose}
             disabled={copying}
           >
             {lib === '+' ? <Plus size={19} strokeWidth={2.5} /> : lib === '=' ? <Equal size={19} strokeWidth={2.5} /> : <EqualNot size={19} strokeWidth={2.5} />}
           </SymbolBox>
           <button
             type="button"
-            aria-label={onToggleMine ? (playingMine ? 'Playing your version. Switch to the shared one.' : 'Playing the shared version. Switch to yours.') : 'Which version plays'}
-            title={onToggleMine ? (playingMine ? 'Present plays your version — tap to play the shared one.' : 'Present plays the shared version — tap to play yours.')
+            aria-label={onChoose ? `Playing ${playingMine ? 'your' : 'the shared'} version. Choose which plays.` : 'Which version plays'}
+            title={onChoose ? `Present plays ${playingMine ? 'your' : 'the shared'} version — tap to choose.`
               : lib === '+' ? 'Present plays the shared version — there isn’t one on this device.'
               : same ? 'Your copy and the shared one are the same song.' : 'Present plays the newer shared version.'}
-            aria-disabled={!onToggleMine || undefined}
-            onClick={onToggleMine}
-            className={`relative flex items-center justify-center shrink-0 bg-transparent ${onToggleMine ? (dark ? 'text-white' : 'text-gray-900') : dark ? 'text-gray-600' : 'text-gray-300'}`}
-            style={{ width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, cursor: onToggleMine ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}
+            aria-disabled={!onChoose || undefined}
+            onClick={onChoose}
+            className={`relative flex items-center justify-center shrink-0 bg-transparent ${onChoose ? (dark ? 'text-white' : 'text-gray-900') : dark ? 'text-gray-600' : 'text-gray-300'}`}
+            style={{ width: MIN_TOUCH_TARGET, height: MIN_TOUCH_TARGET, cursor: onChoose ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}
           >
             <Tv size={32} strokeWidth={1.75} />
             <Arrow size={13} strokeWidth={3} className="absolute left-1/2 top-[54%] -translate-x-1/2 -translate-y-1/2" />
