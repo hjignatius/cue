@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
+import { Ban, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2 } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
 import { songsFromMarks, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
@@ -99,8 +99,10 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const panel = dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200';
   const head  = dark ? 'text-white' : 'text-gray-900';
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
-  const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors';
-  const secondary = `w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+  // Pills, like Cue's main buttons: filled for the action, outlined for the rest.
+  const pill = 'h-11 px-5 inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium rounded-full transition-colors';
+  const primary = `${pill} bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white`;
+  const secondary = `${pill} border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
   const field = `w-full rounded-lg px-3 py-2 text-sm border ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
   const n = songs.length;
   const more = step ? step.total - step.to : 0;
@@ -153,15 +155,15 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
           </label>
           {makeSet && <input value={setName} onChange={e => setSetName(e.target.value)} aria-label="Set name" className={`${field} py-1.5`} />}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {more > 0 && <button onClick={() => leave(onCancel)} className={`${secondary} sm:mr-auto`}><SkipForward size={18} /> Skip this PDF</button>}
           {onBack && <button onClick={onBack} className={secondary}>Back</button>}
           <button disabled={!n || failed || (book.on && !bookChoice(book))}
             onClick={() => onAccept(songs.map(s => ({ ...s, chart: asCharts && s.chart, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null, bookChoice(book))}
-            className={primary}>
-            Make {n} song{n === 1 ? '' : 's'}
+            className={`${primary} flex-1 sm:flex-none sm:min-w-44`}>
+            <Music size={18} /> Make {n} song{n === 1 ? '' : 's'}
           </button>
         </div>
-        {more > 0 && <button onClick={() => leave(onCancel)} className={secondary}>Skip this PDF</button>}
 
         {big && (
           <BigPage doc={doc} p={big} count={marks.length} mark={shown[big - 1]} chart={!!chances?.[big - 1]}
@@ -176,8 +178,8 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
               <h3 className={`text-base font-semibold ${head}`}>Discard your picks?</h3>
               <p className={`text-sm ${muted}`}>The changes you’ve made to these pages will be lost.</p>
               <div className="flex gap-2">
-                <button onClick={() => setAsking(null)} className={secondary}>Keep picking</button>
-                <button onClick={asking} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">Discard</button>
+                <button onClick={() => setAsking(null)} className={`${secondary} flex-1 !px-3`}>Keep picking</button>
+                <button onClick={asking} className={`${pill} flex-1 !px-3 bg-red-600 hover:bg-red-500 text-white`}><Trash2 size={18} /> Discard</button>
               </div>
             </div>
           </div>
@@ -321,9 +323,9 @@ function BigPage({ doc, p, count, mark, chart, title, onMark, onRetitle, onGo, o
     else onClose();
   };
 
-  const choice = (m) => `flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${mark === m
-    ? 'bg-indigo-600 text-white'
-    : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+  const choice = (m) => `flex-1 min-w-0 h-11 inline-flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap text-[13px] sm:text-sm font-medium rounded-full border transition-colors ${mark === m
+    ? 'border-indigo-600 bg-indigo-600 text-white'
+    : dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
   // The same glass circles as the way out of Present. Their tap areas run the
   // page's full height and reach into the dialog's margin, so on a phone the
   // page loses no width to them.
@@ -348,8 +350,10 @@ function BigPage({ doc, p, count, mark, chart, title, onMark, onRetitle, onGo, o
         </div>
       </div>
       <div className="flex gap-2">
-        {['start', 'same', 'skip'].map(m => (
-          <button key={m} onClick={() => decide(m)} className={choice(m)} aria-pressed={mark === m}>{WORDS[m]}</button>
+        {[['start', Plus], ['same', Link2], ['skip', Ban]].map(([m, Icon]) => (
+          <button key={m} onClick={() => decide(m)} className={choice(m)} aria-pressed={mark === m}>
+            <Icon size={16} className="shrink-0 max-[359px]:hidden" /> {WORDS[m]}
+          </button>
         ))}
       </div>
       {mark === 'start' && (
