@@ -44,14 +44,14 @@ export default function SupportCard({ dark }) {
   }
 
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
-  const button = 'flex-1 min-w-0 h-11 flex items-center justify-center gap-2 text-sm font-medium rounded-xl transition-colors';
+  const button = 'flex-1 min-w-0 h-11 flex items-center justify-center gap-2 text-sm font-medium rounded-full transition-colors';
   const outline = `border ${dark ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
   const qrButton = (id) => {
     const on = code === id;
     return (
       <button type="button" onClick={() => setCode(on ? null : id)} aria-pressed={on}
         aria-label={`${on ? 'Hide' : 'Show'} ${CODES[id].title}`} title={on ? 'Hide QR code' : 'Show QR code'}
-        className={`shrink-0 w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${
+        className={`shrink-0 w-11 h-11 flex items-center justify-center rounded-full transition-colors ${
           on ? 'bg-indigo-600 text-white' : outline}`}>
         <QrCodeIcon size={20} />
       </button>

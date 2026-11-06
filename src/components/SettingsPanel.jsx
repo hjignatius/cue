@@ -546,14 +546,14 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                 <button
                   onClick={saveAiKey}
                   disabled={!aiKeyDirty}
-                  className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors disabled:opacity-50 ${aiKeyDirty ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500' : btnBorder}`}
+                  className={`flex-1 min-h-11 px-4 py-1.5 text-sm rounded-full border transition-colors disabled:opacity-50 ${aiKeyDirty ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500' : btnBorder}`}
                 >
                   {aiKeySaved && !aiKeyDirty ? 'Saved' : 'Save key'}
                 </button>
                 {aiKeySaved && (
                   <button
                     onClick={clearAiKey}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors ${btnBorder}`}
+                    className={`flex-1 min-h-11 px-4 py-1.5 text-sm rounded-full border transition-colors ${btnBorder}`}
                   >
                     Remove key
                   </button>
@@ -683,14 +683,14 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   <button
                     onClick={pickExportFolder}
                     disabled={folderBusy}
-                    className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors disabled:opacity-50 ${btnBorder}`}
+                    className={`flex-1 min-h-11 px-4 py-1.5 text-sm rounded-full border transition-colors disabled:opacity-50 ${btnBorder}`}
                   >
                     {exportFolder ? 'Change folder…' : 'Choose folder…'}
                   </button>
                   {exportFolder && (
                     <button
                       onClick={resetExportFolder}
-                      className={`flex-1 py-2.5 pointer-fine:py-2 text-sm rounded-lg border transition-colors ${btnBorder}`}
+                      className={`flex-1 min-h-11 px-4 py-1.5 text-sm rounded-full border transition-colors ${btnBorder}`}
                     >
                       Ask every time
                     </button>
@@ -749,13 +749,13 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                       <div className="flex gap-2">
                         <button
                           onClick={() => setUnsent(null)}
-                          className="flex-1 h-10 pointer-fine:h-8 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                          className="flex-1 min-h-11 px-3 py-1.5 text-sm font-medium rounded-full bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
                         >
                           Stay signed in
                         </button>
                         <button
                           onClick={() => { setUnsent(null); signOut(); }}
-                          className={`flex-1 h-10 pointer-fine:h-8 text-sm rounded-lg border transition-colors ${btnBorder}`}
+                          className={`flex-1 min-h-11 px-3 py-1.5 text-sm rounded-full border transition-colors ${btnBorder}`}
                         >
                           Sign out anyway
                         </button>
@@ -812,7 +812,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   <button
                     type="submit"
                     disabled={status === 'verifying' || code.length < OTP_MIN_LEN}
-                    className="h-11 pointer-fine:h-9 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                    className="h-11 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full transition-colors"
                   >
                     {status === 'verifying' ? 'Verifying…' : 'Verify'}
                   </button>
@@ -847,7 +847,7 @@ export default function SettingsPanel({ open, onClose, hideAccount = false, init
                   <button
                     type="submit"
                     disabled={status === 'sending' || !email.trim()}
-                    className="h-11 pointer-fine:h-9 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                    className="h-11 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full transition-colors"
                   >
                     {status === 'sending' ? 'Sending…' : 'Send code'}
                   </button>

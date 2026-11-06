@@ -1075,7 +1075,7 @@ export default function SharedSetView() {
             {bookmarked && (
               <button
                 onClick={handleRemoveBookmark}
-                className={`h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm rounded-lg border transition-colors ${dark ? 'border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-800' : 'border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300'}`}
+                className={`h-11 px-4 text-sm rounded-full border transition-colors ${dark ? 'border-gray-700 text-gray-400 hover:text-red-400 hover:border-red-800' : 'border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300'}`}
               >
                 Remove from Shared with me
               </button>
@@ -1107,7 +1107,7 @@ export default function SharedSetView() {
             <p className={`text-sm ${muted}`}>{describeCloudError(loadError)}</p>
             <button
               onClick={() => setRetryCount(c => c + 1)}
-              className="h-11 px-4 pointer-fine:h-9 pointer-fine:px-3 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+              className="h-11 px-5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
             >
               Retry
             </button>
@@ -1162,7 +1162,7 @@ export default function SharedSetView() {
 
           {/* Follow along — the common case. */}
           <div className="flex flex-col gap-1.5">
-            <button onClick={continueToSet} className="w-full py-2.5 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
+            <button onClick={continueToSet} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center rounded-full text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
               Continue to set
             </button>
             <p className={`text-xs text-center ${muted}`}>Opens the set here in your browser to follow along.</p>
@@ -1460,8 +1460,8 @@ export default function SharedSetView() {
               </p>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => bookAsk.resolve(null)} className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancel</button>
-              <button onClick={() => bookAsk.resolve(bookChoice(bookAsk.book) || false)} className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Copy</button>
+              <button onClick={() => bookAsk.resolve(null)} className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Cancel</button>
+              <button onClick={() => bookAsk.resolve(bookChoice(bookAsk.book) || false)} className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">Copy</button>
             </div>
           </div>
         </div>
@@ -1533,13 +1533,13 @@ export default function SharedSetView() {
             <div className="flex gap-2">
               <button
                 onClick={() => { handleSaveBookmark(); navigate('/'); }}
-                className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+                className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
               >
                 Save &amp; go
               </button>
               <button
                 onClick={() => navigate('/')}
-                className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
               >
                 Just go
               </button>
@@ -1602,7 +1602,7 @@ function SetCopyResult({ result, dark, onDone }) {
       </div>
       <button
         onClick={onDone}
-        className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+        className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
       >
         Done
       </button>
@@ -1675,7 +1675,7 @@ function UpdateResult({ result, dark, onDone }) {
           {bookName ? <>, the songs added in the book <span className={`font-medium ${em}`}>“{bookName}”</span></> : null}.
         </p>
       </div>
-      <button onClick={onDone} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Done</button>
+      <button onClick={onDone} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">Done</button>
     </>
   );
 }
@@ -1834,11 +1834,11 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
               button used to be dead in exactly that case. applyUpdate
               reconciles the order whatever the rows say. */}
           <button onClick={onApply} disabled={blocked}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${blocked ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
+            className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors ${blocked ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
             {busy ? (firstCopy ? 'Copying…' : 'Updating…') : firstCopy ? 'Copy' : 'Update'}
           </button>
           <button onClick={onCancel} disabled={busy}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
+            className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
             Cancel
           </button>
         </div>
@@ -1869,7 +1869,7 @@ function SongCopyResult({ result, dark, onDone }) {
   } else {
     heading  = 'Song skipped';
     body     = <><span className={em}>"{title}"</span> is already in your library — nothing was changed.</>;
-    btnClass = dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700';
+    btnClass = `border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
   }
 
   return (
@@ -1878,7 +1878,7 @@ function SongCopyResult({ result, dark, onDone }) {
         <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{heading}</h2>
         <p className={sub}>{body}</p>
       </div>
-      <button onClick={onDone} className={`w-full py-2 text-sm font-medium rounded-xl transition-colors ${btnClass}`}>
+      <button onClick={onDone} className={`w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors ${btnClass}`}>
         Done
       </button>
     </>
@@ -1972,13 +1972,13 @@ function ConflictDialog({ conflicts, dark, onResolve }) {
         <div className={`px-6 py-4 shrink-0 border-t ${bdr} flex gap-2`}>
           <button
             onClick={() => onResolve(choices)}
-            className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+            className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
           >
             Proceed
           </button>
           <button
             onClick={() => onResolve(null)}
-            className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
           >
             Cancel
           </button>

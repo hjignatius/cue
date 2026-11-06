@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Eye, FileText, ListChecks, Music, SkipForward } from 'lucide-react';
 import LongList from './LongList.jsx';
 import { VERDICT_WORDS, reportLines, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
@@ -84,8 +84,8 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
   const head  = dark ? 'text-white' : 'text-gray-900';
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
   const rule  = dark ? 'border-gray-800' : 'border-gray-100';
-  const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors';
-  const secondary = `w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+  const primary = 'w-full sm:w-auto sm:grow min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full transition-colors';
+  const secondary = `w-full sm:w-auto sm:grow min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
   const n = chosen.size;
   const dupes = (songs || []).filter(s => s.inLibrary).length;
   const saving = reading?.saving;
@@ -133,11 +133,11 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
                 This browser wouldn’t save {outcome.unsaved === 1 ? '1 PDF' : `${outcome.unsaved} PDFs`}. They open now but will be gone after a reload — make a backup before closing Cue.
               </p>
             ) : null}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
               {more > 0
-                ? <button onClick={onDone} className={primary}>Next PDF</button>
+                ? <button onClick={onDone} className={primary}>Next PDF <ChevronRight size={18} /></button>
                 : <>
-                    <button onClick={onShow} className={primary}>Show them</button>
+                    <button onClick={onShow} className={primary}><Eye size={18} /> Show them</button>
                     <button onClick={onDone} className={secondary}>Done</button>
                   </>}
             </div>
@@ -192,7 +192,7 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
               </>
             )}
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
               {!cant && (
                 <button disabled={!n}
                   onClick={() => {
@@ -202,24 +202,24 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
                     onImport(ids, makeSet && setName.trim() ? setName.trim() : null, fixed, asCharts, bookChoice(book));
                   }}
                   className={primary}>
-                  Import {n} song{n === 1 ? '' : 's'}
+                  <Music size={18} /> Import {n} song{n === 1 ? '' : 's'}
                 </button>
               )}
-              {cant && onPick && <button onClick={onPick} className={primary}>Pick the songs myself</button>}
+              {cant && onPick && <button onClick={onPick} className={primary}><ListChecks size={18} /> Pick the songs myself</button>}
               {onKeepAsPage && (
                 <button onClick={onKeepAsPage} className={cant && !onPick ? primary : secondary}>
-                  {cant ? 'Keep it as one PDF' : 'Keep it as one PDF instead'}
+                  <FileText size={18} /> {cant ? 'Keep it as one PDF' : 'Keep it as one PDF instead'}
                 </button>
               )}
               {!cant && onPick && (
-                <button onClick={onPick} className={secondary}>Or pick the pages myself</button>
+                <button onClick={onPick} className={secondary}><ListChecks size={18} /> Or pick the pages myself</button>
               )}
-              {canLeave && more > 0 && <button onClick={onCancel} className={secondary}>{sheets ? 'Skip these PDFs' : 'Skip this PDF'}</button>}
+              {canLeave && more > 0 && <button onClick={onCancel} className={secondary}><SkipForward size={18} /> {sheets ? 'Skip these PDFs' : 'Skip this PDF'}</button>}
             </div>
           </>
         )}
 
-        {!report && canLeave && more > 0 && <button onClick={onCancel} className={secondary}>Skip this PDF</button>}
+        {!report && canLeave && more > 0 && <button onClick={onCancel} className={secondary}><SkipForward size={18} /> Skip this PDF</button>}
       </div>
     </div>
   );

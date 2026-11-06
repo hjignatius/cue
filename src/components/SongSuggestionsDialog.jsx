@@ -55,7 +55,7 @@ export default function SongSuggestionsDialog({
           })() : error ? (
             <div className="py-6 text-center">
               <p className="text-sm text-red-500 mb-3">{error}</p>
-              <button onClick={() => onRetry()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2">Try again</button>
+              <button onClick={() => onRetry()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center">Try again</button>
             </div>
           ) : (results && results.length === 0) ? (
             <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{emptyText}</p>
@@ -97,7 +97,7 @@ export default function SongSuggestionsDialog({
                       ) : (
                         <button
                           onClick={() => onAddToSet?.(mine)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                          className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
                         >
                           <ListPlus size={13} /> Add to set
                         </button>

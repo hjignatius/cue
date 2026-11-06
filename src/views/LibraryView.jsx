@@ -821,8 +821,8 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                 <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Your songs stay in your library.</p>
               </div>
               <div className="flex flex-col gap-2">
-                <button onClick={performDelete} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
-                  {n === 1 ? 'Delete set' : `Delete ${n} sets`}
+                <button onClick={performDelete} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors">
+                  <Trash2 size={18} /> {n === 1 ? 'Delete set' : `Delete ${n} sets`}
                 </button>
                 <button onClick={() => setDeleteConfirm(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
               </div>
@@ -895,7 +895,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
 
               <div className="flex flex-col gap-2">
                 <button onClick={performMerge} disabled={added === 0}
-                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-xl transition-colors">
+                  className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-full transition-colors">
                   {added === 0 ? 'Nothing to add' : `Merge into "${mergeDialog.name.trim() || target.name}"`}
                 </button>
                 <button onClick={() => setMergeDialog(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
@@ -1275,7 +1275,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                 <button
                   type="submit"
                   disabled={!shareInput.trim()}
-                  className="h-11 pointer-fine:h-9 px-3 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors shrink-0"
+                  className="h-11 px-4 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full transition-colors shrink-0"
                 >
                   Open
                 </button>
@@ -1353,14 +1353,14 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                 <button
                   onClick={runGateUnpublish}
                   disabled={running || !user}
-                  className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors"
+                  className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full transition-colors"
                 >
                   {running ? 'Stopping…' : (many ? 'Stop sharing sets' : 'Stop sharing')}
                 </button>
                 {!user && (
                   <button
                     onClick={() => clearLocalPublishMark(deleteBlockedDialog.ids)}
-                    className={`w-full py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                    className={`w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
                   >
                     {many ? 'Clear the shared marks here' : 'Clear the shared mark here'}
                   </button>
@@ -1396,8 +1396,8 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
         const h2  = `text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`;
         const sub = `text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`;
         const em  = `font-medium ${dark ? 'text-gray-200' : 'text-gray-800'}`;
-        const btnRed    = `w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors`;
-        const btnIndigo = `w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors`;
+        const btnRed    = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors`;
+        const btnIndigo = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors`;
         const btnGhost  = `text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`;
         const panel = `w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
         return (
@@ -1895,8 +1895,8 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                 ))}
               </ol>
               <div className="flex gap-2">
-                <button onClick={() => applyOrder(orderResult.order)} className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Apply</button>
-                <button onClick={() => closeOrder()} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                <button onClick={() => applyOrder(orderResult.order)} className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">Apply</button>
+                <button onClick={() => closeOrder()} className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Close</button>
               </div>
             </>)}
           </div>
@@ -1955,12 +1955,12 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                   <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>AI-estimated {d.songs.length} song{d.songs.length === 1 ? '' : 's'} without a duration.</p>
                   <AiCaution dark={dark}>AI can get things wrong — these lengths are estimates, so treat the total as a guide.</AiCaution>
                   <div className="flex gap-2">
-                    <button onClick={saveEstimates} className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">Save song estimates</button>
-                    <button onClick={() => closeTime()} className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                    <button onClick={saveEstimates} className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">Save song estimates</button>
+                    <button onClick={() => closeTime()} className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Close</button>
                   </div>
                 </>)}
                 {d.songs.length === 0 && (
-                  <button onClick={() => closeTime()} className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Close</button>
+                  <button onClick={() => closeTime()} className={`min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Close</button>
                 )}
               </>)}
             </div>
@@ -3231,7 +3231,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
               ) : dupErr ? (
                 <div className="py-6 text-center">
                   <p className="text-sm text-red-500 mb-3">{dupErr}</p>
-                  <button onClick={() => runFindDuplicates()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2">Try again</button>
+                  <button onClick={() => runFindDuplicates()} className="text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center">Try again</button>
                 </div>
               ) : (dupGroups && dupGroups.length === 0) ? (
                 <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No duplicates found — your library looks tidy.</p>
@@ -3408,7 +3408,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
               <button
                 type="submit"
                 disabled={!newSetName.trim()}
-                className="px-3 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors whitespace-nowrap"
+                className="h-11 px-4 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full transition-colors whitespace-nowrap"
               >
                 Create
               </button>
@@ -3491,15 +3491,15 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
               </div>
               <div className="flex flex-col gap-2">
                 {whole && (
-                  <button onClick={keepUsedAndDelete} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">
+                  <button onClick={keepUsedAndDelete} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">
                     {used === n ? 'Keep them, delete the book' : `Keep ${used}, delete the other ${n - used}`}
                   </button>
                 )}
                 <button
                   onClick={() => (plan ? applyRemoveExtras({ keeperId: plan.keeperId, extraIds: songDeleteConfirm.ids }) : performSongDelete())}
-                  className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors"
+                  className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors"
                 >
-                  {plan ? (n === 1 ? 'Remove the extra' : `Remove ${n} extras`) : (n === 1 ? 'Delete song' : `Delete ${n} songs`)}
+                  <Trash2 size={18} /> {plan ? (n === 1 ? 'Remove the extra' : `Remove ${n} extras`) : (n === 1 ? 'Delete song' : `Delete ${n} songs`)}
                 </button>
                 <button onClick={() => setSongDeleteConfirm(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
               </div>

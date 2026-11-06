@@ -213,8 +213,8 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
   const em    = `font-medium ${dark ? 'text-gray-200' : 'text-gray-800'}`;
   const panel = `w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
   const wide  = `w-96 max-h-[80vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
-  const btnIndigo = `w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors`;
-  const btnAmber  = `w-full py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-xl transition-colors`;
+  const btnIndigo = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors`;
+  const btnAmber  = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-full transition-colors`;
   const btnGhost  = `text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`;
 
   const dismissable = phase !== 'running';

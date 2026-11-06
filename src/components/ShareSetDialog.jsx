@@ -93,7 +93,7 @@ export default function ShareSetDialog({ set, onClose }) {
           )}
 
           {phase === 'error' && (
-            <button onClick={ensureLink} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">
+            <button onClick={ensureLink} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">
               Try again
             </button>
           )}
@@ -119,7 +119,7 @@ export default function ShareSetDialog({ set, onClose }) {
                   <div className="flex items-center gap-2">
                     <span className={muted}>Stop sharing?</span>
                     <button onClick={cancelStop} className={`px-2.5 py-1.5 rounded-lg text-xs transition-colors ${dark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'}`}>Cancel</button>
-                    <button onClick={confirmStop} disabled={busy} className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50">
+                    <button onClick={confirmStop} disabled={busy} className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50">
                       Stop sharing
                     </button>
                   </div>
@@ -135,7 +135,7 @@ export default function ShareSetDialog({ set, onClose }) {
           {phase === 'notshared' && (
             <>
               <p className={muted}>This set isn't shared. Create a link to let others view and copy it.</p>
-              <button onClick={ensureLink} disabled={busy} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors disabled:opacity-50">
+              <button onClick={ensureLink} disabled={busy} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors disabled:opacity-50">
                 Create share link
               </button>
             </>

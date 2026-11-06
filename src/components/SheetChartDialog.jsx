@@ -19,8 +19,8 @@ export default function SheetChartDialog({ dark, fileName, chart, title, records
   const into = bookChoice(book);
   const more = step ? step.total - step.to : 0;
   const ready = !book.on || into;
-  const secondary = `w-full py-2 text-sm font-medium rounded-xl border transition-colors disabled:opacity-40 ${dark ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
-  const primary = 'w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors';
+  const secondary = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full border transition-colors disabled:opacity-40 ${dark ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
+  const primary = 'w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full transition-colors';
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={onCancel}>
       <div className={`relative w-[26rem] max-w-full rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>

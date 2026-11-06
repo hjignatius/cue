@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Maximize2, Plus } from 'lucide-react';
+import { Check, Maximize2, Play, Plus } from 'lucide-react';
 import { CloseCircle } from './CornerClose.jsx';
 import SongPreview from './SongPreview.jsx';
 import PdfPageStack from './PdfPageStack.jsx';
@@ -135,8 +135,8 @@ export default function VersionPicker({ dark, song, linked, linkedWord, others, 
               ) : <div className="h-full">{preview(big.version, inked(big.version), dark)}</div>}
             </div>
             <button type="button" onClick={() => onChoose(big.pick)}
-              className="w-full h-11 shrink-0 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">
-              {big.plays ? 'This one plays' : 'Play this one'}
+              className="flex items-center justify-center gap-2 w-full h-11 shrink-0 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">
+              <Play size={18} /> {big.plays ? 'This one plays' : 'Play this one'}
             </button>
           </>
         ) : (
@@ -161,7 +161,7 @@ export default function VersionPicker({ dark, song, linked, linkedWord, others, 
 
             {onCopy && (
               <button type="button" onClick={onCopy}
-                className={`flex items-center justify-center gap-2 w-full h-11 shrink-0 text-sm font-medium rounded-xl border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
+                className={`flex items-center justify-center gap-2 w-full h-11 shrink-0 text-sm font-medium rounded-full border transition-colors ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
                 <Plus size={18} /> Copy the shared version to my songs
               </button>
             )}

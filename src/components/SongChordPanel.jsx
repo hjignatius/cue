@@ -118,11 +118,11 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={!name.trim() || !isValidFretStr(fretsStr.toUpperCase())}
-          className="flex-1 py-3 pointer-fine:py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors">
+          className="flex-1 h-11 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full transition-colors">
           Save
         </button>
         <button type="button" onClick={onCancel}
-          className={`flex-1 py-3 pointer-fine:py-2 text-sm rounded-lg transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+          className={`flex-1 h-11 text-sm rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
           Cancel
         </button>
       </div>

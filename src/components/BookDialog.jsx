@@ -31,7 +31,7 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
   const head = dark ? 'text-white' : 'text-gray-900';
   const field = `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-950 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
-  const secondary = `flex-1 py-2 text-sm font-medium rounded-xl border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
+  const secondary = `flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full border transition-colors ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
   const making = shelfId === '__new';
   const ok = name.trim() && (!making || newShelf.trim());
   const save = () => ok && onSave({ name: name.trim(), shelfId: making || !shelfId ? null : shelfId, newShelf: making ? newShelf.trim() : null });
@@ -66,7 +66,7 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
               {others.length > 0 && (
                 <button onClick={() => setMergeInto(others[0].id)} className={`${secondary} h-11 flex items-center justify-center gap-2`}><Merge size={18} /> Merge…</button>
               )}
-              <button onClick={save} disabled={!ok} className="flex-1 h-11 py-2 flex items-center justify-center gap-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors">
+              <button onClick={save} disabled={!ok} className="flex-1 h-11 flex items-center justify-center gap-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full transition-colors">
                 {isNew ? 'Make shelf' : <><Save size={18} /> Save</>}
               </button>
               {!isNew && (
@@ -92,8 +92,8 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
             </p>
             <div className="flex gap-2">
               <button onClick={() => setMergeInto(null)} className={secondary}>Back</button>
-              <button onClick={() => onMerge(mergeInto)} className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">
-                Merge
+              <button onClick={() => onMerge(mergeInto)} className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">
+                <Merge size={18} /> Merge
               </button>
             </div>
           </>
@@ -110,8 +110,8 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
             </p>
             <div className="flex gap-2">
               <button onClick={() => setConfirming(false)} className={secondary}>Back</button>
-              <button onClick={onRemove} className="flex-1 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
-                {isBook ? 'Delete book' : 'Remove shelf'}
+              <button onClick={onRemove} className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors">
+                <Trash2 size={18} /> {isBook ? 'Delete book' : 'Remove shelf'}
               </button>
             </div>
           </>

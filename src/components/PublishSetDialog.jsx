@@ -28,7 +28,7 @@ export default function PublishSetDialog({ set, songs, userId, onPublish = publi
   const panel   = `w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
   const h2      = `text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`;
   const sub     = `text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`;
-  const btnPrimary = `w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-colors`;
+  const btnPrimary = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full transition-colors`;
   const btnGhost   = `text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`;
 
   const dismissable = phase !== 'publishing';
@@ -70,7 +70,7 @@ export default function PublishSetDialog({ set, songs, userId, onPublish = publi
               <button
                 onClick={run}
                 className={songs.length === 0
-                  ? 'w-full py-2.5 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-xl transition-colors'
+                  ? 'w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-full transition-colors'
                   : btnPrimary}
               >
                 {songs.length === 0 ? 'Publish an empty set' : 'Publish'}

@@ -60,7 +60,7 @@ function CustomChordForm({ onSave, onCancel }) {
       </div>
 
       <div className="flex gap-2 pt-1">
-        <button type="submit" className="flex-1 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors">Save chord</button>
+        <button type="submit" className="flex-1 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 rounded-full transition-colors">Save chord</button>
         <button type="button" onClick={onCancel} className="flex-1 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">Cancel</button>
       </div>
     </form>
@@ -85,7 +85,7 @@ function ChordDetail({ chord, onClose, onSelect }) {
       {onSelect && (
         <button
           onClick={() => { onSelect(chord); onClose(); }}
-          className="w-full py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
+          className="w-full py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 rounded-full transition-colors"
         >
           Use {chord.name}
         </button>

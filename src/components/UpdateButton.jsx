@@ -57,14 +57,14 @@ export default function UpdateButton({ onApply, onDismiss, getDirty, onSave }) {
               <button
                 type="button"
                 onClick={saveAndUpdate}
-                className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+                className="w-full min-h-11 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
               >
                 Save &amp; update
               </button>
               <button
                 type="button"
                 onClick={onApply}
-                className="w-full py-2.5 rounded-lg text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="w-full min-h-11 py-1.5 rounded-full text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 Discard &amp; update
               </button>

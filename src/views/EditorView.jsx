@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, ChevronLeft, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation, RotateCw } from 'lucide-react';
+import { Save, Search, Trash2, X, ChevronLeft, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation, RotateCw } from 'lucide-react';
 import { CloseCircle } from '../components/CornerClose.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
@@ -1872,11 +1872,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <div className="flex gap-3">
           <button
             onClick={() => { handleSave(); setPendingNav(null); onSetlistNavigate?.(pendingNav); }}
-            className="flex-1 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+            className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
           >Save</button>
           <button
             onClick={() => { const n = pendingNav; setPendingNav(null); onSetlistNavigate?.(n); }}
-            className={`flex-1 py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
           >Discard</button>
         </div>
         <button
@@ -1897,13 +1897,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <div className="flex gap-3">
           <button
             onClick={() => { handleSave(); setShowBackConfirm(false); onBack(); }}
-            className="flex-1 py-3 pointer-fine:py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+            className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
           >
             Save
           </button>
           <button
             onClick={() => { setShowBackConfirm(false); onBack(); }}
-            className={`flex-1 py-3 pointer-fine:py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
           >
             Discard
           </button>
@@ -1928,13 +1928,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <div className="flex gap-3">
           <button
             onClick={handleRevert}
-            className="flex-1 py-3 pointer-fine:py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors"
+            className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors"
           >
             Discard
           </button>
           <button
             onClick={() => setShowRevertConfirm(false)}
-            className={`flex-1 py-3 pointer-fine:py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
           >
             Keep editing
           </button>
@@ -2066,7 +2066,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             <button
               onClick={() => { setFillAsk(false); runFill(undefined, chosen.map(f => f.field), fillMode); }}
               disabled={chosen.length === 0}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+              className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors ${
                 chosen.length === 0
                   ? `border ${dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`
                   : 'bg-indigo-600 hover:bg-indigo-500 text-white'
@@ -2076,7 +2076,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             </button>
             <button
               onClick={() => setFillAsk(false)}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
             >
               Cancel
             </button>
@@ -2156,7 +2156,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </ul>
               <button
                 onClick={() => applyLineLift(plan.remove.map(r => r.index))}
-                className={`py-2 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                className={`min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
               >
                 Remove {plan.remove.length} line{plan.remove.length === 1 ? '' : 's'} from the chart
               </button>
@@ -2258,7 +2258,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                         disabled={settled}
                         title={agreed ? 'Your song already has this — nothing to change'
                                       : settled ? 'You applied this' : 'Put this into the song'}
-                        className={`shrink-0 px-3 py-1.5 text-xs rounded-lg border transition-colors ${settled ? (dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400') : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'}`}
+                        className={`shrink-0 px-3 py-1.5 text-xs rounded-full border transition-colors ${settled ? (dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400') : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'}`}
                       >
                         {agreed ? 'Matches' : settled ? 'Applied' : 'Apply'}
                       </button>
@@ -2274,7 +2274,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <button
                 onClick={() => rows.forEach(r => applyDetail(r.field, r.value))}
                 disabled={allApplied}
-                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+                className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors ${
                   allApplied
                     ? `border ${dark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`
                     : picking
@@ -2286,10 +2286,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </button>
               <button
                 onClick={() => closeFill()}
-                className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+                className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors ${
                   picking
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                    : dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    : `border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`
                 }`}
               >
                 {appliedNow ? 'Done' : 'Close'}
@@ -2334,7 +2334,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       {k.why && <span className={`text-xs ${mutedText}`}>{k.why}</span>}
                     </span>
                     {KEY_NAMES.includes(k.key) && (
-                      <button onClick={() => applySuggestedKey(k.key)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Apply</button>
+                      <button onClick={() => applySuggestedKey(k.key)} className="shrink-0 px-3 py-1.5 text-xs rounded-full bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Apply</button>
                     )}
                   </div>
                 ))}
@@ -2382,7 +2382,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
         <button
           onClick={() => submitAsk()}
           disabled={asking || !askQuestion.trim()}
-          className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${asking || !askQuestion.trim() ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+          className={`min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors ${asking || !askQuestion.trim() ? (dark ? 'bg-gray-800 text-gray-600' : 'bg-gray-100 text-gray-400') : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
         >
           {asking ? <span className="inline-flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Thinking…</span> : 'Ask'}
         </button>
@@ -2429,7 +2429,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           </p>
           <button
             onClick={() => closeChords()}
-            className={`py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+            className={`min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
           >
             Close
           </button>
@@ -2472,20 +2472,20 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   </span>
                   <span className={`block text-xs ${mutedText}`}>{shape.frets.map(f => f === -1 ? '×' : f).join(' · ')}</span>
                 </span>
-                <button onClick={() => addChordShape(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
+                <button onClick={() => addChordShape(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-full bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
               </li>
             ))}
           </ul>
           <div className="flex gap-2">
             <button
               onClick={() => { chordResult.shapes.forEach(addChordShape); }}
-              className="flex-1 py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+              className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
             >
               Add all
             </button>
             <button
               onClick={() => closeChords()}
-              className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
             >
               Close
             </button>
@@ -2625,13 +2625,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                       </span>
                       <span className={`block text-xs ${mutedText}`}>{shape.frets.map(f => f === -1 ? '×' : f).join(' · ')}</span>
                     </span>
-                    <button onClick={() => addVoicing(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
+                    <button onClick={() => addVoicing(shape)} className="shrink-0 px-3 py-1.5 text-xs rounded-full bg-indigo-600 border border-indigo-600 text-white hover:bg-indigo-500 transition-colors">Add</button>
                   </li>
                 ))}
               </ul>
               <button
                 onClick={() => voicings.list.forEach(addVoicing)}
-                className="py-2.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors"
+                className="min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
               >
                 Add all
               </button>
@@ -2644,13 +2644,13 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                     the list you were working down. */}
                 <button
                   onClick={() => setVoicings({ chord: null, loading: false, error: '', list: [], added: 0 })}
-                  className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                  className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
                 >
                   Another chord
                 </button>
                 <button
                   onClick={() => closeVoicings()}
-                  className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors ${dark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                  className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
                 >
                   Close
                 </button>
@@ -3406,8 +3406,8 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>This deletes all ink annotations for this song.</p>
             </div>
             <div className="flex flex-col gap-2">
-              <button onClick={() => { setClearInkModal(false); handleClearAnnotations(); }} className="w-full py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-xl transition-colors">
-                Clear ink
+              <button onClick={() => { setClearInkModal(false); handleClearAnnotations(); }} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-full transition-colors">
+                <Trash2 size={18} /> Clear ink
               </button>
               <button onClick={() => setClearInkModal(false)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
             </div>
@@ -3469,11 +3469,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               </div>
 
               <div className="flex flex-col gap-2">
-                <button onClick={() => unpackPdf(pdfOffer.text)} className="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors">
+                <button onClick={() => unpackPdf(pdfOffer.text)} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">
                   Load as text
                 </button>
                 <button onClick={() => { const f = pdfOffer.file; setPdfOffer(null); attachPdf(f); }}
-                  className={`w-full py-2 text-sm font-medium rounded-xl border transition-colors ${dark ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
+                  className={`w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full border transition-colors ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
                   Keep it as a page
                 </button>
                 <button onClick={() => setPdfOffer(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>

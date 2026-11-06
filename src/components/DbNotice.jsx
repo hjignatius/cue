@@ -32,7 +32,7 @@ export default function DbNotice() {
         </div>
         {!blocked && (
           <button type="button" onClick={() => window.location.reload()}
-            className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors">
+            className="w-full min-h-11 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors">
             Reload
           </button>
         )}
