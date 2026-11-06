@@ -395,7 +395,7 @@ function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
 // for others — and ink drawn on the publisher's version would be stored under
 // THEIR song id, leaving two sets of marks for what you think of as one song.
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, disableAnnotations = false, annotatableIds = null, sourceLabel = null }) {
-  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, presentPanelSize, updatePref } = usePrefs();
+  const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, previousLands, presentPanelSize, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
   const glideMs = Math.max(0, Math.min(2000, pageGlideMs ?? 550));
   // Fraction of the viewport a page turn moves: 3/4 or 1/2, else null = a full
@@ -608,12 +608,14 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
 
   // PDF paging state (1-based); pdfCount comes from the rendered document, and
   // is null while a Full Page PDF is still opening: nothing yet says how many
-  // pages it has. pdfOpenedAt is when that began, pdfNextHeld a Next pressed
-  // during it.
+  // pages it has. pdfOpenedAt is when that began, pdfHeldTurn a press made
+  // during it, pdfLastPageOf the song to open at its last page.
   const [pdfPage, setPdfPage]   = useState(1);
   const [pdfCount, setPdfCount] = useState(1);
-  const pdfOpenedAt = useRef(0);
-  const pdfNextHeld = useRef(false);
+  const pdfOpenedAt   = useRef(0);
+  const pdfHeldTurn   = useRef(0);
+  const pdfLastPageOf = useRef(null);
+  const previousToLast = previousLands === 'last';
 
   // The song's own width, in characters — what it actually needs rather than the
   // one-size-fits-all LYRIC_TARGET_CHARS. Capped there so no song is ever given a
@@ -797,6 +799,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const clamped = Math.max(0, Math.min(total - 1, target));
     if (clamped === index) return;
     setScrolling(false);
+    pdfLastPageOf.current = null;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     setIndex(clamped);
   }, [index, total, songs]);
@@ -843,7 +846,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     const opening = songIsPdf && mode === 'page';
     setPdfCount(opening ? null : 1);
     pdfOpenedAt.current = performance.now();
-    pdfNextHeld.current = false;
+    pdfHeldTurn.current = 0;
   }, [index, songIsPdf, mode]);
 
   // Pedal paging: move within the current song by ~one screenful (dir 1 = down,
@@ -901,34 +904,44 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     }
   }, [glideMs, pageFraction, fontPx, index, total, goTo, animatePageTo, armPagingIdleReset]);
 
+  const crossTo = useCallback((turn) => {
+    goTo(turn.index);
+    if (turn.lastPage) pdfLastPageOf.current = songs[turn.index]?.id ?? null;
+  }, [goTo, songs]);
+
   // PDF within-song advance for the pedal/keyboard: turn a page, and past either
   // end of the song cross to the next/previous one (see pdfTurn).
   //
-  // A Next pressed while the song is still opening waits for it: the page count
-  // isn't known yet, and counting the song as one page would skip the rest of
-  // it. An iPad takes long enough for this to matter. The wait has a limit, so a
-  // PDF that never finishes opening can't leave the button dead. Previous needs
-  // no wait, since a song that has just opened is on its first page.
+  // A press made while the song is still opening waits for it when the answer
+  // depends on the page count: Next would otherwise count the song as one page
+  // and skip the rest of it, and with Previous set to the last page it would
+  // skip the song. An iPad takes long enough for this to matter. The wait has a
+  // limit, so a PDF that never finishes opening can't leave the button dead.
+  // Previous to the top needs no wait: a song that has just opened is on page 1.
   const pdfAdvance = useCallback((dir) => {
-    if (dir > 0 && pdfCount === null && performance.now() - pdfOpenedAt.current < PDF_OPEN_WAIT_MS) {
-      pdfNextHeld.current = true;
+    if ((dir > 0 || previousToLast) && pdfCount === null && performance.now() - pdfOpenedAt.current < PDF_OPEN_WAIT_MS) {
+      pdfHeldTurn.current = dir;
       return;
     }
-    const turn = pdfTurn({ dir, page: pdfPage, count: pdfCount ?? 1, index, total });
+    const turn = pdfTurn({ dir, page: pdfPage, count: pdfCount ?? 1, index, total, previousToLast });
     if (turn?.page) setPdfPage(turn.page);
-    else if (turn) goTo(turn.index);
-  }, [pdfPage, pdfCount, index, total, goTo]);
+    else if (turn) crossTo(turn);
+  }, [pdfPage, pdfCount, index, total, previousToLast, crossTo]);
 
-  // The PDF on screen has opened: make the Next that was waiting, if there was
-  // one. A song that can't open reports one page, so that press still moves on.
+  // The PDF on screen has opened: start it on the right page, then make any
+  // press that was waiting. A song that can't open reports one page, so that
+  // press still moves on past it.
   const pdfReady = useCallback((count) => {
     setPdfCount(count);
-    if (!pdfNextHeld.current) return;
-    pdfNextHeld.current = false;
-    const turn = pdfTurn({ dir: 1, page: 1, count, index, total });
+    const toLast = pdfLastPageOf.current === song?.id;
+    pdfLastPageOf.current = null;
+    const held = pdfHeldTurn.current;
+    pdfHeldTurn.current = 0;
+    const turn = held ? pdfTurn({ dir: held, page: toLast ? count : 1, count, index, total, previousToLast }) : null;
     if (turn?.page) setPdfPage(turn.page);
-    else if (turn) goTo(turn.index);
-  }, [index, total, goTo]);
+    else if (turn) crossTo(turn);
+    else if (toLast) setPdfPage(count);
+  }, [song?.id, index, total, previousToLast, crossTo]);
 
   // PDF tap zones: pure page turn for manual reading — clamp at the ends (tapping
   // never jumps you into another song; the ◀/▶ buttons or the pedal do that).

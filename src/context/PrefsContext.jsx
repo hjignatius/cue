@@ -43,6 +43,10 @@ const DEFAULT_PAGE_GLIDE_MS = 550;
 // a screen ('half'). Only meaningful while pedalPaging is on.
 const DEFAULT_PAGE_SIZE = 'full';
 
+// Where Previous lands from the first page of a Full Page song: the 'top' of the
+// song before, or its 'last' page, for reading back through a book.
+const DEFAULT_PREVIOUS_LANDS = 'top';
+
 // Playing level for AI answers — tailors Q&A and transposing advice (beginner
 // gets more explanation and easier options; pro gets terse expert answers).
 export const AI_LEVELS = ['beginner', 'intermediate', 'advanced', 'pro'];
@@ -56,7 +60,7 @@ export const MUSIC_GENRES = ['Rock', 'Pop', 'Country', 'Folk', 'Bluegrass', 'Blu
 // aiTier: which quality tier the AI tools run on. The literal must match
 // DEFAULT_AI_TIER in lib/ai.js, which reads this blob directly (it isn't a React
 // module, so it can't use this context). An unknown value is validated there.
-const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, libraryColumnsOnTablet: false, uiScale: DEFAULT_UI_SCALE, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE, presentPanelSize: DEFAULT_PANEL_SIZE, aiLevel: DEFAULT_AI_LEVEL, aiTier: 'balanced', genres: [], favoriteArtists: '', personalizeFromLibrary: true };
+const DEFAULTS = { theme: 'light', chordColor: '#000000', metronomeMode: 'sound', chordDiagramSize: 2, chordLabelScale: 0, accidentals: 'auto', symbols: DEFAULT_SYMBOLS, presentIdleSec: DEFAULT_PRESENT_IDLE_SEC, scrollStartDelaySec: DEFAULT_SCROLL_START_DELAY_SEC, instrument: DEFAULT_INSTRUMENT, libraryColumnsOnTablet: false, uiScale: DEFAULT_UI_SCALE, pedalPaging: DEFAULT_PEDAL_PAGING, pageGlideMs: DEFAULT_PAGE_GLIDE_MS, pageSize: DEFAULT_PAGE_SIZE, previousLands: DEFAULT_PREVIOUS_LANDS, presentPanelSize: DEFAULT_PANEL_SIZE, aiLevel: DEFAULT_AI_LEVEL, aiTier: 'balanced', genres: [], favoriteArtists: '', personalizeFromLibrary: true };
 
 const LEGACY_BLUE = new Set(['#a5b4fc', '#4f46e5', '#6366f1', '#818cf8']);
 

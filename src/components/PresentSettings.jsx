@@ -17,7 +17,7 @@ import { normalizePanelSize } from '../utils/presentPanelSize.js';
 export default function PresentSettings({ onClose }) {
   const {
     theme, metronomeMode, presentIdleSec, scrollStartDelaySec,
-    pedalPaging, pageGlideMs, pageSize, presentPanelSize, updatePref,
+    pedalPaging, pageGlideMs, pageSize, previousLands, presentPanelSize, updatePref,
   } = usePrefs();
   const panelSize = normalizePanelSize(presentPanelSize);
   const dark = theme === 'dark';
@@ -160,6 +160,17 @@ export default function PresentSettings({ onClose }) {
               <p className={`text-xs ${muted}`}>How long a page turn takes to glide to the next screen. 0 is an instant jump; higher is a slower, smoother glide.</p>
             </div>
           )}
+
+          {/* Outside the block above: Full Page songs turn pages whether or not
+              pedal paging is on. */}
+          <span className={`text-sm mt-2 ${label}`}>Previous on Full Page songs</span>
+          <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+            {[['top', 'Top of song'], ['last', 'Last page']].map(([val, text], i) => (
+              <button key={val} onClick={() => updatePref('previousLands', val)}
+                className={`${seg((previousLands ?? 'top') === val)} ${i > 0 ? `border-l ${border}` : ''}`}>{text}</button>
+            ))}
+          </div>
+          <p className={`text-xs ${muted}`}>Where the pedal, ◀ and the keyboard land when you go back from a song's first page. Top of song starts the song before again. Last page reads back through a book, page by page.</p>
         </div>
       </div>
     </div>
