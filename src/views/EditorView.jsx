@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Save, Search, X, ChevronLeft, Pencil, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation, RotateCw } from 'lucide-react';
+import { Save, Search, X, ChevronLeft, RotateCcw, Tv, Undo2, Bold, Italic, Eraser, MoreHorizontal, ExternalLink, Sparkles, Globe, Wand2, ListPlus, Loader2, ArrowLeftRight, MessageCircleQuestion, Guitar, ArrowDownToLine, Music, Minimize2, Maximize2, ListTree, FileText, Type, Presentation, RotateCw } from 'lucide-react';
 import { CloseCircle } from '../components/CornerClose.jsx';
 import { useYouTube } from '../context/YouTubeContext.jsx';
 import { youtubeEmbedUrl } from '../utils/youtubeEmbed.js';
@@ -645,7 +645,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
 
   // Annotation overlay state
   const [hasAnnotation, setHasAnnotation]     = useState(false);
-  const [showAnnotations, setShowAnnotations] = useState(false);
   const [clearAnnotConfirm, setClearAnnotConfirm] = useState(false);
   // Same confirmation raised from the overflow menu, where the toolbar's inline
   // Yes/No isn't on screen. A modal, not native confirm() — that is suppressed
@@ -853,7 +852,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
     if (!songId) return;
     // Update UI immediately so the button vanishes before the async delete completes.
     setHasAnnotation(false);
-    setShowAnnotations(false);
     setClearAnnotConfirm(false);
     await deleteAnnotation(songId);
   }
@@ -1732,7 +1730,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           onReady={setPdfPages}
           dark={dark}
         />
-        {showAnnotations && hasAnnotation && songId && (
+        {hasAnnotation && songId && (
           <PdfAnnotationCanvas
             key={`editor-pdf-ink-${songId}-${annotationStamp}`}
             songId={songId}
@@ -2983,21 +2981,9 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
           <RotateCcw size={11} /> Revert
         </button>
 
-        {/* Annotation controls — only shown when the song has Present-mode annotations */}
+        {/* Ink always shows on the Preview, so all it needs here is a way to clear it. */}
         {hasAnnotation && (
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowAnnotations(v => !v)}
-              title={showAnnotations ? 'Hide annotation overlay' : 'Show ink annotations from Present mode'}
-              className={`flex items-center gap-1 h-9 px-3 text-xs rounded-lg font-medium border transition-colors ${
-                showAnnotations
-                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                  : dark ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-500 hover:text-gray-900'
-              }`}
-            >
-              <Pencil size={11} />
-              {showAnnotations ? 'Ink' : 'Ink'}
-            </button>
             {clearAnnotConfirm ? (
               <>
                 <span className={`text-xs ${mutedText}`}>Clear ink?</span>
@@ -3243,21 +3229,10 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               )}
 
               {hasAnnotation && (
-                <button type="button" role="menuitem" tabIndex={-1} className={menuItem}
-                  onClick={() => runFromMenu(() => setShowAnnotations(v => !v))}>
-                  <Pencil size={14} className="opacity-60" /> {showAnnotations ? 'Hide ink' : 'Show ink'}
+                <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
+                  onClick={() => runFromMenu(() => setClearInkModal(true))}>
+                  <X size={14} className="opacity-60" /> Clear ink
                 </button>
-              )}
-
-              {/* Separator only when both a group above it and Clear ink exist,
-                  so it never orphans. */}
-              {hasAnnotation && (
-                <>
-                      <button type="button" role="menuitem" tabIndex={-1} className={`${menuItem} ${dangerItem}`}
-                    onClick={() => runFromMenu(() => setClearInkModal(true))}>
-                    <X size={14} className="opacity-60" /> Clear ink
-                  </button>
-                </>
               )}
             </OverflowMenu>
           </span>
@@ -3299,7 +3274,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   condensed={condensed}
                   showMeta={false}
                   headerRight={previewStyleBar}
-                  overlay={showAnnotations && hasAnnotation && songId ? (
+                  overlay={hasAnnotation && songId ? (
                     <AnnotationCanvas
                       key={`editor-annot-narrow-${songId}-${annotationStamp}`}
                       songId={songId}
@@ -3368,7 +3343,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   condensed={condensed}
                   showMeta={false}
                   headerRight={previewStyleBar}
-                  overlay={showAnnotations && hasAnnotation && songId ? (
+                  overlay={hasAnnotation && songId ? (
                     // Canvas is mounted inside SongPreview's scrollable content wrapper
                     // so its origin is below the "PREVIEW" header bar and it scrolls
                     // with the lyrics — much closer to PresentationView's coordinate origin.

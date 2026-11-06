@@ -1472,10 +1472,11 @@ export default function SharedSetView() {
           dark={dark}
           song={picking}
           linked={localBySource.get(picking.id)}
-          linkedWord={yoursById.get(picking.id)?.edited ? 'Your copy, changed' : yoursById.get(picking.id)?.inked ? 'Your copy, with your ink' : 'Your copy, same as shared'}
+          linkedWord={versionWord(yoursById.get(picking.id))}
           others={otherVersionsById.get(picking.id) || []}
           chosen={playedInstead(picking.id)}
           bookNames={bookNames}
+          inkedIds={inkedIds}
           onChoose={(picked) => chooseVersion(picking.id, picked)}
           onCopy={localBySource.has(picking.id) || (updatePlan?.mine && !missingHere.has(picking.id)) ? undefined
             : () => { const song = picking; setPicking(null); handleCopySong(song); }}
@@ -2050,6 +2051,13 @@ function SymbolBox({ label, title, plays, accent, onActivate, disabled, dark, ch
       </span>
     </button>
   );
+}
+
+// Your copy of a shared song, as the picker names it.
+function versionWord(y) {
+  if (y?.edited && y?.inked) return 'Your copy, changed, with your ink';
+  if (y?.edited) return 'Your copy, changed';
+  return y?.inked ? 'Your copy, with your ink' : 'Your copy, same as shared';
 }
 
 // What a ≠ row has of yours, in words.
