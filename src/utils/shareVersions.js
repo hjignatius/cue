@@ -17,13 +17,17 @@ export function readPlayChoices(raw) {
   } catch { return {}; }
 }
 
-// Your songs with this song's title, other than `linkedId`: My Songs first, then
-// the ones in books, so a common title doesn't bury what you'd reach for.
-export function sameTitleSongs(shareSong, localSongs = [], linkedId = null) {
+// The other songs of yours you might play instead, leaving out `linkedId`: any
+// with this title, however they got here, and any that came from this song or
+// that it came from, even under a new title. My Songs first, then the ones in
+// books, so a common title doesn't bury what you'd reach for.
+export function otherVersions(shareSong, localSongs = [], linkedId = null) {
   const title = normalizeTitle(shareSong?.metadata?.title);
-  if (!title) return [];
+  const related = (s) => (title && normalizeTitle(s.metadata?.title) === title)
+    || s.copiedFrom?.songId === shareSong.id
+    || (shareSong.copiedFrom?.songId && s.id === shareSong.copiedFrom.songId);
   return localSongs
-    .filter(s => s.id !== linkedId && s.id !== shareSong.id && normalizeTitle(s.metadata?.title) === title)
+    .filter(s => s.id !== linkedId && s.id !== shareSong.id && related(s))
     .sort((a, b) => Number(isMine(b)) - Number(isMine(a)) || (a.metadata?.artist || '').localeCompare(b.metadata?.artist || ''));
 }
 

@@ -12,7 +12,7 @@ import { contentHash, contentDiffFields, isEditedCopy, normalizeTitle } from '..
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
 import VersionPicker from '../components/VersionPicker.jsx';
-import { readPlayChoices, sameTitleSongs, chosenSong } from '../utils/shareVersions.js';
+import { readPlayChoices, otherVersions, chosenSong } from '../utils/shareVersions.js';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, UserCheck, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Download, Cloud, CloudDownload, Equal, EqualNot, ArrowLeft, ArrowRight, ArrowLeftRight } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
@@ -830,16 +830,17 @@ export default function SharedSetView() {
   // when there is something newer in it ('take' when only they moved, 'decide'
   // when you both did).
   //
-  // ≠ also covers a song you don't have a copy of but do have the title of. Cue
-  // won't call that the same song, but it will offer it: ≠ opens the picker, and
-  // you say which plays.
-  // Your same-title songs per shared song, for the picker. Only a ≠ row opens
-  // it: on a = row your copy and the shared one are the same song.
-  const sameTitleById = useMemo(() => {
+  // ≠ also covers any song with more than one version of yours to play: one you
+  // have the title of but no copy, or a copy that matches the share with another
+  // song beside it. Cue won't call those the same song, but it will offer them:
+  // ≠ opens the picker, and you say which plays.
+  //
+  // The rest of your versions of each shared song, for the picker.
+  const otherVersionsById = useMemo(() => {
     const m = new Map();
     (updatePlan?.songs || []).forEach(x => {
       const linked = x.matchedBy === 'title' ? null : x.local;
-      m.set(x.shareSong.id, sameTitleSongs(x.shareSong, localSongs, linked?.id));
+      m.set(x.shareSong.id, otherVersions(x.shareSong, localSongs, linked?.id));
     });
     return m;
   }, [updatePlan, localSongs]);
@@ -858,15 +859,17 @@ export default function SharedSetView() {
 
   function rowOf(song) {
     const y = yoursById.get(song.id);
-    const others = sameTitleById.get(song.id)?.length || 0;
-    const lib = y ? (choosable.has(song.id) ? '≠' : '=') : others ? '≠' : '+';
+    const others = otherVersionsById.get(song.id)?.length || 0;
+    const lib = others || choosable.has(song.id) ? '≠' : y ? '=' : '+';
     const played = playedInstead(song.id);
     return {
       lib,
       newer: bothChanged.has(song.id) ? 'decide' : behindShare.has(song.id) ? 'take' : null,
       unsure: unsureIds.has(song.id),
       inkOnly: !!y && y.inked && !y.edited,
-      titleOnly: y ? 0 : others,
+      noCopy: !y,
+      copyChanged: choosable.has(song.id),
+      others,
       playingMine: lib === '≠' && !!played,
       // The key shown is the key it plays in, and yours may not be the share's.
       playsKey: lib === '≠' && played ? (played.displayKey || played.metadata?.key) : (song.displayKey || song.metadata?.key),
@@ -1469,8 +1472,8 @@ export default function SharedSetView() {
           dark={dark}
           song={picking}
           linked={localBySource.get(picking.id)}
-          linkedWord={yoursById.get(picking.id)?.edited ? 'Your copy, changed' : 'Your copy, with your ink'}
-          others={sameTitleById.get(picking.id) || []}
+          linkedWord={yoursById.get(picking.id)?.edited ? 'Your copy, changed' : yoursById.get(picking.id)?.inked ? 'Your copy, with your ink' : 'Your copy, same as shared'}
+          others={otherVersionsById.get(picking.id) || []}
           chosen={playedInstead(picking.id)}
           bookNames={bookNames}
           onChoose={(picked) => chooseVersion(picking.id, picked)}
@@ -2049,9 +2052,17 @@ function SymbolBox({ label, title, plays, accent, onActivate, disabled, dark, ch
   );
 }
 
+// What a ≠ row has of yours, in words.
+function versionsNote({ noCopy, copyChanged, inkOnly, others }) {
+  const songs = (n) => `${n} ${n === 1 ? 'song' : 'songs'}`;
+  if (noCopy) return others === 1 ? 'You have a song with this title' : `You have ${songs(others)} with this title`;
+  const copy = !copyChanged ? 'Your copy matches' : inkOnly ? 'You drew on your copy' : 'You changed your copy';
+  return others ? `${copy}, and you have ${others === 1 ? 'another version' : `${others} other versions`}` : copy;
+}
+
 function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onCopy, onCloud, changed, copying }) {
   const meta = song.metadata || {};
-  const { lib, newer, inkOnly, titleOnly, playingMine, playsKey, unsure } = row;
+  const { lib, newer, inkOnly, noCopy, copyChanged, others, playingMine, playsKey, unsure } = row;
   const changedNote = changed?.length ? ` — ${changed.join(', ')}` : '';
   // A = row with nothing newer is the same song on both sides, so both boxes
   // are drawn as playing and there is nothing to switch.
@@ -2060,8 +2071,7 @@ function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onC
     : newer === 'decide' ? (unsure ? 'Yours and the shared one differ — tap the cloud to choose' : 'You both changed it — tap the cloud to choose')
     : newer === 'take' ? 'Newer in the share — tap the cloud to get it'
     : lib === '=' ? 'On this device, same as shared'
-    : `${titleOnly ? (titleOnly === 1 ? 'You have a song with this title' : `You have ${titleOnly} songs with this title`)
-        : inkOnly ? 'You drew on your copy' : 'You changed your copy'} — ${playingMine ? 'yours plays' : 'shared plays'}`;
+    : `${versionsNote({ noCopy, copyChanged, inkOnly, others })} — ${playingMine ? 'yours plays' : 'shared plays'}`;
   const Arrow = onChoose ? (playingMine ? ArrowLeft : ArrowRight) : same ? ArrowLeftRight : ArrowRight;
 
   return (
@@ -2092,7 +2102,7 @@ function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onC
             label={lib === '+' ? 'Not on this device — copy this song to my library' : lib === '=' ? 'On this device, unchanged' : 'Yours differs — choose which version plays'}
             title={lib === '+' ? 'Add just this song to your Cue library, where you can open, edit, and keep it.'
               : lib === '=' ? 'Your copy hasn’t been changed.'
-              : titleOnly ? 'You have a song with this title. Tap to choose which version plays.'
+              : others ? `${versionsNote({ noCopy, copyChanged, inkOnly, others })}. Tap to choose which version plays.`
               : inkOnly ? 'You have drawn on your copy.' : `Your copy differs from the shared one${changedNote}.`}
             plays={same || playingMine}
             onActivate={lib === '+' ? onCopy : onChoose}
