@@ -160,15 +160,18 @@ function manualHTML() {
     <li class="toc-h2">Appearance</li>
     <li class="toc-h2">Metronome</li>
     <li class="toc-h2">Account</li>
-    <li class="toc-h2">Supporting Cue</li>
+    <li class="toc-h2">Supporting Cue and Sending Suggestions</li>
     <li class="toc-h1">3. The Library</li>
     <li class="toc-h2">Song List &amp; Search</li>
+    <li class="toc-h2">My Songs, Books &amp; Shelves</li>
     <li class="toc-h2">Backup &amp; Restore</li>
     <li class="toc-h2">Importing Songs</li>
+    <li class="toc-h2">Importing PDFs</li>
     <li class="toc-h2">Selecting Songs</li>
     <li class="toc-h1">4. Sets &amp; Setlist</li>
     <li class="toc-h2">Creating &amp; Managing Sets</li>
     <li class="toc-h2">Adding Songs to a Set</li>
+    <li class="toc-h2">Merging Two Sets</li>
     <li class="toc-h2">Selecting Sets</li>
     <li class="toc-h2">Searching &amp; Sorting Sets</li>
     <li class="toc-h2">The Setlist Column</li>
@@ -254,8 +257,9 @@ function manualHTML() {
 
 <h2>Account</h2>
 <p>The Account section appears only when cloud sharing is configured. Enter your email address and Cue emails you a numeric code; type it into the app to sign in. The email also contains a sign-in link, which works on desktop — but on an iPhone or iPad with Cue installed to the Home Screen, use the code. A tapped link always opens in Safari, and the session it creates lives in Safari's storage, not the installed app's, so the app would still show you as signed out. Once signed in, your email is shown with a <strong>Sign out</strong> button. An account is needed only to <em>publish</em> a shared set link — viewing a shared link requires no account.</p>
+<p><strong>One device at a time.</strong> Cue keeps one device signed in to your account. Signing in on a second device signs the first one out, and the first one tells you so in Settings. Signing out is how you hand over to another device: if any of your sets have changes the cloud hasn't got, Cue names them and suggests publishing first, because another device that pulls from the cloud would get the older version and offer to replace your work. It is a question, not a block, so you can still sign out.</p>
 
-<h2>Supporting Cue and sending suggestions</h2>
+<h2>Supporting Cue and Sending Suggestions</h2>
 <p>At the foot of Settings there is a card with two buttons. <strong>Support Cue</strong> opens PayPal in your browser. Cue is free and takes no payment itself — it runs no payment code and stores nothing. <strong>Send a suggestion</strong> starts an email to usecueapp@gmail.com, which is also written out with a Copy button.</p>
 <p>Beside each button is a QR code button, which shows the same link as a code to scan with your phone. That is useful on a Mac or iPad: you can pay on your phone, or email from it if the device you are using has no mail set up.</p>
 
@@ -265,16 +269,34 @@ function manualHTML() {
 <p>In <strong>portrait</strong> on a phone or tablet the three columns do not fit side by side, so Cue shows <strong>one at a time</strong> with a floating <strong>Library / Sets / Setlist</strong> selector; landscape and desktop always show all three. On a <strong>tablet</strong> you can override that: <strong>Settings &rarr; Three columns in portrait</strong> keeps all three side by side in portrait as well. It fits, but reads tighter &mdash; at 768&ndash;1024pt each column is a third of the width, so titles truncate sooner. That is why it collapses by default. The setting stays on the device you set it on, and is not offered on a phone, where three columns would not be a layout.</p>
 
 <h2>Song List &amp; Search</h2>
-<p>The <strong>Library</strong> column on the left lists all your songs. Use the <strong>search bar</strong> to filter by title, artist, or key. Use the <strong>sort menu</strong> to order by:</p>
+<p>The <strong>Library</strong> column on the left lists your songs. The line under its heading says what you are looking at and how many songs that is (see <em>My Songs, Books &amp; Shelves</em> below). Use the <strong>search bar</strong> to filter by title, artist, or key. Use the <strong>sort menu</strong> to order by:</p>
 <ul>
   <li><strong>A–Z</strong> — alphabetical by title</li>
   <li><strong>Newest / Oldest</strong> — by save date</li>
   <li><strong>By Artist</strong> — groups songs under artist names; tap an artist name to see only their songs</li>
   <li><strong>By Key</strong> — groups songs under their key; tap a key name to see only songs in that key</li>
 </ul>
-<p><strong>Double-tap</strong> any song row to open it in the editor. Single-tap to select it for batch operations in Select mode. Tap <strong>New Song</strong> in the Library panel header to create a blank song.</p>
+<p><strong>Double-tap</strong> any song row to open it in the editor. Tick its checkbox to select it for batch operations. Tap <strong>New Song</strong> in the Library panel header to create a blank song.</p>
 <p>Tap any <strong>key chip</strong> in the count bar (visible after sorting or filtering by key) to filter the list to songs in that key. A <strong>Clear key</strong> button appears to remove the filter.</p>
 <p><strong>Which key the Library shows:</strong> the key beside each song title — and the key used for search, the <em>By Key</em> sort, and the key filter — is the song's <strong>View Key</strong> (the key you actually perform it in). If a song has no View Key set, its written key is used instead. So a song written in C but set to play in G shows, sorts, and is found as <strong>G</strong>. Hover the key to see the original written key when the two differ.</p>
+
+<h2>My Songs, Books &amp; Shelves</h2>
+<p>A songbook of hundreds of songs shouldn't bury the ones you actually play, so the Library keeps them apart. Tap the line under the <strong>Library</strong> heading to open its switch:</p>
+<ul>
+  <li><strong>My songs</strong> — the songs you made or imported yourself, plus any song from a book that you have used.</li>
+  <li><strong>All songs</strong> — everything, books included.</li>
+  <li><strong>A book</strong> — the songs of one book.</li>
+  <li><strong>A shelf</strong> — the songs of every book on that shelf. Shelves are yours to name, such as Club or Christmas. Tap <strong>New shelf</strong> to make one. A book doesn't have to be on a shelf.</li>
+</ul>
+<p><strong>How a song from a book becomes one of My songs.</strong> It does so when you put it in a set of your own, ink it, or choose <strong>Add to My songs</strong> from its ⋮ menu (<strong>Take out of My songs</strong> undoes that). Editing it does not. It stays in its book as well: it is one song, seen in both places.</p>
+<p><strong>Books get there in three ways:</strong> from a songbook PDF (see <em>Importing PDFs</em>), by putting a single PDF song into a book as you import it, or by choosing a book when you copy someone's shared set.</p>
+<p><strong>A book's or shelf's ⋮ menu</strong> in the switch opens its window. There you can rename it, and put a book on a shelf, a new one included. The buttons on one line below that are:</p>
+<ul>
+  <li><strong>Merge…</strong> — moves every song of this book into another book and removes this one. No songs are removed.</li>
+  <li><strong>Save</strong> — keeps your changes. The X in the corner leaves without saving.</li>
+  <li><strong>Trash</strong> — asks first and says exactly what will happen. Deleting a book deletes the songs you never used. The ones you did use stay, in My songs. Removing a shelf removes no songs: its books stay, on no shelf.</li>
+</ul>
+<p>A book also goes by itself when its last song is deleted.</p>
 
 <h2>Backup &amp; Restore</h2>
 <p>Tap <strong>Backup</strong> in the top header to download a complete snapshot of your library. The backup file (<code>cue-backup-YYYY-MM-DD.json</code>) contains every song and every set in a single file — including the bytes of any <strong>PDF</strong> lead sheets, so a restore brings the PDFs back too. It also carries your <strong>custom chord shapes for every instrument</strong> — Ukulele, Baritone and Guitar — and the built-in shapes you have deleted, so a restored device looks up chords the same way this one does. Your <strong>ink</strong> and your <strong>Shared with me</strong> list are in it too, so deleting Cue from the home screen and adding it again (which empties that app’s storage on an iPhone or iPad) loses nothing a restore can’t bring back.</p>
@@ -291,7 +313,7 @@ function manualHTML() {
   <li><code>.cho</code> / <code>.chopro</code> — standard ChordPro format</li>
   <li><code>.json</code> — a Cue JSON bundle (single song or full set)</li>
   <li><code>.txt</code> — plain ChordPro text saved with a .txt extension</li>
-  <li><code>.pdf</code> — a PDF lead sheet, imported as a <strong>PDF song</strong> (see <em>The Editor → PDF Songs</em>)</li>
+  <li><code>.pdf</code> — a lead sheet or a whole songbook (see <em>Importing PDFs</em> below)</li>
 </ul>
 <p>When importing a JSON set bundle, Cue brings in the set and all its songs in a single step.</p>
 <p>You can select multiple files in the picker and Cue imports them all in sequence.</p>
@@ -304,13 +326,44 @@ function manualHTML() {
 </ul>
 <div class="tip"><strong>Note:</strong> Individual song files (<code>.cho</code>, <code>.txt</code>, single-song JSON) prompt per song. Every <em>bundle</em> — a set, several sets, or a songs-only export — asks once for the whole file instead: <strong>Skip duplicates</strong> (songs already in your library are reused, so a set still gets the right songs and no copies are made) or <strong>Allow duplicates</strong> (everything comes in as new entries). Either way Cue then tells you how many songs it added and how many it reused. Backup files prompt separately with Replace or Merge options. A file made by a <em>newer</em> Cue than the one you are running is not imported: Cue asks you to update first, so nothing in it is quietly lost.</div>
 
+<h2>Importing PDFs</h2>
+<p>Cue reads a PDF before it brings it in, and what happens next depends on what it finds. Every one of these windows is left with the X in its corner.</p>
+
+<h3>One song</h3>
+<p>If the PDF holds a chord chart with text Cue can read, either with chords in brackets or with chords above the lyrics, it shows you the first few lines and offers the same choice as Load PDF in the editor: <strong>Load as text</strong> makes it an ordinary song, and <strong>Keep it as a page</strong> keeps the PDF as printed. Otherwise you just see the title Cue found, to check before importing. Either way, <strong>Put it in a book</strong> sends it to a book instead of straight into My songs.</p>
+<p><strong>The details above the chart.</strong> Cue reads the artist, and looks for a <strong>YouTube link</strong> and a <strong>capo</strong> on any line above the first chord, and fills in those fields. A line holding only the link or the capo is then taken out of the chart. A credit line stays. A kept page gets the link but not the capo, because Cue can't redraw chords printed on a page.</p>
+<div class="tip"><strong>Note:</strong> The Capo field moves the chords Cue draws down by that many frets, so <em>capo 3</em> on a chart written in C shows C as A. If a sheet means "capo 3 and play these shapes", clear the Capo field on that song to see the shapes as printed.</div>
+
+<h3>A songbook</h3>
+<p>A PDF of several songs gets a <strong>book report</strong> before anything is imported. It opens straight away and fills in as the pages are read. It says what the book is, how the songs were found, how they will come in, what was tidied and what you already have. Then it gives a verdict in words: <strong>Looks right</strong>, <strong>Check the list</strong> or <strong>Can't split this book</strong>.</p>
+<p>Below that is every song Cue found, to tick or untick. Tap a title to fix it, and tap a song's arrow to see its chart. A song already in your library starts unticked, so importing the same book twice doesn't double it. So does an entry with no chords, such as a contents page.</p>
+<ul>
+  <li><strong>Keep these as a book</strong> — ticked for a songbook. Name the book and choose a shelf. Its songs go into that book rather than My songs.</li>
+  <li><strong>Put them in a new set</strong> — also makes a set of the songs, with a name you choose.</li>
+  <li><strong>Keep it as one PDF</strong> — brings the whole book in as a single PDF song instead.</li>
+  <li><strong>Or pick the pages myself</strong> — goes through the book page by page. When Cue can't split a book, this is the main way on.</li>
+</ul>
+
+<h3>Picking the pages</h3>
+<p>Every page is shown small, already marked with Cue's best guess, so most of the job is fixing rather than starting from nothing. Tap a page to change its mark:</p>
+<ul>
+  <li><strong>New song</strong> — a song starts on this page.</li>
+  <li><strong>Same song</strong> — more of the song before.</li>
+  <li><strong>Leave out</strong> — a cover, the contents, an advert.</li>
+</ul>
+<p>Use a page's expand button to see it large, where choosing a mark moves you on to the next page. A title read from a song's first page can be fixed in place. Each page also says how it will come in: a green <strong>Chart</strong> if Cue can read it, or a grey <strong>PDF</strong> if not. A song whose every page reads becomes a chart, unless you would rather have the pages, and the rest come in as their own PDF, exactly as printed. The <strong>Make</strong> button at the bottom, which shows how many songs you have marked, finishes the job. If you leave after changing any marks, Cue asks first.</p>
+<p>A song printed more than once in a file, one copy after another, opens here too, with its copies split.</p>
+
+<h3>Several PDFs at once</h3>
+<p>Pick several PDFs together and each sheet is listed as one song, marked <strong>Chart</strong> or <strong>PDF</strong>. Untick <strong>Make charts of the songs Cue can read</strong> to bring every one in as a PDF. A batch can also be kept as a book or put in a new set. A songbook among them gets its own report in turn.</p>
+
 <h2>Selecting Songs</h2>
 <p>Every song row has a <strong>checkbox</strong> at its left — always visible, with no "Select" mode to turn on. Tick any box and the action bar (just below the search row) lights up. Tapping a row's <em>body</em> (not the checkbox) still just highlights it, and its <strong>⋮</strong> menu carries the per-song actions (Edit, Present, Duplicate).</p>
 <ul>
   <li>Tick a checkbox to select / deselect a song. The <strong>select-all checkbox</strong> on the action bar ticks or clears every listed song — so you can search or filter first (for example sort <strong>By Artist</strong> and open one artist) and then select-all to grab that whole group. "<strong>N selected · ✕</strong>" beside it shows the count and clears the selection.</li>
   <li><strong>Export ▾</strong> (in the header, beside <strong>New Song</strong>) — one song: ChordPro (<code>.cho</code>) or JSON; multiple: a ZIP of <code>.cho</code> files or a JSON bundle. Where your device can share a file (iPad, Android tablet, and most phones), a <strong>Share… (email .json)</strong> option also appears — it opens the share sheet so you can pick Mail and email the <code>.json</code> as an attachment.</li>
   <li><strong>Add to Set</strong> (on the right of the action bar) — adds the selected songs to a set (see <em>Adding Songs to a Set</em> below). If a set is active in the Sets panel the songs go straight into it; otherwise a dialog opens to create or pick one.</li>
-  <li><strong>Delete</strong> — permanently removes the selected songs from the library and any sets they appear in.</li>
+  <li><strong>Delete</strong> — permanently removes the selected songs from the library and any sets they appear in. If you have ticked every song of a book, Cue says so first and offers to keep the ones you have used, as deleting the book would.</li>
 </ul>
 <p>The <strong>Checked</strong> option in the sort menu floats ticked songs to the top as you select — handy for reviewing a large selection.</p>
 
@@ -460,12 +513,12 @@ G|----0------7----|</pre>
 <p>There are two ways to get a PDF lead sheet into Cue. Use <strong>Import</strong> (see <em>Importing Songs</em>) when you have several files to bring in at once, or start a <strong>New Song</strong> and load the PDF right in the editor:</p>
 <ul>
   <li><strong>Load PDF</strong> — a blank new song shows a <strong>Load PDF</strong> button under the placeholder text. Pick a file and the song becomes a PDF song: the sheet appears in the preview panel, and the Title fills in from the filename unless you have already typed one. The button disappears as soon as you type anything, since a chart you have written can't be turned into a PDF.
-    <p>If the PDF turns out to hold a chord chart written in <strong>brackets</strong> &mdash; <code>[C] No one to [C#dim7] talk with</code> &mdash; Cue offers you a choice before it commits, and shows the first few lines it found so the choice isn't blind:</p>
+    <p>If the PDF turns out to hold a chord chart, written in <strong>brackets</strong> &mdash; <code>[C] No one to [C#dim7] talk with</code> &mdash; or with its <strong>chords above the lyrics</strong>, Cue offers you a choice before it commits, and shows the first few lines it found so the choice isn't blind:</p>
     <ul>
       <li><strong>Load as text</strong> &mdash; the chart comes out of the PDF and becomes an ordinary song. You can transpose it, switch its chord format, put a capo on it, Condense it, and ink lands on the words rather than on a picture. Cue puts back the blank lines between verses (a PDF records where each line sits, not that a verse ended) and then opens <strong>Fill in song details</strong> so the title, artist and YouTube link can be filled in and the page's headers and footers removed. The PDF itself is not kept &mdash; a song is text or pages, not both.</li>
       <li><strong>Keep it as a page</strong> &mdash; exactly what Load PDF has always done.</li>
     </ul>
-    <p>The offer only appears when there is really a choice to make: the PDF has a text layer, that text is a bracket chart, and the editor is empty so nothing can be stranded. A <strong>scanned</strong> PDF &mdash; a photo or a screenshot saved as a PDF &mdash; has no text in it at all, so it is simply loaded as a page. So is anything longer than <strong>12 pages</strong>, on the grounds that a songbook is not a song.</p>
+    <p>The offer only appears when there is really a choice to make: the PDF has a text layer, that text is a chord chart, and the editor is empty so nothing can be stranded. A <strong>scanned</strong> PDF &mdash; a photo or a screenshot saved as a PDF &mdash; has no text in it at all, so it is simply loaded as a page. So is anything longer than <strong>12 pages</strong>, on the grounds that a songbook is not a song. To split a songbook into songs, use <strong>Import</strong> (see <em>Importing PDFs</em>).</p>
   </li>
   <li><strong>Replace PDF</strong> — on a song that is already a PDF, the <strong>⋯</strong> overflow menu offers <strong>Replace PDF</strong> to swap in a different file (a rescan, or a cleaner copy) while keeping the song's title, chords, set membership and ink.</li>
   <li><strong>Rotate</strong> — a sheet that came in upside down or sideways: tap <strong>Rotate</strong> above the PDF in the preview to turn it a quarter turn clockwise (twice for upside down), then Save. With more than one page it reads <strong>Rotate all</strong>, and each page has its own rotate button in its top corner for a page that needs turning on its own. Present, the preview and PDF exports all show it that way up. Ink doesn't turn with the page, so rotate before you draw.</li>
@@ -504,7 +557,7 @@ G|----0------7----|</pre>
   <li><strong>Discard</strong> — drops changes and returns to the library</li>
   <li><strong>Keep editing</strong> — closes the dialog and stays in the editor</li>
 </ul>
-<p>To export a single song, enter <strong>Select mode</strong> in the Library panel, check the song, and use <strong>Export ▾</strong> to download it as ChordPro (<code>.cho</code>) or JSON. PDF export is available for full sets via the Setlist column. <em>JSON is the format that keeps everything</em> — lyric styling, per-song display settings, and the file behind a PDF lead sheet; ChordPro keeps only chords and lyrics, so a PDF song exports as an empty chart.</p>
+<p>To export a single song, tick the song in the Library panel and use <strong>Export ▾</strong> to download it as ChordPro (<code>.cho</code>) or JSON. PDF export is available for full sets via the Setlist column. <em>JSON is the format that keeps everything</em> — lyric styling, per-song display settings, and the file behind a PDF lead sheet; ChordPro keeps only chords and lyrics, so a PDF song exports as an empty chart.</p>
 
 <h2>PDF Export &amp; Chord Charts</h2>
 <p>PDF export is available from <strong>Export ▾</strong> in the <strong>Setlist column</strong>. Select a set, then choose from the Export menu:</p>
@@ -581,7 +634,7 @@ Bb,8-10-11-10,1243</pre>
   <tr><td><strong>FP / SC</strong></td><td>Full Page or Scroll for this song. Indigo means discrete full pages that fit the screen; off means continuous scrolling.</td></tr>
   <tr><td><strong>YouTube</strong></td><td>Opens the song's YouTube URL in an overlay player. Dimmed when the song has no URL saved.</td></tr>
   <tr><td><strong>Ink</strong></td><td>Toggles annotation mode so you can draw over the song — see <em>Annotations</em>. An Apple Pencil always draws even when this is off. It switches itself off in two places: when you move to the <strong>Controls</strong> tab, since the button that armed it is no longer on screen, and when you clear every stroke, since there is nothing left to draw on. Hidden on the shared-set viewer.</td></tr>
-  <tr><td><strong>Chords</strong></td><td>Shows or hides the chord diagram panel.</td></tr>
+  <tr><td><strong>Chords</strong></td><td>Shows or hides the chord diagram panel. A song with no chord names keeps the panel closed, since it would have nothing to list. Press <strong>C</strong> to open it for that song only.</td></tr>
 </table>
 
 <h3>Moving, hiding and fading</h3>
@@ -782,13 +835,19 @@ Pulling will discard them. Continue?</pre>
 <p>The landing screen is skipped on repeat visits and for sets you've already bookmarked.</p>
 <p>In the viewer you can:</p>
 <ul>
-  <li><strong>Present All</strong> — launches Present mode from the first song, or from any song you tap <strong>Present</strong> on. PDF lead sheets render just as they do in your own library.</li>
-  <li><strong>Key</strong> — each song shows the key it plays in; you can transpose it for yourself (stored locally, never sent to the server).</li>
+  <li><strong>Present All</strong> — launches Present mode from the first song. Tap a song's title to present from that song. PDF lead sheets render just as they do in your own library.</li>
+  <li><strong>Key</strong> — each song shows the key it plays in.</li>
+  <li><strong>Three symbols per song</strong> — a line under the title says the same thing in words, and a key above the list explains the symbols that set uses.
+    <br><br><strong>This device:</strong> <strong>+</strong> means the song isn't here, and tapping copies it. <strong>=</strong> means you have it, the same as shared. <strong>≠</strong> means you have it and your copy has changed, by edit or ink.
+    <br><br><strong>The TV</strong> has an arrow pointing at the version Present will play. On a ≠ song, tap it to switch between yours and the shared one.
+    <br><br><strong>The share:</strong> a cloud. A down-arrow on it means something newer is waiting, so tap to get it, or to choose when you both changed it. The version that plays is drawn dark.
+    <br><br>A song that only shares a title with one of yours shows <strong>+</strong>, because your arrangement, or a book's, is a different song.</li>
   <li><strong>Copy to library</strong> — copy an individual song or the whole set (including any PDFs) into your local Cue. Once anything is copied the button reports status instead: <strong>Up to date</strong> when nothing is waiting, <strong>Update</strong> when something is, and <strong>Your set</strong> if you are looking at a share you published yourself — in which case there is nothing to copy, because these are already your songs.
   <br><br>Update opens a per-song list that says what is in it before you read a row — <em>3 to copy · 1 changed in the share · 1 you've also edited · 72 already in your library</em> — plus a line if only the running order moved. Each row can be taken or skipped, and there are <strong>Take everything</strong> / <strong>Skip everything</strong> shortcuts.
   <br><br>Two rows are set to <strong>Skip</strong> for you. A song you have <em>also</em> edited, because taking the publisher's version would discard yours. And a song you <em>already have under that title</em>, which is not treated as the same song — a friend's arrangement of one of yours is a real, different thing — but is not pre-selected either, so a share built from songs you own is not a long list of things to refuse. Choosing Add there brings the publisher's version in as a <em>separate</em> song with a numbered name; your own copy is never changed.
-  <br><br>When a song has changed in the share, its library button turns amber — one tap takes the newer version. Your copies keep their place in your library and your ink annotations are kept throughout; songs you made yourself are never touched.</li>
+  <br><br>When a song has changed in the share, the <strong>Update</strong> button and that song's cloud turn blue — one tap on the cloud takes the newer version. Your copies keep their place in your library and your ink annotations are kept throughout; songs you made yourself are never touched.</li>
   <li><strong>Pull down on the song list to refresh.</strong> The share is fetched when you open it and not re-checked while you sit there, so this is how you pick up a change the publisher has just made — previously you had to leave the page and come back.</li>
+  <li><strong>Keep these as a book</strong> — when you copy a set, you can put its songs in a book. They then stay out of My songs until you use them. Otherwise they go straight into My songs.</li>
   <li><strong>Bookmark</strong> — save the link to a <em>Shared with me</em> list for quick access later.</li>
   <li><strong>⚙ Settings</strong> — theme, chord color, and chord label size, applied immediately.</li>
   <li><strong>‹ Leave this shared set</strong> — top left, the same glass back button as Present and the editor. If you have neither bookmarked the set nor copied anything from it, Cue asks first, since you would have no way back to the link.</li>
@@ -869,7 +928,7 @@ Pulling will discard them. Continue?</pre>
   <li><strong>iPad editing space</strong> — use the <strong>Preview</strong> and <strong>Chords</strong> toggle buttons to hide panels and give the text editor more room.</li>
   <li><strong>Set PDF with chord charts</strong> — select the set in the Sets panel, then tap <strong>Export ▾ → PDF + Chord Charts</strong> in the Setlist column. Every song becomes a page, and a single chord reference page listing all unique chords across the set is added at the end — useful as a printed reference for rehearsals.</li>
   <li><strong>Exporting a full set as JSON</strong> — select the set, tap <strong>Export ▾ → JSON bundle</strong> in the Setlist column. This creates one file containing the set order plus all the songs, which you can import on another device or keep as a backup.</li>
-  <li><strong>Exporting multiple sets</strong> — use Select mode in the Sets panel, check the sets you want, and tap <strong>Export</strong>. All selected sets and their songs are bundled into a single JSON file.</li>
+  <li><strong>Exporting multiple sets</strong> — tick the sets you want in the <strong>Sets</strong> panel, and tap <strong>Export</strong>. All selected sets and their songs are bundled into a single JSON file.</li>
   <li><strong>Custom chord shapes</strong> — define the shape once, and it is available any time that chord name appears in any song. Custom shapes appear at the top of the voicing options. They travel in a <strong>Backup</strong>; <strong>Export</strong> and <strong>Import</strong> in the Chords panel footer move one instrument's shapes on their own.</li>
 </ul>
 
