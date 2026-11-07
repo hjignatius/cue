@@ -506,6 +506,15 @@ const unplaced = placed(page([T('Rows'), ['[C] [G]'], ['Some lyric words here'],
 const scraps = placed(page([T('Scraps'), ...lyricLines(4), ['B\u266d dim B\u266d'], ['F 7'], ['C7 7']]));
 const bare = placed(page([T('Bare'), ['[C]One line with a chord'], ...lyricLines(7, false)]));
 check('a page with its chords in place is fine, and the rest are worth a look', pageDoubts([clean, unplaced, scraps, bare]), [false, true, true, true]);
+const partly = (doubted, fine, bad) => [...Array(doubted).fill(unplaced), ...Array(fine).fill(clean), ...[...Array(bad)].map(readsBadly)];
+check('partly read with many worth a look: a book to bring in as PDFs', chartScore(partly(2, 4, 4)), { songs: 10, read: 6, level: 'shaky' });
+check('…but partly read with few of them stays a book to look over', chartScore(partly(1, 5, 4)), { songs: 10, read: 6, level: 'mid' });
+check('…and a book that nearly all reads stays charts, however much yellow', chartScore(partly(4, 6, 0)), { songs: 10, read: 10, level: 'high' });
+const shakyBook = partly(2, 4, 4).map(p => ({ lines: p.lines, links: [], ...(p.placed ? { over: p.lines } : {}) }));
+const shakyStart = pickerStart(bookReport(shakyBook), overPages(shakyBook));
+check('…its pages Cue can read start as PDFs, still a tap from a chart', [shakyStart.asPdf.length, shakyStart.chances.filter(Boolean).length], [6, 6]);
+check('…and the report says so', reportLines(bookReport(shakyBook)).at(-1),
+  'Cue can read 6 of its 10 song pages, but many need checking, so they start as PDFs. You can tap any song to make it a chart.');
 check('…but a page Cue didn\u2019t place is never doubted', pageDoubts([page([T('Rows'), ['[C] [G]'], ['Some lyric words here'], ['[F] [C]'], ['More of the words now']])]), [false]);
 check('…and chords on a line of their own with chords under them are fine',
   pageDoubts([placed(page([T('Intro'), ['[C] [G]'], ['[C]Some lyric words'], ['[F] [C]'], ['[G]More of the words'], ...lyricLines(4)]))]), [false]);

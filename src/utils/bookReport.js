@@ -481,6 +481,7 @@ export function reportLines(report, inLibrary = 0) {
   const scored = score?.read > 0 && (score.level !== 'high' || report.chartPages > 0);
   const scoreLine = !scored ? null
     : score.level === 'low' ? `Cue can read only ${score.read} of its ${plural(score.songs, 'song page')}, so they start as PDFs.`
+    : score.level === 'shaky' ? `Cue can read ${score.read} of its ${plural(score.songs, 'song page')}, but many need checking, so they start as PDFs. You can tap any song to make it a chart.`
     : score.level === 'mid' ? `Cue can read ${score.read} of its ${plural(score.songs, 'song page')}. Look them over as you pick, because some may have chords out of place.`
     : `Cue can read ${score.read} of its ${plural(score.songs, 'song page')}.`;
   if (scoreLine && report.verdict === 'cant') return [...(['square', 'round', 'mixed'].includes(report.kind) ? lines : []), scoreLine];
@@ -652,6 +653,11 @@ export function overPages(pages = []) {
 // would look far worse than it is: 58% of its pages, 87% of its songs.
 const SCORE_HIGH = 0.85;
 const SCORE_LOW = 0.25;
+// A book only partly read, and with this share of what it did read worth a look,
+// is one where you'd spend longer checking charts than the charts are worth.
+// All three Santa Cruz books are (29-48%). Farmers Market's yellow is as common
+// in places, but nine in ten of its pages read, so it stays charts.
+const DOUBT_SHARE = 0.25;
 const LEADERS = /\.{6,}/;
 const CONTENTS = /^\s*(?:contents|index|table of contents)\b/i;
 const BRACKET_CHORD = /\[[^\]\s]+\]|\([A-G][#b♯♭]?m?\d?\)/;
@@ -667,16 +673,22 @@ function songPage(page) {
 
 /**
  * How well a book reads: { songs, read, level }, `songs` its pages with a song
- * on them, `read` how many of those read as charts, and `level` 'high', 'mid'
- * or 'low'. `pages` as overPages gives them.
+ * on them, `read` how many of those read as charts, and `level` 'high', 'mid',
+ * 'shaky' (mid, with many of them worth a look) or 'low'. `pages` as overPages
+ * gives them.
  */
 export function chartScore(pages = []) {
   const chances = pageChances(pages);
   const songs = pages.filter(songPage).length;
   const read = pages.filter((p, i) => chances[i] && songPage(p)).length;
   const rate = songs ? read / songs : 0;
-  return { songs, read, level: rate >= SCORE_HIGH ? 'high' : rate >= SCORE_LOW ? 'mid' : 'low' };
+  const doubts = pageDoubts(pages).filter((d, i) => d && chances[i]).length;
+  const level = rate >= SCORE_HIGH ? 'high' : rate < SCORE_LOW ? 'low' : doubts >= DOUBT_SHARE * read ? 'shaky' : 'mid';
+  return { songs, read, level };
 }
+
+// A book that does better as PDFs starts as them, each still a tap from a chart.
+export const startsAsPdfs = (score) => score?.level === 'low' || score?.level === 'shaky';
 
 // A CHART TO LOOK OVER. A page in brackets has its chords where its author put
 // them. On one with chords above the lyrics Cue placed them itself, so that's
@@ -789,8 +801,7 @@ export function pickerStart(report, pages = []) {
     for (let p = 1; p <= n; p++) if (NOT_A_SONG.test(titles[p].title)) marks[p - 1] = 'skip';
   }
   const chances = pageChances(pages);
-  // A book that reads badly starts as PDFs, each one still a tap from a chart.
-  const asPdf = report.score?.level === 'low' ? chances.flatMap((c, i) => (c ? [i + 1] : [])) : [];
+  const asPdf = startsAsPdfs(report.score) ? chances.flatMap((c, i) => (c ? [i + 1] : [])) : [];
   return { marks, titles, chances, doubts: pageDoubts(pages), asPdf, texts: content.map(c => c.map(l => l.text.replace(/\[[^\]]*\]/g, '')).join(' ')) };
 }
 
