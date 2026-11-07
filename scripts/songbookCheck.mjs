@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy, headerFields } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart, songsMatching } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart, songsMatching, pagesMatching } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -468,6 +468,21 @@ check('…past an accent', songsMatching([{ title: 'P\u00e9pito' }], 'pepito'), 
 check('…and by a title fixed by hand', songsMatching(found, 'hanalei', { 1: 'Hanalei Moon' }), [1]);
 check('…with a straight quote for a curly one', songsMatching(found, "kaua'i"), [2]);
 check('…and nothing when nothing matches', songsMatching(found, 'zebra'), []);
+
+// Finding a song among the picker's pages.
+const pagesToFind = { marks: ['start', 'start', 'start', 'start'],
+  titles: { 1: { title: 'Sunshine Day', artist: 'Bobby' }, 2: { title: 'Page 2' }, 3: { title: 'Moon River' }, 4: { title: 'Blue Moon', artist: 'Rodgers' } },
+  texts: ['Sunshine Day a new day', 'You are my sunshine my only sunshine', 'Moon River wider than a mile', ''] };
+check('nothing typed keeps every page', pagesMatching(pagesToFind, pagesToFind.titles, ' '), null);
+check('a search finds a title, and then the pages with it in their words', pagesMatching(pagesToFind, pagesToFind.titles, 'sunshine'), [1, 2]);
+check('…pages with it in their title come first, whatever their order',
+  pagesMatching({ ...pagesToFind, texts: ['moon over the river', '', '', ''] }, pagesToFind.titles, 'moon'), [3, 4, 1]);
+check('…finds the artist', pagesMatching(pagesToFind, pagesToFind.titles, 'rodgers'), [4]);
+check('…and a title fixed by hand', pagesMatching(pagesToFind, { ...pagesToFind.titles, 2: { title: 'My Sunshine Song' } }, 'song'), [2]);
+check('…and a page keeps its place while its title is being changed', pagesMatching(pagesToFind, { ...pagesToFind.titles, 3: { title: 'Moo' } }, 'river'), [3]);
+check('…and a word no page has finds none', pagesMatching(pagesToFind, pagesToFind.titles, 'zebra'), []);
+check('the picker starts with each page\u2019s words, chords left out',
+  pickerStart(bookReport([overPage('One'), overPage('Two')]), [page([T('One'), ['[C]Some [G]lyric words']])]).texts, ['One Some lyric words']);
 
 const mixedBook = [
   page([['Ukulele Lady', 16], ['by Richard Whiting'], ['[C] I saw the splendor of the [A7] moonlight'], ['CHORUS', 18], ['[F] Ukulele lady, [C] like a lady']]),

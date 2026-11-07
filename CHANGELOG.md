@@ -21,7 +21,8 @@ Settings and your sign-in aren't in any backup.
 - **Pick the songs yourself.** When a book can't be split, or the split needs
   fixing, go through it page by page. Mark each page New song, Same song or Leave
   out, and Cue moves on to the next page. You can also read each page large. For
-  one song from a big book, tap Leave out all, then tap its page.
+  one song from a big book, tap Leave out all, search for it by title or lyrics,
+  then tap its page.
 - **Chart or PDF, your choice.** Songs Cue can read become charts you can edit
   and transpose. The rest stay as PDFs, exactly as printed. Tap the mark on a
   song to switch it, or untick one box to keep the whole book as PDFs.

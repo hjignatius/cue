@@ -712,7 +712,7 @@ export function pickerStart(report, pages = []) {
     for (const s of report.songs) if (NOT_A_SONG.test(s.title)) marks[s.firstPage - 1] = 'skip';
     for (let p = 1; p <= n; p++) if (NOT_A_SONG.test(titles[p].title)) marks[p - 1] = 'skip';
   }
-  return { marks, titles, chances: pageChances(pages) };
+  return { marks, titles, chances: pageChances(pages), texts: content.map(c => c.map(l => l.text.replace(/\[[^\]]*\]/g, '')).join(' ')) };
 }
 
 /**
@@ -742,12 +742,31 @@ export function sheetPickerStart(pages = [], fileName = '') {
  * case or accents. `titles` are the titles fixed by hand, by position.
  */
 export function songsMatching(songs = [], query = '', titles = {}) {
-  const fold = (t) => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[‘’ʼ′]/g, "'");
-  const words = fold(query).split(/\s+/).filter(Boolean);
-  return songs.map((_, i) => i).filter(i => {
-    const text = fold(`${titles[i] ?? songs[i].title} ${songs[i].artist || ''}`);
-    return words.every(w => text.includes(w));
-  });
+  const words = searchWords(query);
+  return songs.map((_, i) => i).filter(i => hasWords(`${titles[i] ?? songs[i].title} ${songs[i].artist || ''}`, words));
+}
+
+const foldSearch = (t) => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[‘’ʼ′]/g, "'");
+const searchWords = (query) => foldSearch(query).split(/\s+/).filter(Boolean);
+const hasWords = (text, words) => { const t = foldSearch(text); return words.every(w => t.includes(w)); };
+
+/**
+ * Which pages the picker's search keeps: their numbers, those with it in their
+ * title or artist first, then those with it anywhere on the page. That finds a
+ * song whose title Cue didn't pick out, and one by its words. null with nothing
+ * typed. A page keeps the title it started with as well as any fixed by hand
+ * (`titles`), so it can't vanish from the list while its title is being typed.
+ */
+export function pagesMatching(start = {}, titles = {}, query = '') {
+  const words = searchWords(query);
+  if (!words.length) return null;
+  const heads = [], others = [];
+  for (let p = 1; p <= (start.marks || []).length; p++) {
+    const head = [start.titles?.[p], titles[p]].flatMap(t => [t?.title, t?.artist]).join(' ');
+    if (hasWords(head, words)) heads.push(p);
+    else if (hasWords(`${head} ${start.texts?.[p - 1] || ''}`, words)) others.push(p);
+  }
+  return [...heads, ...others];
 }
 
 /**

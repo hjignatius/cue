@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftRight, Ban, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
-import { chartSongs, songsFromMarks, stepWords, switchChart } from '../utils/bookReport.js';
+import { chartSongs, pagesMatching, songsFromMarks, stepWords, switchChart } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 import CornerClose from './CornerClose.jsx';
+import FindSong, { SEARCH_FROM } from './FindSong.jsx';
 import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 
 // Picking the songs out of a book by hand, page by page, for a book the report
@@ -20,6 +21,8 @@ import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 // from nothing. A title is read off each song's first page where there is one
 // to read, and can be fixed in place. For the one song wanted out of a big book,
 // Leave out all clears the lot, and a tap on a page left out makes it New song.
+// Find a song narrows the pages shown, by title first and then by the words on
+// the page. It only narrows them: marks stay, and Make takes every song.
 //
 // Each page also says how it comes in: a green "Chart", or a grey "PDF" (a page
 // left out says whether Cue could read it, from pageChances). A song whose every
@@ -53,7 +56,10 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const [asCharts, setAsCharts] = useState(true);
   const [asPdf, setAsPdf] = useState(() => new Set());   // pages of the songs switched to a PDF
   const [setName, setSetName] = useState(() => (fileName || '').replace(/\.pdf$/i, ''));
+  const [search, setSearch] = useState('');
   const gridRef = useRef(null);
+  const found = useMemo(() => pagesMatching(start, titles, search), [start, titles, search]);
+  useEffect(() => { if (gridRef.current) gridRef.current.scrollTop = 0; }, [search]);
 
   useEffect(() => {
     let cancelled = false, opened = null;
@@ -142,12 +148,16 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
           </p>
         </div>
 
+        {marks.length >= SEARCH_FROM && <FindSong value={search} onChange={setSearch} dark={dark} className="shrink-0" />}
+
         <div ref={gridRef} className={`flex-1 min-h-0 overflow-y-auto border-y py-3 pr-3 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
           {failed ? (
             <p className={`text-sm ${muted}`}>Cue couldn’t open this PDF to show its pages.</p>
+          ) : found && !found.length ? (
+            <p className={`text-sm ${muted}`}>No page matches “{search.trim()}”.</p>
           ) : (
             <div className="grid gap-2 sm:gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))' }}>
-              {marks.map((_, i) => (
+              {(found ? found.map(p => p - 1) : marks.map((_, i) => i)).map(i => (
                 <PageCell key={i} p={i + 1} doc={doc} root={gridRef} mark={shown[i]}
                   title={shown[i] === 'start' ? titles[i + 1]?.title ?? '' : null} chart={comesAs(i + 1)} canSwitch={switches(i + 1)}
                   onTap={tap} onSwitch={switchSong} onBig={setBig} onRetitle={retitle} dark={dark} muted={muted} />
