@@ -57,7 +57,8 @@ const textOf = (row) => row.map(l => l.ch).join('');
 // The chords in a row. A beat dot, a bar line or a strum mark between them
 // ("C . E7 . |") counts out the bar on the sheet; in a lyric it would just be
 // punctuation in the words.
-const chordsOf = (row) => extractChords(textOf(row)).filter(c => /[\p{L}\p{N}]/u.test(c.chord));
+// So does an x for a muted strum ("D\\ x x D"), which is no chord.
+const chordsOf = (row) => extractChords(textOf(row)).filter(c => /[\p{L}\p{N}]/u.test(c.chord) && !/^x$/i.test(c.chord));
 
 // A line of tab is dashes and fret numbers. It is neither a row of chords —
 // "A---8---7" passes isChordLine as an A with a strum after it — nor a lyric to
@@ -73,7 +74,7 @@ const isTab = (row) => {
 // "Em Bm Em Bm (D Dsus D) X2"; one in a row of plain ones is held or
 // optional: "Em Bm A7sus (D)".
 const roundOnly = (text) => /\([A-G][^\s()]*\)/.test(text) && !/(?:^|\s)[A-G]/.test(text.replace(/\([^()]*\)/g, ' '));
-const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !roundOnly(textOf(row));
+const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !roundOnly(textOf(row)) && chordsOf(row).length > 0;
 // The fingering under a row of chords, between it and the lyric: 4th Peg prints
 // "C Dm7 G7" over "0003 2213 0212", and a lone "3" for a shape up the neck. Only
 // ever looked for straight after a row of chords, where it can't be a page number.

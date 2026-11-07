@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy, headerFields } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart, songsMatching, pagesMatching } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart, songsMatching, pagesMatching, chartScore, pageDoubts } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -483,6 +483,32 @@ check('…and a page keeps its place while its title is being changed', pagesMat
 check('…and a word no page has finds none', pagesMatching(pagesToFind, pagesToFind.titles, 'zebra'), []);
 check('the picker starts with each page\u2019s words, chords left out',
   pickerStart(bookReport([overPage('One'), overPage('Two')]), [page([T('One'), ['[C]Some [G]lyric words']])]).texts, ['One Some lyric words']);
+
+// How well a book reads, and what starts as a PDF.
+const lyricLines = (n, chords = true) => Array.from({ length: n }, (_, i) => [`${chords ? '[C]' : ''}Some lyric words on line ${i}`]);
+const readsWell = () => page([T('Good'), ...lyricLines(6)]);
+const readsBadly = () => page([T('Bad'), ...Array.from({ length: 10 }, (_, i) => [i % 2 ? 'stray words here' : 'C  G'])]);
+const cover = () => page([['A Songbook', 20], ['For the club']]);
+const contents = () => page([['Contents', 16], ['Pearly Shells ............ 2'], ['Edelweiss ............ 3'], ['Sloop John B ............ 4'], ['Tiny Bubbles ............ 5']]);
+check('a cover and contents don\u2019t count against a book',
+  chartScore([cover(), contents(), readsWell(), readsWell(), readsWell(), readsWell()]), { songs: 4, read: 4, level: 'high' });
+check('six in ten is a book to look over', chartScore([...Array(6)].map(readsWell).concat([...Array(4)].map(readsBadly))), { songs: 10, read: 6, level: 'mid' });
+const lowBook = [readsWell(), ...[...Array(9)].map(readsBadly)];
+check('one in ten is a book that reads badly', chartScore(lowBook), { songs: 10, read: 1, level: 'low' });
+check('…whose pages Cue can read start as PDFs', pickerStart(bookReport(lowBook), lowBook).asPdf, [1]);
+check('…and the report says so', reportLines(bookReport(lowBook)).at(-1), 'Cue can read only 1 of its 10 song pages, so they start as PDFs.');
+check('a book that reads well starts as charts, with nothing said', [pickerStart(bookReport(book), book).asPdf, reportLines(bookReport(book)).some(l => /song page/.test(l))], [[], false]);
+
+// A chart worth a look: only where Cue placed the chords.
+const placed = (p) => ({ ...p, placed: true });
+const clean = placed(page([T('Fine'), ...lyricLines(6)]));
+const unplaced = placed(page([T('Rows'), ['[C] [G]'], ['Some lyric words here'], ['[F] [C]'], ['More of the words now'], ...lyricLines(4)]));
+const scraps = placed(page([T('Scraps'), ...lyricLines(4), ['B\u266d dim B\u266d'], ['F 7'], ['C7 7']]));
+const bare = placed(page([T('Bare'), ['[C]One line with a chord'], ...lyricLines(7, false)]));
+check('a page with its chords in place is fine, and the rest are worth a look', pageDoubts([clean, unplaced, scraps, bare]), [false, true, true, true]);
+check('…but a page Cue didn\u2019t place is never doubted', pageDoubts([page([T('Rows'), ['[C] [G]'], ['Some lyric words here'], ['[F] [C]'], ['More of the words now']])]), [false]);
+check('…and chords on a line of their own with chords under them are fine',
+  pageDoubts([placed(page([T('Intro'), ['[C] [G]'], ['[C]Some lyric words'], ['[F] [C]'], ['[G]More of the words'], ...lyricLines(4)]))]), [false]);
 
 const mixedBook = [
   page([['Ukulele Lady', 16], ['by Richard Whiting'], ['[C] I saw the splendor of the [A7] moonlight'], ['CHORUS', 18], ['[F] Ukulele lady, [C] like a lady']]),

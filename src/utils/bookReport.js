@@ -17,6 +17,7 @@
 // "Song – Artist"), and reading the title off a single PDF sheet, for a batch
 // of separate PDFs imported together.
 
+import { isChordLine } from './visualImport.js';
 import { readSongbook, roundBracketChords, chordNamesOnly, titleWorthy, bookContent, chartFromPages, printedByBrowser } from './songbook.js';
 
 // A page with less text than this is a picture of a page (or blank).
@@ -213,7 +214,7 @@ function pageOffset(pages) {
 
 /**
  * pages, marks: as extractSongbookPages returns them.
- * Returns { kind, how, verdict, reasons, tidied, songs, pages: n, chartPages }.
+ * Returns { kind, how, verdict, reasons, tidied, songs, pages: n, chartPages, score }.
  *   kind     'square' | 'round' | 'mixed' | 'over' | 'pictures' | 'none'
  *   how      'bookmarks' | 'titles' | 'bylines' | 'pages'
  *   verdict  'ok' | 'check' | 'cant'
@@ -283,7 +284,7 @@ export function bookReport(pages = [], marks = []) {
     if (reasons.length) verdict = 'check';
   }
 
-  return { kind, how, verdict, reasons, tidied, songs, pages: n, chartPages };
+  return { kind, how, verdict, reasons, tidied, songs, pages: n, chartPages, score: chartScore(overPages(pages)) };
 }
 
 // ---- One PDF sheet, from a batch of separate PDFs ---------------------------
@@ -475,6 +476,14 @@ export function reportLines(report, inLibrary = 0) {
     pictures: 'Pictures of pages, not text.',
     sheets: `${plural(n, 'PDF')}, one song each.`,
   }[report.kind] || '');
+  // How well it reads, where that's news: not for a book of charts that all read.
+  const { score } = report;
+  const scored = score?.read > 0 && (score.level !== 'high' || report.chartPages > 0);
+  const scoreLine = !scored ? null
+    : score.level === 'low' ? `Cue can read only ${score.read} of its ${plural(score.songs, 'song page')}, so they start as PDFs.`
+    : score.level === 'mid' ? `Cue can read ${score.read} of its ${plural(score.songs, 'song page')}. Look them over as you pick, because some may have chords out of place.`
+    : `Cue can read ${score.read} of its ${plural(score.songs, 'song page')}.`;
+  if (scoreLine && report.verdict === 'cant') return [...(['square', 'round', 'mixed'].includes(report.kind) ? lines : []), scoreLine];
   // The reason already says what a book of pictures or of chords-above-lyrics
   // is; the kind is only worth adding where the reason is about the split.
   if (report.verdict === 'cant') return ['square', 'round', 'mixed'].includes(report.kind) ? lines : [];
@@ -491,6 +500,7 @@ export function reportLines(report, inLibrary = 0) {
     : charts === n ? 'Cue can read every one as a chart, so they come in as charts you can edit and transpose.'
     : charts ? `Cue can read ${charts} of them as ${charts === 1 ? 'a chart' : 'charts'} you can edit and transpose. The rest come in as PDF pages, exactly as printed.`
     : 'They come in as PDF pages, exactly as printed.');
+  if (scoreLine) lines.push(scoreLine);
 
   const t = report.tidied || {};
   const did = [
@@ -630,7 +640,73 @@ function readsAsChart(page) {
  * chords gone from the row above, a lyric can look like a title.
  */
 export function overPages(pages = []) {
-  return pages.map(({ over, ...p }) => (over ? { ...p, lines: over } : p));
+  return pages.map(({ over, ...p }) => (over ? { ...p, lines: over, placed: true } : p));
+}
+
+// HOW WELL A BOOK READS. The share of its song pages that read as charts sets
+// where it starts: Campfire's 4% says its two pages that pass are luck, and a
+// book like that is better as PDFs. Measured on 44 real books, 36 are at 89% or
+// better, four at 68-87%, and only pictures, garbled text and Campfire below.
+//
+// Covers and contents don't count against a book, or a short one like School
+// would look far worse than it is: 58% of its pages, 87% of its songs.
+const SCORE_HIGH = 0.85;
+const SCORE_LOW = 0.25;
+const LEADERS = /\.{6,}/;
+const CONTENTS = /^\s*(?:contents|index|table of contents)\b/i;
+const BRACKET_CHORD = /\[[^\]\s]+\]|\([A-G][#b♯♭]?m?\d?\)/;
+const lyricWords = (t) => (t.replace(/\[[^\]]*\]/g, ' ').replace(/\([A-G][^)\s]{0,6}\)/g, ' ').match(/\p{L}{2,}/gu) || []).length;
+
+// Has this page a song on it? Chords of some kind, and lines of words: a page
+// of chord diagrams has the one and an index the other.
+function songPage(page) {
+  const lines = page.lines;
+  if (lines.some(l => LEADERS.test(l.text)) || lines.slice(0, 5).some(l => CONTENTS.test(l.text))) return false;
+  return lines.some(l => BRACKET_CHORD.test(l.text) || isChordLine(l.text)) && lines.filter(l => lyricWords(l.text) >= 2).length >= 4;
+}
+
+/**
+ * How well a book reads: { songs, read, level }, `songs` its pages with a song
+ * on them, `read` how many of those read as charts, and `level` 'high', 'mid'
+ * or 'low'. `pages` as overPages gives them.
+ */
+export function chartScore(pages = []) {
+  const chances = pageChances(pages);
+  const songs = pages.filter(songPage).length;
+  const read = pages.filter((p, i) => chances[i] && songPage(p)).length;
+  const rate = songs ? read / songs : 0;
+  return { songs, read, level: rate >= SCORE_HIGH ? 'high' : rate >= SCORE_LOW ? 'mid' : 'low' };
+}
+
+// A CHART TO LOOK OVER. A page in brackets has its chords where its author put
+// them. On one with chords above the lyrics Cue placed them itself, so that's
+// where a chart can be wrong though it passes. Not "wrong", then, but worth a
+// look: rows of chords that reached no lyric, scraps of chords left on their
+// own, or a page of lyrics with hardly a chord in it.
+const CHORD_SCRAP = /^[A-G♭♯#b\d\s/m+-]*(?:dim|sus|maj|aug)?[\d\s]*$/;
+const DOUBT_ROWS = 2;
+const DOUBT_LYRICS = 6;
+const DOUBT_CHORDED = 0.3;
+function doubtful(lines) {
+  let rows = 0, scraps = 0, lyrics = 0, chorded = 0;
+  lines.forEach((l, i) => {
+    const t = l.text.trim();
+    const chord = BRACKET_CHORD.test(t);
+    const words = lyricWords(t);
+    const next = lines[i + 1];
+    if (chord && !words && next && !BRACKET_CHORD.test(next.text) && lyricWords(next.text) >= 3) rows++;
+    if (!chord && /[A-G\d]/.test(t) && (isChordLine(t) || (t.length <= 10 && /\s/.test(t) && CHORD_SCRAP.test(t)))) scraps++;
+    if (words >= 3) { lyrics++; if (chord) chorded++; }
+  });
+  return rows >= DOUBT_ROWS || scraps >= DOUBT_ROWS || (lyrics >= DOUBT_LYRICS && chorded < lyrics * DOUBT_CHORDED);
+}
+
+/**
+ * Every page's answer, in the order of the book: true for a page Cue placed the
+ * chords on and thinks is worth a look. `pages` as overPages gives them.
+ */
+export function pageDoubts(pages = []) {
+  return pages.map(p => !!p.placed && doubtful(p.lines));
 }
 
 /**
@@ -712,7 +788,10 @@ export function pickerStart(report, pages = []) {
     for (const s of report.songs) if (NOT_A_SONG.test(s.title)) marks[s.firstPage - 1] = 'skip';
     for (let p = 1; p <= n; p++) if (NOT_A_SONG.test(titles[p].title)) marks[p - 1] = 'skip';
   }
-  return { marks, titles, chances: pageChances(pages), texts: content.map(c => c.map(l => l.text.replace(/\[[^\]]*\]/g, '')).join(' ')) };
+  const chances = pageChances(pages);
+  // A book that reads badly starts as PDFs, each one still a tap from a chart.
+  const asPdf = report.score?.level === 'low' ? chances.flatMap((c, i) => (c ? [i + 1] : [])) : [];
+  return { marks, titles, chances, doubts: pageDoubts(pages), asPdf, texts: content.map(c => c.map(l => l.text.replace(/\[[^\]]*\]/g, '')).join(' ')) };
 }
 
 /**

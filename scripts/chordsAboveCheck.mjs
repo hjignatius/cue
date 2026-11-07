@@ -161,6 +161,9 @@ check('a number on a line of its own after a lyric is left alone',
   texts(read([chordRow('C', 0), [run('Hello there you', 0, 0)], chordRow('G', 0), [run('Goodbye now', 0, 0)], [run('12', 0, 0)]])),
   ['[C]Hello there you', '[G]Goodbye now', '12']);
 
+check('an x for a muted strum is no chord',
+  one([chordRow('D     x     x', 0), [run('Get your motor running', 0, 0)]]), ['[D]Get your motor running']);
+
 // ---- 5. a page as pdf.js gives it: columns, margins, scrambled text ------------
 const pageItems = (rows) => {
   const items = [];
