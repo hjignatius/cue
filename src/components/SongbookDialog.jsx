@@ -189,8 +189,8 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
 
                 {charts && (
                   <label className={`flex items-center gap-2 text-sm ${head}`}>
-                    <input type="checkbox" checked={asCharts} onChange={e => setAsCharts(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
-                    Make charts of the songs Cue can read
+                    <input type="checkbox" checked={!asCharts} onChange={e => setAsCharts(!e.target.checked)} className="h-4 w-4 accent-indigo-600" />
+                    Make all PDFs
                   </label>
                 )}
                 <BookChoice dark={dark} records={records} value={book} onChange={setBook} />

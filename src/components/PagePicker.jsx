@@ -184,8 +184,8 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
         </div>
         {readable > 0 && (
           <label className={`flex items-center gap-2 text-sm ${head}`}>
-            <input type="checkbox" checked={asCharts} onChange={e => setAsCharts(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
-            Make charts of the songs Cue can read
+            <input type="checkbox" checked={!asCharts} onChange={e => setAsCharts(!e.target.checked)} className="h-4 w-4 accent-indigo-600" />
+            Make all PDFs
           </label>
         )}
         <BookChoice dark={dark} records={records} value={book} onChange={setBook} one={one} label={one && n !== 1 ? 'Put them in a book' : null} />

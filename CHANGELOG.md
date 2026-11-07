@@ -25,7 +25,7 @@ Settings and your sign-in aren't in any backup.
   then tap its page.
 - **Chart or PDF, your choice.** Songs Cue can read become charts you can edit
   and transpose. The rest stay as PDFs, exactly as printed. Tap the mark on a
-  song to switch it, or untick one box to keep the whole book as PDFs.
+  song to switch it, or tick one box to make every song its own PDF.
 - **Cue says how well a book reads.** The report counts the song pages it can
   read, not counting covers and contents. If a book reads badly, or only partly
   with many pages to check, its songs start as PDFs, and any song is a tap away
