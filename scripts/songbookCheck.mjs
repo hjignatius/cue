@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy, headerFields } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -441,6 +441,22 @@ check('a title no larger than the lyrics is known by the writers under it',
   pageTitle([{ text: 'The Christmas Song', height: 10 }, { text: 'Words & Music by Mel Torme', height: 10 }, { text: 'Chestnuts roasting', height: 10 }, { text: 'Jack Frost nipping', height: 10 }]).title, 'The Christmas Song');
 check('…and a first line with no such line under it is not a title',
   pageTitle([{ text: 'And every mother\u2019s child', height: 10 }, { text: 'To see if reindeer', height: 10 }, { text: 'And so I offer', height: 10 }]), null);
+
+// Tapping Chart or PDF in the picker: page 1 is one song, 2-3 another, 4 a song
+// Cue can't read.
+const switching = songsFromMarks(['start', 'start', 'same', 'start'], { 1: { title: 'One' }, 2: { title: 'Two' }, 4: { title: 'Three' } });
+const switchChances = [true, true, true, false];
+const switchOf = (asPdf) => chartSongs(switching, switchChances, asPdf);
+const shape = (asPdf) => switchOf(asPdf).map(s => s.chart);
+check('a song comes in as a chart when every page reads', shape(new Set()), [true, true, false]);
+const twoOff = switchChart(switchOf(new Set()), new Set(), 3);
+check('tapping one page of a song makes the whole song a PDF', [[...twoOff].sort(), shape(twoOff)], [[2, 3], [true, false, false]]);
+check('…and tapping another page of it brings it back', [...switchChart(switchOf(twoOff), twoOff, 2)], []);
+check('…a song that can\u2019t be read has no switch', switchChart(switchOf(new Set()), new Set(), 4).size, 0);
+check('…nor has a page left out', switchChart(switchOf(new Set()), new Set(), 9).size, 0);
+check('…and the switch gets as far as the picked charts',
+  pickedCharts(overPages(overRead), chartSongs(songsFromMarks(['start', 'start', 'start', 'start'], { 1: { title: 'One' }, 2: { title: 'Two' }, 3: { title: 'Three' }, 4: { title: 'Index' } }), [true, true, true, false], new Set([2]))).map(Boolean),
+  [true, false, true, false]);
 
 const mixedBook = [
   page([['Ukulele Lady', 16], ['by Richard Whiting'], ['[C] I saw the splendor of the [A7] moonlight'], ['CHORUS', 18], ['[F] Ukulele lady, [C] like a lady']]),

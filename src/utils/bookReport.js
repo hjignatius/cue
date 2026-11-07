@@ -737,6 +737,31 @@ export function sheetPickerStart(pages = [], fileName = '') {
 }
 
 /**
+ * The picker's songs with how each comes in: `reads` when every page reads as a
+ * chart, and `chart` when it will come in as one, which it won't if any of its
+ * pages is in `asPdf`, the pages of songs you switched to a PDF.
+ */
+export function chartSongs(songs = [], chances = [], asPdf = new Set()) {
+  return songs.map(s => {
+    const reads = s.pages.every(p => chances[p - 1]);
+    return { ...s, reads, chart: reads && !s.pages.some(p => asPdf.has(p)) };
+  });
+}
+
+/**
+ * Tapping Chart or PDF on page `p`: the whole of its song changes, whichever
+ * page was tapped. Returns the new `asPdf`. A song that can't be a chart, and a
+ * page in no song, leave it as it was.
+ */
+export function switchChart(songs = [], asPdf = new Set(), p = 0) {
+  const song = songs.find(s => s.pages.includes(p));
+  if (!song?.reads) return asPdf;
+  const next = new Set(asPdf);
+  for (const n of song.pages) if (song.chart) next.add(n); else next.delete(n);
+  return next;
+}
+
+/**
  * The songs the marks make: [{ title, artist, key, pages: [n…], firstPage,
  * lastPage }]. A "Same song" with no song before it starts one — there is
  * nothing for it to be the same as. A left-out page in the middle of a song

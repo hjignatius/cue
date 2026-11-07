@@ -27,6 +27,8 @@ before deleting an installed copy of Cue.
   read these charts as well as bracket charts, including a song set in two
   columns. In a book like this you mark where each song starts, because the
   book report can't tell. Pages Cue can't read come in as PDFs.
+- **Chart or PDF, song by song.** In the page picker, tap a song's Chart mark
+  to keep that song as printed, and tap again to switch back.
 - **One-song PDFs can come in as text.** A PDF with the song printed twice
   offers each copy.
 - **Website sheets.** Handles an intro in bars, a browser's header and repeats.
