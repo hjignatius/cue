@@ -128,15 +128,10 @@ export default function App() {
       choice = await new Promise(resolve => setSongbook({ fileName: file.name, report: shown, songs: marked, resolve, book: true }));
       if (choice !== 'pick') break;
       // Picked by hand, page by page. "Back" returns to the report as it was.
-      // A PDF short enough to be sheets is read again with any chords drawn
-      // above the lyrics put into them, so those pages say Chart too.
-      const [{ pickerStart, sheetPickerStart }, { extractSheetPages, MAX_UNPACK_PAGES }] = await Promise.all([
-        import('./utils/bookReport.js'), import('./utils/pdfjs.js'),
-      ]);
-      let pickPages = pages;
-      if (pages.length <= MAX_UNPACK_PAGES) {
-        try { pickPages = await extractSheetPages(file); } catch { /* as the book reader read them */ }
-      }
+      // Any chords drawn above the lyrics are in the pages here, so those pages
+      // say Chart too.
+      const { pickerStart, sheetPickerStart, overPages } = await import('./utils/bookReport.js');
+      const pickPages = overPages(pages);
       const start = sheetPickerStart(pickPages, file.name) || pickerStart(report, pickPages);
       const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start }, resolve }));
       if (picked === 'back') continue;

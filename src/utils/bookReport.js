@@ -213,7 +213,7 @@ function pageOffset(pages) {
 
 /**
  * pages, marks: as extractSongbookPages returns them.
- * Returns { kind, how, verdict, reasons, tidied, songs, pages: n }.
+ * Returns { kind, how, verdict, reasons, tidied, songs, pages: n, chartPages }.
  *   kind     'square' | 'round' | 'mixed' | 'over' | 'pictures' | 'none'
  *   how      'bookmarks' | 'titles' | 'bylines' | 'pages'
  *   verdict  'ok' | 'check' | 'cant'
@@ -259,8 +259,11 @@ export function bookReport(pages = [], marks = []) {
   const reasons = [];
   let verdict = 'ok';
   const cant = (why) => { verdict = 'cant'; reasons.push(why); };
+  // Pages whose chords above the lyrics Cue can put into them (overPages).
+  const chartPages = pages.filter(p => p.over).length;
 
   if (kind === 'pictures') cant('Its pages are pictures, not text, so there is nothing for Cue to read.');
+  else if ((kind === 'over' || kind === 'none') && chartPages) cant('Its chords sit above the lyrics, so Cue can’t tell where each song starts.');
   else if (kind === 'over') cant('Its chords sit above the lyrics. Cue can’t turn that kind of book into charts yet.');
   else if (kind === 'none') cant('Its chords aren’t written in a way Cue can read.');
   else if (songs.length < 2) cant('Cue couldn’t find separate songs in it.');
@@ -280,7 +283,7 @@ export function bookReport(pages = [], marks = []) {
     if (reasons.length) verdict = 'check';
   }
 
-  return { kind, how, verdict, reasons, tidied, songs, pages: n };
+  return { kind, how, verdict, reasons, tidied, songs, pages: n, chartPages };
 }
 
 // ---- One PDF sheet, from a batch of separate PDFs ---------------------------
@@ -558,6 +561,13 @@ function fontHead(lines = []) {
   return head.length >= 2 && head[0].font === head[1].font ? [head[0].text.trim(), head[1].text.trim()] : [];
 }
 
+// Could this line of a page be a song's title, going by its words alone?
+function worthyTitle(t) {
+  const letters = (t.match(/\p{L}/gu) || []).length;
+  if (!titleWorthy(t) || !/\p{L}{3}/u.test(t) || t.includes('[') || ROUND_CHORD.test(t) || STARTS_BY.test(t) || t.length > 70) return false;
+  return (t.match(GARBLED) || []).length <= letters * 0.25 && !RUN_TOGETHER.test(t);
+}
+
 // The title on one page, read the way a reader would: the largest line with a
 // word in it near the top, and a "by" line under it or after it for the artist.
 // In a book of titles over artists (`titleOverArtist`), the first line in the
@@ -578,13 +588,12 @@ export function pageTitle(lines = [], { titleOverArtist = false } = {}) {
   const top = lines.slice(0, PAGE_TITLE_LINES);
   let best = -1;
   top.forEach((l, i) => {
-    const t = l.text.trim();
-    const letters = (t.match(/\p{L}/gu) || []).length;
-    if (!titleWorthy(t) || !/\p{L}{3}/u.test(t) || t.includes('[') || ROUND_CHORD.test(t) || STARTS_BY.test(t) || t.length > 70) return;
-    if ((t.match(GARBLED) || []).length > letters * 0.25 || RUN_TOGETHER.test(t)) return;
+    if (!worthyTitle(l.text.trim())) return;
     if (lines.length > 1 && l.height < body * PAGE_TITLE_RATIO) return;
     if (best < 0 || l.height > top[best].height + 0.5) best = i;
   });
+  // Set no larger than the lyrics, but with its "Words & Music by" under it.
+  if (best < 0 && worthyTitle(top[0]?.text.trim() || '') && STARTS_BY.test(top[1]?.text || '')) best = 0;
   if (best < 0) return null;
   let title = top[best].text.trim(), artist = '';
   const next = lines[best + 1]?.text || '';
@@ -612,6 +621,16 @@ function readsAsChart(page) {
     } else if (CHORDS_ALONE.test(l.text)) over++;
   }
   return inline > 0 && inline >= over && garbled <= letters * 0.25;
+}
+
+/**
+ * A book's pages for the page picker: each with any chords above its lyrics
+ * already put into them (`over`, from extractSongbookPages). The report keeps
+ * to the lines as printed, because a book's split goes wrong on these: with its
+ * chords gone from the row above, a lyric can look like a title.
+ */
+export function overPages(pages = []) {
+  return pages.map(({ over, ...p }) => (over ? { ...p, lines: over } : p));
 }
 
 /**

@@ -23,8 +23,10 @@ before deleting an installed copy of Cue.
 - **Better titles.** Titles and artists are read from books that head each song
   in their own font, and a running head on every page no longer looks like one
   song printed over and over.
-- **Chords above the lyrics.** Load PDF and Library Import now read these
-  charts as well as bracket charts. Songbooks still read bracket charts only.
+- **Chords above the lyrics.** Load PDF, Library Import and the page picker now
+  read these charts as well as bracket charts, including a song set in two
+  columns. In a book like this you mark where each song starts, because the
+  book report can't tell. Pages Cue can't read come in as PDFs.
 - **One-song PDFs can come in as text.** A PDF with the song printed twice
   offers each copy.
 - **Website sheets.** Handles an intro in bars, a browser's header and repeats.

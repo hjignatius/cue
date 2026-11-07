@@ -148,7 +148,7 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
           <>
             <Report report={report} inLibrary={dupes} dark={dark} head={head} muted={muted} />
             {cant && onPick && (
-              <p className={`text-sm ${head}`}>You can still pick out each song’s pages yourself. They come in as PDF pages, exactly as printed.</p>
+              <p className={`text-sm ${head}`}>You can still pick out each song’s pages yourself. {report.chartPages ? 'Pages Cue can read come in as charts, and the rest as PDF pages, exactly as printed.' : 'They come in as PDF pages, exactly as printed.'}</p>
             )}
 
             {!cant && (

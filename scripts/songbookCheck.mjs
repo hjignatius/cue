@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy, headerFields } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -422,6 +422,26 @@ check('…one song over two pages is not', isBook(bookReport([overPage('Ripple')
 check('…nor is one song with a picture page', isBook(bookReport([overPage('Ripple'), page([])])), false);
 
 // Which pages read as charts, and the charts made of the songs picked.
+// A book of chords above the lyrics: the report keeps to the page as printed,
+// and the picker gets `over`, the same page with the chords in the lyrics.
+const withOver = (title) => ({ ...overPage(title), over: page([T(title), ['[C]Some [G]lyric [Am]words here'], ['[F]More of [C]the words now']]).lines });
+const overRead = [withOver('One'), withOver('Two'), withOver('Three'), overPage('Index')];
+const overReport = bookReport(overRead);
+check('the report still can\u2019t split a book of chords above the lyrics', [overReport.verdict, overReport.kind], ['cant', 'over']);
+check('…says so, and counts the pages it can make charts of', [overReport.reasons, overReport.chartPages],
+  [['Its chords sit above the lyrics, so Cue can\u2019t tell where each song starts.'], 3]);
+check('…with none of them it says what it always did', over.reasons, ['Its chords sit above the lyrics. Cue can\u2019t turn that kind of book into charts yet.']);
+const overPicked = overPages(overRead);
+check('the picker\u2019s pages say Chart where Cue read them', pickerStart(overReport, overPicked).chances, [true, true, true, false]);
+check('…and the book as read is left as printed', [overRead[0].lines[1].text, overPicked[0].over], ['C        G       Am', undefined]);
+const overCharts = pickedCharts(overPicked, songsFromMarks(['start', 'start', 'same', 'start'], { 1: { title: 'One' }, 2: { title: 'Two' }, 4: { title: 'Index' } }));
+check('a read song becomes a chart, and one with an unread page stays a PDF',
+  [overCharts[0].text.split('\n')[0], overCharts[1].text.includes('[Am]'), overCharts[2]], ['[C]Some [G]lyric [Am]words here', true, null]);
+check('a title no larger than the lyrics is known by the writers under it',
+  pageTitle([{ text: 'The Christmas Song', height: 10 }, { text: 'Words & Music by Mel Torme', height: 10 }, { text: 'Chestnuts roasting', height: 10 }, { text: 'Jack Frost nipping', height: 10 }]).title, 'The Christmas Song');
+check('…and a first line with no such line under it is not a title',
+  pageTitle([{ text: 'And every mother\u2019s child', height: 10 }, { text: 'To see if reindeer', height: 10 }, { text: 'And so I offer', height: 10 }]), null);
+
 const mixedBook = [
   page([['Ukulele Lady', 16], ['by Richard Whiting'], ['[C] I saw the splendor of the [A7] moonlight'], ['CHORUS', 18], ['[F] Ukulele lady, [C] like a lady']]),
   page([['[G] if you like a ukulele [C] lady'], ['[C] she\'ll be true to you']]),

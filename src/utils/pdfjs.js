@@ -52,7 +52,7 @@ export async function extractPdfLines(data) {
 // The same, page by page as the book reader takes them — { lines, links } —
 // for a PDF that may be one song (sheetChart, bookReport.js).
 export async function extractSheetPages(data) {
-  const [{ linesFromItems }, { chordsAbove }] = await Promise.all([import('./pdfText.js'), import('./chordsAbove.js')]);
+  const { chordsAbovePage } = await import('./chordsAbove.js');
   const pdfjs = await loadPdfjs();
   const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
@@ -64,7 +64,7 @@ export async function extractSheetPages(data) {
     const links = (await page.getAnnotations())
       .filter(a => a.url && Array.isArray(a.rect))
       .map(a => ({ url: a.url, bottom: Math.min(a.rect[1], a.rect[3]), top: Math.max(a.rect[1], a.rect[3]) }));
-    pages.push({ lines: chordsAbove(linesFromItems(content.items, { runs: true })).lines, links });
+    pages.push({ lines: chordsAbovePage(content.items).lines, links });
   }
   return pages;
 }
@@ -88,7 +88,7 @@ export async function extractPdfText(data) {
 // Returns { pages, marks }: `marks` are the book's bookmarks, which say where
 // each song starts far better than anything on the page can (songbook.js).
 export async function extractSongbookPages(data, { onPage, signal } = {}) {
-  const { linesFromItems } = await import('./pdfText.js');
+  const [{ linesFromItems }, { chordsAbovePage }] = await Promise.all([import('./pdfText.js'), import('./chordsAbove.js')]);
   const pdfjs = await loadPdfjs();
   const buf = data instanceof ArrayBuffer ? data : await data.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
@@ -101,7 +101,11 @@ export async function extractSongbookPages(data, { onPage, signal } = {}) {
     const links = (await page.getAnnotations())
       .filter(a => a.url && Array.isArray(a.rect))
       .map(a => ({ url: a.url, bottom: Math.min(a.rect[1], a.rect[3]), top: Math.max(a.rect[1], a.rect[3]) }));
-    pages.push({ lines: linesFromItems(content.items), links });
+    // The book report goes by the lines as printed. `over` is the same page with
+    // any chords above its lyrics put into them, kept only where there were
+    // some, for the page picker to make a chart of (overPages, bookReport.js).
+    const read = chordsAbovePage(content.items);
+    pages.push({ lines: linesFromItems(content.items), links, ...(read.merged ? { over: read.lines } : {}) });
     page.cleanup();
     onPage?.(p, doc.numPages);
   }

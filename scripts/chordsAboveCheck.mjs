@@ -7,7 +7,7 @@
 // or a letter into it.
 //
 // Run: node scripts/chordsAboveCheck.mjs
-import { chordsAbove } from '../src/utils/chordsAbove.js';
+import { chordsAbove, chordsAbovePage } from '../src/utils/chordsAbove.js';
 import { linesFromItems, textFromLines } from '../src/utils/pdfText.js';
 
 let pass = 0, fail = 0;
@@ -148,6 +148,52 @@ check('a section label under a row of chords is not its lyric',
 
 check('linesFromItems keeps no runs unless asked',
   linesFromItems([run('Hello there', 0, 700)]).some(l => l.runs), false);
+
+// ---- 4. the fingering between the chords and the lyric -------------------------
+const fretted = read([
+  chordRow('C           Dm7', 0), [run('0003        2213', 0, 0, 11)], [run('Chestnuts roasting on an open fire', 0, 0)],
+  chordRow('Fm          Bb9', 0), [run('3', 0, 0, 11)], [run('1013        1213', 0, 0, 11)], [run('And every mother\u2019s child', 0, 0)],
+  chordRow('G7', 0), [run('0212', 0, 0, 11)],
+]);
+check('fret numbers under the chords are left out, and the lyric below them taken', texts(fretted),
+  ['[C]Chestnuts [Dm7]roasting on an open fire', '[Fm]And every [Bb9]mother\u2019s child', '[G7]']);
+check('a number on a line of its own after a lyric is left alone',
+  texts(read([chordRow('C', 0), [run('Hello there you', 0, 0)], chordRow('G', 0), [run('Goodbye now', 0, 0)], [run('12', 0, 0)]])),
+  ['[C]Hello there you', '[G]Goodbye now', '12']);
+
+// ---- 5. a page as pdf.js gives it: columns, margins, scrambled text ------------
+const pageItems = (rows) => {
+  const items = [];
+  for (const { at, y, r } of rows) items.push(...r.map(it => ({ ...it, transform: [1, 0, 0, 1, it.transform[4] + at * W, y] })));
+  return items;
+};
+const pairs = (at, top, words) => words.flatMap((w, i) => [
+  { at, y: top - i * 30, r: chordRow('C     G', 0) }, { at, y: top - i * 30 - 14, r: [run(w, 0, 0)] },
+]);
+const leftWords = ['Dashing through snow', 'Over the fields we', 'Bells on bobtails', 'What fun it is to'];
+const rightWords = ['Jingle bells jingle', 'Oh what fun it is', 'A day or two ago', 'I thought I would'];
+// The right column's rows sit 7pt below the left's, so across they interleave.
+const twoCols = pageItems([...pairs(0, 700, leftWords), ...pairs(38, 693, rightWords)]);
+const cols = chordsAbovePage(twoCols);
+check('two columns are read a column at a time, their lines not interleaved',
+  cols.lines.map(l => l.text.replace(/\[[^\]]*\]/g, '')), [...leftWords, ...rightWords]);
+check('…every row of chords found its lyric', cols.merged, 8);
+check('…and the second column starts with a break', cols.lines[4].gapBefore, Infinity);
+
+const across = pageItems([{ at: 0, y: 740, r: [run('Jingle Bells, and a heading set right across the page', 0, 0)] },
+  ...pairs(0, 700, leftWords), ...pairs(38, 693, rightWords)]);
+check('a heading across both columns doesn\u2019t hide the gap', chordsAbovePage(across).merged, 8);
+
+const wide = pageItems(pairs(0, 700, ['Dashing through the snow in a one horse open sleigh over the fields', 'Bells on bobtails ring making spirits bright what fun it is to ride', 'A day or two ago I thought I would take a ride and soon Miss Fanny', 'Oh what fun it is to ride in a one horse open sleigh hey jingle bells']));
+check('one column is read as one', chordsAbovePage(wide).lines.some(l => l.gapBefore === Infinity), false);
+
+const margin = { str: 'Ukulele Club of Santa Cruz', transform: [0, 1, -1, 0, 40, 500], width: 150, height: 10, fontName: 'f1' };
+check('a label running up the margin stays out of it', chordsAbovePage([...pageItems(pairs(0, 700, leftWords)), margin]).lines.map(l => l.text).join(' ').includes('Santa Cruz'), false);
+
+// Words of different lines drawn at their own heights, 5pt apart: Campfire.
+const tumbled = pageItems(['C    G', 'the skin', 'G    C', 'in a stick', 'C    G', 'how sack', 'G    C', 'back peach', 'C    G', 'the a she'].map((t, i) => (
+  { at: 0, y: 700 - i * 5, r: /^[A-G]\s/.test(t) ? chordRow(t, 0) : [run(t, 0, 0)] })));
+check('lines packed tighter than their type aren\u2019t read', chordsAbovePage(tumbled).merged, 0);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

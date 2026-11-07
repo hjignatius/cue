@@ -14,6 +14,7 @@
 // are the same without them.
 
 import { isChordLine, extractChords, sectionLabelOf } from './visualImport.js';
+import { linesFromItems } from './pdfText.js';
 
 // A lyric no further than this below a row of chords, in heights of the text,
 // is the line those chords are over. A verse break is further.
@@ -73,6 +74,10 @@ const isTab = (row) => {
 // optional: "Em Bm A7sus (D)".
 const roundOnly = (text) => /\([A-G][^\s()]*\)/.test(text) && !/(?:^|\s)[A-G]/.test(text.replace(/\([^()]*\)/g, ' '));
 const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !roundOnly(textOf(row));
+// The fingering under a row of chords, between it and the lyric: 4th Peg prints
+// "C Dm7 G7" over "0003 2213 0212", and a lone "3" for a shape up the neck. Only
+// ever looked for straight after a row of chords, where it can't be a page number.
+const isFretRow = (row) => /^[\dxX\s]+$/.test(textOf(row));
 
 // The chords of `row` put into `lyric`, both as letters; null when none of
 // them is over it.
@@ -123,20 +128,23 @@ export function chordsAbove(lines = []) {
       out.push(spaced && spaced.replace(/\s/g, '') === line.text.replace(/\s/g, '') ? { ...line, text: spaced } : line);
       continue;
     }
-    const next = lines[i + 1];
-    const lyric = rows[i + 1];
+    let under = i + 1;
+    while (rows[under] && isFretRow(rows[under])) under++;
+    const next = lines[under];
+    const lyric = rows[under];
     const height = Math.max(lines[i].height || 0, next?.height || 0, 1);
-    const text = lyric && /\p{L}/u.test(textOf(lyric)) && !chordRow[i + 1] && !isTab(lyric) && !sectionLabelOf(next.text) && !next.text.includes('[')
+    const text = lyric && /\p{L}/u.test(textOf(lyric)) && !chordRow[under] && !isTab(lyric) && !sectionLabelOf(next.text) && !next.text.includes('[')
       && next.gapBefore <= PAIR_GAP * height && (lines[i].height || 0) <= HEADING * (next.height || 0)
       && merge(rows[i], lyric, height);
     if (text) {
-      const { runs: __, ...under } = next;
+      const { runs: __, ...below } = next;
       pairs.push(out.length);
-      out.push({ ...under, text, gapBefore: line.gapBefore });
+      out.push({ ...below, text, gapBefore: line.gapBefore });
       merged++;
-      i++;
+      i = under;
     } else {
       out.push({ ...line, text: chordsOf(rows[i]).map(c => `[${c.chord}]`).join(' ') });
+      i = under - 1;
     }
   }
   // A chart already in brackets keeps its own: a stray row of chords over one
@@ -161,4 +169,78 @@ function verseBreaks(lines, pairs) {
   const extra = VERSE_EXTRA * heights[Math.floor(heights.length / 2)];
   return lines.map(l => (Number.isFinite(l.gapBefore) && l.gapBefore > usual + extra && l.gapBefore < usual * 2
     ? { ...l, gapBefore: usual * 2 } : l));
+}
+
+// TWO COLUMNS. A club's page often sets a song in two columns, and the columns'
+// lines don't sit level: read straight across, a line of the left column falls
+// between two of the right's, and a chord lands on the wrong song's lyric. So a
+// page with a clear gap down its middle is read a column at a time.
+//
+// The gap is looked for in the middle part of the page, and no more than a few
+// rows may cross it: a title set across both columns is one.
+const GUTTER_FROM = 0.3, GUTTER_TO = 0.7;
+const GUTTER_MIN = 6;       // points wide
+const GUTTER_ACROSS = 3;    // rows that may cross it
+const COLUMN_MIN = 0.2;     // the least of the page's letters on either side
+const COLUMN_ROWS = 4;      // and of rows
+
+const upright = (it) => !it.transform?.[1];
+const startOf = (it) => it.transform?.[4] ?? 0;
+const endOf = (it) => startOf(it) + (it.width || 0);
+
+// Where a page's columns divide, or null when it has one column.
+function gutterOf(items) {
+  const text = items.filter(it => it.str?.trim() && it.width > 0);
+  if (text.length < COLUMN_ROWS * 2) return null;
+  const left = Math.min(...text.map(startOf));
+  const right = Math.max(...text.map(endOf));
+  const from = left + (right - left) * GUTTER_FROM;
+  const to = left + (right - left) * GUTTER_TO;
+  // The rows drawn across each point of the middle, a point at a time.
+  const across = [];
+  for (let x = Math.ceil(from); x <= to; x++) {
+    across.push({ x, rows: new Set(text.filter(it => startOf(it) < x && endOf(it) > x).map(it => Math.round(it.transform[5]))).size });
+  }
+  let best = null, run = null;
+  for (const c of across) {
+    if (c.rows > GUTTER_ACROSS) { run = null; continue; }
+    run = run ? { ...run, to: c.x } : { from: c.x, to: c.x };
+    if (!best || run.to - run.from > best.to - best.from) best = run;
+  }
+  if (!best || best.to - best.from < GUTTER_MIN) return null;
+  const mid = (best.from + best.to) / 2;
+  const sides = [text.filter(it => startOf(it) < mid), text.filter(it => startOf(it) >= mid)];
+  const total = text.reduce((n, it) => n + it.str.length, 0);
+  const worth = (side) => side.reduce((n, it) => n + it.str.length, 0) >= total * COLUMN_MIN
+    && new Set(side.map(it => Math.round(it.transform[5]))).size >= COLUMN_ROWS;
+  return sides.every(worth) ? mid : null;
+}
+
+// Lines packed tighter than the type is tall aren't lines of one column. They
+// are something that can't be read across, like Campfire's pages, where words
+// of different lines are drawn at their own heights. A column with this share
+// of them is left as it is, and the song comes in as printed.
+const TIGHT = 0.75;
+const TIGHT_MAX = 0.45;
+function scrambled(lines) {
+  const rows = lines.slice(1).filter(l => l.gapBefore > 0 && Number.isFinite(l.gapBefore));
+  return rows.length > 0 && rows.filter(l => l.gapBefore < TIGHT * (l.height || 1)).length >= rows.length * TIGHT_MAX;
+}
+
+function readColumn(items) {
+  const lines = linesFromItems(items, { runs: true });
+  return scrambled(lines) ? { lines: lines.map(({ runs: _, ...l }) => l), merged: 0 } : chordsAbove(lines);
+}
+
+// A page of a PDF, from its text items, with its chords in its lyrics: as
+// chordsAbove, a column at a time when it has two. Upright text only: a label
+// running up the margin would come between a row of chords and its lyric, and a
+// page turned on its side reads as a letter a line. Lines from a second column
+// follow the first with a gap that reads as a break. Returns { lines, merged }.
+export function chordsAbovePage(items = []) {
+  const flat = items.filter(upright);
+  const gutter = gutterOf(flat);
+  if (gutter === null) return readColumn(flat);
+  const [one, two] = [flat.filter(it => startOf(it) < gutter), flat.filter(it => startOf(it) >= gutter)].map(readColumn);
+  return { lines: [...one.lines, ...two.lines.map((l, i) => (i ? l : { ...l, gapBefore: Infinity }))], merged: one.merged + two.merged };
 }
