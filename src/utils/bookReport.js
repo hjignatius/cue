@@ -737,6 +737,20 @@ export function sheetPickerStart(pages = [], fileName = '') {
 }
 
 /**
+ * Which rows of the report's list a search keeps: the positions of the songs
+ * with every word typed in their title or artist, in any order, whatever the
+ * case or accents. `titles` are the titles fixed by hand, by position.
+ */
+export function songsMatching(songs = [], query = '', titles = {}) {
+  const fold = (t) => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[‘’ʼ′]/g, "'");
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  return songs.map((_, i) => i).filter(i => {
+    const text = fold(`${titles[i] ?? songs[i].title} ${songs[i].artist || ''}`);
+    return words.every(w => text.includes(w));
+  });
+}
+
+/**
  * The picker's songs with how each comes in: `reads` when every page reads as a
  * chart, and `chart` when it will come in as one, which it won't if any of its
  * pages is in `asPdf`, the pages of songs you switched to a PDF.

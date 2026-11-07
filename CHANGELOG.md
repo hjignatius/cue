@@ -16,10 +16,12 @@ Settings and your sign-in aren't in any backup.
 - **Import a PDF songbook.** Cue splits a book into separate songs, using its
   bookmarks or the titles on its pages. Before anything is added, a report says
   what it found, how the songs will come in, and whether the split looks right.
-  You can tick or untick each song and fix any title.
+  You can tick or untick each song, fix any title, and search the list to find
+  one song.
 - **Pick the songs yourself.** When a book can't be split, or the split needs
   fixing, go through it page by page. Mark each page New song, Same song or Leave
-  out, and Cue moves on to the next page. You can also read each page large.
+  out, and Cue moves on to the next page. You can also read each page large. For
+  one song from a big book, tap Leave out all, then tap its page.
 - **Chart or PDF, your choice.** Songs Cue can read become charts you can edit
   and transpose. The rest stay as PDFs, exactly as printed. Tap the mark on a
   song to switch it, or untick one box to keep the whole book as PDFs.

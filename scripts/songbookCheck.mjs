@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy, headerFields } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart, songsMatching } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -457,6 +457,17 @@ check('…nor has a page left out', switchChart(switchOf(new Set()), new Set(), 
 check('…and the switch gets as far as the picked charts',
   pickedCharts(overPages(overRead), chartSongs(songsFromMarks(['start', 'start', 'start', 'start'], { 1: { title: 'One' }, 2: { title: 'Two' }, 3: { title: 'Three' }, 4: { title: 'Index' } }), [true, true, true, false], new Set([2]))).map(Boolean),
   [true, false, true, false]);
+
+// Finding one song in the report's list.
+const found = [{ title: 'You Are My Sunshine', artist: 'Jimmie Davis' }, { title: 'Blue Bayou' }, { title: 'Beautiful Kaua\u2019i' }, { title: 'Moon River', artist: 'Andy Williams' }];
+check('an empty search keeps every song', songsMatching(found, '  '), [0, 1, 2, 3]);
+check('a search finds part of a title, whatever the case', songsMatching(found, 'SUNSH'), [0]);
+check('…or the artist', songsMatching(found, 'williams'), [3]);
+check('…with its words in any order', songsMatching(found, 'sunshine davis'), [0]);
+check('…past an accent', songsMatching([{ title: 'P\u00e9pito' }], 'pepito'), [0]);
+check('…and by a title fixed by hand', songsMatching(found, 'hanalei', { 1: 'Hanalei Moon' }), [1]);
+check('…with a straight quote for a curly one', songsMatching(found, "kaua'i"), [2]);
+check('…and nothing when nothing matches', songsMatching(found, 'zebra'), []);
 
 const mixedBook = [
   page([['Ukulele Lady', 16], ['by Richard Whiting'], ['[C] I saw the splendor of the [A7] moonlight'], ['CHORUS', 18], ['[F] Ukulele lady, [C] like a lady']]),

@@ -336,7 +336,7 @@ function manualHTML() {
 
 <h3>A songbook</h3>
 <p>A PDF of several songs gets a <strong>book report</strong> before anything is imported. It opens straight away and fills in as the pages are read. It says what the book is, how the songs were found, how they will come in, what was tidied and what you already have. Then it gives a verdict in words: <strong>Looks right</strong>, <strong>Check the list</strong> or <strong>Can't split this book</strong>.</p>
-<p>Below that is every song Cue found, to tick or untick. Tap a title to fix it, and tap a song's arrow to see its chart. A song already in your library starts unticked, so importing the same book twice doesn't double it. So does an entry with no chords, such as a contents page.</p>
+<p>Below that is every song Cue found, to tick or untick. Tap a title to fix it, and tap a song's arrow to see its chart. To bring in just one song, use the box above the list to untick them all, type part of its title or artist in <strong>Find a song</strong>, and tick it. A song already in your library starts unticked, so importing the same book twice doesn't double it. So does an entry with no chords, such as a contents page.</p>
 <ul>
   <li><strong>Keep these as a book</strong> — ticked for a songbook. Name the book and choose a shelf. Its songs go into that book rather than My songs.</li>
   <li><strong>Put them in a new set</strong> — also makes a set of the songs, with a name you choose.</li>
@@ -352,6 +352,7 @@ function manualHTML() {
   <li><strong>Leave out</strong> — a cover, the contents, an advert.</li>
 </ul>
 <p>Use a page's expand button to see it large, where choosing a mark moves you on to the next page. A title read from a song's first page can be fixed in place. Each page also says how it will come in: a green <strong>Chart</strong> if Cue can read it, or a grey <strong>PDF</strong> if not. That covers chords in brackets and chords above the lyrics, including a song set in two columns. A song whose every page reads becomes a chart, and the rest come in as their own PDF, exactly as printed. To keep one song as printed, tap its <strong>Chart</strong> mark to switch it to <strong>PDF</strong>, and tap again to switch back. Untick <strong>Make charts of the songs Cue can read</strong> to bring every song in as a PDF. The <strong>Make</strong> button at the bottom, which shows how many songs you have marked, finishes the job. If you leave after changing any marks, Cue asks first.</p>
+<p>To bring in just one song from a big book, tap <strong>Leave out all</strong>, then tap the song's page, which makes it <strong>New song</strong>. If you've changed any marks, Cue asks first. With every page left out, the same button becomes <strong>Cue's marks</strong> and puts Cue's guesses back.</p>
 <p>A song printed more than once in a file, one copy after another, opens here too, with its copies split.</p>
 
 <h3>Several PDFs at once</h3>

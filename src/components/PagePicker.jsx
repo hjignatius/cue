@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftRight, Ban, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Ban, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
 import { chartSongs, songsFromMarks, stepWords, switchChart } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
@@ -18,7 +18,8 @@ import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 // Tapping a page moves it on to the next. Cue marks its own guesses first
 // (bookReport.js, pickerStart), so for most books this is fixing, not starting
 // from nothing. A title is read off each song's first page where there is one
-// to read, and can be fixed in place.
+// to read, and can be fixed in place. For the one song wanted out of a big book,
+// Leave out all clears the lot, and a tap on a page left out makes it New song.
 //
 // Each page also says how it comes in: a green "Chart", or a grey "PDF" (a page
 // left out says whether Cue could read it, from pageChances). A song whose every
@@ -122,6 +123,11 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const more = step ? step.total - step.to : 0;
   const changed = titles !== start.titles || asPdf.size > 0 || marks.some((m, i) => m !== start.marks[i]);
   const leave = (go) => (changed ? setAsking(() => go) : go());
+  // For the one song wanted out of a big book. Tapping a page left out makes it
+  // New song, so that's a tap for each song from here. With everything left out
+  // the same button puts Cue's marks back, and with nothing to lose it doesn't ask.
+  const allOut = left === marks.length;
+  const leaveAllOut = () => { setMarks(prev => prev.map(() => 'skip')); setAsking(null); };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -150,11 +156,16 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
           )}
         </div>
 
-        <p className={`text-sm ${head}`}>
-          {n} song{n === 1 ? '' : 's'} from {marks.length - left} page{marks.length - left === 1 ? '' : 's'}
-          {left ? <span className={muted}> · {left} left out</span> : null}
-          {n ? <span className={muted}> · {charts} as chart{charts === 1 ? '' : 's'}, {n - charts} as PDF{n - charts === 1 ? '' : 's'}</span> : null}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className={`flex-1 min-w-0 text-sm ${head}`}>
+            {n} song{n === 1 ? '' : 's'} from {marks.length - left} page{marks.length - left === 1 ? '' : 's'}
+            {left ? <span className={muted}> · {left} left out</span> : null}
+            {n ? <span className={muted}> · {charts} as chart{charts === 1 ? '' : 's'}, {n - charts} as PDF{n - charts === 1 ? '' : 's'}</span> : null}
+          </p>
+          {allOut
+            ? <button onClick={() => setMarks(start.marks)} className={`${secondary} shrink-0 !px-4`}><Undo2 size={18} /> Cue’s marks</button>
+            : <button onClick={() => leave(leaveAllOut)} className={`${secondary} shrink-0 !px-4`}><Ban size={18} /> Leave out all</button>}
+        </div>
         {readable > 0 && (
           <label className={`flex items-center gap-2 text-sm ${head}`}>
             <input type="checkbox" checked={asCharts} onChange={e => setAsCharts(e.target.checked)} className="h-4 w-4 accent-indigo-600" />

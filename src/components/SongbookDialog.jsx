@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Eye, FileText, ListChecks, Music, SkipForward } from 'lucide-react';
+import { ChevronDown, ChevronRight, Eye, FileText, ListChecks, Music, Search, SkipForward, XCircle } from 'lucide-react';
 import LongList from './LongList.jsx';
-import { VERDICT_WORDS, reportLines, stepWords } from '../utils/bookReport.js';
+import { VERDICT_WORDS, reportLines, songsMatching, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 import CornerClose from './CornerClose.jsx';
@@ -62,6 +62,11 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
   const [asCharts, setAsCharts] = useState(true);
   const charts = sheets && (songs || []).some(s => s.chart);
   const listRef = useRef(null);
+  // For finding one song in a long list. It only narrows what's shown: ticks are
+  // kept, and the box above the list is still for every song.
+  const [search, setSearch] = useState('');
+  const listed = useMemo(() => songsMatching(songs || [], search, titles), [songs, search, titles]);
+  useEffect(() => { if (listRef.current) listRef.current.scrollTop = 0; }, [search]);
 
   const tickable = useMemo(() => (songs || []).map((s, i) => (s.pictureOnly ? -1 : i)).filter(i => i >= 0), [songs]);
   const defaults = useMemo(
@@ -155,22 +160,39 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
               <>
                 <div className={`flex items-center gap-2 text-xs ${muted}`}>
                   <TickAll checked={allOn} mixed={someOn} onToggle={tickAll} />
-                  <span>{n} of {songs.length} ticked</span>
-                  <span className="ml-auto">Tap a title to fix it</span>
+                  <span className="shrink-0">{n} of {songs.length} ticked</span>
+                  <span className={`ml-auto text-right ${songs.length >= SEARCH_FROM ? 'hidden sm:inline' : ''}`}>Tap a title to fix it</span>
+                  {/* In this row, not its own: the window has no height to spare. */}
+                  {songs.length >= SEARCH_FROM && (
+                    <div className="relative flex-1 min-w-0 sm:max-w-44">
+                      <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Find a song" aria-label="Find a song" spellCheck={false}
+                        className={`w-full rounded-lg pl-8 pr-8 py-1.5 text-sm border focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`} />
+                      {search && (
+                        <button onClick={() => setSearch('')} aria-label="Clear the search" className="absolute right-0 top-0 h-full w-8 flex items-center justify-center">
+                          <XCircle size={15} />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Room on the right, so the scroll bar never sits on a row's arrow. */}
                 <div ref={listRef} className={`flex-1 min-h-40 overflow-y-auto pr-3 border-y ${rule}`}>
+                  {!listed.length && <p className={`py-4 text-sm ${muted}`}>No song matches “{search.trim()}”.</p>}
                   <LongList
-                    count={songs.length}
+                    count={listed.length}
                     scrollRef={listRef}
-                    keyOf={i => i}
+                    keyOf={at => listed[at]}
                     estimate={() => 56}
-                    renderRow={i => (
-                      <SongRow key={i} i={i} song={songs[i]} title={titles[i] ?? songs[i].title}
-                        ticked={chosen.has(i)} open={open === i} sheets={sheets} asChart={charts ? asCharts && !!songs[i].chart : null}
-                        onTick={toggle} onOpen={setOpen} onRetitle={retitle}
-                        head={head} muted={muted} rule={rule} dark={dark} />
-                    )}
+                    renderRow={at => {
+                      const i = listed[at];
+                      return (
+                        <SongRow key={i} i={i} song={songs[i]} title={titles[i] ?? songs[i].title}
+                          ticked={chosen.has(i)} open={open === i} sheets={sheets} asChart={charts ? asCharts && !!songs[i].chart : null}
+                          onTick={toggle} onOpen={setOpen} onRetitle={retitle}
+                          head={head} muted={muted} rule={rule} dark={dark} />
+                      );
+                    }}
                   />
                 </div>
 
@@ -245,6 +267,9 @@ function Report({ report, inLibrary, dark, head, muted }) {
     </div>
   );
 }
+
+// A short list is quicker read than searched.
+const SEARCH_FROM = 12;
 
 function TickAll({ checked, mixed, onToggle }) {
   const ref = useRef(null);
