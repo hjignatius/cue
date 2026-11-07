@@ -27,10 +27,10 @@ Settings and your sign-in aren't in any backup.
   and transpose. The rest stay as PDFs, exactly as printed. Tap the mark on a
   song to switch it, or tick one box to make every song its own PDF.
 - **Cue says how well a book reads.** The report counts the song pages it can
-  read, not counting covers and contents. If a book reads badly, or only partly
-  with many pages to check, its songs start as PDFs, and any song is a tap away
-  from a chart. A yellow Check mark shows a chart worth looking over, where
-  chords above the lyrics may be out of place.
+  read, not counting covers and contents. If a book reads badly, its songs start
+  as PDFs. If many pages need checking, it suggests making them all PDFs. A
+  yellow Check mark shows a chart worth looking over, where chords above the
+  lyrics may be out of place.
 - **Chords above the lyrics.** Cue now reads these charts as well as ones with
   chords in brackets, including songs set in two columns and songs with little
   chord diagrams drawn over the words. In a book like this, the report can't

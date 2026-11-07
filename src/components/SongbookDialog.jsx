@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Eye, FileText, ListChecks, Music, SkipForward } from 'lucide-react';
 import LongList from './LongList.jsx';
-import { VERDICT_WORDS, reportLines, songsMatching, startsAsPdfs, stepWords } from '../utils/bookReport.js';
+import { VERDICT_WORDS, reportLines, songsMatching, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 import CornerClose from './CornerClose.jsx';
@@ -155,7 +155,7 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
           <>
             <Report report={report} inLibrary={dupes} dark={dark} head={head} muted={muted} />
             {cant && onPick && (
-              <p className={`text-sm ${head}`}>You can still pick out each song’s pages yourself. {report.chartPages && !startsAsPdfs(report.score) ? 'Pages Cue can read come in as charts, and the rest as PDF pages, exactly as printed.' : 'They come in as PDF pages, exactly as printed.'}</p>
+              <p className={`text-sm ${head}`}>You can still pick out each song’s pages yourself. {report.chartPages && report.score?.level !== 'low' ? 'Pages Cue can read come in as charts, and the rest as PDF pages, exactly as printed.' : 'They come in as PDF pages, exactly as printed.'}</p>
             )}
 
             {!cant && (
