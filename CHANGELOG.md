@@ -7,79 +7,108 @@ All notable user-facing changes to Cue. The running version is shown under the
 
 **Before you update:** make a backup on each device. The update changes how your
 library is stored, and an older Cue can't open it afterwards. If you plan to
-delete and reinstall Cue, make another backup in 2.0 first, because only a 2.0
-backup includes your ink and your Shared with me list.
+delete and reinstall Cue, for example to get the new icon, make another backup in
+2.0 first. Only a 2.0 backup includes your ink and your Shared with me list.
+Settings and your sign-in aren't in any backup.
 
 ### Bring in whole songbooks
 
-- **Import a PDF songbook.** Cue splits it into separate songs, and tells you
-  what it found before anything is added.
-- **Pick the songs yourself.** Go through a book page by page and mark where
-  each song starts, or leave pages out.
+- **Import a PDF songbook.** Cue splits a book into separate songs, using its
+  bookmarks or the titles on its pages. Before anything is added, a report says
+  what it found, how the songs will come in, and whether the split looks right.
+  You can tick or untick each song and fix any title.
+- **Pick the songs yourself.** When a book can't be split, or the split needs
+  fixing, go through it page by page. Mark each page New song, Same song or Leave
+  out, and Cue moves on to the next page. You can also read each page large.
 - **Chart or PDF, your choice.** Songs Cue can read become charts you can edit
   and transpose. The rest stay as PDFs, exactly as printed. Tap the mark on a
-  song to switch it.
+  song to switch it, or untick one box to keep the whole book as PDFs.
 - **Chords above the lyrics.** Cue now reads these charts as well as ones with
   chords in brackets, including songs set in two columns. In a book like this,
-  you mark where each song starts.
+  the report can't tell where each song starts, so you mark that in the picker.
+  Pages Cue can't read stay as PDFs.
 - **Songs printed from websites.** Cue now copes with an intro written in bars,
   the date and web address a browser adds to the page, and chords marked to
-  repeat.
-- **Capo and YouTube link.** Cue picks these up from above the first chord.
-- **Several PDFs at once.** Cue says which one it's on, and you can skip one or
-  stop.
+  repeat. If a PDF has the song twice, for example once with chord diagrams and
+  once with chord names, you choose which copy to keep.
+- **Capo and YouTube link.** Cue picks these up from the lines above the first
+  chord and fills in those fields. A capo changes the chords Cue draws, so clear
+  the field if you want the shapes as printed.
+- **Several PDFs at once.** Sheets come in together as one list, each marked
+  Chart or PDF. Books get their own report in turn. Cue says which file it's on,
+  and you can skip one or stop.
 
 ### Keep your library organized
 
-- **Books and shelves.** Songs can live in books, and books can sit on shelves.
-  You can also merge two books.
+- **Books and shelves.** Songs can live in books, and books can sit on shelves,
+  such as "Club" or "Christmas". You can rename or merge books, and a single PDF
+  song can go into a new book or one you already have. Exports are named after
+  the book.
 - **My songs.** A song from a book joins My songs when you add it to a set, ink
-  it or choose Add to My songs. Editing it doesn't.
-- **Deleting a book.** Songs you've used stay in My songs. Cue tells you what
-  will happen first.
+  it or choose Add to My songs. Editing it doesn't. It's one song seen in both
+  places, not a copy.
+- **Deleting a book.** Songs you've used stay in My songs, and the others are
+  deleted. Cue tells you how many of each before you confirm. Removing a shelf
+  deletes no songs.
 - **Friends' songs in their own book.** A set or songs file from someone else,
   or a set copied from a share, can go into a book of its own, so it stays out
-  of My songs until you use it.
+  of My songs until you use it. Songs added to that share later join the same
+  book.
 - **Double-click to open.** A song opens in Edit from the Library, and in Present
   from a set.
 - **Big libraries stay quick,** even with thousands of songs.
 
 ### Sharing
 
-- **A clearer Share window.** Each song shows what's on this device, what plays,
-  and what's in the share. Amber is yours, blue is theirs.
+- **A clearer Share window.** Each song has three symbols: what's on this device,
+  what plays, and what's in the share. Amber is yours, blue is theirs, and a key
+  explains them.
 - **Choose which version plays.** If your copy differs from the share, pick from
-  any of your versions, with a small picture of each.
+  any of your versions, with a small picture of each that shows your ink. Songs
+  with the same title are offered too, but Cue never assumes they're the same
+  song.
 - **Get the newer version.** A blue cloud with a down arrow means the share has
-  a newer version. Tap it to get it, and your ink stays.
-- **Copy a shared set into a book,** with the set made for you.
+  a newer version. Tap it to get it, or to choose if you both changed the song.
+  Your ink stays, and songs you made yourself are never touched.
+- **Copy a shared set into a book,** with the set made for you. Songs copied into
+  a book keep their own titles, with no "(2)" added.
 
 ### Editing and ink
 
-- **Ink always shows in Preview.** The Ink button is gone, and Clear ink stays.
-- **Rotate PDF songs.** Turn a whole song or single pages, for sheets that are
-  sideways or upside down.
+- **Ink always shows in Preview,** on text and PDF songs. The Ink button is gone,
+  and Clear ink stays.
+- **Rotate PDF songs.** Turn a whole song or single pages a quarter turn at a
+  time, for sheets that are sideways, upside down or a mix of both.
 - **Steadier Tap button.** It no longer changes size while you tap a tempo, so
   you won't hit Play by mistake.
 
 ### Present
 
-- **Songs with no chords** keep the chord panel closed, unless you press C.
-- **Previous on Full Page songs.** A new setting chooses whether it goes to the
-  top of the song or its last page.
-- **Next and Previous work from the editor,** and no longer skip part of a PDF
-  that's still opening.
+- **Songs with no chords** keep the chord panel closed, unless you press C on
+  that song.
+- **Previous on Full Page songs.** A new setting under Pedal paging chooses
+  whether it goes to the top of the song before, which is the default, or to its
+  last page.
+- **Next and Previous work from the editor.** Starting Present there now brings
+  the rest of the list with it. Next also waits for a PDF to open, so it no
+  longer skips part of a song.
 
 ### Also new
 
-- **New Cue² icon.** An installed copy keeps its old icon until you add it to
-  your home screen again.
+- **New Cue² icon,** with a 2 inside the C. An installed copy keeps its old icon
+  until you add it to your home screen again.
 - **Support and suggestions.** Find these at the bottom of Settings, with QR
   codes.
 - **Fuller backups.** Full backups now include your ink and your Shared with me
   list.
-- **PDFs stay safe in Safari.** Cue now stores PDFs in a way Safari keeps.
-- **Updated manual.**
+- **PDFs stay safe in Safari.** Cue now stores PDFs in a way Safari keeps, and
+  rewrites older ones the first time 2.0 opens.
+- **Safer updates.** If Cue is open in another tab, it tells you why it's waiting.
+  A file from a newer Cue is refused with a request to update, so nothing is
+  lost on import.
+- **PDF exports** print a page song as its own pages.
+- **Updated manual,** covering books and shelves, importing PDFs and the share
+  symbols.
 
 ## v1.9.28 — 2026-10-29
 
