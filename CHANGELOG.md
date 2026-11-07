@@ -31,8 +31,9 @@ Settings and your sign-in aren't in any backup.
   as PDFs. A yellow Check mark shows a chart worth looking over, where chords
   above the lyrics may be out of place.
 - **Chords above the lyrics.** Cue now reads these charts as well as ones with
-  chords in brackets, including songs set in two columns. In a book like this,
-  the report can't tell where each song starts, so you mark that in the picker.
+  chords in brackets, including songs set in two columns and songs with little
+  chord diagrams drawn over the words. In a book like this, the report can't
+  tell where each song starts, so you mark that in the picker.
   Pages Cue can't read stay as PDFs.
 - **Songs printed from websites.** Cue now copes with an intro written in bars,
   the date and web address a browser adds to the page, and chords marked to

@@ -164,6 +164,83 @@ check('a number on a line of its own after a lyric is left alone',
 check('an x for a muted strum is no chord',
   one([chordRow('D     x     x', 0), [run('Get your motor running', 0, 0)]]), ['[D]Get your motor running']);
 
+// Rows that print as one, and names beside them: the Santa Cruz songbooks.
+const atY = (r, y) => ({ ...r, transform: [1, 0, 0, 1, r.transform[4], y] });
+const rowsPage = (items) => texts(chordsAbove(linesFromItems(items, { runs: true })));
+const lyricAt = (t, y) => run(t, 0, y);
+check('a row of chords printed a point or two out of line is one row',
+  rowsPage([atY(run('C', 0, 0), 700), atY(run('G', 12, 0), 698), lyricAt('Over the river and through', 686),
+    atY(run('F', 0, 0), 672), atY(run('C', 12, 0), 670), lyricAt('To my grandmother house we', 658)]),
+  ['[C]Over the [G]river and through', '[F]To my [C]grandmother house we']);
+check('a chord\u2019s ending set as a superscript stays with it',
+  rowsPage([atY(run('F', 0, 0), 700), atY(run('7', 1, 0), 698), atY(run('G', 12, 0), 700), lyricAt('Over the river and through', 686),
+    atY(run('C', 0, 0), 672), lyricAt('To my grandmother house we', 658)]),
+  ['[F7]Over the [G]river and through', '[C]To my grandmother house we']);
+check('names past the end of the lyric, a point off the row, are not its chords',
+  rowsPage([atY(run('C', 0, 0), 700), atY(run('A Am D', 40, 0), 697), lyricAt('Over the river', 686),
+    atY(run('F', 0, 0), 672), lyricAt('To my grandmother', 658), atY(run('G', 0, 0), 644), lyricAt('And a third line', 630)]),
+  ['[C]', '[A] [Am] [D]', 'Over the river', '[F]To my grandmother', '[G]And a third line']);
+const lyricOut = (t, y) => atY(run(t, 12, 0), y);
+check('…nor are names in the margin before the lyric, whatever their size',
+  rowsPage([atY(run('G', 1, 0), 700), atY(run('C', 14, 0), 697), lyricOut('Over the river', 686),
+    atY(run('F', 14, 0), 672), lyricOut('To my grandmother', 658), atY(run('G', 14, 0), 644), lyricOut('And a third line', 630)]),
+  ['[G]', '[C]Over the river', 'To [F]my grandmother', '[G]And a third line']);
+check('a row holding a note keeps the note whole',
+  rowsPage([atY(run('(Hold 4 counts)', 8, 0), 700), atY(run('C', 12, 0), 698), lyricAt('Over the river and through', 686),
+    atY(run('F', 0, 0), 672), lyricAt('To my grandmother house we', 658)]).join('\n').includes('(Hold 4 counts)'), true);
+check('…also when the note is small and far to the right',
+  rowsPage([atY(run('C', 0, 0), 700), atY({ ...run('(Hold 4 counts)', 50, 0, 9) }, 700), lyricAt('Over the river and through the woods we go', 686),
+    atY(run('F', 0, 0), 672), lyricAt('To my grandmother house we', 658), atY(run('G', 0, 0), 644), lyricAt('And a third line', 630)]).join('\n').includes('(Hold 4 counts)'), true);
+const small = (t, at, y) => ({ ...run(t, at, 0, 7), transform: [1, 0, 0, 1, LEFT + at * W, y] });
+check('a superscript on its own baseline joins its chord, flats and all',
+  rowsPage([atY(run('B♭', 0, 0), 700), small('m', 2, 702), atY(run('C', 12, 0), 700), small('7', 13, 702), lyricAt('Over the river and through', 686),
+    atY(run('F', 0, 0), 672), small('7', 1, 674), small('dim', 13, 674), atY(run('G', 12, 0), 672), lyricAt('To my grandmother house we', 658)]),
+  ['[Bbm]Over the [C7]river and through', '[F7]To my [Gdim]grandmother house we']);
+const named = (t, at, y) => ({ ...run(t, at, 0, 9), transform: [1, 0, 0, 1, LEFT + at * W, y] });
+check('names over diagrams at the side don\u2019t come between chords and lyric',
+  rowsPage([atY(run('C', 0, 0), 700), named('G C', 60, 692), lyricAt('Over the river and through', 686),
+    atY(run('F', 0, 0), 672), named('F C', 60, 664), lyricAt('To my grandmother house we', 658),
+    atY(run('G', 0, 0), 644), lyricAt('And a third line of the song', 630)]),
+  ['[C]Over the river and through', '[F]To my grandmother house we', '[G]And a third line of the song']);
+check('…nor end up after the lyric, on the same row as its chords',
+  rowsPage([atY(run('C', 3, 0), 700), named('G', 60, 700), lyricAt('Over the river', 686),
+    atY(run('F', 3, 0), 672), named('F', 60, 672), lyricAt('To my grandmother', 658),
+    atY(run('G', 3, 0), 644), lyricAt('And a third line', 630)]),
+  ['[C]Over the river', 'To [F]my grandmother', 'And [G]a third line']);
+const lyricIn = (t, y) => atY(run(t, 10, 0), y);
+check('a diagram\u2019s name left of the lyrics is no chord of that line',
+  rowsPage([atY(run('G', 14, 0), 700), named('D', 1, 678), lyricIn('Proudly swept the rain', 672),
+    named('A', 1, 644), atY(run('C', 14, 0), 640), lyricIn('As onward it glides thru', 620),
+    atY(run('F', 14, 0), 580), named('E', 1, 558), lyricIn('Through the valley again', 552)]),
+  ['[G]Proudly swept the rain', 'As [C]onward it glides thru', '[F]Through the valley again']);
+check('a diagram\u2019s name over the same row typed again is dropped',
+  rowsPage([named('C', 0, 700), atY(run('C', 0, 0), 690), lyricAt('Over the river and through', 676),
+    named('F', 0, 660), atY(run('F', 0, 0), 650), lyricAt('To my grandmother house we', 636)]),
+  ['[C]Over the river and through', '[F]To my grandmother house we']);
+check('…and one level with the row of chords is left off it too',
+  rowsPage([named('E', 1, 700), atY(run('G', 14, 0), 700), lyricIn('Proudly swept the rain', 686),
+    named('A', 1, 660), atY(run('C', 14, 0), 660), lyricIn('As onward it glides thru', 646),
+    atY(run('F', 14, 0), 620), lyricIn('Through the valley again', 606)]),
+  ['[G]Proudly swept the rain', 'As [C]onward it glides thru', '[F]Through the valley again']);
+check('…but a row of names all in small type stays whole',
+  rowsPage([named('G', 0, 720), named('C', 30, 720), named('D', 60, 720), atY(run('C', 0, 0), 700), lyricAt('Over the river and through', 686),
+    atY(run('F', 0, 0), 672), lyricAt('To my grandmother house we', 658)]),
+  ['[G] [C] [D]', '[C]Over the river and through', '[F]To my grandmother house we']);
+const inset = (t, at, y) => ({ ...run(t, at, 0, 8), transform: [1, 0, 0, 1, LEFT + at * W, y] });
+check('a small chart beside a big one keeps its chords: words under them make it a chart',
+  rowsPage([inset('G', 50, 720), inset('Please do talk about me', 50, 710), inset('D', 50, 700), inset('Though our friendship', 50, 690),
+    atY(run('C', 0, 0), 670), lyricAt('Please do talk about me', 656), atY(run('F', 0, 0), 640), lyricAt('Though our friendship', 626),
+    atY(run('G', 0, 0), 610), lyricAt('If you cannot say', 596), atY(run('C', 0, 0), 580), lyricAt('Not to talk at all', 566)]),
+  ['[G]Please do talk about me', '[D]Though our friendship', '[C]Please do talk about me', '[F]Though our friendship', '[G]If you cannot say', '[C]Not to talk at all']);
+const far = (chord, words, y) => [atY(run(chord, 6, 0), y), lyricAt(words, y - 52)];
+check('diagrams over the words: row after row at one distance still pairs',
+  rowsPage([...far('C', 'We read in the papers', 700), ...far('F', 'Such torrents of sorrow', 630), ...far('G', 'But now on the scene', 560)]),
+  ['We [C]read in the papers', 'Such [F]torrents of sorrow', 'But [G]now on the scene']);
+check('…but one far row alone stays on its own line',
+  rowsPage([atY(run('C', 0, 0), 700), lyricAt('Over the river and through', 686), atY(run('G', 0, 0), 660), lyricAt('To my grandmother house we', 646),
+    atY(run('F', 0, 0), 620), lyricAt('A lyric much further down', 568)]),
+  ['[C]Over the river and through', '[G]To my grandmother house we', '[F]', 'A lyric much further down']);
+
 // ---- 5. a page as pdf.js gives it: columns, margins, scrambled text ------------
 const pageItems = (rows) => {
   const items = [];

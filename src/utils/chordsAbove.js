@@ -44,7 +44,7 @@ function letters(line) {
     const chars = [...r.str];
     if (end !== null && r.x - end > SPACE_GAP * Math.max(r.height, 1) && out.length && out.at(-1).ch !== ' ') out.push({ ch: ' ', x: end });
     const w = typeof r.width === 'number' && r.width > 0 ? r.width / chars.length : Math.max(r.height, 1) / 2;
-    chars.forEach((ch, k) => out.push({ ch, x: r.x + k * w }));
+    chars.forEach((ch, k) => out.push({ ch, x: r.x + k * w, h: r.height }));
     end = r.x + w * chars.length;
   }
   while (out.length && /\s/.test(out[0].ch)) out.shift();
@@ -80,6 +80,147 @@ const isChordRow = (row) => isChordLine(textOf(row)) && !isTab(row) && !roundOnl
 // ever looked for straight after a row of chords, where it can't be a page number.
 const isFretRow = (row) => /^[\dxX\s]+$/.test(textOf(row));
 
+// ROWS THAT PRINT AS ONE. Superscripts and small type come out of a PDF in
+// pieces: Santa Cruz's "F⁷" is "F" and a "7" a little higher, and a row's chords
+// can sit a point or two apart, so one row reads as two.
+const SUFFIX = /^(?:[#b]|[#b]?(?:m|min|dim|aug|maj\d*|sus\d*|add\d+|\d{1,2}))$/;
+const JOIN_GAP = 0.4;       // of the type's height, between rows that are one row
+const JOIN_CLEAR = 1;       // points between letters, or they're two rows after all
+const ROOT = /^[A-G][#b]?m?$/;
+
+// The chord recogniser takes "Bb7" and not "B♭7". Only on a row of chords: the
+// words of a lyric stay as printed.
+const plainAccidentals = (row) => row.map(l => (l.ch === '♭' ? { ...l, ch: 'b' } : l.ch === '♯' ? { ...l, ch: '#' } : l));
+
+// The row with a chord's own ending closed up to it: "Bb dim" is "Bbdim".
+function closeUp(row) {
+  const out = [];
+  row.forEach((l, i) => {
+    if (l.ch === ' ' && i > 0 && row[i + 1]) {
+      const left = textOf(row.slice(0, i)).split(' ').at(-1);
+      const right = textOf(row.slice(i + 1)).split(' ')[0];
+      if (ROOT.test(left) && SUFFIX.test(right) && row[i + 1].x - row[i - 1].x <= Math.max(row[i - 1].h || 0, 1) * 1.5) return;
+    }
+    out.push(l);
+  });
+  return out;
+}
+// A line's letters. Closed up and plainly spelled only when that makes it a row
+// of chords: in a lyric, "A 7" is words.
+function rowOf(line) {
+  if (!line.runs) return null;
+  const row = letters(line);
+  const plain = closeUp(plainAccidentals(row));
+  return textOf(plain) !== textOf(row) && isChordRow(plain) ? plain : row;
+}
+
+const isPieces = (row) => isChordRow(row) || textOf(row).trim().split(/\s+/).every(t => isChordLine(t) || SUFFIX.test(t.replace(/[♭♯]/g, m => (m === '♭' ? 'b' : '#'))));
+// The words under a row of chords, as letters. Names over diagrams can sit a
+// point or two off a row, as level as its other half would, but to one side of
+// these.
+function lyricBelow(lines, from) {
+  for (let i = from; i < lines.length; i++) {
+    const row = lines[i].runs && rowOf(lines[i]);
+    if (row?.length && !isPieces(row)) return row;
+  }
+  return null;
+}
+const overLyric = (a, b, words) => !words || (Math.max(a[0].x, b[0].x) <= words.at(-1).x && Math.min(a.at(-1).x, b.at(-1).x) >= words[0].x);
+function joinRows(lines) {
+  const out = [];
+  for (const [k, line] of lines.entries()) {
+    const prev = out.at(-1);
+    const a = prev?.runs && rowOf(prev), b = line.runs && rowOf(line);
+    const height = Math.min(prev?.height || 0, line.height || 0);
+    if (a?.length && b?.length && line.gapBefore > 0 && line.gapBefore <= JOIN_GAP * height
+      && isPieces(a) && isPieces(b) && (isChordRow(a) || isChordRow(b))
+      && !/[()]/.test(textOf(a) + textOf(b))
+      && overLyric(a, b, lyricBelow(lines, k + 1))
+      && !a.some(x => b.some(y => Math.abs(x.x - y.x) < JOIN_CLEAR && x.ch !== ' ' && y.ch !== ' '))) {
+      const runs = [...prev.runs, ...line.runs].sort((m, n) => m.x - n.x);
+      out[out.length - 1] = { ...prev, runs, height: Math.max(prev.height || 0, line.height || 0), text: runs.map(r => r.str).join('').trim() };
+    } else out.push(line);
+  }
+  return out;
+}
+
+// NAMES OVER DIAGRAMS. A songbook can draw chord diagrams on the page, and each
+// has its name over it, read like any other chord. Set smaller than the page's
+// rows of chords, they're easy to tell apart in three places:
+//  - down the side, right of the rows of chords (the Santa Cruz "I Can See
+//    Clearly"), or left of where the lyrics start (their "Aloha Oe", whose "G"
+//    beside "Proudly swept" is no part of that line);
+//  - over a second copy of the same row, which is the row to keep: L-O-V-E has
+//    the chords typed again under its diagrams, out of sight.
+const LABEL = 0.85;
+const LABEL_FROM = 0.6;     // of the way across the page
+const sameChords = (a, b) => {
+  const roots = (row) => chordsOf(row).map(c => c.chord.replace(/^\W+/, '')[0]).join();
+  return roots(a) === roots(b);
+};
+function lyricEdge(lines) {
+  const count = new Map();
+  for (const l of lines) {
+    const row = l.runs && rowOf(l);
+    if (!row || isChordRow(row) || !/\p{L}{2}/u.test(textOf(row))) continue;
+    const x = Math.round(row[0].x / 4) * 4;
+    count.set(x, (count.get(x) || 0) + 1);
+  }
+  return [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0;
+}
+function withoutLabels(lines) {
+  const rows = lines.map(l => ({ l, row: l.runs ? rowOf(l) : null })).filter(r => r.row && isChordRow(r.row));
+  if (rows.length < MIN_PAIRS) return lines;
+  const sizes = rows.map(r => r.l.height || 0).sort((a, b) => a - b);
+  const usual = sizes[sizes.length - 1 - Math.floor(sizes.length / 4)];
+  const right = Math.max(...lines.flatMap(l => (l.runs || []).map(r => r.x)));
+  const edge = lyricEdge(lines);
+  // Words under it make it a chart, however small: the Santa Cruz "Please Don't
+  // Talk About Me" sets a little second version beside its photo.
+  const overWords = (line, from, to) => {
+    const words = lyricBelow(lines, lines.indexOf(line) + 1);
+    return !!words && words[0].x <= to && words.at(-1).x >= from;
+  };
+  const beside = (line, from, to) => (from > right * LABEL_FROM || to < edge - 2) && !overWords(line, from, to);
+  const labels = new Set(rows.filter(r => (r.l.height || 0) < LABEL * usual && beside(r.l, r.row[0].x, r.row.at(-1).x)).map(r => r.l));
+  rows.forEach((r, k) => {
+    const under = rows[k + 1];
+    if (under && lines[lines.indexOf(r.l) + 1] === under.l && (r.l.height || 0) < (under.l.height || 0) && sameChords(r.row, under.row)) labels.add(r.l);
+  });
+  // A name can also sit level with a row of chords, and so be part of its line.
+  // It goes by the whole name: a "7" set small is still part of its chord.
+  const offRow = (l) => {
+    const row = l.runs && rowOf(l);
+    if (!row || !isChordRow(row) || /[()]/.test(textOf(row))) return l;
+    const names = row.reduce((all, c) => { if (c.ch === ' ') all.push([]); else all.at(-1).push(c); return all; }, [[]]).filter(n => n.length);
+    const isSmall = (n) => n.every(c => (c.h || 0) < LABEL * usual);
+    const off = names.filter(n => isSmall(n) && beside(l, n[0].x, n.at(-1).x));
+    if (!off.length || names.every(isSmall)) return l;
+    const runs = l.runs.filter(r => !off.some(n => r.x >= n[0].x - 0.5 && r.x <= n.at(-1).x + 0.5));
+    return { ...l, runs, text: runs.map(r => r.str).join('').trim() };
+  };
+  return lines.map(l => (labels.has(l) ? l : offRow(l))).filter(l => !labels.has(l));
+}
+
+// Diagrams standing over the words, where the chords would be, push a lyric much
+// further below its row than type would. Row after row at the same distance is
+// what says so: the page's own gap, or 0 for a page with none.
+const DIAGRAM_ROWS = 3;
+const DIAGRAM_MAX = 90;     // points
+const DIAGRAM_EVEN = 0.3;   // gaps this close to the middle one are the same gap
+function diagramGap(lines, rows, chordRow) {
+  const gaps = [];
+  rows.forEach((row, i) => {
+    const next = lines[i + 1];
+    if (!chordRow[i] || !next || chordRow[i + 1] || !rows[i + 1] || !/\p{L}{2}/u.test(textOf(rows[i + 1]))) return;
+    if (next.gapBefore > PAIR_GAP * Math.max(lines[i].height || 0, next.height || 0, 1)) gaps.push(next.gapBefore);
+  });
+  if (gaps.length < DIAGRAM_ROWS) return 0;
+  const middle = gaps.sort((a, b) => a - b)[gaps.length >> 1];
+  const even = gaps.filter(g => Math.abs(g - middle) <= DIAGRAM_EVEN * middle);
+  return middle <= DIAGRAM_MAX && even.length >= 0.75 * gaps.length ? middle * (1 + DIAGRAM_EVEN) : 0;
+}
+
 // The chords of `row` put into `lyric`, both as letters; null when none of
 // them is over it.
 function merge(row, lyric, height) {
@@ -114,9 +255,11 @@ function merge(row, lyric, height) {
  *
  * Returns { lines, merged }: `merged` is how many rows of chords found a lyric.
  */
-export function chordsAbove(lines = []) {
-  const rows = lines.map(l => (l.runs ? letters(l) : null));
+export function chordsAbove(printed = []) {
+  const lines = withoutLabels(joinRows(printed));
+  const rows = lines.map(rowOf);
   const chordRow = rows.map(r => (r ? isChordRow(r) : false));
+  const diagrams = diagramGap(lines, rows, chordRow);
   const out = [];
   const pairs = [];
   let merged = 0;
@@ -135,7 +278,7 @@ export function chordsAbove(lines = []) {
     const lyric = rows[under];
     const height = Math.max(lines[i].height || 0, next?.height || 0, 1);
     const text = lyric && /\p{L}/u.test(textOf(lyric)) && !chordRow[under] && !isTab(lyric) && !sectionLabelOf(next.text) && !next.text.includes('[')
-      && next.gapBefore <= PAIR_GAP * height && (lines[i].height || 0) <= HEADING * (next.height || 0)
+      && next.gapBefore <= Math.max(PAIR_GAP * height, diagrams) && (lines[i].height || 0) <= HEADING * (next.height || 0)
       && merge(rows[i], lyric, height);
     if (text) {
       const { runs: __, ...below } = next;
@@ -151,7 +294,7 @@ export function chordsAbove(lines = []) {
   // A chart already in brackets keeps its own: a stray row of chords over one
   // of its lines is not a reason to rewrite the page.
   const bracketed = lines.filter(l => BRACKETED.test(l.text)).length;
-  if (merged < MIN_PAIRS || bracketed > merged) return { lines: lines.map(({ runs: _, ...l }) => l), merged: 0 };
+  if (merged < MIN_PAIRS || bracketed > merged) return { lines: printed.map(({ runs: _, ...l }) => l), merged: 0 };
   return { lines: verseBreaks(out, pairs), merged };
 }
 
