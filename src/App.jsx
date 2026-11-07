@@ -865,6 +865,9 @@ export default function App() {
     if (stored) {
       await saveSong({ ...stored, metadata: { ...stored.metadata, duration } });
     }
+    // The editor Present was opened from is still open behind it: tell it, or
+    // its next Save puts the old duration back.
+    editorApiRef.current?.takeFromPresent?.(songId, { duration });
   }
 
   // Persist a live per-song Full Page change from Present's Tools, and reflect it
@@ -876,6 +879,7 @@ export default function App() {
     });
     const stored = (await loadSongs()).find(s => s.id === songId);
     if (stored) await saveSong({ ...stored, fullPage });
+    editorApiRef.current?.takeFromPresent?.(songId, { fullPage }); // as for the duration, above
   }
 
   function handleReturnToPresentation(updatedSong) {

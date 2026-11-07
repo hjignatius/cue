@@ -565,7 +565,11 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   }`;
   const dangerItem = dark ? 'text-red-400' : 'text-red-600';
   const [displayKey, setDisplayKey]     = useState(song?.displayKey || '');
-  const [isDirty, setIsDirty]           = useState(false);
+  // A song handed back by Present can carry edits that were never saved: the
+  // editor's Present button takes them along as they stand. `unsavedFrom` (the
+  // last-saved state, for Revert) says so, and the editor opens with Save lit —
+  // without it they looked saved, and leaving quietly threw them away.
+  const [isDirty, setIsDirty]           = useState(() => !!song?.unsavedFrom);
   // AI menu + actions. `aiReady` tracks whether a key is saved (kept fresh via
   // the cue:ai-key event so saving in Settings lights the button up live).
   // `aiBusy` names the in-flight action; `aiMsg` is a transient status line.
@@ -697,10 +701,35 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // Reset the revert baseline whenever the edited song changes. songId changes on
   // mount and when a new song first receives its id on save; the editor also
   // remounts for Prev/Next and Edit-from-Present, which re-runs this on the new song.
+  // A song brought back from Present with unsaved edits starts from the
+  // baseline it carries. `baselineFor` keeps a second run for the same song (the
+  // dev build runs effects twice) from overwriting it with the edited state.
+  const baselineFor = useRef(song?.unsavedFrom ? song.id : undefined);
+  if (baselineFor.current && !baselineRef.current) baselineRef.current = song.unsavedFrom;
   useEffect(() => {
+    if (baselineFor.current === songId && baselineRef.current) return;
+    baselineFor.current = songId;
     baselineRef.current = snapshotState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songId]);
+
+  // Present, opened from here, saves two things straight to the song: Full Page
+  // and the scroll speed (as the duration). This editor stays open behind it, so
+  // take them in here too — otherwise it went on showing the old ones, and the
+  // next Save put them back. They count as saved: the baseline gets them as well,
+  // and nothing else you have not saved changes.
+  const takeFromPresent = (id, change) => {
+    if (!id || id !== songId) return;
+    const b = baselineRef.current;
+    if ('fullPage' in change) {
+      setFullPage(change.fullPage);
+      if (b) b.fullPage = change.fullPage;
+    }
+    if ('duration' in change) {
+      setMetadata(m => ({ ...m, duration: change.duration }));
+      if (b) b.metadata = { ...b.metadata, duration: change.duration };
+    }
+  };
 
   // Pick a PDF lead sheet from inside the editor — the blank-song "Load PDF"
   // affordance and the "Replace PDF" menu item both land here. The bytes are
@@ -816,7 +845,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
   // cleared on unmount so it reads falsy anywhere outside the editor.
   useEffect(() => {
     if (!editorApi) return undefined;
-    editorApi.current = { isDirty, save: handleSave };
+    editorApi.current = { isDirty, save: handleSave, takeFromPresent };
     return () => { editorApi.current = null; };
   });
 
@@ -2758,7 +2787,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               fill={headerFill}
               onActivate={async () => {
                 const id = pendingPdf ? await handleSave() : songId; // as Present, below
-                onReturn({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns });
+                onReturn({ id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, chordPrefs, displayKey, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns, unsavedFrom: isDirty && !pendingPdf ? baselineRef.current : undefined });
               }}
             >
               <Undo2 size={22} strokeWidth={2} />
@@ -2774,7 +2803,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                 // has no id to key it under), so Present would show the missing
                 // placeholder. Save first, and present the id that comes back.
                 const id = pendingPdf ? await handleSave() : songId;
-                const here = { id, metadata, text, chordStyle: previewFormat, displayKey, chordPrefs, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns };
+                const here = { id, metadata, text, chordStyle: displayMode, previewMode: previewFormat, diagramScale: chordDiagramSize, displayKey, chordPrefs, type: songType, fullPage, embed, condensed, pdfRotate, pdfPageTurns, unsavedFrom: isDirty && !pendingPdf ? baselineRef.current : undefined };
                 if (!inSetlist) { onPresent?.([here], 0); return; }
                 // Opened from a list: Present the list, from this song, so ◀/▶
                 // go on through it as they do from the Library. This song as it

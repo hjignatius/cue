@@ -104,6 +104,10 @@ Settings and your sign-in aren't in any backup.
 - **Next and Previous work from the editor.** Starting Present there now brings
   the rest of the list with it. Next also waits for a PDF to open, so it no
   longer skips part of a song.
+- **Going between Edit and Present keeps your changes.** Edits you hadn't
+  saved still show as unsaved when you come back from Present, and Revert still
+  takes them back. The Full Page switch and Save speed in Present now show in the
+  editor, and saving there no longer undoes them.
 
 ### Also new
 
