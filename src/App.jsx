@@ -190,18 +190,32 @@ export default function App() {
     let shown = 0;
     let bookId = null;
     if (choice.book && choice.picked.length) bookId = await makeBook(choice.book, batch ? null : fileName);
+    // Songs taken from a book a few at a time gather in one book, so one taken
+    // again would be there twice: the same page of the same file, by the same title.
+    const fromFile = (s) => s.file?.name || fileName;
+    const sameSong = (file, page, title) => `${file}|${page}|${normalizeTitle(title)}`;
+    const inThisBook = new Map();
+    if (bookId) {
+      for (const s of await loadSongs()) {
+        if (s.bookId === bookId && s.source) inThisBook.set(sameSong(s.source.book, s.source.page, s.metadata?.title), s.id);
+      }
+    }
+    let already = 0;
     for (const i of choice.picked) {
       if (choice.picked.length > 50 && performance.now() - shown > 150) {
         shown = performance.now();
         setSongbook({ fileName, batch, reading: { done: ids.length, total: choice.picked.length, saving: true } });
       }
-      ids.push(await saveOne(listed[i], choice.titles?.[i] || listed[i].title, bookId));
+      const title = choice.titles?.[i] || listed[i].title;
+      const had = inThisBook.get(sameSong(fromFile(listed[i]), listed[i].firstPage ?? 1, title));
+      if (had) { already++; ids.push(had); continue; }
+      ids.push(await saveOne(listed[i], title, bookId));
     }
     const setId = choice.setName && ids.length ? (await saveSet({ id: null, name: choice.setName, songIds: ids })).id : null;
     const next = await new Promise(resolve => setSongbook({
       fileName,
       batch,
-      outcome: { added: ids.length, setName: setId ? choice.setName : null, bookName: bookId ? choice.book.name || books.find(b => b.id === bookId)?.name : null, leftOut: listed.length - ids.length, unsaved: unsavedPdfs.current },
+      outcome: { added: ids.length - already, already, setName: setId ? choice.setName : null, bookName: bookId ? choice.book.name || books.find(b => b.id === bookId)?.name : null, leftOut: listed.length - ids.length, unsaved: unsavedPdfs.current },
       resolve,
     }));
     setSongbook(null);

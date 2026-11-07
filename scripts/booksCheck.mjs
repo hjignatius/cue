@@ -3,7 +3,7 @@
 // how songs imported before books existed are sorted into them.
 //
 // Run: node scripts/booksCheck.mjs
-import { isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName, wholeBooks, selectionBook, wholeBookDelete } from '../src/utils/books.js';
+import { bookNamed, isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName, wholeBooks, selectionBook, wholeBookDelete } from '../src/utils/books.js';
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -89,6 +89,10 @@ check('deleting all of a book asks about the songs you’ve used',
   wholeBookDelete(['a', 'b', 'c'], songs, records), { books: ['fm'], used: ['c'], rest: ['a'], names: ['Farmers Market'] });
 check('…not when you’ve used none of them', wholeBookDelete(['d'], songs, records), null);
 check('…nor when it’s only part of the book', wholeBookDelete(['c'], songs, records), null);
+
+const named = [{ id: 's', kind: 'shelf', name: 'Club' }, { id: 'b', kind: 'book', name: 'Holiday Book' }];
+check('a book is found by its name, whatever its capitals or spaces', bookNamed(named, ' holiday  BOOK')?.id, 'b');
+check('…never a shelf of that name, and nothing for no name', [bookNamed(named, 'Club'), bookNamed(named, '')], [null, null]);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

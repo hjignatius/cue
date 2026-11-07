@@ -1,6 +1,6 @@
 import { openDB } from 'idb';
 import { sanitizeMetadata } from './songMetadata.js';
-import { booksFromSources, removeBookPlan } from './books.js';
+import { bookNamed, booksFromSources, removeBookPlan } from './books.js';
 
 const DB_NAME    = 'cue-db';
 const DB_VERSION = 5;
@@ -635,7 +635,12 @@ export async function setSongMine(id, mine) {
 // one already there. Returns its id.
 export async function saveBookChoice(book, file = null) {
   if (book.bookId) return book.bookId;
+  // A book by this name is the book, so songs picked out of a songbook a few at
+  // a time gather in one. It keeps its shelf, or takes the one chosen if it has none.
+  const same = bookNamed(await loadBooks(), book.name);
+  if (same?.shelfId || (same && !book.newShelf && !book.shelfId)) return same.id;
   const shelfId = book.newShelf ? (await saveBookRecord({ kind: 'shelf', name: book.newShelf })).id : book.shelfId;
+  if (same) return (await saveBookRecord({ ...same, shelfId })).id;
   return (await saveBookRecord({ kind: 'book', name: book.name, shelfId: shelfId || null, file })).id;
 }
 

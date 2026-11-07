@@ -30,6 +30,12 @@ export const shelves = (records = []) => records.filter(r => r.kind === 'shelf')
 
 const byName = (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true });
 
+// The book already called this, if there is one, whatever its capitals or
+// spaces. Two books of one name can't be told apart in the Library's switch, so
+// a book made with that name is this one (saveBookChoice).
+const nameKey = (name) => String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+export const bookNamed = (records = [], name = '') => books(records).find(b => nameKey(b.name) === nameKey(name)) || null;
+
 // The name a book gets from its file: "Moselele_Book5_v1_6.pdf" → "Moselele
 // Book5 v1 6" would be worse than the file's own spelling, so only the
 // extension goes.

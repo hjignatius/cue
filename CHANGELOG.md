@@ -47,6 +47,9 @@ Settings and your sign-in aren't in any backup.
   such as "Club" or "Christmas". You can rename or merge books, and a single PDF
   song can go into a new book or one you already have. Exports are named after
   the book.
+- **Take songs from a book a few at a time.** Songs imported into a book with the
+  same name join it, so you never get two books of that name. A song already in
+  the book isn't added twice.
 - **My songs.** A song from a book joins My songs when you add it to a set, ink
   it or choose Add to My songs. Editing it doesn't. It's one song seen in both
   places, not a copy.

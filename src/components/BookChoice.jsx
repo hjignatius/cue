@@ -1,4 +1,4 @@
-import { books, shelves } from '../utils/books.js';
+import { bookNamed, books, shelves } from '../utils/books.js';
 
 // "Keep these as a book" in the import lists (SongbookDialog, PagePicker): the
 // tick, the book's name, and the shelf it goes on — none, one already there, or
@@ -11,7 +11,8 @@ import { books, shelves } from '../utils/books.js';
 //
 // value: { on, name, shelfId, newShelf, bookId }. bookChoice(value) is what the
 // import is given: { bookId } for a book already there, { name, shelfId,
-// newShelf } for a new one, or null.
+// newShelf } for a new one, or null. A new one named as a book you already have
+// is that book (saveBookChoice), and says so here.
 
 export const startBook = (on, name, bookId = '') => ({ on, name, shelfId: '', newShelf: '', bookId });
 
@@ -56,6 +57,9 @@ export default function BookChoice({ dark, records, value, onChange, one = false
             <option value="__new">New shelf…</option>
           </select>
         </div>
+      )}
+      {value.on && !value.bookId && bookNamed(records, value.name) && (
+        <p className={`text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>You already have this book, so these songs will join it.</p>
       )}
       {value.on && !value.bookId && value.shelfId === '__new' && (
         <input value={value.newShelf} onChange={e => set({ newShelf: e.target.value })} placeholder="Shelf name, e.g. Club" aria-label="New shelf name" className={field} />

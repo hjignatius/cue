@@ -338,7 +338,7 @@ function manualHTML() {
 <p>A PDF of several songs gets a <strong>book report</strong> before anything is imported. It opens straight away and fills in as the pages are read. It says what the book is, how the songs were found, how they will come in, what was tidied and what you already have. Then it gives a verdict in words: <strong>Looks right</strong>, <strong>Check the list</strong> or <strong>Can't split this book</strong>.</p>
 <p>Below that is every song Cue found, to tick or untick. Tap a title to fix it, and tap a song's arrow to see its chart. To bring in just one song, use the box above the list to untick them all, type part of its title or artist in <strong>Find a song</strong>, and tick it. A song already in your library starts unticked, so importing the same book twice doesn't double it. So does an entry with no chords, such as a contents page.</p>
 <ul>
-  <li><strong>Keep these as a book</strong> — ticked for a songbook. Name the book and choose a shelf. Its songs go into that book rather than My songs.</li>
+  <li><strong>Keep these as a book</strong> — ticked for a songbook. Name the book and choose a shelf. Its songs go into that book rather than My songs. If you already have a book by that name, they join it, so you can take songs from a book a few at a time. A song already in it isn't added twice.</li>
   <li><strong>Put them in a new set</strong> — also makes a set of the songs, with a name you choose.</li>
   <li><strong>Keep it as one PDF</strong> — brings the whole book in as a single PDF song instead.</li>
   <li><strong>Or pick the pages myself</strong> — goes through the book page by page. When Cue can't split a book, this is the main way on.</li>

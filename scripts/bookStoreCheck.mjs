@@ -158,5 +158,21 @@ await saveSong(song('again', { bookId: 'b9', mine: false }));
 await saveSet({ id: null, name: 'Next', songIds: ['again'] });
 check('…and a song restored after it is marked used afresh when put in a set', (await byId()).get('again').mine, true);
 
+// ---- 7. a book made with the name of one already there ------------------------------------
+const first = await saveBookChoice({ name: 'Holiday Book', shelfId: null, newShelf: null }, 'Holiday Book.pdf');
+const countOf = async (name) => (await loadBooks()).filter(b => b.kind === 'book' && b.name === name).length;
+check('songs picked out a second time join the book of that name',
+  [await saveBookChoice({ name: 'Holiday Book', shelfId: null, newShelf: null }, 'Holiday Book.pdf'), await countOf('Holiday Book')], [first, 1]);
+check('…whatever its capitals or spaces', await saveBookChoice({ name: '  holiday   book ', shelfId: null, newShelf: null }), first);
+check('…and a book chosen by its id still wins', await saveBookChoice({ bookId: 'b9', name: 'Holiday Book' }), 'b9');
+check('…a different name is a different book', (await saveBookChoice({ name: 'Other Book', shelfId: null, newShelf: null })) !== first, true);
+await saveBookChoice({ name: 'Holiday Book', shelfId: null, newShelf: 'Club' });
+const shelved = (await loadBooks()).find(b => b.id === first);
+const clubId = (await loadBooks()).find(b => b.kind === 'shelf' && b.name === 'Club')?.id;
+check('a book on no shelf takes the shelf chosen', shelved.shelfId === clubId && !!clubId, true);
+await saveBookChoice({ name: 'Holiday Book', shelfId: null, newShelf: 'Christmas' });
+check('…one on a shelf stays there, and no shelf is made for nothing',
+  [(await loadBooks()).find(b => b.id === first).shelfId === clubId, (await loadBooks()).some(b => b.name === 'Christmas')], [true, false]);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

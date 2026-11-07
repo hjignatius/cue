@@ -133,6 +133,7 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
               {outcome.bookName ? <> to the book “{outcome.bookName}”{outcome.setName ? <> and the new set “{outcome.setName}”</> : null}</>
                 : outcome.setName ? <> to the new set “{outcome.setName}”</> : ' to your library'}.
               {outcome.leftOut ? ` ${outcome.leftOut} ${outcome.leftOut === 1 ? 'was' : 'were'} left out.` : ''}
+              {outcome.already ? ` ${outcome.already} ${outcome.already === 1 ? 'was' : 'were'} already in it.` : ''}
             </p>
             {outcome.unsaved ? (
               <p className="text-sm text-red-600 dark:text-red-400">
