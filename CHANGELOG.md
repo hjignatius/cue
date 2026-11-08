@@ -3,7 +3,7 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
-## v2.0.0 (Cue²) — unreleased
+## v2.0.0 (Cue²) — 2026-11-08
 
 **Before you update:** make a backup on each device. The update changes how your
 library is stored, and an older Cue can't open it afterwards. If you plan to
