@@ -858,6 +858,65 @@ export function pagesMatching(start = {}, titles = {}, query = '') {
   return [...heads, ...others];
 }
 
+// Is page `q` more of the song before it? So Cue marked it, or you did. Cue's
+// mark counts even once you've left the page out, which is the point: after
+// Leave out all, it still knows a song's second page from a new one.
+const continues = (cue, marks, q) => cue[q - 1] === 'same' || marks[q - 1] === 'same';
+
+/** Every page of the song page `p` is in: from its first page to its last. */
+export function songAround(cue = [], marks = [], p = 1) {
+  let first = p, last = p;
+  while (first > 1 && continues(cue, marks, first)) first--;
+  while (last < marks.length && continues(cue, marks, last + 1)) last++;
+  return Array.from({ length: last - first + 1 }, (_, i) => first + i);
+}
+
+/**
+ * What a search finds: `pages`, the pages to show — each song found with all
+ * its pages (songAround), in the order pagesMatching found them, a song found
+ * on two of its pages once — and `songs`, those that are songs, as lists of
+ * pages. A page Cue left out that nobody has put back, the contents page that
+ * names every song, is shown but isn't a song. null with nothing typed.
+ */
+export function songsFound(start = {}, titles = {}, query = '', marks = start.marks || []) {
+  const hits = pagesMatching(start, titles, query);
+  if (!hits) return null;
+  const cue = start.marks || [];
+  const groups = [], seen = new Set();
+  for (const p of hits) {
+    if (seen.has(p)) continue;
+    const pages = songAround(cue, marks, p);
+    pages.forEach(q => seen.add(q));
+    groups.push(pages);
+  }
+  const leftOut = (pages) => cue[pages[0] - 1] === 'skip' && marks[pages[0] - 1] === 'skip';
+  return { songs: groups.filter(g => !leftOut(g)), pages: groups.flat() };
+}
+
+/** Keep only these songs, each whole, and leave out every other page. */
+export function onlyThese(marks = [], songs = []) {
+  const out = marks.map(() => 'skip');
+  for (const pages of songs) pages.forEach((p, i) => { out[p - 1] = i ? 'same' : 'start'; });
+  return out;
+}
+
+/**
+ * A tap on page `p` moves it on (New song, Same song, Leave out). A page left
+ * out that becomes New song brings back the pages Cue had as the rest of its
+ * song, if they're left out too: after Leave out all, one tap brings a song
+ * back whole.
+ */
+export function tapMark(marks = [], cue = [], p = 1) {
+  const NEXT = { start: 'same', same: 'skip', skip: 'start' };
+  const out = [...marks];
+  const was = out[p - 1];
+  out[p - 1] = NEXT[was];
+  if (was === 'skip') {
+    for (let q = p + 1; q <= out.length && cue[q - 1] === 'same' && out[q - 1] === 'skip'; q++) out[q - 1] = 'same';
+  }
+  return out;
+}
+
 /**
  * The picker's songs with how each comes in: `reads` when every page reads as a
  * chart, and `chart` when it will come in as one, which it won't if any of its

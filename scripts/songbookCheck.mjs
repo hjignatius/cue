@@ -7,7 +7,7 @@
 //
 // Run: node scripts/songbookCheck.mjs
 import { splitSongbook, roundBracketChords, titleWorthy, headerFields } from '../src/utils/songbook.js';
-import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart, songsMatching, pagesMatching, chartScore, pageDoubts } from '../src/utils/bookReport.js';
+import { tidySong, bookReport, sheetInfo, sheetChart, sheetsReport, reportLines, pageTitle, pickerStart, songsFromMarks, isBook, pageChances, pickedCharts, sheetPickerStart, stepWords, overPages, chartSongs, switchChart, songsMatching, pagesMatching, songAround, songsFound, onlyThese, tapMark, chartScore, pageDoubts } from '../src/utils/bookReport.js';
 import { openBook } from '../src/utils/pdfCut.js';
 import { linesFromItems } from '../src/utils/pdfText.js';
 import { PDFDocument } from 'pdf-lib';
@@ -481,6 +481,28 @@ check('…finds the artist', pagesMatching(pagesToFind, pagesToFind.titles, 'rod
 check('…and a title fixed by hand', pagesMatching(pagesToFind, { ...pagesToFind.titles, 2: { title: 'My Sunshine Song' } }, 'song'), [2]);
 check('…and a page keeps its place while its title is being changed', pagesMatching(pagesToFind, { ...pagesToFind.titles, 3: { title: 'Moo' } }, 'river'), [3]);
 check('…and a word no page has finds none', pagesMatching(pagesToFind, pagesToFind.titles, 'zebra'), []);
+// Songs over more than one page. Cue's marks: a cover, a two-page song, a
+// one-page song, a three-page song.
+const twoPage = { marks: ['skip', 'start', 'same', 'start', 'start', 'same', 'same'],
+  titles: { 2: { title: 'Proud Mary' }, 4: { title: 'Hungry Wolf' }, 5: { title: 'Last Christmas' } },
+  texts: ['Songbook', 'Proud Mary rollin', 'big wheel keep on turnin', 'hungry like the wolf', 'last christmas', 'I gave you my heart', 'the very next day'] };
+check('a song is all its pages, from any of them', [songAround(twoPage.marks, twoPage.marks, 3), songAround(twoPage.marks, twoPage.marks, 5), songAround(twoPage.marks, twoPage.marks, 7)], [[2, 3], [5, 6, 7], [5, 6, 7]]);
+check('…still, after every page is left out', songAround(twoPage.marks, twoPage.marks.map(() => 'skip'), 2), [2, 3]);
+check('…and with a page you made Same song', songAround(twoPage.marks, ['skip', 'start', 'same', 'start', 'same', 'same', 'same'], 4), [4, 5, 6, 7]);
+check('a search shows each song it finds with all its pages', songsFound(twoPage, twoPage.titles, 'proud'), { songs: [[2, 3]], pages: [2, 3] });
+check('…a song found by its second page too, whole and once', songsFound(twoPage, twoPage.titles, 'heart'), { songs: [[5, 6, 7]], pages: [5, 6, 7] });
+check('…found on two of its pages, listed once', songsFound(twoPage, twoPage.titles, 'day'), { songs: [[5, 6, 7]], pages: [5, 6, 7] });
+check('…two songs, in the order found', songsFound(twoPage, twoPage.titles, 'wolf').songs, [[4]]);
+check('…a page Cue left out is shown but isn\u2019t a song', songsFound(twoPage, twoPage.titles, 'songbook'), { songs: [], pages: [1] });
+check('…unless you put it back', songsFound(twoPage, twoPage.titles, 'songbook', ['start', 'start', 'same', 'start', 'start', 'same', 'same']).songs, [[1]]);
+check('…nothing typed is no search', songsFound(twoPage, twoPage.titles, ''), null);
+check('Just these: those songs whole, every other page left out',
+  onlyThese(twoPage.marks, [[2, 3], [5, 6, 7]]), ['skip', 'start', 'same', 'skip', 'start', 'same', 'same']);
+const allOut = twoPage.marks.map(() => 'skip');
+check('after Leave out all, a tap on a first page brings its song back whole', tapMark(allOut, twoPage.marks, 5), ['skip', 'skip', 'skip', 'skip', 'start', 'same', 'same']);
+check('…but not the next song', tapMark(allOut, twoPage.marks, 4), ['skip', 'skip', 'skip', 'start', 'skip', 'skip', 'skip']);
+check('…and a page you kept stays as you had it', tapMark(['skip', 'skip', 'skip', 'skip', 'skip', 'start', 'skip'], twoPage.marks, 5), ['skip', 'skip', 'skip', 'skip', 'start', 'start', 'skip']);
+check('a tap still goes New song, Same song, Leave out', [tapMark(twoPage.marks, twoPage.marks, 4)[3], tapMark(['same'], ['same'], 1)[0]], ['same', 'skip']);
 check('the picker starts with each page\u2019s words, chords left out',
   pickerStart(bookReport([overPage('One'), overPage('Two')]), [page([T('One'), ['[C]Some [G]lyric words']])]).texts, ['One Some lyric words']);
 

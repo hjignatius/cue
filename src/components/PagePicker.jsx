@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftRight, Ban, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
+import { ArrowLeftRight, Ban, CheckCheck, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
-import { chartSongs, pagesMatching, songsFromMarks, stepWords, switchChart } from '../utils/bookReport.js';
+import { chartSongs, onlyThese, songsFound, songsFromMarks, stepWords, switchChart, tapMark } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 import CornerClose from './CornerClose.jsx';
@@ -20,9 +20,11 @@ import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 // (bookReport.js, pickerStart), so for most books this is fixing, not starting
 // from nothing. A title is read off each song's first page where there is one
 // to read, and can be fixed in place. For the one song wanted out of a big book,
-// Leave out all clears the lot, and a tap on a page left out makes it New song.
-// Find a song narrows the pages shown, by title first and then by the words on
-// the page. It only narrows them: marks stay, and Make takes every song.
+// Leave out all clears the lot, and a tap on a page left out makes it New song,
+// bringing back the rest of that song's pages with it. Find a song narrows the
+// pages shown to the songs it finds, by title first and then by the words on
+// the page, each song with all its pages. It only narrows them: marks stay, and
+// Make takes every song, unless "Just these" leaves out every page but theirs.
 //
 // Each page also says how it comes in: a green "Chart", or a grey "PDF" (a page
 // left out says whether Cue could read it, from pageChances). A song whose every
@@ -38,7 +40,6 @@ import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 //
 // No dimmed backdrop, as with every dialog in Cue.
 
-const NEXT = { start: 'same', same: 'skip', skip: 'start' };
 const WORDS = { start: 'New song', same: 'Same song', skip: 'Leave out' };
 const SET_DEFAULT_MAX = 100;
 
@@ -60,8 +61,14 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const [asPdf, setAsPdf] = useState(firstPdf);          // pages of the songs switched to a PDF
   const [setName, setSetName] = useState(() => (fileName || '').replace(/\.pdf$/i, ''));
   const [search, setSearch] = useState('');
+  // The marks as they were when the search was typed. A song found is shown
+  // with all its pages, and which pages those are is read from these, so tapping
+  // one of them while searching can't make it drop out of the list.
+  const [searchMarks, setSearchMarks] = useState(start.marks);
   const gridRef = useRef(null);
-  const found = useMemo(() => pagesMatching(start, titles, search), [start, titles, search]);
+  const results = useMemo(() => songsFound(start, titles, search, searchMarks), [start, titles, search, searchMarks]);
+  const found = results?.pages ?? null;
+  const onSearch = (value) => { setSearch(value); setSearchMarks(marks); };
   useEffect(() => { if (gridRef.current) gridRef.current.scrollTop = 0; }, [search]);
 
   useEffect(() => {
@@ -104,27 +111,16 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
     if (first >= 0) out[first] = 'start';
     return out;
   }, [marks]);
-  // The pages the large view's arrows step through. With a search, the songs it
-  // found — each with the pages after it that are the same song, so a song over
-  // two pages can still be read whole — and not their neighbours in the book.
-  const steps = useMemo(() => {
-    if (!found) return marks.map((_, i) => i + 1);
-    const out = [];
-    for (const p of found) {
-      if (out.includes(p)) continue;
-      out.push(p);
-      for (let q = p + 1; q <= marks.length && shown[q - 1] === 'same' && !out.includes(q); q++) out.push(q);
-    }
-    return out;
-  }, [found, marks, shown]);
+  // The pages the large view's arrows step through: every page, or, with a
+  // search, the songs it found, each with all its pages, and not their
+  // neighbours in the book.
+  const steps = useMemo(() => found ?? marks.map((_, i) => i + 1), [found, marks]);
   const left = marks.filter(m => m === 'skip').length;
   const makeSet = makeSetChoice ?? (!book.on && songs.length <= SET_DEFAULT_MAX);
 
-  const tap = useCallback((p) => setMarks(prev => {
-    const next = [...prev];
-    next[p - 1] = NEXT[next[p - 1]];
-    return next;
-  }), []);
+  // A tap on a page left out that makes it New song brings the rest of its
+  // song back with it (tapMark).
+  const tap = useCallback((p) => setMarks(prev => tapMark(prev, start.marks, p)), [start.marks]);
   const mark = useCallback((p, m) => setMarks(prev => {
     const next = [...prev];
     next[p - 1] = m;
@@ -153,6 +149,9 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   // the same button puts Cue's marks back, and with nothing to lose it doesn't ask.
   const allOut = left === marks.length;
   const leaveAllOut = () => { setMarks(prev => prev.map(() => 'skip')); setAsking(null); };
+  // With a search: just the songs it found, whole, and every other page left out.
+  const foundCount = results?.songs.length ?? 0;
+  const keepFound = () => { setMarks(prev => onlyThese(prev, results.songs)); setAsking(null); };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -167,7 +166,17 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
           </p>
         </div>
 
-        {marks.length >= SEARCH_FROM && <FindSong value={search} onChange={setSearch} dark={dark} className="shrink-0" />}
+        {marks.length >= SEARCH_FROM && (
+          <div className="flex items-center gap-2 shrink-0">
+            <FindSong value={search} onChange={onSearch} dark={dark} className="flex-1 min-w-0" />
+            {foundCount > 0 && (
+              <button onClick={() => leave(keepFound)} className={`${secondary} !h-9 !px-3 shrink-0`}
+                title="Make just these songs, each with all its pages, and leave out every other page">
+                <CheckCheck size={16} /> Just {foundCount === 1 ? 'this song' : `these ${foundCount}`}
+              </button>
+            )}
+          </div>
+        )}
 
         <div ref={gridRef} className={`flex-1 min-h-0 overflow-y-auto border-y py-3 pr-3 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
           {failed ? (
