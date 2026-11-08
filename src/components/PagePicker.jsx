@@ -104,6 +104,19 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
     if (first >= 0) out[first] = 'start';
     return out;
   }, [marks]);
+  // The pages the large view's arrows step through. With a search, the songs it
+  // found — each with the pages after it that are the same song, so a song over
+  // two pages can still be read whole — and not their neighbours in the book.
+  const steps = useMemo(() => {
+    if (!found) return marks.map((_, i) => i + 1);
+    const out = [];
+    for (const p of found) {
+      if (out.includes(p)) continue;
+      out.push(p);
+      for (let q = p + 1; q <= marks.length && shown[q - 1] === 'same' && !out.includes(q); q++) out.push(q);
+    }
+    return out;
+  }, [found, marks, shown]);
   const left = marks.filter(m => m === 'skip').length;
   const makeSet = makeSetChoice ?? (!book.on && songs.length <= SET_DEFAULT_MAX);
 
@@ -207,7 +220,7 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
         </div>
 
         {big && (
-          <BigPage doc={doc} p={big} count={marks.length} mark={shown[big - 1]} chart={comesAs(big)} check={looksOff(big)} canSwitch={switches(big)} onSwitch={switchSong}
+          <BigPage doc={doc} p={big} count={marks.length} steps={steps} searching={!!found} mark={shown[big - 1]} chart={comesAs(big)} check={looksOff(big)} canSwitch={switches(big)} onSwitch={switchSong}
             title={titles[big]?.title ?? ''} onMark={mark} onRetitle={retitle} onGo={setBig} onClose={() => setBig(null)}
             dark={dark} panel={panel} head={head} muted={muted} field={field} />
         )}
@@ -324,11 +337,12 @@ function Thumb({ doc, p, root }) {
 }
 
 // One page large enough to read, with the same three choices as buttons and
-// arrows to the pages either side. Choosing moves on to the next page, so a
+// arrows to the pages either side — or, while searching, to the songs found.
+// Choosing moves on to the next page, so a
 // book can be gone through without reaching for the arrow: the choice already
 // lit counts too, agreeing with Cue's guess being a decision like any other.
 // After the last page, back to all the pages, where Make is.
-function BigPage({ doc, p, count, mark, chart, check, canSwitch, onSwitch, title, onMark, onRetitle, onGo, onClose, dark, panel, head, muted, field }) {
+function BigPage({ doc, p, count, steps, searching, mark, chart, check, canSwitch, onSwitch, title, onMark, onRetitle, onGo, onClose, dark, panel, head, muted, field }) {
   const boxRef = useRef(null);
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -356,20 +370,26 @@ function BigPage({ doc, p, count, mark, chart, check, canSwitch, onSwitch, title
     return () => { cancelled = true; task?.cancel(); };
   }, [doc, p]);
 
+  // Where the arrows go: the page before and after this one among `steps` —
+  // every page, or only what a search found.
+  const at = steps.indexOf(p);
+  const before = at > 0 ? steps[at - 1] : null;
+  const after = at >= 0 && at < steps.length - 1 ? steps[at + 1] : null;
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.target instanceof HTMLInputElement) return;
-      if (e.key === 'ArrowLeft' && p > 1) onGo(p - 1);
-      else if (e.key === 'ArrowRight' && p < count) onGo(p + 1);
+      if (e.key === 'ArrowLeft' && before) onGo(before);
+      else if (e.key === 'ArrowRight' && after) onGo(after);
       else if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [p, count, onGo, onClose]);
+  }, [before, after, onGo, onClose]);
 
   const decide = (m) => {
     onMark(p, m);
-    if (p < count) onGo(p + 1);
+    if (after) onGo(after);
     else onClose();
   };
 
@@ -385,7 +405,7 @@ function BigPage({ doc, p, count, mark, chart, check, canSwitch, onSwitch, title
     <div className={`absolute inset-0 rounded-2xl p-5 flex flex-col gap-3 ${panel}`}>
       <CornerClose dark={dark} label="Back to all the pages" onClick={onClose} />
       <div className="flex items-center gap-2 pr-8">
-        <h3 className={`text-base font-semibold whitespace-nowrap shrink-0 ${head}`}>Page {p} <span className={`font-normal ${muted}`}>of {count}</span></h3>
+        <h3 className={`text-base font-semibold whitespace-nowrap shrink-0 ${head}`}>Page {p} <span className={`font-normal ${muted}`}>of {count}{searching && at >= 0 ? ` · ${at + 1} of ${steps.length} in your search` : ''}</span></h3>
         {canSwitch ? (
           <button onClick={() => onSwitch(p)} className={`min-h-11 min-w-0 flex items-center gap-1.5 text-left text-xs ${muted}`}>
             <Chance chart={chart} check={check} arrows className="shrink-0" /> {check ? 'Worth a look: some chords may be out of place. Tap for a PDF.' : chart ? 'This song comes in as a chart. Tap for a PDF.' : 'This song comes in as a PDF. Tap for a chart.'}
@@ -396,13 +416,13 @@ function BigPage({ doc, p, count, mark, chart, check, canSwitch, onSwitch, title
       </div>
       <div className="flex-1 min-h-0 flex items-center gap-2">
         <div className="flex self-stretch -ml-3">
-          <RoundButton {...arrow} label="Page before" disabled={p <= 1} onActivate={() => onGo(p - 1)}><ChevronLeft size={26} strokeWidth={2.5} /></RoundButton>
+          <RoundButton {...arrow} label={searching ? 'Found page before' : 'Page before'} disabled={!before} onActivate={() => onGo(before)}><ChevronLeft size={26} strokeWidth={2.5} /></RoundButton>
         </div>
         <div ref={boxRef} className="flex-1 h-full min-w-0 flex items-center justify-center">
           <canvas ref={canvasRef} className="bg-white shadow" />
         </div>
         <div className="flex self-stretch -mr-3">
-          <RoundButton {...arrow} label="Page after" disabled={p >= count} onActivate={() => onGo(p + 1)}><ChevronRight size={26} strokeWidth={2.5} /></RoundButton>
+          <RoundButton {...arrow} label={searching ? 'Found page after' : 'Page after'} disabled={!after} onActivate={() => onGo(after)}><ChevronRight size={26} strokeWidth={2.5} /></RoundButton>
         </div>
       </div>
       <div className="flex gap-2">
