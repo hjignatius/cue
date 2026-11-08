@@ -25,7 +25,8 @@ Settings and your sign-in aren't in any backup.
   song. It comes in with all its pages, and every other page is left out. The
   search is for the exact words you type, in order. It shows each song it finds
   whole, and read large, the arrows go through those songs. Leave a song out
-  and its other pages go with it.
+  and its other pages go with it. A search started on the first screen carries
+  into the picker, so you go straight to the song.
 - **Chart or PDF, your choice.** Songs Cue can read become charts you can edit
   and transpose. The rest stay as PDFs, exactly as printed. Tap the mark on a
   song to switch it, or tick one box to make every song its own PDF.

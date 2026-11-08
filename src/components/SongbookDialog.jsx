@@ -45,7 +45,7 @@ import FindSong, { SEARCH_FROM } from './FindSong.jsx';
 // No dimmed backdrop, as with every dialog in Cue.
 const SET_DEFAULT_MAX = 100;
 
-export default function SongbookDialog({ dark, batch, fileName, records = [], step = null, reading, report, songs, outcome, onImport, onKeepAsPage, onPick, onStop, onCancel, onShow, onDone }) {
+export default function SongbookDialog({ dark, batch, fileName, records = [], step = null, reading, report, songs, outcome, search: firstSearch = '', onImport, onKeepAsPage, onPick, onStop, onCancel, onShow, onDone }) {
   // A batch of separate PDFs picked together, named by its count ("3 PDFs").
   const sheets = batch || report?.kind === 'sheets';
   const [picked, setPicked] = useState(null);           // Set of indices, once songs arrive
@@ -65,7 +65,8 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
   const listRef = useRef(null);
   // For finding one song in a long list. It only narrows what's shown: ticks are
   // kept, and the box above the list is still for every song.
-  const [search, setSearch] = useState('');
+  // What you searched for here goes on to the page picker, and comes back.
+  const [search, setSearch] = useState(firstSearch);
   const listed = useMemo(() => songsMatching(songs || [], search, titles), [songs, search, titles]);
   useEffect(() => { if (listRef.current) listRef.current.scrollTop = 0; }, [search]);
 
@@ -218,14 +219,14 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
                   <Music size={18} /> Import {n} song{n === 1 ? '' : 's'}
                 </button>
               )}
-              {cant && onPick && <button onClick={onPick} className={primary}><ListChecks size={18} /> Pick the songs myself</button>}
+              {cant && onPick && <button onClick={() => onPick(search)} className={primary}><ListChecks size={18} /> Pick the songs myself</button>}
               {onKeepAsPage && (
                 <button onClick={onKeepAsPage} className={cant && !onPick ? primary : secondary}>
                   <FileText size={18} /> {cant ? 'Keep it as one PDF' : 'Keep it as one PDF instead'}
                 </button>
               )}
               {!cant && onPick && (
-                <button onClick={onPick} className={secondary}><ListChecks size={18} /> Or pick the pages myself</button>
+                <button onClick={() => onPick(search)} className={secondary}><ListChecks size={18} /> Or pick the pages myself</button>
               )}
               {canLeave && more > 0 && <button onClick={onCancel} className={secondary}><SkipForward size={18} /> {sheets ? 'Skip these PDFs' : 'Skip this PDF'}</button>}
             </div>

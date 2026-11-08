@@ -43,7 +43,7 @@ import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 const WORDS = { start: 'New song', same: 'Same song', skip: 'Leave out' };
 const SET_DEFAULT_MAX = 100;
 
-export default function PagePicker({ dark, fileName, file, start, records = [], step = null, onStop, onAccept, onBack, onCancel }) {
+export default function PagePicker({ dark, fileName, file, start, records = [], step = null, search: firstSearch = '', onStop, onAccept, onBack, onCancel }) {
   const [doc, setDoc] = useState(null);
   const [failed, setFailed] = useState(false);
   const [marks, setMarks] = useState(start.marks);
@@ -60,7 +60,8 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const [firstPdf] = useState(() => new Set(start.asPdf || []));
   const [asPdf, setAsPdf] = useState(firstPdf);          // pages of the songs switched to a PDF
   const [setName, setSetName] = useState(() => (fileName || '').replace(/\.pdf$/i, ''));
-  const [search, setSearch] = useState('');
+  // A search begun in the book report carries on here (and back again).
+  const [search, setSearch] = useState(firstSearch);
   // The marks as they were when the search was typed. A song found is shown
   // with all its pages, and which pages those are is read from these, so tapping
   // one of them while searching can't make it drop out of the list.
@@ -224,7 +225,7 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {more > 0 && <button onClick={() => leave(onCancel)} className={`${secondary} sm:mr-auto`}><SkipForward size={18} /> Skip this PDF</button>}
-          {onBack && <button onClick={onBack} className={secondary}>Back</button>}
+          {onBack && <button onClick={() => onBack(search)} className={secondary}>Back</button>}
           <button disabled={!n || failed || (book.on && !bookChoice(book))}
             onClick={() => onAccept(songs.map(s => ({ ...s, chart: asCharts && s.chart, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null, bookChoice(book))}
             className={`${primary} flex-1 sm:flex-none sm:min-w-44`}>
