@@ -17,7 +17,7 @@ Settings and your sign-in aren't in any backup.
   bookmarks or the titles on its pages. Before anything is added, a report says
   what it found, how the songs will come in, and whether the split looks right.
   You can tick or untick each song, fix any title, and search the list to find
-  one song.
+  one song. Just these ticks only the songs found, so Import brings in only them.
 - **Pick the songs yourself.** When a book can't be split, or the split needs
   fixing, go through it page by page. Mark each page New song, Same song or Leave
   out, and Cue moves on to the next page. You can also read each page large. For

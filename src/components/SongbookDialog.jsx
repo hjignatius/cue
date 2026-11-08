@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Eye, FileText, ListChecks, Music, SkipForward } from 'lucide-react';
+import { CheckCheck, ChevronDown, ChevronRight, Eye, FileText, ListChecks, Music, SkipForward } from 'lucide-react';
 import LongList from './LongList.jsx';
 import { VERDICT_WORDS, reportLines, songsMatching, stepWords } from '../utils/bookReport.js';
 import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
@@ -86,6 +86,15 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
   // One box for the lot, like the Library's select-all: everything ticked
   // unticks all; anything less ticks all.
   const tickAll = () => setPicked(allOn ? new Set() : new Set(tickable));
+  // "Just these": the songs the search found become the only ones ticked, so
+  // Import brings in those and nothing else. One you've already unticked stays
+  // out — unless that's all of them, when the button ticks them all.
+  const keep = useMemo(() => {
+    if (!search.trim()) return null;
+    const can = listed.filter(i => !songs[i].pictureOnly);
+    const on = can.filter(i => chosen.has(i));
+    return on.length ? on : can;
+  }, [search, listed, songs, chosen]);
 
   const panel = dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200';
   const head  = dark ? 'text-white' : 'text-gray-900';
@@ -168,6 +177,16 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
                   {/* In this row, not its own: the window has no height to spare. */}
                   {songs.length >= SEARCH_FROM && <FindSong value={search} onChange={setSearch} dark={dark} className="flex-1 min-w-0 sm:max-w-44" />}
                 </div>
+                {keep?.length > 0 && !(keep.length === n && keep.every(i => chosen.has(i))) && (
+                  <div className={`flex items-center gap-2 text-xs ${muted}`}>
+                    <span className="min-w-0">{listed.length} found</span>
+                    <button onClick={() => setPicked(new Set(keep))}
+                      title="Tick just these songs, and untick every other"
+                      className={`ml-auto shrink-0 h-9 px-3 inline-flex items-center gap-1.5 text-sm font-medium rounded-full border transition-colors ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
+                      <CheckCheck size={16} /> Just {keep.length === 1 ? 'this song' : `these ${keep.length}`}
+                    </button>
+                  </div>
+                )}
                 {/* Room on the right, so the scroll bar never sits on a row's arrow. */}
                 <div ref={listRef} className={`flex-1 min-h-40 overflow-y-auto pr-3 border-y ${rule}`}>
                   {!listed.length && <p className={`py-4 text-sm ${muted}`}>No song matches “{search.trim()}”.</p>}
