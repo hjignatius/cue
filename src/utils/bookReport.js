@@ -838,22 +838,28 @@ export function songsMatching(songs = [], query = '', titles = {}) {
 const foldSearch = (t) => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[‘’ʼ′]/g, "'");
 const searchWords = (query) => foldSearch(query).split(/\s+/).filter(Boolean);
 const hasWords = (text, words) => { const t = foldSearch(text); return words.every(w => t.includes(w)); };
+// The page picker's search is for an exact phrase: these words, whole and in
+// this order, as a title or on the page. Words apart, or inside other words,
+// don't count — "Hey Jude" isn't a song with "hey" in one line and "Jude" in
+// another. Case, accents, punctuation and apostrophes don't matter.
+const phraseOf = (t) => foldSearch(t).replace(/'/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const hasPhrase = (text, phrase) => ` ${phraseOf(text)} `.includes(` ${phrase} `);
 
 /**
  * Which pages the picker's search keeps: their numbers, those with it in their
  * title or artist first, then those with it anywhere on the page. That finds a
- * song whose title Cue didn't pick out, and one by its words. null with nothing
- * typed. A page keeps the title it started with as well as any fixed by hand
+ * song whose title Cue didn't pick out, and one by its words. It's an exact
+ * phrase (hasPhrase): whole words, in order. null with nothing typed. A page keeps the title it started with as well as any fixed by hand
  * (`titles`), so it can't vanish from the list while its title is being typed.
  */
 export function pagesMatching(start = {}, titles = {}, query = '') {
-  const words = searchWords(query);
-  if (!words.length) return null;
+  const phrase = phraseOf(query);
+  if (!phrase) return null;
   const heads = [], others = [];
   for (let p = 1; p <= (start.marks || []).length; p++) {
-    const head = [start.titles?.[p], titles[p]].flatMap(t => [t?.title, t?.artist]).join(' ');
-    if (hasWords(head, words)) heads.push(p);
-    else if (hasWords(`${head} ${start.texts?.[p - 1] || ''}`, words)) others.push(p);
+    const own = [start.titles?.[p], titles[p]];
+    if (own.some(t => hasPhrase(t?.title, phrase) || hasPhrase(t?.artist, phrase))) heads.push(p);
+    else if (hasPhrase(start.texts?.[p - 1], phrase)) others.push(p);
   }
   return [...heads, ...others];
 }
@@ -901,20 +907,44 @@ export function onlyThese(marks = [], songs = []) {
 }
 
 /**
- * A tap on page `p` moves it on (New song, Same song, Leave out). A page left
- * out that becomes New song brings back the pages Cue had as the rest of its
- * song, if they're left out too: after Leave out all, one tap brings a song
- * back whole.
+ * Mark page `p` as `m` ('start', 'same' or 'skip'), with the rest of its song:
+ *  - a page left out that becomes New song brings back the pages Cue had as
+ *    the rest of its song, if they're left out too: after Leave out all, one
+ *    tap brings a song back whole;
+ *  - a song's first page left out takes its Same song pages with it. Left
+ *    behind, they'd join whichever song came before, or with none before them
+ *    be a song on their own. A first page is one Cue had as New song, or one
+ *    with nothing kept before it. A page left out from the middle of a song (an
+ *    advert, say) leaves the rest as they are.
+ * `cue` is Cue's own marks.
  */
-export function tapMark(marks = [], cue = [], p = 1) {
-  const NEXT = { start: 'same', same: 'skip', skip: 'start' };
+export function setMark(marks = [], cue = [], p = 1, m = 'start') {
   const out = [...marks];
   const was = out[p - 1];
-  out[p - 1] = NEXT[was];
-  if (was === 'skip') {
+  out[p - 1] = m;
+  if (m === 'start' && was === 'skip') {
     for (let q = p + 1; q <= out.length && cue[q - 1] === 'same' && out[q - 1] === 'skip'; q++) out[q - 1] = 'same';
   }
+  const firstPage = cue[p - 1] === 'start' || p === 1 || out[p - 2] === 'skip';
+  if (m === 'skip' && firstPage) {
+    for (let q = p + 1; q <= out.length && out[q - 1] === 'same'; q++) out[q - 1] = 'skip';
+  }
   return out;
+}
+
+/** A tap on page `p` moves it on: New song, Same song, Leave out (setMark). */
+export function tapMark(marks = [], cue = [], p = 1) {
+  const NEXT = { start: 'same', same: 'skip', skip: 'start' };
+  return setMark(marks, cue, p, NEXT[marks[p - 1]]);
+}
+
+/**
+ * The songs Just these keeps: those found that you haven't left out since. If
+ * you've left them all out — after Leave out all, say — all of them.
+ */
+export function songsToKeep(songs = [], marks = []) {
+  const kept = songs.filter(pages => pages.some(p => marks[p - 1] !== 'skip'));
+  return kept.length ? kept : songs;
 }
 
 /**

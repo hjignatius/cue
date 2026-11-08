@@ -22,9 +22,10 @@ Settings and your sign-in aren't in any backup.
   fixing, go through it page by page. Mark each page New song, Same song or Leave
   out, and Cue moves on to the next page. You can also read each page large. For
   one song from a big book, search for it by title or lyrics and tap Just this
-  song. It comes in with all its pages, and every other page is left out. A
-  search shows each song it finds whole, and read large, the arrows go through
-  those songs.
+  song. It comes in with all its pages, and every other page is left out. The
+  search is for the exact words you type, in order. It shows each song it finds
+  whole, and read large, the arrows go through those songs. Leave a song out
+  and its other pages go with it.
 - **Chart or PDF, your choice.** Songs Cue can read become charts you can edit
   and transpose. The rest stay as PDFs, exactly as printed. Tap the mark on a
   song to switch it, or tick one box to make every song its own PDF.

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftRight, Ban, CheckCheck, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
-import { chartSongs, onlyThese, songsFound, songsFromMarks, stepWords, switchChart, tapMark } from '../utils/bookReport.js';
+import { chartSongs, onlyThese, setMark, songsFound, songsFromMarks, songsToKeep, stepWords, switchChart, tapMark } from '../utils/bookReport.js';
 import BookChoice, { startBook, startOne, bookChoice } from './BookChoice.jsx';
 import { bookName } from '../utils/books.js';
 import CornerClose from './CornerClose.jsx';
@@ -118,14 +118,9 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const left = marks.filter(m => m === 'skip').length;
   const makeSet = makeSetChoice ?? (!book.on && songs.length <= SET_DEFAULT_MAX);
 
-  // A tap on a page left out that makes it New song brings the rest of its
-  // song back with it (tapMark).
+  // A tap or a choice moves the rest of a song with its first page (setMark).
   const tap = useCallback((p) => setMarks(prev => tapMark(prev, start.marks, p)), [start.marks]);
-  const mark = useCallback((p, m) => setMarks(prev => {
-    const next = [...prev];
-    next[p - 1] = m;
-    return next;
-  }), []);
+  const mark = useCallback((p, m) => setMarks(prev => setMark(prev, start.marks, p, m)), [start.marks]);
   // Through a ref, so that a tap re-renders the pages it changes, not every page.
   const songsNow = useRef(songs);
   useEffect(() => { songsNow.current = songs; }, [songs]);
@@ -150,8 +145,17 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const allOut = left === marks.length;
   const leaveAllOut = () => { setMarks(prev => prev.map(() => 'skip')); setAsking(null); };
   // With a search: just the songs it found, whole, and every other page left out.
-  const foundCount = results?.songs.length ?? 0;
-  const keepFound = () => { setMarks(prev => onlyThese(prev, results.songs)); setAsking(null); };
+  // Songs found that you've left out since aren't kept, or counted.
+  const toKeep = results ? songsToKeep(results.songs, marks) : [];
+  const foundCount = toKeep.length;
+  const keepFound = () => { setMarks(prev => onlyThese(prev, toKeep)); setAsking(null); };
+  // It only asks first when it would undo marks you changed on pages outside
+  // the search: the ones inside it, it keeps as you left them.
+  const changedElsewhere = useMemo(() => {
+    if (!found) return false;
+    const inside = new Set(found);
+    return marks.some((m, i) => m !== start.marks[i] && !inside.has(i + 1));
+  }, [found, marks, start.marks]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -170,7 +174,7 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
           <div className="flex items-center gap-2 shrink-0">
             <FindSong value={search} onChange={onSearch} dark={dark} className="flex-1 min-w-0" />
             {foundCount > 0 && (
-              <button onClick={() => leave(keepFound)} className={`${secondary} !h-9 !px-3 shrink-0`}
+              <button onClick={() => (changedElsewhere ? leave(keepFound) : keepFound())} className={`${secondary} !h-9 !px-3 shrink-0`}
                 title="Make just these songs, each with all its pages, and leave out every other page">
                 <CheckCheck size={16} /> Just {foundCount === 1 ? 'this song' : `these ${foundCount}`}
               </button>
