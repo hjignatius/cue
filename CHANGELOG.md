@@ -91,6 +91,14 @@ Settings and your sign-in aren't in any backup.
   and Clear ink stays.
 - **Rotate PDF songs.** Turn a whole song or single pages a quarter turn at a
   time, for sheets that are sideways, upside down or a mix of both.
+- **Links in PDFs work.** Tap a YouTube link, lesson or website in a PDF song
+  to open it in Safari. A contents page that jumps to a song now jumps there,
+  in the preview and in Present. A faint tint shows each link. A tap on a
+  Full Page song still turns the page anywhere off a link, and while you draw,
+  the pen gets the page.
+- **Smaller songs from books with links.** A song cut from a book used to bring
+  along the pages its links pointed to. One song from Jim's songbook took
+  1.8 MB, and now takes 280 KB. It keeps its web links.
 - **Steadier Tap button.** It no longer changes size while you tap a tempo, so
   you won't hit Play by mistake.
 

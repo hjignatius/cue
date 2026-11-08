@@ -1402,6 +1402,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           onReady={pdfReady}
           onTapPrev={() => pdfTapTurn(-1)}
           onTapNext={() => pdfTapTurn(1)}
+          onGoPage={setPdfPage}
           dark={dark}
         />
       )}

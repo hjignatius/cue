@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileWarning } from 'lucide-react';
 import { loadPdfjs, pageRotation } from '../utils/pdfjs.js';
+import { pageLinks } from '../utils/pdfLinks.js';
+import PdfLinkLayer from './PdfLinkLayer.jsx';
 import { pageTurn } from '../utils/pageTurns.js';
 import { loadPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
@@ -14,7 +16,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 // never throws into Present mode. Tap zones (left = previous, right = next) call
 // the parent so page-turn stays unified with the pedal/keyboard handler. A song
 // that can't open counts as one page, so the parent isn't left waiting on it.
-export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady, onTapPrev, onTapNext, dark }) {
+export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady, onTapPrev, onTapNext, onGoPage, dark }) {
   const { user } = useAuth();
   const wrapRef   = useRef(null);
   const canvasRef = useRef(null);
@@ -24,6 +26,7 @@ export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady
   const [renderTick, setRenderTick] = useState(0);  // bump to re-render on resize
   const [reloadKey, setReloadKey] = useState(0);    // bump to re-run the load
   const [retrying, setRetrying]   = useState(false);
+  const [links, setLinks]         = useState([]);   // the page's links (pdfLinks.js)
 
   // Retry a missing download: pull the bytes from cloud (owner-only), then reload.
   // A musician who pulled a set before losing wifi can recover it here rather than
@@ -107,9 +110,12 @@ export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady
         canvas.style.width  = Math.floor(viewport.width / dpr) + 'px';
         canvas.style.height = Math.floor(viewport.height / dpr) + 'px';
         try { taskRef.current?.cancel(); } catch { /* ignore */ }
+        setLinks([]);
         const task = pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport });
         taskRef.current = task;
         await task.promise;
+        const found = await pageLinks(doc, pdfPage, viewport);
+        if (!cancelled) setLinks(found);
       } catch (err) {
         // The song changed mid-render, so its document has already been closed.
         if (err?.name !== 'RenderingCancelledException' && docRef.current === doc) {
@@ -154,7 +160,10 @@ export default function PdfSongView({ songId, page, turn = 0, pageTurns, onReady
     <div ref={wrapRef} className="absolute inset-0 overflow-hidden flex items-start justify-center">
       {/* The page canvas, fit whole to the screen. data-page lets a page-anchored
           ink overlay locate it and map strokes to this exact page. */}
-      <canvas ref={canvasRef} data-page={Math.max(1, Math.min(page || 1, 9999))} className="block" />
+      <div className="relative">
+        <canvas ref={canvasRef} data-page={Math.max(1, Math.min(page || 1, 9999))} className="block" />
+        <PdfLinkLayer links={links} onGoPage={onGoPage} />
+      </div>
       {status === 'loading' && (
         <div className={`absolute inset-0 flex items-center justify-center text-sm ${muted}`}>Loading…</div>
       )}

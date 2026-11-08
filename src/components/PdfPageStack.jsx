@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileWarning, RotateCw } from 'lucide-react';
 import { loadPdfjs, pageRotation } from '../utils/pdfjs.js';
+import { pageLinks } from '../utils/pdfLinks.js';
+import PdfLinkLayer from './PdfLinkLayer.jsx';
 import { pageTurn } from '../utils/pageTurns.js';
 import { loadPdfBlob } from '../utils/storage.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
@@ -32,6 +34,8 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, pag
   const [reloadKey, setReloadKey] = useState(0);
   const [renderTick, setRenderTick] = useState(0);
   const [retrying, setRetrying] = useState(false);
+  // Each page's links, by page number (pdfLinks.js), placed as the page is drawn.
+  const [links, setLinks] = useState({});
 
   async function retryDownload() {
     if (!user?.id || retrying) return;
@@ -53,6 +57,7 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, pag
     docRef.current = null;
     drawnRef.current = new Map();
     setNumPages(0);
+    setLinks({});
     (async () => {
       try {
         const blob = blobOverride || await loadPdfBlob(songId);
@@ -121,6 +126,8 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, pag
           tasks.push(task);
           await task.promise;
           drawnRef.current.set(n, drawing);
+          const found = await pageLinks(doc, page, viewport);
+          if (!cancelled) setLinks(prev => (found.length || prev[n] ? { ...prev, [n]: found } : prev));
         } catch (err) {
           if (err?.name !== 'RenderingCancelledException') console.error('[PdfPageStack] render page', n, err);
         }
@@ -128,6 +135,9 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, pag
     })();
     return () => { cancelled = true; tasks.forEach(t => { try { t.cancel(); } catch { /* ignore */ } }); };
   }, [status, numPages, renderTick, turn, pageTurns]);
+
+  // A link to another page of this PDF: bring that page up to the top.
+  const goPage = (n) => wrapRef.current?.querySelector(`canvas[data-page="${n}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
 
@@ -164,13 +174,12 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, pag
       {status === 'loading' && <p className={`text-sm py-8 ${muted}`}>Loading…</p>}
       {Array.from({ length: numPages }, (_, i) => {
         const n = i + 1;
-        const page = <canvas key={n} data-page={n} className="block max-w-full shadow-sm" />;
-        if (!onTurnPage || numPages < 2) return page;
         const turned = pageTurn(pageTurns, n);
         return (
           <div key={n} className="relative max-w-full">
-            {page}
-            <button
+            <canvas data-page={n} className="block max-w-full shadow-sm" />
+            <PdfLinkLayer links={links[n]} onGoPage={goPage} />
+            {onTurnPage && numPages > 1 && <button
               type="button"
               onClick={() => onTurnPage(n)}
               title={`Turn page ${n} a quarter turn clockwise`}
@@ -180,7 +189,7 @@ export default function PdfPageStack({ songId, blob: blobOverride, turn = 0, pag
                      : 'bg-white/90 border-gray-300 text-gray-600 hover:text-gray-900'}`}
             >
               <RotateCw size={16} className="opacity-70" />{turned ? ` ${turned}°` : ''}
-            </button>
+            </button>}
           </div>
         );
       })}
