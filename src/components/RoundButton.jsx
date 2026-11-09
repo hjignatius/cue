@@ -97,6 +97,9 @@ export default function RoundButton({
   onActivate,
   fill,
   disabled = false,
+  // Looks disabled but still answers a tap, to say why: the shared set's Copy
+  // on your own set.
+  dim = false,
   active = false,
   pill = false,
   // A rounded square instead of a circle — the Share window's song rows
@@ -120,7 +123,7 @@ export default function RoundButton({
 }) {
   const hit = Math.max(size, MIN_TOUCH_TARGET);
   const bg = active ? ROUND_FILL_ACTIVE : fill;
-  const opacity = disabled ? disabledOpacity : 1;
+  const opacity = disabled || dim ? disabledOpacity : 1;
   return (
     <button
       type="button"
