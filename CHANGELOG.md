@@ -3,6 +3,20 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.1 — 2026-11-09
+
+### Songbook import
+
+- **Going to the picker and back keeps your choices.** The book's name, its
+  shelf, the new set and the search follow you between the first screen and
+  the page picker, both ways. Each screen keeps its own ticks or page marks,
+  just as you left them.
+- **Both screens count the same songs.** The picker finds a song by its title
+  or artist the same way the first screen does, so "The Beatles" in Jim's
+  songbook gives 120 on both (it was 120, then 122). Songs that only mention it
+  in their words show after the rest, under Not counted, and Just these leaves
+  them out.
+
 ## v2.0.0 (Cue²) — 2026-11-08
 
 **Before you update:** make a backup on each device. The update changes how your
