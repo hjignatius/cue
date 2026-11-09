@@ -45,28 +45,28 @@ import FindSong, { SEARCH_FROM } from './FindSong.jsx';
 // No dimmed backdrop, as with every dialog in Cue.
 const SET_DEFAULT_MAX = 100;
 
-export default function SongbookDialog({ dark, batch, fileName, records = [], step = null, reading, report, songs, outcome, search: firstSearch = '', onImport, onKeepAsPage, onPick, onStop, onCancel, onShow, onDone }) {
+export default function SongbookDialog({ dark, batch, fileName, records = [], step = null, reading, report, songs, outcome, kept = null, onImport, onKeepAsPage, onPick, onStop, onCancel, onShow, onDone }) {
   // A batch of separate PDFs picked together, named by its count ("3 PDFs").
   const sheets = batch || report?.kind === 'sheets';
-  const [picked, setPicked] = useState(null);           // Set of indices, once songs arrive
+  const [picked, setPicked] = useState(() => (kept?.picked ? new Set(kept.picked) : null));           // Set of indices, once songs arrive
   const [open, setOpen]     = useState(null);           // index whose chart is shown
-  const [titles, setTitles] = useState({});             // index -> title as fixed by hand
+  const [titles, setTitles] = useState(() => kept?.titles ?? {});             // index -> title as fixed by hand
   // A set is what you take to a gig. One holding a whole 4,000-song book is no
   // use for that and takes seconds to open, so past this many it starts off.
   // A songbook comes in as a book of its own; a batch of sheets may (books.js).
   // While it is going into a book, a new set starts off too: every song in a
   // set is one of yours, and a book is where they wait until you use them.
-  const [book, setBook] = useState(() => startBook(!sheets, sheets ? 'Imported sheets' : bookName(fileName)));
-  const [makeSetChoice, setMakeSet] = useState(null);
+  const [book, setBook] = useState(() => kept?.book ?? startBook(!sheets, sheets ? 'Imported sheets' : bookName(fileName)));
+  const [makeSetChoice, setMakeSet] = useState(() => kept?.makeSetChoice ?? null);
   const makeSet = makeSetChoice ?? (!book.on && !(songs && songs.length > SET_DEFAULT_MAX));
-  const [setName, setSetName] = useState(() => (sheets ? 'Imported PDFs' : (fileName || '').replace(/\.pdf$/i, '')));
-  const [asCharts, setAsCharts] = useState(true);
+  const [setName, setSetName] = useState(() => kept?.setName ?? (sheets ? 'Imported PDFs' : (fileName || '').replace(/\.pdf$/i, '')));
+  const [asCharts, setAsCharts] = useState(() => kept?.asCharts ?? true);
   const charts = sheets && (songs || []).some(s => s.chart);
   const listRef = useRef(null);
   // For finding one song in a long list. It only narrows what's shown: ticks are
   // kept, and the box above the list is still for every song.
   // What you searched for here goes on to the page picker, and comes back.
-  const [search, setSearch] = useState(firstSearch);
+  const [search, setSearch] = useState(kept?.search ?? '');
   const listed = useMemo(() => songsMatching(songs || [], search, titles), [songs, search, titles]);
   useEffect(() => { if (listRef.current) listRef.current.scrollTop = 0; }, [search]);
 
@@ -85,6 +85,9 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
   const someOn = !allOn && chosen.size > 0;
   // One box for the lot, like the Library's select-all: everything ticked
   // unticks all; anything less ticks all.
+  // Off to the page picker: everything you've chosen here goes with it, and
+  // comes back if you return (App.jsx), so Back loses nothing.
+  const pick = () => onPick({ search, picked: picked ? [...picked] : null, titles, book, makeSetChoice, setName, asCharts });
   const tickAll = () => setPicked(allOn ? new Set() : new Set(tickable));
   // "Just these": the songs the search found become the only ones ticked, so
   // Import brings in those and nothing else. One you've already unticked stays
@@ -238,14 +241,14 @@ export default function SongbookDialog({ dark, batch, fileName, records = [], st
                   <Music size={18} /> Import {n} song{n === 1 ? '' : 's'}
                 </button>
               )}
-              {cant && onPick && <button onClick={() => onPick(search)} className={primary}><ListChecks size={18} /> Pick the songs myself</button>}
+              {cant && onPick && <button onClick={pick} className={primary}><ListChecks size={18} /> Pick the songs myself</button>}
               {onKeepAsPage && (
                 <button onClick={onKeepAsPage} className={cant && !onPick ? primary : secondary}>
                   <FileText size={18} /> {cant ? 'Keep it as one PDF' : 'Keep it as one PDF instead'}
                 </button>
               )}
               {!cant && onPick && (
-                <button onClick={() => onPick(search)} className={secondary}><ListChecks size={18} /> Or pick the pages myself</button>
+                <button onClick={pick} className={secondary}><ListChecks size={18} /> Or pick the pages myself</button>
               )}
               {canLeave && more > 0 && <button onClick={onCancel} className={secondary}><SkipForward size={18} /> {sheets ? 'Skip these PDFs' : 'Skip this PDF'}</button>}
             </div>

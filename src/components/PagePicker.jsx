@@ -43,29 +43,32 @@ import RoundButton, { GLASS, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 const WORDS = { start: 'New song', same: 'Same song', skip: 'Leave out' };
 const SET_DEFAULT_MAX = 100;
 
-export default function PagePicker({ dark, fileName, file, start, records = [], step = null, search: firstSearch = '', onStop, onAccept, onBack, onCancel }) {
+export default function PagePicker({ dark, fileName, file, start, records = [], step = null, kept = null, onStop, onAccept, onBack, onCancel }) {
   const [doc, setDoc] = useState(null);
   const [failed, setFailed] = useState(false);
-  const [marks, setMarks] = useState(start.marks);
-  const [titles, setTitles] = useState(start.titles);   // page -> { title, artist, key }
+  // `kept`: how you left this screen, or the report, when you went Back (or on
+  // to here) — your marks, titles, book, set and search. Going between the two
+  // loses nothing.
+  const [marks, setMarks] = useState(() => kept?.marks ?? start.marks);
+  const [titles, setTitles] = useState(() => kept?.titles ?? start.titles);   // page -> { title, artist, key }
   const [big, setBig] = useState(null);                  // page shown large
   const [asking, setAsking] = useState(null);            // the way out, held until "Discard" is pressed
   // A book's songs come in as a book (books.js); one song printed twice over
   // (start.asBook false) is yours, as a sheet is, unless you put it in a book
   // — start.bookId's, the one last used, offered first.
   const one = start.asBook === false;
-  const [book, setBook] = useState(() => (one ? startOne(records, start.bookId) : startBook(true, bookName(fileName))));
-  const [makeSetChoice, setMakeSet] = useState(start.makeSet ?? null);
-  const [asCharts, setAsCharts] = useState(true);
+  const [book, setBook] = useState(() => kept?.book ?? (one ? startOne(records, start.bookId) : startBook(true, bookName(fileName))));
+  const [makeSetChoice, setMakeSet] = useState(() => kept?.makeSetChoice ?? start.makeSet ?? null);
+  const [asCharts, setAsCharts] = useState(() => kept?.asCharts ?? true);
   const [firstPdf] = useState(() => new Set(start.asPdf || []));
-  const [asPdf, setAsPdf] = useState(firstPdf);          // pages of the songs switched to a PDF
-  const [setName, setSetName] = useState(() => (fileName || '').replace(/\.pdf$/i, ''));
+  const [asPdf, setAsPdf] = useState(() => (kept?.asPdf ? new Set(kept.asPdf) : firstPdf));          // pages of the songs switched to a PDF
+  const [setName, setSetName] = useState(() => kept?.setName ?? (fileName || '').replace(/\.pdf$/i, ''));
   // A search begun in the book report carries on here (and back again).
-  const [search, setSearch] = useState(firstSearch);
+  const [search, setSearch] = useState(kept?.search ?? '');
   // The marks as they were when the search was typed. A song found is shown
   // with all its pages, and which pages those are is read from these, so tapping
   // one of them while searching can't make it drop out of the list.
-  const [searchMarks, setSearchMarks] = useState(start.marks);
+  const [searchMarks, setSearchMarks] = useState(() => kept?.searchMarks ?? kept?.marks ?? start.marks);
   const gridRef = useRef(null);
   const results = useMemo(() => songsFound(start, titles, search, searchMarks), [start, titles, search, searchMarks]);
   const found = results?.pages ?? null;
@@ -225,7 +228,7 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {more > 0 && <button onClick={() => leave(onCancel)} className={`${secondary} sm:mr-auto`}><SkipForward size={18} /> Skip this PDF</button>}
-          {onBack && <button onClick={() => onBack(search)} className={secondary}>Back</button>}
+          {onBack && <button onClick={() => onBack({ search, marks, searchMarks, titles, book, makeSetChoice, setName, asCharts, asPdf: [...asPdf] })} className={secondary}>Back</button>}
           <button disabled={!n || failed || (book.on && !bookChoice(book))}
             onClick={() => onAccept(songs.map(s => ({ ...s, chart: asCharts && s.chart, title: s.title.trim() || `Page ${s.firstPage}` })), makeSet && setName.trim() ? setName.trim() : null, bookChoice(book))}
             className={`${primary} flex-1 sm:flex-none sm:min-w-44`}>

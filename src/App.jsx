@@ -124,19 +124,24 @@ export default function App() {
     const marked = report.songs.map(s => ({ ...s, inLibrary: have.has(normalizeTitle(s.title)) }));
     const shown = { ...report, songs: marked };
     let choice;
-    let search = ''; // carried between the report's search and the picker's
+    // How you left each screen, so going between the report and the picker
+    // loses nothing: its ticks or marks, titles, and the rest. The book, the
+    // set and the search are one choice, so they follow you both ways.
+    let reportKept = null, pickerKept = null;
+    const shared = (k) => ({ search: k.search, book: k.book, makeSetChoice: k.makeSetChoice, setName: k.setName });
     for (;;) {
-      choice = await new Promise(resolve => setSongbook({ fileName: file.name, report: shown, songs: marked, resolve, book: true, search }));
+      choice = await new Promise(resolve => setSongbook({ fileName: file.name, report: shown, songs: marked, resolve, book: true, kept: reportKept }));
       if (choice?.pick === undefined) break;
-      search = choice.pick;
+      reportKept = choice.pick;
+      pickerKept = { ...pickerKept, ...shared(reportKept) };
       // Picked by hand, page by page. "Back" returns to the report as it was.
       // Any chords drawn above the lyrics are in the pages here, so those pages
       // say Chart too.
       const { pickerStart, sheetPickerStart, overPages } = await import('./utils/bookReport.js');
       const pickPages = overPages(pages);
       const start = sheetPickerStart(pickPages, file.name) || pickerStart(report, pickPages);
-      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start, search }, resolve }));
-      if (picked?.back !== undefined) { search = picked.back; continue; }
+      const picked = await new Promise(resolve => setSongbook({ fileName: file.name, picker: { file, start, kept: pickerKept }, resolve }));
+      if (picked?.back !== undefined) { pickerKept = picked.back; reportKept = { ...reportKept, ...shared(pickerKept) }; continue; }
       setSongbook(null);
       if (picked === 'cancel') return 'cancel';
       return saveCutSongs(file, picked, pickPages);
@@ -1060,8 +1065,8 @@ export default function App() {
           step={importStep}
           onStop={() => { stopImport.current = true; songbook.resolve('cancel'); }}
           onAccept={(songs, setName, book) => songbook.resolve({ songs, setName, book })}
-          search={songbook.picker.search}
-          onBack={songbook.picker.noBack ? null : (search) => songbook.resolve({ back: search })}
+          kept={songbook.picker.kept}
+          onBack={songbook.picker.noBack ? null : (kept) => songbook.resolve({ back: kept })}
           onCancel={() => songbook.resolve('cancel')}
         />
       )}
@@ -1090,13 +1095,13 @@ export default function App() {
           report={songbook.report}
           songs={songbook.songs}
           outcome={songbook.outcome}
-          search={songbook.search}
+          kept={songbook.kept}
           records={books}
           step={importStep}
           onStop={() => { stopImport.current = true; if (songbook.resolve) songbook.resolve('cancel'); else songbook.abort?.(); }}
           onImport={(picked, setName, titles, asCharts, book) => songbook.resolve({ picked, setName, titles, asCharts, book })}
           onKeepAsPage={songbook.book ? () => songbook.resolve('page') : null}
-          onPick={songbook.book ? (search) => songbook.resolve({ pick: search || '' }) : null}
+          onPick={songbook.book ? (kept) => songbook.resolve({ pick: kept }) : null}
           onCancel={songbook.resolve ? () => songbook.resolve('cancel') : songbook.abort}
           onShow={() => songbook.resolve('show')}
           onDone={() => songbook.resolve('done')}
