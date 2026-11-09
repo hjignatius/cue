@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftRight, Ban, CheckCheck, ChevronLeft, ChevronRight, Link2, Maximize2, Music, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { loadPdfjs } from '../utils/pdfjs.js';
 import { chartSongs, onlyThese, setMark, songsFound, songsFromMarks, songsToKeep, stepWords, switchChart, tapMark } from '../utils/bookReport.js';
@@ -72,6 +72,9 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
   const gridRef = useRef(null);
   const results = useMemo(() => songsFound(start, titles, search, searchMarks), [start, titles, search, searchMarks]);
   const found = results?.pages ?? null;
+  // Songs found only in the words on their pages, after the ones found by title
+  // or artist: shown, under a line of their own, but not counted or kept.
+  const firstMore = results?.more?.[0]?.[0] ?? null;
   const onSearch = (value) => { setSearch(value); setSearchMarks(marks); };
   useEffect(() => { if (gridRef.current) gridRef.current.scrollTop = 0; }, [search]);
 
@@ -194,9 +197,16 @@ export default function PagePicker({ dark, fileName, file, start, records = [], 
           ) : (
             <div className="grid gap-2 sm:gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))' }}>
               {(found ? found.map(p => p - 1) : marks.map((_, i) => i)).map(i => (
-                <PageCell key={i} p={i + 1} doc={doc} root={gridRef} mark={shown[i]}
+                <Fragment key={i}>
+                {i + 1 === firstMore && (
+                  <p className={`text-xs ${muted} pt-2 border-t ${dark ? 'border-gray-800' : 'border-gray-200'}`} style={{ gridColumn: '1 / -1' }}>
+                    Not counted: {results.more.length === 1 ? '1 more has' : `${results.more.length} more have`} “{search.trim()}” in the words on the page, not in a title or artist.
+                  </p>
+                )}
+                <PageCell p={i + 1} doc={doc} root={gridRef} mark={shown[i]}
                   title={shown[i] === 'start' ? titles[i + 1]?.title ?? '' : null} chart={comesAs(i + 1)} check={looksOff(i + 1)} canSwitch={switches(i + 1)}
                   onTap={tap} onSwitch={switchSong} onBig={setBig} onRetitle={retitle} dark={dark} muted={muted} />
+                </Fragment>
               ))}
             </div>
           )}

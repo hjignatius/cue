@@ -838,30 +838,39 @@ export function songsMatching(songs = [], query = '', titles = {}) {
 const foldSearch = (t) => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[‘’ʼ′]/g, "'");
 const searchWords = (query) => foldSearch(query).split(/\s+/).filter(Boolean);
 const hasWords = (text, words) => { const t = foldSearch(text); return words.every(w => t.includes(w)); };
-// The page picker's search is for an exact phrase: these words, whole and in
-// this order, as a title or on the page. Words apart, or inside other words,
-// don't count — "Hey Jude" isn't a song with "hey" in one line and "Jude" in
-// another. Case, accents, punctuation and apostrophes don't matter.
+// Both screens find a song by its title or artist the same way: every word you
+// type, in any order, anywhere in them (songsMatching). So the first screen and
+// the page picker find the same songs and give the same count.
+//
+// The picker also looks in the words printed on each page, and there the search
+// is an exact phrase: these words, whole and in this order. Words apart, or
+// inside other words, don't count — "Hey Jude" isn't a song with "hey" in one
+// line and "Jude" in another. Case, accents, punctuation and apostrophes don't
+// matter.
 const phraseOf = (t) => foldSearch(t).replace(/'/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const hasPhrase = (text, phrase) => ` ${phraseOf(text)} `.includes(` ${phrase} `);
 
-/**
- * Which pages the picker's search keeps: their numbers, those with it in their
- * title or artist first, then those with it anywhere on the page. That finds a
- * song whose title Cue didn't pick out, and one by its words. It's an exact
- * phrase (hasPhrase): whole words, in order. null with nothing typed. A page keeps the title it started with as well as any fixed by hand
- * (`titles`), so it can't vanish from the list while its title is being typed.
- */
-export function pagesMatching(start = {}, titles = {}, query = '') {
+// The pages a search finds: `heads`, those whose title or artist has it, and
+// `others`, those with it only in their words. null with nothing typed. A page
+// keeps the title it started with as well as any fixed by hand (`titles`), so
+// it can't vanish from the list while its title is being typed.
+function pageHits(start = {}, titles = {}, query = '') {
+  const words = searchWords(query);
+  if (!words.length) return null;
   const phrase = phraseOf(query);
-  if (!phrase) return null;
   const heads = [], others = [];
   for (let p = 1; p <= (start.marks || []).length; p++) {
     const own = [start.titles?.[p], titles[p]];
-    if (own.some(t => hasPhrase(t?.title, phrase) || hasPhrase(t?.artist, phrase))) heads.push(p);
-    else if (hasPhrase(start.texts?.[p - 1], phrase)) others.push(p);
+    if (own.some(t => t && hasWords(`${t.title || ''} ${t.artist || ''}`, words))) heads.push(p);
+    else if (phrase && hasPhrase(start.texts?.[p - 1], phrase)) others.push(p);
   }
-  return [...heads, ...others];
+  return { heads, others };
+}
+
+/** The pages a search finds, those found by title or artist first. null with nothing typed. */
+export function pagesMatching(start = {}, titles = {}, query = '') {
+  const hits = pageHits(start, titles, query);
+  return hits && [...hits.heads, ...hits.others];
 }
 
 // Is page `q` more of the song before it? So Cue marked it, or you did. Cue's
@@ -878,25 +887,36 @@ export function songAround(cue = [], marks = [], p = 1) {
 }
 
 /**
- * What a search finds: `pages`, the pages to show — each song found with all
- * its pages (songAround), in the order pagesMatching found them, a song found
- * on two of its pages once — and `songs`, those that are songs, as lists of
- * pages. A page Cue left out that nobody has put back, the contents page that
- * names every song, is shown but isn't a song. null with nothing typed.
+ * What a search finds, each song with all its pages (songAround), in the order
+ * found, a song found on two of its pages once:
+ *   songs  the songs it counts, as lists of pages: those found by title or
+ *          artist, the same songs the first screen finds. Only when there are
+ *          none, the songs with it in their words.
+ *   more   songs with it only in their words, shown after but not counted.
+ *   pages  every page to show, the counted songs' first.
+ * A page Cue left out that nobody has put back, the contents page that names
+ * every song, is shown but isn't a song. null with nothing typed.
  */
 export function songsFound(start = {}, titles = {}, query = '', marks = start.marks || []) {
-  const hits = pagesMatching(start, titles, query);
+  const hits = pageHits(start, titles, query);
   if (!hits) return null;
   const cue = start.marks || [];
-  const groups = [], seen = new Set();
-  for (const p of hits) {
-    if (seen.has(p)) continue;
-    const pages = songAround(cue, marks, p);
-    pages.forEach(q => seen.add(q));
-    groups.push(pages);
-  }
+  const seen = new Set();
+  const group = (list) => {
+    const groups = [];
+    for (const p of list) {
+      if (seen.has(p)) continue;
+      const pages = songAround(cue, marks, p);
+      pages.forEach(q => seen.add(q));
+      groups.push(pages);
+    }
+    return groups;
+  };
+  const heads = group(hits.heads), others = group(hits.others);
   const leftOut = (pages) => cue[pages[0] - 1] === 'skip' && marks[pages[0] - 1] === 'skip';
-  return { songs: groups.filter(g => !leftOut(g)), pages: groups.flat() };
+  const counted = heads.length ? heads : others;
+  const more = heads.length ? others : [];
+  return { songs: counted.filter(g => !leftOut(g)), more, pages: [...counted, ...more].flat() };
 }
 
 /** Keep only these songs, each whole, and leave out every other page. */

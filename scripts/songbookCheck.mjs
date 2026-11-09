@@ -484,12 +484,16 @@ check('…and a word no page has finds none', pagesMatching(pagesToFind, pagesTo
 const judePages = { marks: ['start', 'start', 'start', 'start', 'start'],
   titles: { 1: { title: 'Hey Jude', artist: 'The Beatles' }, 2: { title: 'Hey Jude (in F)' }, 3: { title: 'Jude the Obscure' }, 4: { title: 'Don\u2019t Stop' }, 5: { title: 'Judea' } },
   texts: ['Hey Jude don\u2019t make it bad', 'Hey, Jude, don\u2019t be afraid', 'Hey there! Jude was here', 'Don\u2019t stop thinking about tomorrow', 'hey judean hills'] };
-check('the search is an exact phrase: its words, whole and in order', pagesMatching(judePages, judePages.titles, 'hey jude'), [1, 2]);
+check('a title or artist is found as on the first screen: every word, anywhere', pagesMatching(judePages, judePages.titles, 'hey jude'), [1, 2]);
 check('…past case and punctuation', pagesMatching(judePages, judePages.titles, 'HEY, JUDE!'), [1, 2]);
-check('…not words apart, or in another order', pagesMatching(judePages, judePages.titles, 'jude hey'), []);
-check('…nor part of a word', pagesMatching(judePages, judePages.titles, 'jud'), []);
-check('…with or without the apostrophe', [pagesMatching(judePages, judePages.titles, 'dont stop'), pagesMatching(judePages, judePages.titles, "don't make")], [[4], [1]]);
-check('…an artist too', pagesMatching(judePages, judePages.titles, 'the beatles'), [1]);
+check('…in any order, and part of a word, as you type', [pagesMatching(judePages, judePages.titles, 'jude hey'), pagesMatching(judePages, judePages.titles, 'jud')], [[1, 2], [1, 2, 3, 5]]);
+check('…an artist too, misspelt or not', pagesMatching({ ...judePages, titles: { ...judePages.titles, 3: { title: 'Help', artist: 'The Beatlesl' } } }, {}, 'the beatles'), [1, 3]);
+// In the words on a page, a search is an exact phrase.
+const wordsOnly = { ...judePages, titles: {} };
+check('the words on a page need the exact phrase: whole words, in order', pagesMatching(wordsOnly, {}, 'hey jude'), [1, 2]);
+check('…not words apart, or in another order', [pagesMatching(wordsOnly, {}, 'jude here'), pagesMatching(wordsOnly, {}, 'jude hey')], [[], []]);
+check('…nor part of a word', pagesMatching(wordsOnly, {}, 'judea'), []);
+check('…with or without the apostrophe', [pagesMatching(wordsOnly, {}, 'dont stop'), pagesMatching(wordsOnly, {}, "don't make")], [[4], [1]]);
 // Songs over more than one page. Cue's marks: a cover, a two-page song, a
 // one-page song, a three-page song.
 const twoPage = { marks: ['skip', 'start', 'same', 'start', 'start', 'same', 'same'],
@@ -498,13 +502,23 @@ const twoPage = { marks: ['skip', 'start', 'same', 'start', 'start', 'same', 'sa
 check('a song is all its pages, from any of them', [songAround(twoPage.marks, twoPage.marks, 3), songAround(twoPage.marks, twoPage.marks, 5), songAround(twoPage.marks, twoPage.marks, 7)], [[2, 3], [5, 6, 7], [5, 6, 7]]);
 check('…still, after every page is left out', songAround(twoPage.marks, twoPage.marks.map(() => 'skip'), 2), [2, 3]);
 check('…and with a page you made Same song', songAround(twoPage.marks, ['skip', 'start', 'same', 'start', 'same', 'same', 'same'], 4), [4, 5, 6, 7]);
-check('a search shows each song it finds with all its pages', songsFound(twoPage, twoPage.titles, 'proud'), { songs: [[2, 3]], pages: [2, 3] });
-check('…a song found by its second page too, whole and once', songsFound(twoPage, twoPage.titles, 'heart'), { songs: [[5, 6, 7]], pages: [5, 6, 7] });
-check('…found on two of its pages, listed once', songsFound(twoPage, twoPage.titles, 'day'), { songs: [[5, 6, 7]], pages: [5, 6, 7] });
+check('a search shows each song it finds with all its pages', songsFound(twoPage, twoPage.titles, 'proud'), { songs: [[2, 3]], more: [], pages: [2, 3] });
+check('…a song found by its second page too, whole and once', songsFound(twoPage, twoPage.titles, 'heart'), { songs: [[5, 6, 7]], more: [], pages: [5, 6, 7] });
+check('…found on two of its pages, listed once', songsFound(twoPage, twoPage.titles, 'day'), { songs: [[5, 6, 7]], more: [], pages: [5, 6, 7] });
 check('…two songs, in the order found', songsFound(twoPage, twoPage.titles, 'wolf').songs, [[4]]);
-check('…a page Cue left out is shown but isn\u2019t a song', songsFound(twoPage, twoPage.titles, 'songbook'), { songs: [], pages: [1] });
+check('…a page Cue left out is shown but isn\u2019t a song', songsFound(twoPage, twoPage.titles, 'songbook'), { songs: [], more: [], pages: [1] });
 check('…unless you put it back', songsFound(twoPage, twoPage.titles, 'songbook', ['start', 'start', 'same', 'start', 'start', 'same', 'same']).songs, [[1]]);
 check('…nothing typed is no search', songsFound(twoPage, twoPage.titles, ''), null);
+// "The Beatles" in Jim's songbook: the first screen found 120, the picker 122,
+// counting songs that only mention them. Now both count by title or artist.
+const mention = { marks: ['start', 'start', 'start', 'same', 'start'],
+  titles: { 1: { title: 'Help!', artist: 'The Beatles' }, 2: { title: 'Life In A Northern Town', artist: 'The Dream Academy' }, 3: { title: 'Yesterday', artist: 'The Beatles' }, 5: { title: 'Penny Lane', artist: 'The Beatlesl' } },
+  texts: ['help', 'they played the beatles on the radio', 'yesterday', '', 'penny lane'] };
+const mentionSongs = [1, 2, 3, 5].map(p => mention.titles[p]);
+check('the picker counts the songs the first screen finds', songsFound(mention, {}, 'The Beatles').songs.length, songsMatching(mentionSongs, 'The Beatles').length);
+check('…and shows one that only mentions it after them, not counted', songsFound(mention, {}, 'The Beatles'), { songs: [[1], [3, 4], [5]], more: [[2]], pages: [1, 3, 4, 5, 2] });
+check('…which Just these leaves out', songsToKeep(songsFound(mention, {}, 'The Beatles').songs, mention.marks), [[1], [3, 4], [5]]);
+check('…but with no title or artist found, the words find the songs', songsFound(mention, {}, 'on the radio'), { songs: [[2]], more: [], pages: [2] });
 check('Just these: those songs whole, every other page left out',
   onlyThese(twoPage.marks, [[2, 3], [5, 6, 7]]), ['skip', 'start', 'same', 'skip', 'start', 'same', 'same']);
 const allOut = twoPage.marks.map(() => 'skip');
