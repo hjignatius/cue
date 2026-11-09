@@ -13,7 +13,7 @@ import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotat
 import PresentationView from './PresentationView.jsx';
 import VersionPicker from '../components/VersionPicker.jsx';
 import { readPlayChoices, otherVersions, chosenSong } from '../utils/shareVersions.js';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Cloud, CloudDownload, Equal, ArrowLeft, ArrowRight, ArrowLeftRight } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Cloud, CloudDownload, Equal, EqualNot, ArrowLeft, ArrowRight, ArrowLeftRight } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
@@ -715,19 +715,25 @@ export default function SharedSetView() {
   function rowOf(song) {
     const y = yoursById.get(song.id);
     const others = otherVersionsById.get(song.id)?.length || 0;
-    const lib = others || choosable.has(song.id) ? '?' : y ? '=' : '+';
+    // A choice to make: ? until you pick one of yours, then the answer — ≠
+    // when yours differs from the shared song, = when it's the same words and
+    // chords (Howard, 2026-11-09). Picking the shared version isn't stored, so
+    // the row goes back to ?: the other versions are still there to choose.
+    const chooses = !!(others || choosable.has(song.id));
     const played = playedInstead(song.id);
+    const lib = chooses ? (played ? (contentHash(played) === contentHash(song) ? '=' : '≠') : '?') : y ? '=' : '+';
     return {
       lib,
+      chooses,
       newer: bothChanged.has(song.id) ? 'decide' : behindShare.has(song.id) ? 'take' : null,
       unsure: unsureIds.has(song.id),
       inkOnly: !!y && y.inked && !y.edited,
       noCopy: !y,
       copyChanged: choosable.has(song.id),
       others,
-      playingMine: lib === '?' && !!played,
+      playingMine: chooses && !!played,
       // The key shown is the key it plays in, and yours may not be the share's.
-      playsKey: lib === '?' && played ? (played.displayKey || played.metadata?.key) : (song.displayKey || song.metadata?.key),
+      playsKey: chooses && played ? (played.displayKey || played.metadata?.key) : (song.displayKey || song.metadata?.key),
     };
   }
 
@@ -1298,7 +1304,7 @@ export default function SharedSetView() {
                 dark={dark}
                 muted={muted}
                 row={rowOf(song)}
-                onChoose={rowOf(song).lib === '?' ? () => setPicking(song) : undefined}
+                onChoose={rowOf(song).chooses ? () => setPicking(song) : undefined}
                 onPresent={() => present(displayed, idx)}
                 onCopy={
                   // On your own set a song you STILL HAVE needs no copy button —
@@ -1771,6 +1777,7 @@ const KEY = [
   ['plus',     Plus,          'Not on this device — tap to copy'],
   ['equal',    Equal,         'Same as shared'],
   ['choose',   QuestionMark,  'More than one version — tap to choose which plays'],
+  ['differs',  EqualNot,      'Yours plays, different from shared — tap to change'],
   ['newer',    CloudDownload, 'Newer in the share — tap to get it'],
   ['tv',       Tv,            'Arrow points at what plays'],
 ];
@@ -1778,8 +1785,8 @@ const KEY = [
 function SongKey({ rows, dark }) {
   const shown = new Set();
   for (const r of rows) {
-    shown.add(r.lib === '+' ? 'plus' : r.lib === '=' ? 'equal' : 'choose');
-    if (r.lib === '?') shown.add('tv');
+    shown.add(r.lib === '+' ? 'plus' : r.lib === '=' ? 'equal' : r.lib === '≠' ? 'differs' : 'choose');
+    if (r.chooses) shown.add('tv');
     if (r.newer) shown.add('newer');
   }
   const items = KEY.filter(([kind]) => shown.has(kind));
@@ -1845,7 +1852,7 @@ function versionsNote({ noCopy, copyChanged, inkOnly, others }) {
 
 function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onCopy, onCloud, changed, copying }) {
   const meta = song.metadata || {};
-  const { lib, newer, inkOnly, noCopy, copyChanged, others, playingMine, playsKey, unsure } = row;
+  const { lib, chooses, newer, inkOnly, noCopy, copyChanged, others, playingMine, playsKey, unsure } = row;
   const changedNote = changed?.length ? ` — ${changed.join(', ')}` : '';
   // A = row with nothing newer is the same song on both sides, so both boxes
   // are drawn as playing and there is nothing to switch.
@@ -1853,7 +1860,7 @@ function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onC
   const status = lib === '+' ? 'Not on this device'
     : newer === 'decide' ? (unsure ? 'Yours and the shared one differ — tap the cloud to choose' : 'You both changed it — tap the cloud to choose')
     : newer === 'take' ? 'Newer in the share — tap the cloud to get it'
-    : lib === '=' ? 'On this device, same as shared'
+    : lib === '=' && !chooses ? 'On this device, same as shared'
     : `${versionsNote({ noCopy, copyChanged, inkOnly, others })} — ${playingMine ? 'yours plays' : 'shared plays'}`;
   const Arrow = onChoose ? (playingMine ? ArrowLeft : ArrowRight) : same ? ArrowLeftRight : ArrowRight;
 
@@ -1882,8 +1889,13 @@ function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onC
         <div className="flex items-center shrink-0 -my-1">
           <SymbolBox
             dark={dark}
-            label={lib === '+' ? 'Not on this device — copy this song to my library' : lib === '=' ? 'On this device, unchanged' : 'More than one version — choose which plays'}
+            label={lib === '+' ? 'Not on this device — copy this song to my library'
+              : lib === '≠' ? 'Yours plays, different from the shared one — change which plays'
+              : lib === '=' && chooses ? 'Yours plays, the same as the shared one — change which plays'
+              : lib === '=' ? 'On this device, unchanged' : 'More than one version — choose which plays'}
             title={lib === '+' ? 'Add just this song to your Cue library, where you can open, edit, and keep it.'
+              : lib === '≠' ? 'You chose a version of yours, and it differs from the shared one. Tap to change which plays.'
+              : lib === '=' && chooses ? 'You chose a version of yours, the same as the shared one. Tap to change which plays.'
               : lib === '=' ? 'Your copy hasn’t been changed.'
               : others ? `${versionsNote({ noCopy, copyChanged, inkOnly, others })}. Tap to choose which version plays.`
               : inkOnly ? 'You have drawn on your copy.' : `Your copy differs from the shared one${changedNote}.`}
@@ -1891,7 +1903,7 @@ function SharedSongRow({ song, index, dark, muted, row, onChoose, onPresent, onC
             onActivate={lib === '+' ? onCopy : onChoose}
             disabled={copying}
           >
-            {lib === '+' ? <Plus size={19} strokeWidth={2.5} /> : lib === '=' ? <Equal size={19} strokeWidth={2.5} /> : <QuestionMark size={19} strokeWidth={2.5} />}
+            {lib === '+' ? <Plus size={19} strokeWidth={2.5} /> : lib === '=' ? <Equal size={19} strokeWidth={2.5} /> : lib === '≠' ? <EqualNot size={19} strokeWidth={2.5} /> : <QuestionMark size={19} strokeWidth={2.5} />}
           </SymbolBox>
           <button
             type="button"
