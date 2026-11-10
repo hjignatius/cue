@@ -394,8 +394,8 @@ function lyricColumnWidth(fontPx, chars = LYRIC_TARGET_CHARS) {
 // set, because a mixed run plays your copies for some songs and the publisher's
 // for others — and ink drawn on the publisher's version would be stored under
 // THEIR song id, leaving two sets of marks for what you think of as one song.
-// `editableIds` the same for the Edit button: in a shared set, only your own
-// versions can be edited (Howard, 2026-11-10). Null means every song.
+// `editableIds` the same for the Edit and Full Page buttons: in a shared set,
+// only your own versions can be changed (Howard, 2026-11-10). Null means every song.
 export default function PresentationView({ songs, startIndex = 0, onExit, onEdit, onNavigate, onSaveDuration, onSetFullPage, showEdit = true, editableIds = null, disableAnnotations = false, annotatableIds = null, sourceLabel = null }) {
   const { theme, chordColor: prefsChordColor, chordDiagramSize, chordLabelScale, metronomeMode, accidentals, presentIdleSec, scrollStartDelaySec, instrument, pedalPaging, pageGlideMs, pageSize, previousLands, presentPanelSize, updatePref } = usePrefs();
   // Glide duration for within-song paging (ms); 0 = instant. Clamped defensively.
@@ -1183,7 +1183,9 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // Ink off for THIS song: either the session forbids it outright, or this song
   // is one the set is playing the publisher's version of.
   const inkOff = disableAnnotations || (annotatableIds ? !annotatableIds.has(song?.id) : false);
-  const canEdit = showEdit && (editableIds ? editableIds.has(song?.id) : true);
+  const ownSong = editableIds ? editableIds.has(song?.id) : true;
+  const canEdit = showEdit && ownSong;
+  const canFullPage = !!onSetFullPage && ownSong;
 
   // A capo HAS to be on screen here. The chart is drawn as the shapes you
   // finger with it on, so playing it without the capo is simply the wrong song —
@@ -1229,7 +1231,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
   // How many rows the tools occupy in the panel's 2-column grid. Counted from the
   // same conditions that render each button below — get these out of step and the
   // panel is sized against buttons it isn't showing.
-  const toolCount = 2 + (canEdit ? 1 : 0) + (onSetFullPage ? 1 : 0)
+  const toolCount = 2 + (canEdit ? 1 : 0) + (canFullPage ? 1 : 0)
     + (inkOff ? 0 : 1) + (chordsAvailable ? 1 : 0);
   const toolRows  = Math.ceil(toolCount / 2);
 
@@ -1291,7 +1293,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
         discrete full pages that fit the screen; off = continuous scroll.
         Applies to both PDF and text songs. (The Screen-vs-Songs pedal choice
         is a global setting under Settings, not a per-song control.) */}
-    {onSetFullPage && (
+    {canFullPage && (
       <RoundButton
         size={panel.button}
         label={isFullPage ? 'Full Page mode: one page at a time' : 'Scroll mode: continuous scroll'}

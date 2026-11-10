@@ -725,14 +725,30 @@ export default function SharedSetView() {
     setPresenting({ songs, startIndex, annotatable, shareOf });
   }
 
-  // Present's Edit, on a song playing your own version. The TV stays pointed at
-  // yours: an edit makes yours differ from the shared one, and a song never set
-  // would otherwise swing back to the shared version.
-  function editFromPresent(song, index) {
-    const shareId = presenting.shareOf?.get(song.id);
+  // Changing your own version from Present (Edit, Full Page) keeps the TV
+  // pointed at yours: the change makes yours differ from the shared one, and a
+  // song never set would otherwise swing back to the shared version.
+  function stayOnYours(song) {
+    const shareId = presenting?.shareOf?.get(song.id);
     if (shareId && !playChoices[shareId]?.play) setChoice(shareId, { pick: pickValue(shareId, song), play: 'mine' });
+  }
+
+  // Present's Edit, on a song playing your own version.
+  function editFromPresent(song, index) {
+    stayOnYours(song);
     setEditing({ song, back: { ...presenting, startIndex: index } });
     setPresenting(null);
+  }
+
+  // Present's Full Page button, on a song playing your own version — saved to
+  // your song, as in the Library's Present (Howard, 2026-11-10).
+  async function fullPageFromPresent(songId, fullPage) {
+    const song = presenting?.songs.find(s => s.id === songId);
+    if (song) stayOnYours(song);
+    setPresenting(p => p && { ...p, songs: p.songs.map(s => (s.id === songId ? { ...s, fullPage } : s)) });
+    const stored = (await loadSongs()).find(s => s.id === songId);
+    if (stored) await saveSong({ ...stored, fullPage });
+    refreshLocal();
   }
 
   // Apply the Update: overwrite changed copies in place (keeping their id so set
@@ -1025,6 +1041,7 @@ export default function SharedSetView() {
         showEdit={!!presenting.annotatable?.size}
         editableIds={presenting.annotatable}
         onEdit={editFromPresent}
+        onSetFullPage={fullPageFromPresent}
         annotatableIds={presenting.annotatable}
         sourceLabel={presenting.annotatable?.size
           ? (presenting.annotatable.size === presenting.songs.length ? 'Playing your copies' : 'Playing your copies where you chose them')
