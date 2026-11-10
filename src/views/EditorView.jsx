@@ -443,7 +443,7 @@ function FormatIcon({ kind, size = 18 }) {
   );
 }
 
-export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi }) {
+export default function EditorView({ song, onBack, onSaved, onPresent, onReturn, setlistSongs, setlistIdx, onSetlistNavigate, annotationStamp = 0, editorApi, backLabel = 'Back to Library' }) {
   const { theme, chordColor, chordDiagramSize, accidentals, symbols, instrument, aiLevel, updatePref } = usePrefs();
   // 'none' turns chord diagrams off entirely: no panel, no toggle, no Chords tab.
   const chordsAvailable = instrument !== 'none';
@@ -2714,7 +2714,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             controls that made Present's have to push itself down. */}
         <RoundButton
           size={ROUND_SIZE_ACTION}
-          label="Back to Library" title="Back to Library"
+          label={backLabel} title={backLabel}
           glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
           onActivate={() => isDirty ? setShowBackConfirm(true) : onBack()}
         >

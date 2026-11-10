@@ -5,12 +5,13 @@ import PullSpinner from '../components/PullSpinner.jsx';
 import { getSharedSet, describeCloudError } from '../lib/cloud.js';
 import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
-import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, loadBooks, saveBookChoice, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState } from '../utils/storage.js';
+import { saveSong, saveSet, loadSongs, loadSets, loadPdfBlob, savePdfBlob, loadBooks, saveBookChoice, cacheSharedSet, loadCachedSharedSet, sharePlayMineKey, forgetShareState, clearDraft } from '../utils/storage.js';
 import { mergeTaggedSongCustoms } from '../utils/fileIO.js';
 import { loadSavedShares, persistSavedShares, syncBookmark } from '../utils/sharedBookmarks.js';
 import { contentHash, contentDiffFields, normalizeTitle } from '../utils/contentHash.js';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import PresentationView from './PresentationView.jsx';
+import EditorView from './EditorView.jsx';
 import VersionPicker from '../components/VersionPicker.jsx';
 import { readPlayChoices, otherVersions, pickedCopy, playsMine, copyStanding, newerThan, legacyCopyState } from '../utils/shareVersions.js';
 import { isMine } from '../utils/books.js';
@@ -116,7 +117,10 @@ export default function SharedSetView() {
   const [status, setStatus]         = useState('loading'); // loading | ok | not_found | error
   const [loadError, setLoadError]   = useState(null);      // the error behind status==='error'
   const [setData, setSetData]       = useState(null);      // { set, songs }
-  const [presenting, setPresenting] = useState(null);      // { songs, startIndex }
+  const [presenting, setPresenting] = useState(null);      // { songs, startIndex, annotatable, shareOf }
+  // Your own version of a song, open in the editor from Present: { song, back },
+  // `back` being the Present to return to.
+  const [editing, setEditing] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const reloadDone = useRef(null);
 
@@ -711,13 +715,24 @@ export default function SharedSetView() {
   // sets of marks for what you think of as one song.
   function present(base, startIndex) {
     const annotatable = new Set();
+    const shareOf = new Map();   // your song's id -> the shared song it plays for
     const songs = base.map(s => {
       const r = rowOf(s);
       const local = r.playingMine ? r.picked : null;
-      if (local) { annotatable.add(local.id); return local; }
+      if (local) { annotatable.add(local.id); shareOf.set(local.id, s.id); return local; }
       return s;
     });
-    setPresenting({ songs, startIndex, annotatable });
+    setPresenting({ songs, startIndex, annotatable, shareOf });
+  }
+
+  // Present's Edit, on a song playing your own version. The TV stays pointed at
+  // yours: an edit makes yours differ from the shared one, and a song never set
+  // would otherwise swing back to the shared version.
+  function editFromPresent(song, index) {
+    const shareId = presenting.shareOf?.get(song.id);
+    if (shareId && !playChoices[shareId]?.play) setChoice(shareId, { pick: pickValue(shareId, song), play: 'mine' });
+    setEditing({ song, back: { ...presenting, startIndex: index } });
+    setPresenting(null);
   }
 
   // Apply the Update: overwrite changed copies in place (keeping their id so set
@@ -972,13 +987,44 @@ export default function SharedSetView() {
     ? [...enriched].sort((a, b) => (a.metadata?.title || '').localeCompare(b.metadata?.title || ''))
     : enriched;
 
+  // The editor, for your own version of a song opened from Present. Back goes to
+  // the set; the editor's return-to-Present button goes back to the song.
+  if (editing) {
+    return (
+      <EditorView
+        key={editing.song.id}
+        song={editing.song}
+        backLabel="Back to the set"
+        onBack={() => { setEditing(null); refreshLocal(); }}
+        onSaved={(saved) => {
+          clearDraft();
+          refreshLocal();
+          if (saved && typeof saved === 'object') setEditing(e => e && { ...e, song: saved });
+        }}
+        onReturn={(updated) => {
+          const { back } = editing;
+          setPresenting({ ...back, songs: back.songs.map(s => (s.id === updated.id ? updated : s)) });
+          setEditing(null);
+          refreshLocal();
+        }}
+        onPresent={(list, idx = 0) => {
+          if (!list?.length) return;
+          setPresenting({ songs: list, startIndex: idx, annotatable: new Set(list.map(s => s.id)), shareOf: editing.back.shareOf });
+          setEditing(null);
+        }}
+      />
+    );
+  }
+
   if (presenting) {
     return (
       <PresentationView
         songs={presenting.songs}
         startIndex={presenting.startIndex}
         onExit={() => setPresenting(null)}
-        showEdit={false}
+        showEdit={!!presenting.annotatable?.size}
+        editableIds={presenting.annotatable}
+        onEdit={editFromPresent}
         annotatableIds={presenting.annotatable}
         sourceLabel={presenting.annotatable?.size
           ? (presenting.annotatable.size === presenting.songs.length ? 'Playing your copies' : 'Playing your copies where you chose them')
