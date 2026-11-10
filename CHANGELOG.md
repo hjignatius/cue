@@ -3,6 +3,33 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.2 — 2026-11-10
+
+### Shared sets
+
+- **A simpler row for each song.** The left box is your copy on this device:
+  **+** copies the song into My songs or a book, **=** means your copy matches
+  the share, **≠** means it differs, and **?** means there's a choice to make.
+  The TV in the middle points left to play yours or right to play the shared
+  one. Tap it to switch. The cloud on the right is the shared version, with no
+  arrow.
+- **Only your versions in the picker.** Tap the left box to choose which of
+  your copies plays. The shared version is chosen with the TV instead.
+- **A newer shared version asks first.** When the share has changed since you
+  copied a song, the box shows a blue **?**. You can copy it over yours, copy
+  it as a second song, or keep using yours. If you have several untouched
+  copies, **Replace all** updates them in one go.
+- **Put the shared version back.** If you changed your copy, tap **≠** to copy
+  the shared version over it. Your copy keeps its title, book and ink.
+- **Your own set on another device.** After you change and republish one of
+  your sets, another device now offers to replace its older songs with the
+  newer ones.
+- **One Copy button.** The button above the songs always says Copy and opens
+  the list, where you choose song by song. It no longer changes to Update, so
+  it can't be mistaken for Update Cue.
+- **Edit and Full Page in Present.** When a song plays your copy, Present
+  offers Edit and Full Page as well as ink. The shared version stays read-only.
+
 ## v2.0.1 — 2026-11-09
 
 ### Songbook import
