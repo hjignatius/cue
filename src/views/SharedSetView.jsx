@@ -14,7 +14,7 @@ import PresentationView from './PresentationView.jsx';
 import EditorView from './EditorView.jsx';
 import VersionPicker from '../components/VersionPicker.jsx';
 import { readPlayChoices, otherVersions, pickedCopy, playsMine, copyStanding, newerThan, legacyCopyState } from '../utils/shareVersions.js';
-import { isMine } from '../utils/books.js';
+import { isMine, bookNamed } from '../utils/books.js';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Cloud, Equal, EqualNot, ArrowLeft, ArrowRight } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
@@ -85,15 +85,8 @@ function pdfRefForCopy(pdf) {
   return rest;
 }
 
-// Find the lowest available "(N)" suffix so the new title is unique.
-// The titles a copy has to stand apart from. Into a book, only that book's: the
-// book's name already says whose version it is, and a "(2)" is part of the
-// title, carried into Present, printed PDFs and anything shared onward. Into
-// My songs, the whole library, as before.
-function titlesAt(localSongs, bookId) {
-  return new Set(localSongs.filter(s => !bookId || s.bookId === bookId).map(s => normalizeTitle(s.metadata?.title)));
-}
-
+// Find the lowest available "(N)" suffix so the new title is unique. Only the
+// titles in the place the copy goes count (applyUpdate).
 function makeUniqueTitle(baseTitle, existingTitlesSet) {
   const cleanBase = (baseTitle || 'Untitled').replace(/ \(\d+\)$/, '');
   let n = 2;
@@ -375,10 +368,9 @@ export default function SharedSetView() {
   // ---- Copy-to-library actions ------------------------------------------------
 
   // Copy one shared song into My Songs, or a book (`book`, bookChoice()'s
-  // answer), or, given `beside`, as a second song next to a copy you have and
-  // in the same place. The new copy becomes yours for this song and the TV
+  // answer). The new copy becomes yours for this song and the TV
   // swings to it: you copied it to use it (Howard, 2026-11-10).
-  async function handleCopySong(song, { book = null, beside = null } = {}) {
+  async function handleCopySong(song, { book = null } = {}) {
     if (copying) return;
     setCopying(true);
     try {
@@ -386,9 +378,8 @@ export default function SharedSetView() {
       const title      = song.metadata?.title || 'Untitled';
 
       // Already copied from this exact source (matched by provenance): treat as a
-      // no-op, same as a title-skip — nothing new is added. A second copy is
-      // only ever asked for, from a newer shared version.
-      if (!beside && localSongs.some(ls => ls.copiedFrom?.songId === song.id)) {
+      // no-op, same as a title-skip — nothing new is added.
+      if (localSongs.some(ls => ls.copiedFrom?.songId === song.id)) {
         setCopyResult({ type: 'song', title, outcome: 'skipped' });
         return;
       }
@@ -401,8 +392,8 @@ export default function SharedSetView() {
       // title is part of what's compared.
       const now = new Date().toISOString();
       const copiedFrom = { songId: song.id, setName: setData?.set?.name || '', copiedAt: now, baseline: contentHash(song) };
-      const bookId = beside ? beside.bookId || null : book ? await saveBookChoice(book) : null;
-      const where = beside ? { bookId: beside.bookId, mine: beside.mine } : bookId ? { bookId, mine: false } : NO_BOOK;
+      const bookId = book ? await saveBookChoice(book) : null;
+      const where = bookId ? { bookId, mine: false } : NO_BOOK;
 
       // Spread the whole song so type / pdf / fullPage survive (a subset copy
       // silently degraded a shared PDF to an empty text song). A copied pdf gets a
@@ -430,8 +421,8 @@ export default function SharedSetView() {
 
       setPlayChoicesPersisted({ ...playChoices, [song.id]: { pick: newId, play: 'mine' } });
       setHasCopied(true);
-      const bookName = bookId && !beside ? (await loadBooks()).find(b => b.id === bookId)?.name : null;
-      setCopyResult({ type: 'song', title, outcome: beside ? 'second' : 'copied', bookName });
+      const bookName = bookId ? (await loadBooks()).find(b => b.id === bookId)?.name : null;
+      setCopyResult({ type: 'song', title, outcome: 'copied', bookName });
     } catch (err) {
       console.error('Copy song failed:', err);
     } finally {
@@ -447,77 +438,7 @@ export default function SharedSetView() {
   // set order drifted). Per-song state: uptodate | update | conflict | add.
   const updatePlan = useMemo(() => {
     if (!setData) return null;
-    const bySource = new Map();
-    // With two copies of one song (a second one copied from a newer version),
-    // the newer copy is the one the share tracks.
-    for (const ls of localSongs) {
-      const src = ls.copiedFrom?.songId;
-      if (src && (!bySource.has(src) || (ls.copiedFrom.copiedAt || '') > (bySource.get(src).copiedFrom.copiedAt || ''))) bySource.set(src, ls);
-    }
-    // SECOND WAY TO RECOGNISE A SONG. Lineage is the authoritative match, but it
-    // only knows about songs that arrived THROUGH a share — so your own songs,
-    // coming back to you in a set someone built from them, matched nothing and
-    // every row read as never-copied. An identical content hash covers the rest:
-    // same words, same chords, same title, same key. Whatever its history, it is
-    // the same song, and there is nothing to copy.
-    //
-    // This match can ONLY ever produce 'uptodate', never 'update'. That is what
-    // makes it safe: a song matched this way has no baseline, so if the
-    // publisher later changes it the hashes stop agreeing, no match is found,
-    // and it becomes an 'add' — offered as a new song beside yours rather than
-    // written over the top of one Cue was never told was a copy.
-    const byHash = new Map();
-    for (const ls of localSongs) { const h = contentHash(ls); if (!byHash.has(h)) byHash.set(h, ls); }
-    // THE ORIGINAL ITSELF. A published song keeps its id, and so does a song
-    // restored from a full backup, so a local song with the share song's own id
-    // IS its source — your own set, opened through its link. Same content is
-    // 'uptodate'; different is 'have' (never Update: Cue can't tell whether you
-    // edited it here or the published one moved on, and overwriting your own
-    // original from your own share is the last thing to offer). Needed once
-    // same-title songs stopped counting as yours (below): your own edited
-    // original must not read as "not on this device".
-    const byId = new Map(localSongs.map(ls => [ls.id, ls]));
-    // THIRD, and weakest: same title, different content. NOT the same song — a
-    // friend's arrangement of one you own is a real, different thing and Cue
-    // must not pretend otherwise. But it must not pre-tick Add for it either. A
-    // share built from 83 of Howard's own songs offered to add 72 of them, and
-    // refusing that was 72 taps.
-    const byTitle = new Map();
-    for (const ls of localSongs) { const t = normalizeTitle(ls.metadata?.title); if (t && !byTitle.has(t)) byTitle.set(t, ls); }
-
-    const songs = setData.songs.map(s => {
-      const local = bySource.get(s.id) || null;
-      if (!local) {
-        const self = byId.get(s.id);
-        if (self) {
-          const same = contentHash(self) === contentHash(s);
-          return { shareSong: s, local: self, state: same ? 'uptodate' : 'have', matchedBy: 'origin', changed: same ? undefined : contentDiffFields(self, s) };
-        }
-        const twin = byHash.get(contentHash(s));
-        if (twin) return { shareSong: s, local: twin, state: 'uptodate', matchedBy: 'content' };
-        const sameName = byTitle.get(normalizeTitle(s.metadata?.title));
-        if (sameName) return { shareSong: s, local: sameName, state: 'have', matchedBy: 'title' };
-        return { shareSong: s, local: null, state: 'add' };
-      }
-      const incoming = contentHash(s);
-      const here = contentHash(local);
-      const baseline = local.copiedFrom?.baseline;
-      let state, unsure = false;
-      if (baseline == null) ({ state, unsure } = legacyCopyState(local, s, incoming === here));
-      else if (incoming === baseline) state = 'uptodate';                      // publisher unchanged
-      else if (here === baseline) state = 'update';                            // publisher changed, you didn't
-      else state = 'conflict';                                                 // both changed
-      // WHAT differs, not just that something does. A row going amber with no
-      // edit anyone remembers making is unanswerable from a hash — it can only
-      // say "not the same". The signature is a fixed set of named fields, so the
-      // difference can be named, and then the next time this happens it is
-      // evidence instead of a mystery.
-      //
-      // Carried on the plan rather than computed in the dialog so both the row's
-      // tooltip and the Update list read the same answer.
-      const changed = contentDiffFields(local, s);
-      return { shareSong: s, local, state, matchedBy: 'lineage', changed, unsure };
-    });
+    const songs = matchShareSongs(setData.songs, localSongs);
     const anyMatched = songs.some(x => x.local);
     // Your OWN set, opened through its own share link — something Howard does
     // often, to show people what a share looks like. A copied set always gets a
@@ -568,6 +489,19 @@ export default function SharedSetView() {
     const bookId = songs.filter(x => x.matchedBy === 'lineage').map(x => x.local.bookId).find(id => here.has(id)) || null;
     return { status, songs, localSet, setChanged, orderChanged, mine, bookId };
   }, [setData, localSongs, localSets, localBooks, token]);
+
+  // The Copy list's own plan: the same songs, judged only against the place
+  // they're being copied into. `elsewhere` is the song of yours the library-wide
+  // plan found, which the set uses when you leave a song out of the copy.
+  const copyInto = updateDialog && updatePlan ? (updateDialog.book ?? copyBookStart(updatePlan, setData?.set?.name)) : null;
+  const copyPlan = useMemo(() => {
+    if (!updatePlan || !copyInto || updatePlan.mine) return updatePlan;
+    const songs = matchShareSongs(setData.songs, poolFor(copyInto, localSongs, localBooks))
+      .map((x, i) => ({ ...x, elsewhere: updatePlan.songs[i]?.local || null }));
+    return { ...updatePlan, songs };
+    // copyInto is rebuilt each render; its fields are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updatePlan, setData, localSongs, localBooks, copyInto?.on, copyInto?.bookId, copyInto?.name]);
 
   // Map share song id -> your local (edited/annotated) copy, for "Follow along
   // with your copy". Presenting then plays your versions where you have them.
@@ -790,38 +724,37 @@ export default function SharedSetView() {
     mergeTaggedSongCustoms([s]);
   }
 
-  // `book` is the Update list's book choice (bookChoice()), for songs added from
-  // a share whose copies aren't in a book yet; null for none.
+  // Apply the Copy list. `book` is where it copies into (bookChoice(): a book,
+  // a new one, or null for My songs); the rows were judged against that place
+  // (copyPlan). + rows are copied in, ≠ rows set to Replace mine take the shared
+  // version over yours (same id, so ink and sets hold), and the set then uses
+  // the song from that place — or, for one left out, the song of yours found
+  // elsewhere.
   async function applyUpdate(choices, book = null) {
-    if (!updatePlan || !setData || copying) return;
+    const plan = copyPlan;
+    if (!plan || !setData || copying) return;
     setCopying(true);
     try {
       const now = new Date().toISOString();
       const shareToLocalId = new Map();
+      const addedIds = new Map();
       let updated = 0, added = 0, skipped = 0;
-      // A song added goes where the list says (it starts at the book the set's
-      // copies are in) — a new book is made only if something is actually
-      // added. Your own set asks nothing: its songs go back where they were.
-      const adding = updatePlan.songs.some(x => (isAddish(x.state) || x.state === 'conflict') && (choices?.[x.shareSong.id] ?? defaultUpdateAction(x.state)) === 'add');
-      const bookId = updatePlan.mine ? updatePlan.bookId : (book && adding ? await saveBookChoice(book) : null);
+      const adding = plan.songs.some(x => x.state === 'add' && (choices?.[x.shareSong.id] ?? defaultUpdateAction(x.state)) === 'add');
+      // Your own set asks nothing: its songs go back where they were.
+      const bookId = plan.mine ? plan.bookId : (book && adding ? await saveBookChoice(book) : null);
       const bookFields = bookId ? { bookId, mine: false } : NO_BOOK;
-      const allTitles = titlesAt(localSongs, bookId);
+      // Titles only clash inside the place they go.
+      const pool = plan.mine ? localSongs : bookId ? localSongs.filter(ls => ls.bookId === bookId) : localSongs.filter(isMine);
+      const allTitles = new Set(pool.map(ls => normalizeTitle(ls.metadata?.title)));
 
-      for (const item of updatePlan.songs) {
+      for (const item of plan.songs) {
         const s = item.shareSong;
         const action = choices?.[s.id] ?? defaultUpdateAction(item.state);
-
-        if ((item.state === 'update' || item.state === 'conflict') && action === 'update' && item.local) {
+        if (item.local && item.state !== 'uptodate' && item.state !== 'add' && action === 'update') {
           await takeShareVersion(s, item.local);
           shareToLocalId.set(s.id, item.local.id);
           updated++;
-        } else if ((isAddish(item.state) || item.state === 'conflict') && action === 'add') {
-          // A song you also edited, copied as a second song: yours stays as it
-          // is but stops being the copy of this one — it's your own now — so
-          // the new copy is the one this share tracks from here on.
-          if (item.state === 'conflict' && item.local) {
-            await saveSong({ ...item.local, copiedFrom: null, updatedAt: item.local.updatedAt });
-          }
+        } else if (item.state === 'add' && action === 'add') {
           let title = s.metadata?.title || 'Untitled';
           if (allTitles.has(normalizeTitle(title))) title = makeUniqueTitle(title, allTitles);
           allTitles.add(normalizeTitle(title));
@@ -835,12 +768,25 @@ export default function SharedSetView() {
           if (s.type === 'pdf') { const blob = await loadPdfBlob(s.id); if (blob) await savePdfBlob(newId, blob); }
           mergeTaggedSongCustoms([s]);
           shareToLocalId.set(s.id, newId);
+          addedIds.set(s.id, newId);
           added++;
-        } else if (item.local) {
-          // up to date, or the user chose Skip — keep the existing copy in the set.
-          shareToLocalId.set(s.id, item.local.id);
+        } else {
+          // The same, kept, or left out: the set uses the song you have — in
+          // this place, or else wherever it is.
+          const keep = item.local || item.elsewhere;
+          if (keep) shareToLocalId.set(s.id, keep.id);
           if (item.state !== 'uptodate') skipped++;
         }
+      }
+
+      // The set follows the new copies: each song copied is now the version of
+      // yours for it, and plays unless you'd set it to the shared one — so a
+      // set copied again into a new book doesn't ask ? about the old copies
+      // (Howard, 2026-11-10).
+      if (addedIds.size) {
+        const next = { ...playChoices };
+        for (const [shareId, newId] of addedIds) next[shareId] = { ...(next[shareId] || {}), pick: newId, play: next[shareId]?.play || 'mine' };
+        setPlayChoicesPersisted(next);
       }
 
       const newIds = setData.songs.map(s => shareToLocalId.get(s.id)).filter(Boolean);
@@ -1341,7 +1287,6 @@ export default function SharedSetView() {
             onPick={(s) => pickVersion(song, s)}
             onCopy={(book) => { setPicking(null); handleCopySong(song, { book }); }}
             onCopyOver={(c) => copyOver(song, [c], copyStanding(c, song) === 'mine' ? 'putBack' : 'refreshed')}
-            onCopySecond={() => { setPicking(null); handleCopySong(song, { beside: r.picked }); }}
             onKeep={() => keepMine(song)}
             onReplaceAll={() => copyOver(song, versions.filter(v => v.standing === 'newer').map(v => v.song))}
             onClose={() => setPicking(null)}
@@ -1387,29 +1332,31 @@ export default function SharedSetView() {
       })()}
 
       {/* The Copy list */}
-      {updateDialog && updatePlan && (
+      {updateDialog && copyPlan && (
         <UpdateDialog
-          plan={updatePlan}
+          plan={copyPlan}
           choices={updateDialog.choices}
           setName={setData?.set?.name || ''}
           dark={dark}
           busy={copying}
           focusId={updateDialog.focus}
           records={localBooks}
-          book={updateDialog.book ?? copyBookStart(updatePlan, setData?.set?.name)}
-          onBook={(book) => setUpdateDialog(d => ({ ...d, book }))}
+          book={copyInto}
+          // A new place means new rows, so the choices start again.
+          onBook={(book) => setUpdateDialog(d => ({ ...d, book, choices: {} }))}
           onChange={(id, action) => setUpdateDialog(d => ({ ...d, choices: { ...d.choices, [id]: action } }))}
           onSetAll={(kind) => setUpdateDialog(d => ({
             ...d,
-            // Copy all copies every song that isn't the same as yours (takeAction):
-            // your own versions and songs you also edited as second songs.
-            choices: Object.fromEntries((updatePlan?.songs || []).map(x => [
+            // Copy all: every + and every older copy you haven't changed
+            // (takeAction); a ≠ you'd have to replace keeps its choice.
+            choices: Object.fromEntries((copyPlan?.songs || []).map(x => [
               x.shareSong.id,
-              kind === 'skip' || x.state === 'uptodate' ? 'skip' : takeAction(x.state),
+              kind === 'skip' || x.state === 'uptodate' ? 'skip'
+                : takeAction(x.state) ?? (d.choices?.[x.shareSong.id] ?? defaultUpdateAction(x.state)),
             ])),
           }))}
           onCancel={() => setUpdateDialog(null)}
-          onApply={() => applyUpdate(updateDialog.choices, bookChoice(updateDialog.book ?? copyBookStart(updatePlan, setData?.set?.name)))}
+          onApply={() => applyUpdate(updateDialog.choices, bookChoice(copyInto))}
         />
       )}
 
@@ -1497,16 +1444,104 @@ function defaultUpdateAction(state) {
   return 'skip';   // conflict, uptodate, have
 }
 
-// States whose action ADDS a song rather than replacing one. 'have' belongs
-// here: taking it brings the publisher's version in as a SEPARATE song and never
-// writes over the one of yours that happens to share its title.
-const isAddish = (state) => state === 'add' || state === 'have';
+// Each shared song against a POOL of your songs: all of them (the set's rows and
+// its Copy count), or only the ones in the place the Copy list is copying into —
+// a book, a new book, or My songs — since a song elsewhere is no duplicate
+// there (Howard, 2026-11-10).
+function matchShareSongs(shareSongs, pool) {
+  const localSongs = pool;
+  const bySource = new Map();
+  // With two copies of one song (a second one copied from a newer version),
+  // the newer copy is the one the share tracks.
+  for (const ls of localSongs) {
+    const src = ls.copiedFrom?.songId;
+    if (src && (!bySource.has(src) || (ls.copiedFrom.copiedAt || '') > (bySource.get(src).copiedFrom.copiedAt || ''))) bySource.set(src, ls);
+  }
+  // SECOND WAY TO RECOGNISE A SONG. Lineage is the authoritative match, but it
+  // only knows about songs that arrived THROUGH a share — so your own songs,
+  // coming back to you in a set someone built from them, matched nothing and
+  // every row read as never-copied. An identical content hash covers the rest:
+  // same words, same chords, same title, same key. Whatever its history, it is
+  // the same song, and there is nothing to copy.
+  //
+  // This match can ONLY ever produce 'uptodate', never 'update'. That is what
+  // makes it safe: a song matched this way has no baseline, so if the
+  // publisher later changes it the hashes stop agreeing, no match is found,
+  // and it becomes an 'add' — offered as a new song beside yours rather than
+  // written over the top of one Cue was never told was a copy.
+  const byHash = new Map();
+  for (const ls of localSongs) { const h = contentHash(ls); if (!byHash.has(h)) byHash.set(h, ls); }
+  // THE ORIGINAL ITSELF. A published song keeps its id, and so does a song
+  // restored from a full backup, so a local song with the share song's own id
+  // IS its source — your own set, opened through its link. Same content is
+  // 'uptodate'; different is 'have' (never Update: Cue can't tell whether you
+  // edited it here or the published one moved on, and overwriting your own
+  // original from your own share is the last thing to offer). Needed once
+  // same-title songs stopped counting as yours (below): your own edited
+  // original must not read as "not on this device".
+  const byId = new Map(localSongs.map(ls => [ls.id, ls]));
+  // THIRD, and weakest: same title, different content. NOT the same song — a
+  // friend's arrangement of one you own is a real, different thing and Cue
+  // must not pretend otherwise. But it must not pre-tick Add for it either. A
+  // share built from 83 of Howard's own songs offered to add 72 of them, and
+  // refusing that was 72 taps.
+  const byTitle = new Map();
+  for (const ls of localSongs) { const t = normalizeTitle(ls.metadata?.title); if (t && !byTitle.has(t)) byTitle.set(t, ls); }
 
-// What Copy all picks for a row: a copy of every song that isn't the same as
-// yours. Your own version, or one you also edited, comes in as a SECOND song,
-// so nothing of yours is written over (Howard, 2026-11-10: Copy all left those
-// rows alone, and looked as if it did nothing).
-const takeAction = (state) => state === 'update' ? 'update' : 'add';
+  return shareSongs.map(s => {
+    const local = bySource.get(s.id) || null;
+    if (!local) {
+      const self = byId.get(s.id);
+      if (self) {
+        const same = contentHash(self) === contentHash(s);
+        return { shareSong: s, local: self, state: same ? 'uptodate' : 'have', matchedBy: 'origin', changed: same ? undefined : contentDiffFields(self, s) };
+      }
+      const twin = byHash.get(contentHash(s));
+      if (twin) return { shareSong: s, local: twin, state: 'uptodate', matchedBy: 'content' };
+      const sameName = byTitle.get(normalizeTitle(s.metadata?.title));
+      if (sameName) return { shareSong: s, local: sameName, state: 'have', matchedBy: 'title' };
+      return { shareSong: s, local: null, state: 'add' };
+    }
+    const incoming = contentHash(s);
+    const here = contentHash(local);
+    const baseline = local.copiedFrom?.baseline;
+    let state, unsure = false;
+    if (baseline == null) ({ state, unsure } = legacyCopyState(local, s, incoming === here));
+    else if (incoming === baseline) state = 'uptodate';                      // publisher unchanged
+    else if (here === baseline) state = 'update';                            // publisher changed, you didn't
+    else state = 'conflict';                                                 // both changed
+    // WHAT differs, not just that something does. A row going amber with no
+    // edit anyone remembers making is unanswerable from a hash — it can only
+    // say "not the same". The signature is a fixed set of named fields, so the
+    // difference can be named, and then the next time this happens it is
+    // evidence instead of a mystery.
+    //
+    // Carried on the plan rather than computed in the dialog so both the row's
+    // tooltip and the Update list read the same answer.
+    const changed = contentDiffFields(local, s);
+    return { shareSong: s, local, state, matchedBy: 'lineage', changed, unsure };
+  });
+}
+
+// The Copy list's rows, judged against the place it copies into: 'add' (+) a
+// song not there, 'update' (≠) an older copy there you haven't changed,
+// 'conflict' (≠) a copy you changed too, 'have' (≠) your own song with its title,
+// 'uptodate' (=) the same. Only 'add' brings a song in; a ≠ is Replace mine or
+// Keep mine. There is no "copy as a second song" — Howard: that's Duplicate by
+// another name; to have theirs beside yours, copy into a book (2026-11-10).
+//
+// What Copy all picks: every + and every older copy you haven't changed. Never
+// a song you changed, nor your own: those stay Keep mine until you say.
+const takeAction = (state) => state === 'add' ? 'add' : state === 'update' ? 'update' : null;
+
+// Your songs in the place the Copy list copies into (`book`, BookChoice's
+// value): My songs, a book you have, or a new book — empty, unless its name is a
+// book you already have, which it then joins (saveBookChoice).
+function poolFor(book, localSongs, records) {
+  if (!book?.on) return localSongs.filter(isMine);
+  const id = book.bookId || bookNamed(records, book.name)?.id;
+  return id ? localSongs.filter(ls => ls.bookId === id) : [];
+}
 
 // Where the list's copies go before you choose: the book this share's earlier
 // copies went into, else a new book named after the set on a first copy, else
@@ -1540,27 +1575,22 @@ function UpdateResult({ result, dark, onDone }) {
   );
 }
 
-// The Copy list: one row per song, and whether to copy it.
+// The Copy list: where the songs go, then one row per song.
 //
 // A shared set always shows the publisher's latest, so nothing here is an
-// "update" — that word is the app's own (Update Cue). The question is only
-// what to copy into your library. Most rows are Copy or Leave it: a song not
-// copied yet, or a newer version of a copy you haven't touched (which simply
-// replaces it, ink and all). Two kinds of row ask how, because your own work
-// is at stake: a song you also edited (Copy over mine, Copy as a second song,
-// Leave mine) and a song of yours with the same title (Copy as a second song,
-// or leave it — never over the top).
+// "update" — that word is the app's own (Update Cue). WHERE comes first
+// (Howard, 2026-11-10), because it decides every row: a song is only a
+// duplicate of one in the same place. Into a new book everything is + and
+// simply copies; into a book you have or My songs, each row is + (not there
+// yet: Copy or Leave it), = (the same) or ≠ (an older copy, one you changed, or
+// your own song with its title: Replace mine or Keep mine). An older copy you
+// haven't changed starts on Replace mine; your own work starts on Keep mine.
 //
-// A share never copied opens here too: applying it makes the set. Whenever it
-// adds songs it asks where they go (`book`, BookChoice's value; copyBookStart).
+// A share never copied opens here too: applying it makes the set.
 function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [], book, onBook, onChange, onSetAll, onCancel, onApply }) {
   // Arriving from ONE row's button, in a list that can be 83 rows long.
-  // Without this you land somewhere in the middle of a wall of songs with
-  // nothing saying which one you came to decide about.
-  //
-  // A callback ref, not a plain one: the row it belongs to is rendered
-  // conditionally inside a map, so there is no mount for an effect to hang on
-  // and a plain ref would still be null when the effect ran.
+  // A callback ref: the row is rendered conditionally inside a map, so there is
+  // no mount for an effect to hang on.
   const focusRow = useCallback((el) => {
     if (el) el.scrollIntoView({ block: 'center' });
   }, []);
@@ -1568,29 +1598,34 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
   const sub  = dark ? 'text-gray-400' : 'text-gray-500';
   const seg  = (on) => `px-2.5 py-1 text-xs rounded-lg border transition-colors ${on ? 'bg-indigo-600 border-indigo-600 text-white' : dark ? 'border-gray-700 text-gray-300' : 'border-gray-300 text-gray-600'}`;
   const actionable = plan.songs.filter(s => s.state !== 'uptodate');
-  const anyConflict = plan.songs.some(s => s.state === 'conflict');
+  const chosenOf = (item) => choices?.[item.shareSong.id] ?? defaultUpdateAction(item.state);
+  const takeable = actionable.filter(x => takeAction(x.state));
+  const allTaken = takeable.length > 0 && takeable.every(x => chosenOf(x) === takeAction(x.state));
+  const allLeft  = actionable.every(x => chosenOf(x) === 'skip');
+  const differs  = (state) => state === 'update' || state === 'conflict' || state === 'have';
+
+  const askPlace = !plan.mine && !!book;
+  const placeName = !askPlace ? 'your library'
+    : !book.on ? 'My songs'
+    : book.bookId ? `“${records.find(r => r.id === book.bookId)?.name || 'the book'}”`
+    : book.name.trim() ? `“${book.name.trim()}”` : 'the new book';
   // WHAT IS IN THIS LIST, before reading a single row.
-  const n = plan.songs.reduce((a, x) => { const k = x.unsure ? 'unsure' : x.state; return { ...a, [k]: (a[k] || 0) + 1 }; }, {});
+  const n = plan.songs.reduce((acc, x) => ({ ...acc, [x.state]: (acc[x.state] || 0) + 1 }), {});
+  const nDiffer = (n.conflict || 0) + (n.have || 0);
   const summary = [
-    n.add      && `${n.add} not copied yet`,
-    n.update   && `${n.update} newer than your copy`,
-    n.conflict && `${n.conflict} you’ve also edited`,
-    n.unsure   && `${n.unsure} that differ${n.unsure === 1 ? 's' : ''} from yours`,
-    n.have     && `${n.have} you have your own version of`,
+    n.add      && `${n.add} not in ${placeName} yet`,
+    n.update   && `${n.update} newer than your cop${n.update === 1 ? 'y' : 'ies'}`,
+    nDiffer    && `${nDiffer} that differ${nDiffer === 1 ? 's' : ''} from yours`,
     n.uptodate && `${n.uptodate} same as yours`,
   ].filter(Boolean).join(' · ');
   const firstCopy = !plan.localSet && !plan.mine;
-  const chosenOf = (item) => choices?.[item.shareSong.id] ?? defaultUpdateAction(item.state);
-  const copying = plan.songs.filter(x => x.state !== 'uptodate' && chosenOf(x) !== 'skip').length;
+  const copying = actionable.filter(x => chosenOf(x) !== 'skip').length;
   // Something to apply: songs to copy, a running order that moved (applyUpdate
   // reconciles it whatever the rows say), or a first copy made of songs you
   // already have, which still makes the set.
-  const canApply = copying > 0 || plan.orderChanged || (firstCopy && plan.songs.some(x => x.local));
+  const canApply = copying > 0 || plan.orderChanged || (firstCopy && plan.songs.some(x => x.local || x.elsewhere));
   const nothingToDo = actionable.length === 0 && !plan.orderChanged;
-  const askBook = !plan.mine && plan.songs.some(x => isAddish(x.state) || x.state === 'conflict');
-  const allTaken = actionable.every(x => chosenOf(x) === takeAction(x.state));
-  const allLeft  = actionable.every(x => chosenOf(x) === 'skip');
-  const blocked = busy || !canApply || (askBook && book?.on && !bookChoice(book));
+  const blocked = busy || !canApply || (askPlace && book.on && !bookChoice(book));
   const label = busy ? 'Copying…'
     : copying ? `Copy ${copying} song${copying === 1 ? '' : 's'}`
     : firstCopy ? 'Copy the set'
@@ -1605,101 +1640,96 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
         <div className="flex flex-col gap-1">
           <h2 className={`text-base font-semibold ${em}`}>{firstCopy ? 'Copy' : 'Copy from'} “{setName}”</h2>
           <p className={`text-xs ${sub}`}>{firstCopy
-            ? 'Copies this set and its songs into your library. Choose which songs to copy; a song you leave out that you already have is used in its place. Your own songs are never changed.'
-            : 'This shared set always shows the latest. Choose what to copy into your library: a newer song replaces your older copy, and keeps your ink. Your own songs are never changed.'}</p>
+            ? 'Copies this set and its songs into your library. A song you leave out that you already have is used in its place.'
+            : 'This shared set always shows the latest. Choose where to copy and which songs.'}</p>
         </div>
+
+        {askPlace && (
+          <div className="flex flex-col gap-1">
+            <BookChoice dark={dark} records={records} value={book} onChange={onBook} into />
+            <p className={`text-[0.6875rem] ${sub}`}>
+              {book.on
+                ? 'Each song is compared only with the songs in this book. Songs copied into a book stay out of My songs until you put one in a set of your own, ink it, or add it to My songs.'
+                : 'Each song is compared only with your songs in My songs.'}
+            </p>
+          </div>
+        )}
 
         {summary && <p className={`text-xs font-medium ${em}`}>{summary}</p>}
         {plan.orderChanged && (
           <p className={`text-xs ${sub}`}>The set’s running order has changed.</p>
         )}
 
-        {/* Set every row at once: Copy all copies every song that differs (your
-            own versions as second songs); Leave all leaves the lot. */}
+        {/* Set every row at once: Copy all copies every + and every older copy
+            you haven't changed; Leave all leaves the lot. */}
         {actionable.length > 1 && (
           <div className="flex items-center gap-2">
             <span className={`text-[0.6875rem] ${sub}`}>All:</span>
-            <button onClick={() => onSetAll('take')} className={seg(allTaken)} title="Copy every song that isn't the same as yours. One you have your own version of, or also edited, comes in as a second song, so yours is never written over.">Copy all</button>
+            {takeable.length > 0 && <button onClick={() => onSetAll('take')} className={seg(allTaken)} title="Copy every song not here yet, and replace every older copy you haven't changed. A song you changed, or your own, stays as you set it.">Copy all</button>}
             <button onClick={() => onSetAll('skip')} className={seg(allLeft)}>Leave all</button>
           </div>
         )}
 
         {nothingToDo ? (
-          <p className={`text-sm ${sub}`}>Your copies already match this set. Nothing to copy.</p>
+          <p className={`text-sm ${sub}`}>Every song is the same as yours in {placeName}. Nothing to copy.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {plan.songs.map((item, i) => {
               const s = item.shareSong;
               const title = s.metadata?.title || 'Untitled';
               const choice = chosenOf(item);
-              // Rows that ask how put their three (or long) choices under the title.
-              const asks = item.state === 'conflict' || item.state === 'have';
-              const choicesOf = item.state === 'conflict'
-                ? [['update', 'Copy over mine'], ['add', 'Copy as a second song'], ['skip', 'Leave mine']]
-                : item.state === 'have'
-                ? [['add', 'Copy as a second song'], ['skip', 'Leave it']]
-                : [[item.state === 'add' ? 'add' : 'update', 'Copy'], ['skip', 'Leave it']];
+              const asks = differs(item.state);
+              const Mark = item.state === 'add' ? Plus : item.state === 'uptodate' ? Equal : EqualNot;
+              const choicesOf = item.state === 'add'
+                ? [['add', 'Copy'], ['skip', 'Leave it']]
+                : [['update', 'Replace mine'], ['skip', 'Keep mine']];
               return (
                 <li
                   key={i}
                   ref={s.id === focusId ? focusRow : undefined}
-                  className={`flex ${asks ? 'flex-col items-stretch' : 'items-center justify-between'} gap-2 p-2.5 rounded-xl border ${
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${
                     s.id === focusId ? 'border-blue-500 ring-1 ring-blue-500' : dark ? 'border-gray-700' : 'border-gray-200'
                   }`}
                 >
-                  <span className="flex flex-col min-w-0">
-                    <span className={`text-sm font-medium truncate ${em}`}>{title}</span>
-                    <span className={`text-[0.6875rem] ${item.state === 'conflict' ? 'text-blue-500' : sub}`}>
-                      {item.state === 'uptodate' && 'Same as yours'}
-                      {item.state === 'update' && (item.changed?.length
-                        ? `Newer than your copy — ${item.changed.join(', ')}`
-                        : 'Newer than your copy')}
-                      {item.state === 'conflict' && (item.unsure
-                        ? 'Yours and theirs differ — Cue can’t tell who changed it'
-                        : 'Newer than your copy — and you’ve edited yours')}
-                      {/* Not "not in your library": all Cue knows is that no
-                          song of yours matches it by where it came from, its
-                          content, or its title. */}
-                      {item.state === 'add' && 'Not copied yet'}
-                      {item.state === 'have' && 'You have your own version of this song'}
-                    </span>
+                  <span aria-hidden className={`shrink-0 w-7 h-7 rounded-md border flex items-center justify-center ${
+                    item.state === 'uptodate' ? 'border-green-500 text-green-500'
+                    : asks ? 'border-amber-500 text-amber-500'
+                    : dark ? 'border-gray-600 text-gray-300' : 'border-gray-300 text-gray-600'}`}>
+                    <Mark size={15} strokeWidth={2.5} />
                   </span>
-                  {item.state === 'uptodate' ? (
-                    <Check size={16} className="text-green-500 shrink-0" />
-                  ) : (
-                    <span className={`flex flex-wrap gap-1 ${asks ? '' : 'shrink-0'}`}>
-                      {choicesOf.map(([action, words]) => (
-                        <button key={action} onClick={() => onChange(s.id, action)} className={seg(choice === action)}>{words}</button>
-                      ))}
+                  <span className={`flex flex-1 min-w-0 ${asks ? 'flex-col items-stretch gap-1.5' : 'items-center justify-between gap-2'}`}>
+                    <span className="flex flex-col min-w-0">
+                      <span className={`text-sm font-medium truncate ${em}`}>{title}</span>
+                      <span className={`text-[0.6875rem] ${sub}`}>
+                        {item.state === 'uptodate' && 'Same as yours'}
+                        {item.state === 'add' && `Not in ${placeName} yet`}
+                        {item.state === 'update' && (item.changed?.length
+                          ? `Newer than your copy — ${item.changed.join(', ')}`
+                          : 'Newer than your copy')}
+                        {item.state === 'conflict' && (item.unsure
+                          ? 'Yours differs — Cue can’t tell who changed it'
+                          : 'Newer than your copy, and you changed yours')}
+                        {item.state === 'have' && 'Your own version differs'}
+                      </span>
                     </span>
-                  )}
+                    {item.state !== 'uptodate' && (
+                      <span className={`flex flex-wrap gap-1 ${asks ? '' : 'shrink-0'}`}>
+                        {choicesOf.map(([action, words]) => (
+                          <button key={action} onClick={() => onChange(s.id, action)} className={seg(choice === action)}>{words}</button>
+                        ))}
+                      </span>
+                    )}
+                  </span>
                 </li>
               );
             })}
           </ul>
         )}
 
-        {n.have > 0 && (
+        {nDiffer > 0 && (
           <p className={`text-[0.6875rem] ${sub}`}>
-            A song you have your own version of is left as it is. <strong>Copy as a second song</strong> brings
-            the publisher’s version in beside yours{askBook && book?.on
-              ? ', in the book, under its own title'
-              : ', with a numbered name'} — yours is never changed or replaced.
+            <strong>Keep mine</strong> leaves yours as it is. <strong>Replace mine</strong> puts the shared version in its place, and keeps your title and ink. To have both, copy into a book instead.
           </p>
-        )}
-        {anyConflict && (
-          <p className="text-[0.6875rem] text-amber-500">A song you’ve also edited is set to <strong>Leave mine</strong>, so your version is kept. <strong>Copy over mine</strong> replaces yours with theirs; <strong>Copy as a second song</strong> keeps both. Your ink stays on yours either way.</p>
-        )}
-
-        {askBook && book && (
-          <div className="flex flex-col gap-1">
-            <BookChoice dark={dark} records={records} value={book} onChange={onBook} one label="Put the songs copied in a book" />
-            <p className={`text-[0.6875rem] ${sub}`}>
-              {book.on
-                ? 'Songs copied stay out of My songs until you put one in a set of your own, ink it, or add it to My songs. Songs already copied stay where they are.'
-                : 'Songs copied go straight into My songs. Songs already copied stay where they are.'}
-            </p>
-          </div>
         )}
 
         <div className="flex gap-2">
@@ -1733,10 +1763,6 @@ function SongCopyResult({ result, dark, onDone }) {
   } else if (outcome === 'duplicated') {
     heading  = 'Song added as duplicate';
     body     = <>Added as <span className={em}>"{newTitle}"</span> so it stays separate from the existing version.</>;
-    btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
-  } else if (outcome === 'second') {
-    heading  = 'Second copy added';
-    body     = <>The newer <span className={em}>"{title}"</span> was copied beside yours, and is the one you use for this song now. Your older copy is still there.</>;
     btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
   } else if (outcome === 'putBack') {
     heading  = 'Shared version copied';
@@ -1892,8 +1918,8 @@ function SharedSongRow({ song, index, dark, muted, row, onLeft, onTv, onPresent,
               : lib === '≠' ? 'Yours, changed or with your ink — see your versions'
               : 'Yours, the same as shared — see your versions'}
             title={lib === '+' ? 'Copy this song into My Songs or a book, or use one of yours with this title.'
-              : newer === 'both' ? `The shared version is newer than yours, and you changed yours too${changedNote}. Tap to copy it over yours, copy it as a second song, or keep yours.`
-              : newer ? `The shared version is newer than yours${changedNote}. Tap to copy it over yours, copy it as a second song, or keep yours.`
+              : newer === 'both' ? `The shared version is newer than yours, and you changed yours too${changedNote}. Tap to copy it over yours or keep yours.`
+              : newer ? `The shared version is newer than yours${changedNote}. Tap to copy it over yours or keep yours.`
               : lib === '?' ? 'You have more than one version of this song. Tap to choose the one that goes with this share.'
               : lib === '≠' ? (edited ? `Your copy differs from the shared one${changedNote}.` : 'You have drawn on your copy.') + ' Tap to see your versions.'
               : 'Your copy hasn’t been changed. Tap to see your versions.'}

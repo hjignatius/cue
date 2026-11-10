@@ -20,7 +20,8 @@ import { pageTurn } from '../utils/pageTurns.js';
 //           or a book, or use a song you already have with its title.
 //   choose  from ?, = or ≠: your copy and your other versions. When the shared
 //           song is newer than the copy you use, it says so first and asks:
-//           copy it over yours, copy it as a second song, or keep using yours.
+//           copy it over yours or keep using yours. (No "second song": that's
+//           Duplicate by another name — to have both, copy into a book.)
 //           When it isn't newer but your copy of it differs (you changed it),
 //           it offers to put the shared version back over yours.
 //
@@ -109,7 +110,7 @@ const BEHIND = { newer: 'older than the shared one', both: 'changed, and older t
 
 export default function VersionPicker({
   dark, mode, song, versions = [], picked, newer = null, inkedIds, records = [], startingBook,
-  onPick, onCopy, onCopyOver, onCopySecond, onKeep, onReplaceAll, onClose,
+  onPick, onCopy, onCopyOver, onKeep, onReplaceAll, onClose,
 }) {
   const [big, setBig] = useState(null); // the row shown large
   const [book, setBook] = useState(startingBook);
@@ -228,7 +229,6 @@ export default function VersionPicker({
                   </p>
                 </div>
                 {picked && <button type="button" onClick={() => onCopyOver(picked)} className={newer === 'both' ? secondary : primary}>Copy it over yours</button>}
-                {picked && <button type="button" onClick={onCopySecond} className={secondary}>Copy it as a second song</button>}
                 {untouched > (picked ? 1 : 0) && (
                   <button type="button" onClick={onReplaceAll} className={picked ? quiet : primary}>
                     {untouched === 1 ? 'Copy it over the copy you haven’t changed' : `Replace all ${untouched} copies you haven’t changed`}{changedToo ? ` (${changedToo} you changed stay as they are)` : ''}

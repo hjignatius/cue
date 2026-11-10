@@ -13,6 +13,10 @@ import { bookNamed, books, shelves } from '../utils/books.js';
 // import is given: { bookId } for a book already there, { name, shelfId,
 // newShelf } for a new one, or null. A new one named as a book you already have
 // is that book (saveBookChoice), and says so here.
+//
+// `into` is the shared set's Copy list: one "Copy into" menu — My songs (`on`
+// false), a book you have, or a new book — asked first, because where the songs
+// go decides what counts as a duplicate (Howard, 2026-11-10).
 
 export const startBook = (on, name, bookId = '') => ({ on, name, shelfId: '', newShelf: '', bookId });
 
@@ -31,11 +35,46 @@ export function bookChoice(value) {
   return { name: value.name.trim(), shelfId: making || value.shelfId === '__new' ? null : value.shelfId || null, newShelf: making ? value.newShelf.trim() : null };
 }
 
-export default function BookChoice({ dark, records, value, onChange, one = false, label = null }) {
+export default function BookChoice({ dark, records, value, onChange, one = false, into = false, label = null }) {
   const head = dark ? 'text-gray-100' : 'text-gray-900';
   const field = `rounded-lg px-3 py-2 text-sm border ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
   const set = (patch) => onChange({ ...value, ...patch });
-  const have = one ? byName(records) : [];
+  const have = one || into ? byName(records) : [];
+  const newBook = value.on && !value.bookId && (
+    <>
+      <div className="flex gap-2">
+        <input value={value.name} onChange={e => set({ name: e.target.value })} placeholder="Book name" aria-label="Book name" className={`${field} flex-1 min-w-0`} />
+        <select value={value.shelfId} onChange={e => set({ shelfId: e.target.value })} aria-label="Shelf" className={`${field} w-36 shrink-0`}>
+          <option value="">No shelf</option>
+          {shelves(records).sort((a, b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <option value="__new">New shelf…</option>
+        </select>
+      </div>
+      {bookNamed(records, value.name) && (
+        <p className={`text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>You already have this book, so these songs will join it.</p>
+      )}
+      {value.shelfId === '__new' && (
+        <input value={value.newShelf} onChange={e => set({ newShelf: e.target.value })} placeholder="Shelf name, e.g. Club" aria-label="New shelf name" className={field} />
+      )}
+    </>
+  );
+  if (into) {
+    const where = !value.on ? '__mine' : value.bookId || '__new';
+    return (
+      <div className="flex flex-col gap-2">
+        <label className={`flex items-center gap-2 text-sm font-medium ${head}`}>
+          <span className="shrink-0">{label || 'Copy into'}</span>
+          <select value={where} aria-label="Copy into" className={`${field} flex-1 min-w-0`}
+            onChange={e => { const v = e.target.value; set(v === '__mine' ? { on: false } : v === '__new' ? { on: true, bookId: '' } : { on: true, bookId: v }); }}>
+            <option value="__mine">My songs</option>
+            {have.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            <option value="__new">New book…</option>
+          </select>
+        </label>
+        {newBook}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-2">
       <label className={`flex items-center gap-2 text-sm ${head}`}>
@@ -48,22 +87,7 @@ export default function BookChoice({ dark, records, value, onChange, one = false
           <option value="">New book…</option>
         </select>
       )}
-      {value.on && !value.bookId && (
-        <div className="flex gap-2">
-          <input value={value.name} onChange={e => set({ name: e.target.value })} placeholder="Book name" aria-label="Book name" className={`${field} flex-1 min-w-0`} />
-          <select value={value.shelfId} onChange={e => set({ shelfId: e.target.value })} aria-label="Shelf" className={`${field} w-36 shrink-0`}>
-            <option value="">No shelf</option>
-            {shelves(records).sort((a, b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            <option value="__new">New shelf…</option>
-          </select>
-        </div>
-      )}
-      {value.on && !value.bookId && bookNamed(records, value.name) && (
-        <p className={`text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>You already have this book, so these songs will join it.</p>
-      )}
-      {value.on && !value.bookId && value.shelfId === '__new' && (
-        <input value={value.newShelf} onChange={e => set({ newShelf: e.target.value })} placeholder="Shelf name, e.g. Club" aria-label="New shelf name" className={field} />
-      )}
+      {newBook}
     </div>
   );
 }
