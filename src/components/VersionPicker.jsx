@@ -21,6 +21,8 @@ import { pageTurn } from '../utils/pageTurns.js';
 //   choose  from ?, = or ≠: your copy and your other versions. When the shared
 //           song is newer than the copy you use, it says so first and asks:
 //           copy it over yours, copy it as a second song, or keep using yours.
+//           When it isn't newer but your copy of it differs (you changed it),
+//           it offers to put the shared version back over yours.
 //
 // Each version has a small picture of the song, which opens large to read, ink
 // included. Ink may sit a little off on a text song here (the preview isn't
@@ -131,6 +133,13 @@ export default function VersionPicker({
   const changedToo = versions.filter(v => v.standing === 'both').length;
   const rows = versions.map(v => ({ ...v, id: v.song.id, plays: picked?.id === v.song.id }));
   const sharedRow = { id: 'shared', song, label: newer ? 'The shared version, newer' : 'The shared version', shared: true };
+  // A copy of this song you changed, when the share hasn't moved: you may want
+  // the shared version back over it (Howard, 2026-11-10).
+  const mineChanged = !newer && versions.find(v => v.song.id === picked?.id)?.standing === 'mine';
+  // Every other copy of this song that differs from the shared one can have it
+  // copied over, one at a time.
+  const overThisOne = (row) => (row.standing === 'mine' || BEHIND[row.standing]) && !(row.plays && (newer || mineChanged))
+    && (row.standing === 'mine' || untouched + changedToo > 1);
 
   const versionRow = (row) => (
     <div key={row.id} className={`flex items-stretch gap-3 p-2 rounded-xl transition-colors ${row.plays
@@ -147,8 +156,10 @@ export default function VersionPicker({
           </span>
           {row.plays && <Check size={20} strokeWidth={2.5} className={`shrink-0 ${head}`} />}
         </button>
-        {BEHIND[row.standing] && (untouched + changedToo > 1) && (
-          <button type="button" onClick={() => onCopyOver(row.song)} className={`self-start ${quiet}`}>Copy the newest over this one</button>
+        {overThisOne(row) && (
+          <button type="button" onClick={() => onCopyOver(row.song)} className={`self-start ${quiet}`}>
+            {row.standing === 'mine' ? 'Copy the shared version over this one' : 'Copy the newest over this one'}
+          </button>
         )}
       </div>
     </div>
@@ -224,6 +235,15 @@ export default function VersionPicker({
                   </button>
                 )}
                 <button type="button" onClick={onKeep} className={newer === 'both' && picked ? primary : secondary}>{picked ? 'Keep using yours' : 'Keep them as they are'}</button>
+              </div>
+            )}
+            {mineChanged && (
+              <div className={`flex flex-col gap-2 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-300'}`}>
+                <div className="flex items-stretch gap-3">
+                  <Thumb song={song} inked={false} dark={dark} label={sharedRow.label} onBig={() => setBig(sharedRow)} />
+                  <p className={`text-sm ${head}`}>You changed your copy, so it differs from the shared version. Copying the shared version over yours loses your changes; your ink stays.</p>
+                </div>
+                <button type="button" onClick={() => onCopyOver(picked)} className={secondary}>Copy the shared version over yours</button>
               </div>
             )}
             {rows.map(versionRow)}

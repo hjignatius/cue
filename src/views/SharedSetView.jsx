@@ -671,7 +671,7 @@ export default function SharedSetView() {
   }
   // Copy the shared song over copies of yours, keeping their ids, titles, books
   // and ink (takeShareVersion).
-  async function copyOver(song, copies) {
+  async function copyOver(song, copies, outcome = 'refreshed') {
     if (copying || !copies.length) return;
     setPicking(null);
     setCopying(true);
@@ -681,7 +681,7 @@ export default function SharedSetView() {
       setPlayChoicesPersisted({ ...playChoices, [song.id]: rest });
       setHasCopied(true);
       await refreshLocal();
-      setCopyResult({ type: 'song', title: song.metadata?.title || 'Untitled', outcome: 'refreshed', count: copies.length });
+      setCopyResult({ type: 'song', title: song.metadata?.title || 'Untitled', outcome, count: copies.length });
     } catch (err) {
       console.error('Copy over failed:', err);
     } finally {
@@ -1274,7 +1274,7 @@ export default function SharedSetView() {
             startingBook={shareBook ? { ...startOne(localBooks, shareBook), on: true } : startOne(localBooks)}
             onPick={(s) => pickVersion(song, s)}
             onCopy={(book) => { setPicking(null); handleCopySong(song, { book }); }}
-            onCopyOver={(c) => copyOver(song, [c])}
+            onCopyOver={(c) => copyOver(song, [c], copyStanding(c, song) === 'mine' ? 'putBack' : 'refreshed')}
             onCopySecond={() => { setPicking(null); handleCopySong(song, { beside: r.picked }); }}
             onKeep={() => keepMine(song)}
             onReplaceAll={() => copyOver(song, versions.filter(v => v.standing === 'newer').map(v => v.song))}
@@ -1660,6 +1660,10 @@ function SongCopyResult({ result, dark, onDone }) {
   } else if (outcome === 'second') {
     heading  = 'Second copy added';
     body     = <>The newer <span className={em}>"{title}"</span> was copied beside yours, and is the one you use for this song now. Your older copy is still there.</>;
+    btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
+  } else if (outcome === 'putBack') {
+    heading  = 'Shared version copied';
+    body     = <><span className={em}>"{title}"</span> is the shared version again. Your ink annotations were kept.</>;
     btnClass = 'bg-indigo-600 hover:bg-indigo-500 text-white';
   } else if (outcome === 'refreshed') {
     heading  = 'Newer version copied';
