@@ -3,6 +3,27 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.3 — 2026-11-10
+
+### Copying a shared set
+
+- **Choose where the songs go first.** The Copy list starts with **Copy into**:
+  My songs, one of your books, or a new book (with a shelf if you like). It
+  starts at the book you copied this set into before, and you can always
+  change it.
+- **Only that place counts.** Each song is compared only with the songs
+  already in the place you chose, so copying into a new book copies the whole
+  set.
+- **The same symbols as the set.** **+** is not there yet (Copy or Leave it),
+  **=** is the same as yours, and **≠** means yours differs (Replace mine or
+  Keep mine). Replace mine keeps your title and ink.
+- **Copy all works.** It copies every new song and replaces every older copy
+  you haven't changed. It never replaces a song you changed or one of your own.
+- **No more "second song".** It's gone from the Copy list and the version
+  picker. To keep both versions, copy into a book.
+- **The set uses what you just copied,** so copying a set again into a new
+  book doesn't leave you with questions about the old copies.
+
 ## v2.0.2 — 2026-11-10
 
 ### Shared sets
