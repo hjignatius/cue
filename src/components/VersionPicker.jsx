@@ -221,10 +221,10 @@ export default function VersionPicker({
                 <div className="flex items-stretch gap-3">
                   <Thumb song={song} inked={false} dark={dark} label={sharedRow.label} onBig={() => setBig(sharedRow)} />
                   <p className={`text-sm ${head}`}>
-                    {!picked ? `The shared version has changed since you copied it, and you have ${versions.length} versions of this song.`
+                    {!picked ? `The shared version is newer than your copies, and you have ${versions.length} versions of this song.`
                       : newer === 'both'
-                      ? 'The shared version has changed since you copied it, and so has yours. Copying it over yours loses your changes; your ink stays.'
-                      : 'The shared version has changed since you copied it. Copying it over yours keeps your ink.'}
+                      ? 'The shared version is newer than yours, and you changed yours too. Copying it over yours loses your changes; your ink stays.'
+                      : 'The shared version is newer than yours. Copying it over yours keeps your ink.'}
                   </p>
                 </div>
                 {picked && <button type="button" onClick={() => onCopyOver(picked)} className={newer === 'both' ? secondary : primary}>Copy it over yours</button>}
@@ -241,7 +241,7 @@ export default function VersionPicker({
               <div className={`flex flex-col gap-2 p-3 rounded-xl border ${dark ? 'border-gray-700' : 'border-gray-300'}`}>
                 <div className="flex items-stretch gap-3">
                   <Thumb song={song} inked={false} dark={dark} label={sharedRow.label} onBig={() => setBig(sharedRow)} />
-                  <p className={`text-sm ${head}`}>You changed your copy, so it differs from the shared version. Copying the shared version over yours loses your changes; your ink stays.</p>
+                  <p className={`text-sm ${head}`}>Yours differs from the shared version. Copying the shared version over yours loses the difference; your ink stays.</p>
                 </div>
                 <button type="button" onClick={() => onCopyOver(picked)} className={secondary}>Copy the shared version over yours</button>
               </div>

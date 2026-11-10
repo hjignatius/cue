@@ -84,8 +84,20 @@ export function legacyCopyState(local, shareSong, same) {
 // Where a copy stands against the shared song it came from: 'same', 'mine'
 // (only you changed it), 'newer' (only the share did) or 'both' — or null for a
 // song that didn't come from it.
+//
+// YOUR ORIGINAL counts too: a song with the shared song's own id is the one you
+// published, or a restore of it — your own set opened through its link on
+// another device. Howard changed Governors Jam V on the Mac, republished, and
+// the iPad, holding the originals, had no way to take the new versions. With no
+// baseline, the dates say which side moved: the shared one saved later is
+// 'newer', otherwise it's 'mine'.
 export function copyStanding(copy, shareSong) {
-  if (!copy || !shareSong || copy.copiedFrom?.songId !== shareSong.id) return null;
+  if (!copy || !shareSong) return null;
+  if (copy.id === shareSong.id) {
+    if (contentHash(copy) === contentHash(shareSong)) return 'same';
+    return Date.parse(shareSong.updatedAt) - Date.parse(copy.updatedAt) > SAVED_WITH_THE_COPY_MS ? 'newer' : 'mine';
+  }
+  if (copy.copiedFrom?.songId !== shareSong.id) return null;
   const incoming = contentHash(shareSong), here = contentHash(copy);
   const base = copy.copiedFrom.baseline;
   if (base == null) {

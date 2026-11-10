@@ -79,6 +79,13 @@ check('only you changed it', copyStanding(mineToo, v1), 'mine');
 check('only the share did', copyStanding(untouched, v2), 'newer');
 check('you both did', copyStanding(mineToo, v2), 'both');
 check('a song not copied from it has no standing', copyStanding(local[0], v1), null);
+// Your original, on another device, after you changed and republished it elsewhere.
+const day = (n) => new Date(Date.UTC(2026, 10, n)).toISOString();
+const original = { ...v1, updatedAt: day(1) };
+check('your original, the same as shared', copyStanding(original, { ...v1, updatedAt: day(9) }), 'same');
+check('your original, the shared one saved later: newer', copyStanding(original, { ...v2, updatedAt: day(9) }), 'newer');
+check('your original, saved here later: yours changed', copyStanding({ ...original, text: 'mine', updatedAt: day(10) }, { ...v2, updatedAt: day(9) }), 'mine');
+check('your original, dates unknown: yours, so it can still be put back', copyStanding({ ...original, updatedAt: undefined }, v2), 'mine');
 check('newer asks', newerThan(untouched, v2, undefined), 'newer');
 check('…until you keep yours over that version', newerThan(untouched, v2, { kept: contentHash(v2) }), null);
 check('…and asks again when it changes again', newerThan(untouched, { ...v2, text: 'v3' }, { kept: contentHash(v2) }), 'newer');

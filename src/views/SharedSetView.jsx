@@ -743,7 +743,9 @@ export default function SharedSetView() {
       metadata: { ...s.metadata, title: local.metadata?.title || s.metadata?.title },
       createdAt: local.createdAt,
       updatedAt: new Date().toISOString(),
-      copiedFrom: { ...(local.copiedFrom || {}), songId: s.id, baseline: contentHash(s) },
+      // Your original (the shared song's own id) isn't a copy of anything:
+      // its link, if any, is left as it is.
+      copiedFrom: local.id === s.id ? undefined : { ...(local.copiedFrom || {}), songId: s.id, baseline: contentHash(s) },
       pdf: pdfRefForCopy(s.pdf),
     });
     if (s.type === 'pdf') {
@@ -1815,8 +1817,8 @@ function SharedSongRow({ song, index, dark, muted, row, onLeft, onTv, onPresent,
               : lib === '≠' ? 'Yours, changed or with your ink — see your versions'
               : 'Yours, the same as shared — see your versions'}
             title={lib === '+' ? 'Copy this song into My Songs or a book, or use one of yours with this title.'
-              : newer === 'both' ? `The publisher has changed this song since you copied it, and so have you${changedNote}. Tap to copy theirs over yours, copy it as a second song, or keep yours.`
-              : newer ? `The publisher has changed this song since you copied it${changedNote}. Tap to copy theirs over yours, copy it as a second song, or keep yours.`
+              : newer === 'both' ? `The shared version is newer than yours, and you changed yours too${changedNote}. Tap to copy it over yours, copy it as a second song, or keep yours.`
+              : newer ? `The shared version is newer than yours${changedNote}. Tap to copy it over yours, copy it as a second song, or keep yours.`
               : lib === '?' ? 'You have more than one version of this song. Tap to choose the one that goes with this share.'
               : lib === '≠' ? (edited ? `Your copy differs from the shared one${changedNote}.` : 'You have drawn on your copy.') + ' Tap to see your versions.'
               : 'Your copy hasn’t been changed. Tap to see your versions.'}
