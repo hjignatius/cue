@@ -799,10 +799,11 @@ export default function SharedSetView() {
       const now = new Date().toISOString();
       const shareToLocalId = new Map();
       let updated = 0, added = 0, skipped = 0;
-      // A song added goes into the book the set's copies are in, or the one
-      // chosen in the list — made only if something is actually added.
+      // A song added goes where the list says (it starts at the book the set's
+      // copies are in) — a new book is made only if something is actually
+      // added. Your own set asks nothing: its songs go back where they were.
       const adding = updatePlan.songs.some(x => (isAddish(x.state) || x.state === 'conflict') && (choices?.[x.shareSong.id] ?? defaultUpdateAction(x.state)) === 'add');
-      const bookId = updatePlan.bookId || (book && adding && !updatePlan.mine ? await saveBookChoice(book) : null);
+      const bookId = updatePlan.mine ? updatePlan.bookId : (book && adding ? await saveBookChoice(book) : null);
       const bookFields = bookId ? { bookId, mine: false } : NO_BOOK;
       const allTitles = titlesAt(localSongs, bookId);
 
@@ -1395,24 +1396,20 @@ export default function SharedSetView() {
           busy={copying}
           focusId={updateDialog.focus}
           records={localBooks}
-          book={updateDialog.book ?? startBook(!updatePlan.localSet, setData?.set?.name || 'Shared set')}
+          book={updateDialog.book ?? copyBookStart(updatePlan, setData?.set?.name)}
           onBook={(book) => setUpdateDialog(d => ({ ...d, book }))}
           onChange={(id, action) => setUpdateDialog(d => ({ ...d, choices: { ...d.choices, [id]: action } }))}
           onSetAll={(kind) => setUpdateDialog(d => ({
             ...d,
-            // Copy all takes what's waiting — new songs and newer versions of
-            // copies you haven't touched. A song you also edited, or one you
-            // have your own version of, keeps its choice: neither is waiting,
-            // and Copy all mustn't write over your work or double your songs.
+            // Copy all copies every song that isn't the same as yours (takeAction):
+            // your own versions and songs you also edited as second songs.
             choices: Object.fromEntries((updatePlan?.songs || []).map(x => [
               x.shareSong.id,
-              kind === 'skip' || x.state === 'uptodate' ? 'skip'
-                : x.state === 'add' ? 'add' : x.state === 'update' ? 'update'
-                : (d.choices?.[x.shareSong.id] ?? defaultUpdateAction(x.state)),
+              kind === 'skip' || x.state === 'uptodate' ? 'skip' : takeAction(x.state),
             ])),
           }))}
           onCancel={() => setUpdateDialog(null)}
-          onApply={() => applyUpdate(updateDialog.choices, bookChoice(updateDialog.book ?? startBook(!updatePlan.localSet, setData?.set?.name || 'Shared set')))}
+          onApply={() => applyUpdate(updateDialog.choices, bookChoice(updateDialog.book ?? copyBookStart(updatePlan, setData?.set?.name)))}
         />
       )}
 
@@ -1505,6 +1502,21 @@ function defaultUpdateAction(state) {
 // writes over the one of yours that happens to share its title.
 const isAddish = (state) => state === 'add' || state === 'have';
 
+// What Copy all picks for a row: a copy of every song that isn't the same as
+// yours. Your own version, or one you also edited, comes in as a SECOND song,
+// so nothing of yours is written over (Howard, 2026-11-10: Copy all left those
+// rows alone, and looked as if it did nothing).
+const takeAction = (state) => state === 'update' ? 'update' : 'add';
+
+// Where the list's copies go before you choose: the book this share's earlier
+// copies went into, else a new book named after the set on a first copy, else
+// My songs. Always shown and always changeable — it used to be decided silently
+// once any song had been copied (Howard, 2026-11-10).
+function copyBookStart(plan, setName) {
+  if (plan?.bookId) return startBook(true, '', plan.bookId);
+  return startBook(!plan?.localSet, setName || 'Shared set');
+}
+
 function UpdateResult({ result, dark, onDone }) {
   const { updated, added, skipped, bookName, copied, setName, putBack } = result;
   const parts = [];
@@ -1520,7 +1532,7 @@ function UpdateResult({ result, dark, onDone }) {
           {copied && <>Created set <span className={`font-medium ${em}`}>“{setName}”</span>. </>}
           {putBack && <>Back in your set <span className={`font-medium ${em}`}>“{setName}”</span>: </>}
           {parts.length ? parts.join(', ') : copied ? 'Every song was one you have' : 'Nothing needed copying'}
-          {bookName ? <>, the songs copied in the book <span className={`font-medium ${em}`}>“{bookName}”</span></> : null}.
+          {bookName ? <>. They’re in the book <span className={`font-medium ${em}`}>“{bookName}”</span></> : null}.
         </p>
       </div>
       <button onClick={onDone} className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">Done</button>
@@ -1539,9 +1551,8 @@ function UpdateResult({ result, dark, onDone }) {
 // Leave mine) and a song of yours with the same title (Copy as a second song,
 // or leave it — never over the top).
 //
-// A share never copied opens here too: applying it makes the set. Where the
-// songs it adds have no book yet it asks (`book`, BookChoice's value; ticked
-// when never copied).
+// A share never copied opens here too: applying it makes the set. Whenever it
+// adds songs it asks where they go (`book`, BookChoice's value; copyBookStart).
 function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [], book, onBook, onChange, onSetAll, onCancel, onApply }) {
   // Arriving from ONE row's button, in a list that can be 83 rows long.
   // Without this you land somewhere in the middle of a wall of songs with
@@ -1557,7 +1568,6 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
   const sub  = dark ? 'text-gray-400' : 'text-gray-500';
   const seg  = (on) => `px-2.5 py-1 text-xs rounded-lg border transition-colors ${on ? 'bg-indigo-600 border-indigo-600 text-white' : dark ? 'border-gray-700 text-gray-300' : 'border-gray-300 text-gray-600'}`;
   const actionable = plan.songs.filter(s => s.state !== 'uptodate');
-  const waiting = plan.songs.filter(s => s.state === 'add' || s.state === 'update').length;
   const anyConflict = plan.songs.some(s => s.state === 'conflict');
   // WHAT IS IN THIS LIST, before reading a single row.
   const n = plan.songs.reduce((a, x) => { const k = x.unsure ? 'unsure' : x.state; return { ...a, [k]: (a[k] || 0) + 1 }; }, {});
@@ -1577,7 +1587,9 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
   // already have, which still makes the set.
   const canApply = copying > 0 || plan.orderChanged || (firstCopy && plan.songs.some(x => x.local));
   const nothingToDo = actionable.length === 0 && !plan.orderChanged;
-  const askBook = !plan.bookId && !plan.mine && plan.songs.some(x => isAddish(x.state));
+  const askBook = !plan.mine && plan.songs.some(x => isAddish(x.state) || x.state === 'conflict');
+  const allTaken = actionable.every(x => chosenOf(x) === takeAction(x.state));
+  const allLeft  = actionable.every(x => chosenOf(x) === 'skip');
   const blocked = busy || !canApply || (askBook && book?.on && !bookChoice(book));
   const label = busy ? 'Copying…'
     : copying ? `Copy ${copying} song${copying === 1 ? '' : 's'}`
@@ -1602,13 +1614,13 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
           <p className={`text-xs ${sub}`}>The set’s running order has changed.</p>
         )}
 
-        {/* Set every row at once: Copy all takes what's waiting (not your own
-            versions, nor songs you've also edited); Leave all leaves the lot. */}
+        {/* Set every row at once: Copy all copies every song that differs (your
+            own versions as second songs); Leave all leaves the lot. */}
         {actionable.length > 1 && (
           <div className="flex items-center gap-2">
             <span className={`text-[0.6875rem] ${sub}`}>All:</span>
-            {waiting > 0 && <button onClick={() => onSetAll('take')} className={seg(false)} title="Copy every song not copied yet, and every newer version of a copy you haven't changed">Copy all</button>}
-            <button onClick={() => onSetAll('skip')} className={seg(false)}>Leave all</button>
+            <button onClick={() => onSetAll('take')} className={seg(allTaken)} title="Copy every song that isn't the same as yours. One you have your own version of, or also edited, comes in as a second song, so yours is never written over.">Copy all</button>
+            <button onClick={() => onSetAll('skip')} className={seg(allLeft)}>Leave all</button>
           </div>
         )}
 
@@ -1670,7 +1682,7 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
         {n.have > 0 && (
           <p className={`text-[0.6875rem] ${sub}`}>
             A song you have your own version of is left as it is. <strong>Copy as a second song</strong> brings
-            the publisher’s version in beside yours{plan.bookId || (askBook && book?.on)
+            the publisher’s version in beside yours{askBook && book?.on
               ? ', in the book, under its own title'
               : ', with a numbered name'} — yours is never changed or replaced.
           </p>
@@ -1681,11 +1693,11 @@ function UpdateDialog({ plan, choices, setName, dark, busy, focusId, records = [
 
         {askBook && book && (
           <div className="flex flex-col gap-1">
-            <BookChoice dark={dark} records={records} value={book} onChange={onBook} />
+            <BookChoice dark={dark} records={records} value={book} onChange={onBook} one label="Put the songs copied in a book" />
             <p className={`text-[0.6875rem] ${sub}`}>
               {book.on
-                ? 'Songs copied stay out of My songs until you put one in a set of your own, ink it, or add it to My songs.'
-                : 'Songs copied go straight into My songs.'}
+                ? 'Songs copied stay out of My songs until you put one in a set of your own, ink it, or add it to My songs. Songs already copied stay where they are.'
+                : 'Songs copied go straight into My songs. Songs already copied stay where they are.'}
             </p>
           </div>
         )}
