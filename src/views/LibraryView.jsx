@@ -1815,7 +1815,7 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
 
       <div ref={listRef} data-phone-scroll className="flex-1 overflow-y-auto">
         {displaySongs.length === 0 && (
-          <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No songs yet — select songs in the Library and use "Add to Set".</p>
+          <p className="px-4 py-6 text-xs text-gray-400 dark:text-gray-600 text-center">No songs yet — tick songs in the Library and use Add to… → Set….</p>
         )}
         <DndContext
           sensors={sensors}
@@ -2309,6 +2309,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
   const [exportDropOpen, setExportDropOpen] = useState(false);
   const [addToSetOpen, setAddToSetOpen] = useState(false); // create/select-target dialog
   const [addToBookOpen, setAddToBookOpen] = useState(false); // AddToBookDialog, for the ticked songs
+  const [addMenuOpen, setAddMenuOpen]   = useState(false); // the toolbar's "Add to…" menu: Set… / Book…
   const [newSetName, setNewSetName]     = useState('');
   const [setPickerSearch, setSetPickerSearch] = useState(''); // filter for the picker list
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -2952,8 +2953,10 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
             />
             {/* Left: N selected · Clear, right beside the select-all checkbox. */}
             {selected.size > 0 && (
-              <button onClick={deselectAll} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0 whitespace-nowrap hover:text-indigo-500" title="Clear selection">
-                {selected.size} selected ✕
+              <button onClick={deselectAll} className="text-xs text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap hover:text-indigo-500 min-w-0 shrink" title="Clear selection">
+                {/* "selected" is the first thing to go in a tight column, so
+                    the bar never pushes Delete past the column's edge. */}
+                {selected.size}<span className="hidden @[24rem]:inline"> selected</span> ✕
               </button>
             )}
 
@@ -2974,7 +2977,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
             )}
             <div className="flex-1" />
 
-            {/* Right: AI, Add to Set, Delete. */}
+            {/* Right: AI, Add to…, Delete. */}
             {/* Library-wide AI actions live in this menu (room to grow), down here
                 beside Add to Set so the header has room for the book switch.
                 Same square, bordered AI button style as the editor toolbar. */}
@@ -3021,20 +3024,41 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                 </>
               )}
             </div>
-            <HeaderPill
-              dark={dark} icon={ListPlus} label="Add to Set" hideLabelWhenNarrow
-              title="Add selected songs to a set"
-              disabled={selected.size === 0}
-              onActivate={handleAddSelectedToSet}
-            />
-            {/* Add to Book: the ticked songs into a book (or, ticked in a book,
-                into My songs) — copied, or moved out of this list. */}
-            <HeaderPill
-              dark={dark} icon={BookPlus} label="Add to Book" hideLabelWhenNarrow
-              title="Add selected songs to a book"
-              disabled={selected.size === 0}
-              onActivate={() => selected.size && setAddToBookOpen(true)}
-            />
+            {/* ONE "Add to…" pill, with Set… and Book… in its menu (Howard,
+                2026-11-12). Add to Set and Add to Book as two labelled pills
+                took 231px, and on an iPad the column is ~393px: with a song
+                ticked the bar needed 475px and pushed Delete under the Sets
+                column. Each item opens the same window the pills did. */}
+            <div className="relative shrink-0">
+              <HeaderPill
+                dark={dark} icon={ListPlus} label="Add to…"
+                title="Add selected songs to a set or a book"
+                active={addMenuOpen}
+                disabled={selected.size === 0}
+                onActivate={() => selected.size && setAddMenuOpen(v => !v)}
+              />
+              {addMenuOpen && selected.size > 0 && (
+                <>
+                  <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setAddMenuOpen(false))} />
+                  <div role="menu" className="absolute right-0 top-full mt-1 z-20 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden py-1">
+                    <button role="menuitem"
+                      onClick={() => { setAddMenuOpen(false); handleAddSelectedToSet(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <ListPlus size={15} className="opacity-70 shrink-0" /> Set…
+                    </button>
+                    {/* The ticked songs into a book (or, ticked in a book, into
+                        My songs) — copied, or moved out of this list. */}
+                    <button role="menuitem"
+                      onClick={() => { setAddMenuOpen(false); setAddToBookOpen(true); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <BookPlus size={15} className="opacity-70 shrink-0" /> Book…
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}

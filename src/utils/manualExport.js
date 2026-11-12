@@ -290,7 +290,7 @@ function manualHTML() {
 </ul>
 <p><strong>How a song from a book becomes one of My songs.</strong> It does so when you put it in a set of your own, ink it, or choose <strong>Add to My songs</strong> from its ⋮ menu (<strong>Take out of My songs</strong> undoes that). Editing it does not. It stays in its book as well: it is one song, seen in both places.</p>
 <p><strong>Books get there in four ways:</strong> from a songbook PDF (see <em>Importing PDFs</em>), by putting a single PDF song into a book as you import it, by choosing a book when you copy someone's shared set, or with <strong>Add to Book</strong>.</p>
-<p><strong>Add to Book</strong> sits next to <strong>Add to Set</strong> under the song list. Tick the songs you want in whichever list you're in, tap it, and choose where they go in <strong>Add to</strong>: a book you have, or <strong>New book…</strong> with a shelf if you like. Ticked in a book, you can also choose <strong>My songs</strong>.</p>
+<p><strong>Add to Book</strong> is <strong>Book…</strong> in the <strong>Add to…</strong> menu under the song list. Tick the songs you want in whichever list you're in, tap <strong>Add to…</strong>, then <strong>Book…</strong>, and choose where they go in <strong>Add to</strong>: a book you have, or <strong>New book…</strong> with a shelf if you like. Ticked in a book, you can also choose <strong>My songs</strong>.</p>
 <ul>
   <li><strong>Copy</strong> is what it does to start with. The songs stay where they were and are in the book too. It is still <em>one</em> song in both places, never a duplicate, so an edit shows in every place it's in. A song can be in as many books as you like.</li>
   <li>Tick <strong>Remove them from My songs</strong> (or from the book you're in) and the button becomes <strong>Move</strong>: the songs leave that list as they go into the new one. A song in one of your sets always stays in My songs too, so a set never plays a song you can't find.</li>
@@ -372,7 +372,7 @@ function manualHTML() {
 <ul>
   <li>Tick a checkbox to select / deselect a song. The <strong>select-all checkbox</strong> on the action bar ticks or clears every listed song — so you can search or filter first (for example sort <strong>By Artist</strong> and open one artist) and then select-all to grab that whole group. "<strong>N selected · ✕</strong>" beside it shows the count and clears the selection.</li>
   <li><strong>Export ▾</strong> (in the header, beside <strong>New Song</strong>) — one song: ChordPro (<code>.cho</code>) or JSON; multiple: a ZIP of <code>.cho</code> files or a JSON bundle. Where your device can share a file (iPad, Android tablet, and most phones), a <strong>Share… (email .json)</strong> option also appears — it opens the share sheet so you can pick Mail and email the <code>.json</code> as an attachment.</li>
-  <li><strong>Add to Set</strong> (on the right of the action bar) — adds the selected songs to a set (see <em>Adding Songs to a Set</em> below). If a set is active in the Sets panel the songs go straight into it; otherwise a dialog opens to create or pick one.</li>
+  <li><strong>Add to…</strong> (on the right of the action bar) — a small menu: <strong>Set…</strong> adds the selected songs to a set (see <em>Adding Songs to a Set</em> below), and <strong>Book…</strong> puts them in a book (see <em>My Songs, Books &amp; Shelves</em>).</li>
   <li><strong>Delete</strong> — permanently removes the selected songs from the library and any sets they appear in. If you have ticked every song of a book, Cue says so first and offers to keep the ones you have used, as deleting the book would.</li>
 </ul>
 <p>The <strong>Checked</strong> option in the sort menu floats ticked songs to the top as you select — handy for reviewing a large selection.</p>
@@ -388,8 +388,8 @@ function manualHTML() {
 <p>Adding songs is driven from the <strong>Library</strong> panel:</p>
 <ol>
   <li>Check the songs you want (every row has a checkbox). The <strong>select-all checkbox</strong> checks every song currently listed — so you can search or filter first (for example sort <strong>By Artist</strong> and open one artist, or type an artist's name in the search bar) and then select-all to grab that whole group.</li>
-  <li>Tap <strong>Add to Set</strong> on the right of the action bar.</li>
-  <li>If a set is already selected in the Sets panel (highlighted in indigo), the songs are added straight to it. If no set is selected, a dialog opens: type a name and tap <strong>Create</strong> to make a new set from your selection, or tap an existing set in the list to add them there.</li>
+  <li>Tap <strong>Add to…</strong> on the right of the action bar, then <strong>Set…</strong>.</li>
+  <li>A window opens: type a name and tap <strong>Create</strong> to make a new set from your selection, or tap an existing set in the list to add them there. It always asks, so the songs never land in a set you didn't pick.</li>
 </ol>
 <p>Songs already in the target set are skipped, and Cue confirms how many were added. A song can live in any number of sets — adding it to a set never removes it from the library or from other sets.</p>
 <p>Tap a set row to select it — its songs appear in the Setlist column. Tap it again to deselect.</p>
@@ -404,7 +404,7 @@ function manualHTML() {
 <p>To merge three sets, merge two and then merge the result with the third.</p>
 
 <h2>Selecting Sets</h2>
-<p>Like the Library, every set row has an always-visible <strong>checkbox</strong>. Tapping a set's <em>body</em> still <em>activates</em> it (its songs show in the Setlist, and it becomes the target for "Add to Set"); the checkbox is only for multi-select, so a set can be both active and checked. The action bar's Export and Delete light up once at least one set is checked; <strong>Merge</strong> lights up only when exactly two are.</p>
+<p>Like the Library, every set row has an always-visible <strong>checkbox</strong>. Tapping a set's <em>body</em> still <em>activates</em> it (its songs show in the Setlist); the checkbox is only for multi-select, so a set can be both active and checked. The action bar's Export and Delete light up once at least one set is checked; <strong>Merge</strong> lights up only when exactly two are.</p>
 <ul>
   <li><strong>Select-all checkbox</strong> — ticks / clears all listed sets (respects any active search filter); "<strong>N selected · ✕</strong>" shows the count and clears it.</li>
   <li><strong>Export ▾</strong> (in the header, beside <strong>New Set</strong>) — one set or many as PDF, PDF + Chord Charts, a JSON bundle, or (single set) a Setlist <code>.csv</code>. Where your device can share a file, <strong>Share… (email .json)</strong> also appears to email the bundle as an attachment.</li>

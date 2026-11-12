@@ -5,7 +5,7 @@ import { CloseCircle } from './CornerClose.jsx';
 import { addToBookPlan, books as booksIn } from '../utils/books.js';
 import { saveBookChoice, putSongsInBooks } from '../utils/storage.js';
 
-// Add to Book, from the Library's action bar beside Add to Set (Howard,
+// Add to Book — Book… in the Library action bar's Add to… menu (Howard,
 // 2026-11-12): the ticked songs go into a book — one you have, or a new one on
 // a shelf — or, ticked in a book, into My songs. COPY by default: a song stays
 // where it was and is in the book too, ONE song in both, so an edit shows in
