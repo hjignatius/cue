@@ -11,6 +11,11 @@ import { sanitizeForPdf } from './pdfFonts.js';
 import { loadPdfBlob } from './storage.js';
 import { openForSlot, fillSlots } from './pdfSlots.js';
 
+// The song's Format, read exactly as Present reads it: Inline prints chords in
+// brackets inside the words, Over prints them above. Without this the PDF always
+// came out Over, even for a song converted to Inline.
+const isInline = (song) => (song.previewMode || song.chordStyle || 'over') === 'brackets';
+
 function sanitize(name) {
   return (name || 'song').replace(/[/\\:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 100) || 'song';
 }
@@ -45,10 +50,11 @@ export async function exportToPdf(song, { displayKey, includeChords = false, cho
   }
 
   // Imbed — over-lyrics "chords as diagrams" inline in the PDF, per the song flag.
-  const embed = song.embed === true && instrument !== 'none';
+  const brackets = isInline(song);
+  const embed = !brackets && song.embed === true && instrument !== 'none';
   const shapeFor = embed ? (name) => resolveChordShape(name, song.chordPrefs || {}, instrument) : null;
   // PDFs are black & white — chord text and diagrams both print black on paper.
-  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, capo: capoFrets(metadata), useFlats, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name, embed, shapeFor })).toBlob();
+  const blob = await pdf(SongDocument({ metadata: metaForPdf(metadata), parsedLines, semitones, capo: capoFrets(metadata), useFlats, chordDiagrams, chordColor: '#000000', tuning: lib.tuning, instrumentName: lib.name, embed, shapeFor, brackets })).toBlob();
   await saveFilePicker(blob, `${sanitize(metadata?.title)}.pdf`);
 }
 
@@ -82,6 +88,7 @@ async function shapeSongs(list, accidentals) {
       capo:        capoFrets(song.metadata),
       useFlats:    flatsForKey(accidentals, song.displayKey),
       chordPrefs:  song.chordPrefs || {},
+      brackets:    isInline(song),
       slot:        doc ? docs.length - 1 : null,
       note:        isPage && !doc ? 'The PDF for this song isn’t on this device, so only its words are here.' : null,
     });

@@ -133,8 +133,27 @@ function ChordLine({ segments, semitones, useFlats, styles, embed = false, shape
   );
 }
 
-// Reusable song page — can be embedded in SongDocument or SetDocument
-function SongPage({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordColor, embed = false, shapeFor = null, note = null }) {
+// Inline format — chords in brackets inside the words, "[C]Hello [G]there", the
+// way Preview and Present draw a song whose Format is Inline. One wrapping Text,
+// so a long line runs on to the next with no chord row to keep in step.
+// Flush left, no hanging indent: react-pdf applies the padding but ignores a
+// negative textIndent, which pushed EVERY line in instead of just the run-on.
+function BracketsLine({ segments, semitones, useFlats, styles }) {
+  return (
+    <Text style={styles.plainLyricLine}>
+      {styleSegments(segments).map((seg, i) => (
+        <Text key={i}>
+          {seg.chord ? <Text style={styles.markerText}>[{transposeChord(seg.chord, semitones, useFlats)}]</Text> : null}
+          {seg.text ? <StyledRunsPdf runs={seg.styledRuns} styles={styles} /> : null}
+        </Text>
+      ))}
+    </Text>
+  );
+}
+
+// Reusable song page — can be embedded in SongDocument or SetDocument.
+// `brackets` draws chord lines Inline (the song's Format), not chords above.
+function SongPage({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordColor, embed = false, shapeFor = null, note = null, brackets = false }) {
   const styles = buildStyles(scale, chordColor);
   // Guard against a song with missing/null metadata — otherwise destructuring
   // throws and, inside a SetDocument, one bad song aborts the whole PDF.
@@ -181,6 +200,7 @@ function SongPage({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = f
           // wrap={false}: never split a chord line across a page break — the tall
           // Imbed diagram band would otherwise land half on each page and overprint
           // the lyrics. react-pdf moves the whole line to the next page instead.
+          if (line.type === 'chords' && brackets) return <View key={i} wrap={false}>{label}<BracketsLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} /></View>;
           if (line.type === 'chords')    return <View key={i} wrap={false}>{label}<ChordLine segments={line.segments} semitones={semitones} useFlats={useFlats} styles={styles} embed={embed} shapeFor={shapeFor} /></View>;
           return <View key={i} wrap={false}>{label}<Text style={styles.plainLyricLine}><StyledRunsPdf runs={styleSegments(line.segments)[0]?.styledRuns} styles={styles} /></Text></View>;
         })}
@@ -210,10 +230,10 @@ function ChordReferencePage({ chords, tuning = ['G', 'C', 'E', 'A'], instrumentN
 }
 
 // Single-song PDF document
-export function SongDocument({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordDiagrams, chordColor, tuning, instrumentName, embed = false, shapeFor = null }) {
+export function SongDocument({ metadata, parsedLines, semitones = 0, capo = 0, useFlats = false, scale = 1, chordDiagrams, chordColor, tuning, instrumentName, embed = false, shapeFor = null, brackets = false }) {
   return (
     <Document>
-      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} capo={capo} useFlats={useFlats} scale={scale} chordColor={chordColor} embed={embed} shapeFor={shapeFor} />
+      <SongPage metadata={metadata} parsedLines={parsedLines} semitones={semitones} capo={capo} useFlats={useFlats} scale={scale} chordColor={chordColor} embed={embed} shapeFor={shapeFor} brackets={brackets} />
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>
   );
@@ -226,7 +246,7 @@ export function SetDocument({ songs, chordDiagrams, chordColor, tuning, instrume
       {/* A song kept as PDF pages leaves a slot that its own pages fill
           afterwards (pdfSlots.js). */}
       {songs.map((song, i) => song.slot != null ? <Page key={i} size={slotSize(song.slot)} /> : (
-        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} capo={song.capo || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} note={song.note} />
+        <SongPage key={i} metadata={song.metadata} parsedLines={song.parsedLines} semitones={song.semitones || 0} capo={song.capo || 0} useFlats={song.useFlats} scale={1} chordColor={chordColor} note={song.note} brackets={song.brackets} />
       ))}
       {chordDiagrams?.length > 0 && <ChordReferencePage chords={chordDiagrams} tuning={tuning} instrumentName={instrumentName} />}
     </Document>

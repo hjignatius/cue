@@ -570,6 +570,7 @@ G|----0------7----|</pre>
   <li><strong>Setlist</strong> — a plain-text numbered list of song titles, suitable for printing or sharing.</li>
 </ul>
 <div class="tip"><strong>Tip:</strong> The exported set PDF honors each song's View Key — every song prints in its saved display key, matching Present mode. Songs with no View Key set print in their written key. The stored chords are never changed either way.</div>
+<div class="tip"><strong>Tip:</strong> Each song also prints in its own <strong>Format</strong>, as Present shows it: an <strong>Inline</strong> song prints with its chords in brackets inside the words, an <strong>Over Lyrics</strong> song with its chords above them.</div>
 <p><strong>Imbed in the PDF:</strong> a single song exported to PDF with <strong>Imbed</strong> on (see <em>The Editor → Imbed</em>) prints its chord <em>diagrams</em> above the lyrics instead of names. PDFs are always <strong>black &amp; white</strong>. (Set PDFs don't inline the diagrams yet — they use the Chord Reference page.)</p>
 
 <!-- 6 -->
