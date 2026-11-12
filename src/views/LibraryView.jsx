@@ -766,8 +766,14 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
   // Only your own sets are offered — a Shared with me set is someone else's,
   // a link Cue can't edit.
   //
-  // null | { sourceId, targetId, name } — the set merged, the one that gains
-  // its songs (null until picked), and what to call it.
+  // Like Add to Set in the Library (Howard, 2026-11-12): name a new set and
+  // Create, or search your sets and pick one. A new set is made with the ticked
+  // set's songs at once; an existing one shows the numbers first, as there is
+  // no undo.
+  //
+  // null | { sourceId, targetId, name, search, newName } — the set merged, the
+  // one that gains its songs (null until picked), what to call it, the list's
+  // search, and the new set's name.
   const [mergeDialog, setMergeDialog] = useState(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   // Book…: the ticked sets' songs into a book (AddToBookDialog), from one set
@@ -776,7 +782,7 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
 
   function handleMerge() {
     if (selectedSets.size !== 1) return;
-    setMergeDialog({ sourceId: [...selectedSets][0], targetId: null, name: '' });
+    setMergeDialog({ sourceId: [...selectedSets][0], targetId: null, name: '', search: '', newName: '' });
   }
 
   function handleSetsToBook() {
@@ -785,6 +791,17 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
     const have = new Set(songs.map(s => s.id));
     const ids = [...new Set(chosen.flatMap(s => s.songIds || []))].filter(id => have.has(id));
     setToBook({ ids, setIds: chosen.map(s => s.id) });
+  }
+
+  async function mergeIntoNewSet() {
+    const source = sets.find(x => x.id === mergeDialog?.sourceId);
+    const name = mergeDialog?.newName.trim();
+    if (!source || !name) return;
+    const saved = await saveSet({ id: null, name, songIds: [...new Set(source.songIds)], sortMode: 'custom' });
+    setMergeDialog(null);
+    setSelectedSets(new Set());
+    await onRefresh();
+    onSelectSet?.(saved.id);
   }
 
   async function performMerge() {
@@ -855,35 +872,74 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
         const source = sets.find(x => x.id === mergeDialog.sourceId);
         if (!source) return null;
         const target = sets.find(x => x.id === mergeDialog.targetId) || null;
+        // Most recent first, as in Add to Set: a set you just worked on is
+        // right there, and the search finds the rest.
         const others = sets.filter(x => x.id !== source.id)
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+          .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+        const q = normSearch(mergeDialog.search);
+        const pickable = others.filter(x => !q || normSearch(x.name).includes(q));
         const { added, skipped } = target ? mergeCounts(target.songIds, source.songIds) : { added: 0, skipped: 0 };
         const isPublished = !!(target && publishedSets[target.id]);
-        const rowCls = (on) => `w-full text-left px-3 py-2 rounded-xl border transition-colors select-none ${on
-          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
-          : dark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'}`;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setMergeDialog(null))}>
             <div className={`w-96 max-w-full max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
                 <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Merge &ldquo;{source.name}&rdquo; into…</h2>
-                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Pick the set to add its songs to. That set keeps its songs, their order, and its share link.</p>
+                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Create a new set or choose an existing one.</p>
               </div>
 
-              {others.length === 0 ? (
-                <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>You have no other set to merge it into.</p>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-64 overflow-y-auto -mx-1 px-1">
-                  {others.map(s2 => (
-                    <button key={s2.id} type="button" onClick={() => setMergeDialog(m => ({ ...m, targetId: s2.id, name: s2.name }))} className={rowCls(s2.id === mergeDialog.targetId)}>
-                      <span className={`text-sm font-medium block truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{s2.name}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {s2.songIds.length} {s2.songIds.length === 1 ? 'song' : 'songs'}
-                        {publishedSets[s2.id] && ' · shared'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+              {/* Create new — a set with the ticked set's songs. */}
+              <form onSubmit={e => { e.preventDefault(); mergeIntoNewSet(); }} className="flex gap-2">
+                <input
+                  autoFocus
+                  value={mergeDialog.newName}
+                  onChange={e => setMergeDialog(m => ({ ...m, newName: e.target.value }))}
+                  placeholder="New set name"
+                  aria-label="New set name"
+                  className={`flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                />
+                <button type="submit" disabled={!mergeDialog.newName.trim()}
+                  className="h-11 px-4 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full transition-colors whitespace-nowrap">
+                  Create
+                </button>
+              </form>
+
+              {others.length > 0 && (
+                <>
+                  <div className={`text-xs uppercase tracking-wide ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Or merge into existing</div>
+                  {others.length > 6 && (
+                    <div className="relative">
+                      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                      <input
+                        value={mergeDialog.search}
+                        onChange={e => setMergeDialog(m => ({ ...m, search: e.target.value }))}
+                        placeholder="Search sets…"
+                        aria-label="Search sets"
+                        className={`w-full border rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                      />
+                    </div>
+                  )}
+                  <div className={`max-h-56 overflow-y-auto shrink-0 -mx-1 rounded-lg border ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
+                    {pickable.length === 0 ? (
+                      <p className={`text-sm text-center py-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>No sets match “{mergeDialog.search}”.</p>
+                    ) : pickable.map(s2 => {
+                      const on = s2.id === mergeDialog.targetId;
+                      return (
+                        <button key={s2.id} type="button"
+                          onClick={() => setMergeDialog(m => ({ ...m, targetId: s2.id, name: s2.name }))}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors select-none ${on
+                            ? (dark ? 'bg-indigo-950/60 text-white' : 'bg-indigo-50 text-gray-900')
+                            : (dark ? 'text-gray-200 hover:bg-gray-800 active:bg-gray-700' : 'text-gray-800 hover:bg-gray-100 active:bg-gray-200')}`}
+                        >
+                          <span className={`truncate ${on ? 'font-medium' : ''}`}>{s2.name}</span>
+                          <span className={`text-xs shrink-0 tabular-nums ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                            {publishedSets[s2.id] && 'shared · '}{s2.songIds.length} {s2.songIds.length === 1 ? 'song' : 'songs'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
               )}
 
               {target && (
@@ -920,10 +976,12 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
               <p className="text-xs text-gray-500 dark:text-gray-400">&ldquo;{source.name}&rdquo; is not changed and not deleted.</p>
 
               <div className="flex flex-col gap-2">
-                <button onClick={performMerge} disabled={!target || added === 0}
-                  className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-full transition-colors">
-                  {!target ? 'Pick a set' : added === 0 ? 'Nothing to add' : `Merge into "${mergeDialog.name.trim() || target.name}"`}
-                </button>
+                {target && (
+                  <button onClick={performMerge} disabled={added === 0}
+                    className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-full transition-colors">
+                    {added === 0 ? 'Nothing to add' : `Merge into "${mergeDialog.name.trim() || target.name}"`}
+                  </button>
+                )}
                 <button onClick={() => setMergeDialog(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
               </div>
             </div>
