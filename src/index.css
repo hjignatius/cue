@@ -27,6 +27,26 @@
   box-sizing: border-box;
 }
 
+/* Siri's bubble. On macOS 27 and iPadOS 27.2 any text highlight brings up an
+   "Ask Siri" bubble beside it, and a web page can't turn it off. A double-click
+   on a menu item or button highlighted its words, and the bubble then sat over
+   the menu and swallowed clicks (the Library's My songs / shelves / books menu,
+   2026-11-12; the list rows were fixed the same way in 983dd86). No button,
+   menu or checkbox-label text needs copying, so none of it can be highlighted.
+   In @layer base so a select-text utility still wins; a field inside a menu
+   stays editable. */
+@layer base {
+  button, [role="menu"], [role="menuitem"],
+  label:has(> input[type="checkbox"], > input[type="radio"]) {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  [role="menu"] :is(input, textarea, [contenteditable="true"]) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
 /* The html background paints the LETTERBOX in a standalone iOS app — the strips
    around the Dynamic Island and home indicator that the system reserves now that
    viewport-fit=cover is deliberately absent (see index.html). Without this they

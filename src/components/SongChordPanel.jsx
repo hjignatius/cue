@@ -447,7 +447,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                 <div key={idx} className="relative group/s">
                   <div
                     onClick={() => selectShape(pickerName, idx)}
-                    className={`cursor-pointer rounded-lg border p-0.5 transition-colors ${
+                    className={`cursor-pointer select-none rounded-lg border p-0.5 transition-colors ${
                       isSelected
                         ? dark ? 'border-indigo-500 bg-indigo-950/50' : 'border-indigo-500 bg-white'
                         : dark ? 'border-gray-700 hover:border-gray-500 bg-gray-900/50' : 'border-gray-300 hover:border-gray-400 bg-white'
@@ -524,7 +524,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                     key={name}
                     onClick={!readonly ? () => setAddingCustom(name) : undefined}
                     title={!readonly ? `Add shape for ${name}` : undefined}
-                    className={`border border-dashed rounded-lg p-1 text-center transition-colors ${
+                    className={`border border-dashed rounded-lg p-1 text-center select-none transition-colors ${
                       !readonly ? `cursor-pointer ${dark ? 'hover:border-indigo-600 hover:bg-indigo-950/40' : 'hover:border-indigo-400 hover:bg-indigo-50'}` : ''
                     } ${dark ? 'border-gray-800' : 'border-gray-300'}`}
                   >
@@ -542,7 +542,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
                   <div
                     onClick={!readonly ? () => { setSelectedChordName(name); setExpandedChord(name); } : undefined}
                     onDoubleClick={!readonly ? (e) => { e.stopPropagation(); handleDoubleClickChord(name, selectedIdx); } : undefined}
-                    className={!readonly ? `cursor-pointer rounded-lg border p-0.5 transition-colors ${
+                    className={!readonly ? `cursor-pointer select-none rounded-lg border p-0.5 transition-colors ${
                       name === selectedChordName
                         ? 'border-indigo-500'
                         : dark ? 'border-transparent hover:border-indigo-600' : 'border-transparent hover:border-indigo-400'

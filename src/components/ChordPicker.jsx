@@ -212,7 +212,7 @@ export default function ChordPicker({ onChordSelect }) {
           {displayed.map(chord => (
             <div
               key={`${chord.type}-${chord.name}`}
-              className="relative group cursor-pointer rounded-lg border border-gray-800 hover:border-indigo-700 bg-gray-900 hover:bg-gray-800 transition-colors flex flex-col items-center pt-1 pb-0.5"
+              className="relative group cursor-pointer select-none rounded-lg border border-gray-800 hover:border-indigo-700 bg-gray-900 hover:bg-gray-800 transition-colors flex flex-col items-center pt-1 pb-0.5"
               onClick={() => setDetailChord(detailChord?.name === chord.name ? null : chord)}
             >
               <ChordDiagram chord={chord} size="small" />
