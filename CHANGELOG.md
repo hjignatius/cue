@@ -3,6 +3,24 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.5 — 2026-11-12
+
+### Add to…
+
+- **One Add to… button in the Library** instead of Add to Set and Add to
+  Book side by side. Its menu has Set… and Book…, and the toolbar fits on an
+  iPad with songs ticked.
+- **Sets have an Add to… button too,** in place of Merge. Both choices copy;
+  the ticked sets are never changed or deleted.
+  - **Set…** merges one ticked set into another. Like Add to Set, you can
+    name a new set and Create it, or search your sets and pick one. Cue shows
+    how many songs it adds and skips before you merge.
+  - **Book…** copies the songs of one set or several into a book. From one
+    set, it suggests a new book with the set's name.
+- **Delete in a book's list takes songs out of that book.** A song that's
+  also in My songs or another book stays there; one that's only in this book
+  is deleted, and the window says which.
+
 ## v2.0.4 — 2026-11-12
 
 ### Add to Book
