@@ -146,6 +146,24 @@ export function removeBookPlan(bookId, songs = []) {
 }
 
 /**
+ * Delete, ticked in a book's own list (Howard, 2026-11-12): the songs come out
+ * of THAT book only. One also in another book, or one of My songs, stays there;
+ * one in no other place, and never used, is deleted — as deleting the whole book
+ * does. Returns { patches: [song as it stays], remove: [ids], kept: n }.
+ */
+export function removeFromBookPlan(ids, songs = [], bookId) {
+  const ticked = new Set(ids);
+  const patches = [], remove = [];
+  for (const s of songs) {
+    if (!ticked.has(s.id) || !inBook(s, bookId)) continue;
+    const rest = booksOf(s).filter(id => id !== bookId);
+    if (!rest.length && s.mine !== true) remove.push(s.id);
+    else patches.push(placeIn(s, rest));
+  }
+  return { patches, remove, kept: patches.length };
+}
+
+/**
  * Add to Book: the ticked songs put into the book `intoId`, or into My songs
  * when `intoId` is null. Copy unless `move`, which takes them out of the list
  * they were ticked in, `from` — My songs ({ kind: 'mine' }) or a book ({ kind:

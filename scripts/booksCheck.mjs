@@ -3,7 +3,7 @@
 // how songs imported before books existed are sorted into them.
 //
 // Run: node scripts/booksCheck.mjs
-import { bookNamed, isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName, wholeBooks, selectionBook, wholeBookDelete, booksOf, inBook, placeIn, addToBookPlan } from '../src/utils/books.js';
+import { bookNamed, isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName, wholeBooks, selectionBook, wholeBookDelete, booksOf, inBook, placeIn, addToBookPlan, removeFromBookPlan } from '../src/utils/books.js';
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -141,6 +141,14 @@ check('…move takes it out of the book, leaving a plain song of yours',
 check('from All songs nothing is taken out, even asked',
   plan(['x'], { intoId: 'wed', from: { kind: 'all' }, move: true }).patches, [{ id: 'x', bookId: 'jim', moreBooks: ['wed'], mine: false }]);
 check('songs not ticked are left alone', plan([], { intoId: 'wed', from: { kind: 'mine' } }), { patches: [], added: 0, already: 0, keptForSets: 0 });
+
+// ---- Delete in a book's list --------------------------------------------------
+check('Delete in a book: a song in another book just leaves this one',
+  removeFromBookPlan(['m'], multi, 'fm'), { patches: [{ id: 'm', bookId: 'wed' }], remove: [], kept: 1 });
+check('…one of yours stays in My songs',
+  removeFromBookPlan(['u'], [{ id: 'u', bookId: 'fm', mine: true }], 'fm'), { patches: [{ id: 'u', mine: true }], remove: [], kept: 1 });
+check('…one only in this book and never used is deleted', removeFromBookPlan(['x'], multi, 'jim'), { patches: [], remove: ['x'], kept: 0 });
+check('…a song not in this book is not touched', removeFromBookPlan(['a', 'x'], multi, 'fm'), { patches: [], remove: [], kept: 0 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

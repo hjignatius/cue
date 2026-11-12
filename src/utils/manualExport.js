@@ -297,7 +297,7 @@ function manualHTML() {
   <li>Nothing is deleted or duplicated by Add to Book, and it never counts as editing a song, so a published set doesn't show <strong>SEND CHANGES</strong>.</li>
   <li>The window says what it did, and <strong>Open the book</strong> takes you there.</li>
 </ul>
-<p>Removing a song from the Library with <strong>Delete</strong> deletes it everywhere, in every book it's in. Deleting a <em>book</em> only takes the songs that are in no other book and that you haven't used.</p>
+<p><strong>Delete in a book's list</strong> takes the ticked songs out of that book. A song that's also in My songs or another book stays there; one that's only in this book, and that you've never used, is deleted. The window says which is which before anything happens, and <strong>Delete everywhere instead</strong> is there if you want the songs gone from every list. A book left with no songs goes by itself. In My songs, All songs or a shelf, Delete deletes the songs everywhere, as before.</p>
 <p><strong>A book's or shelf's ⋮ menu</strong> in the switch opens its window. There you can rename it, and put a book on a shelf, a new one included. The buttons on one line below that are:</p>
 <ul>
   <li><strong>Merge…</strong> — moves every song of this book into another book and removes this one. No songs are removed.</li>

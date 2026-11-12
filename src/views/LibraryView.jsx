@@ -16,7 +16,7 @@ import LongList from '../components/LongList.jsx';
 const ORDER_STAGE   = { idleLabel: 'Ordering the set…',        writeLabel: 'Placing the songs…',     unit: 'song' };
 const TIME_STAGE    = { idleLabel: 'Working out the timing…',  writeLabel: 'Adding it up…',          unit: 'step' };
 const SUGGEST_STAGE = { idleLabel: 'Finding songs…',           writeLabel: 'Picking songs…',         unit: 'song' };
-import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded, saveBookRecord, removeBook, removeShelf, mergeBooks, setSongMine } from '../utils/storage.js';
+import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded, saveBookRecord, removeBook, removeShelf, mergeBooks, setSongMine, putSongsInBooks, dropEmptyBooks } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
@@ -55,7 +55,7 @@ import { mergedSongIds, mergeCounts, defaultMergeTargetId } from '../utils/merge
 import BooksMenu from '../components/BooksMenu.jsx';
 import BookDialog from '../components/BookDialog.jsx';
 import AddToBookDialog from '../components/AddToBookDialog.jsx';
-import { songsInView, isMine, normalizeView, MY_SONGS, selectionBook, wholeBookDelete, viewName } from '../utils/books.js';
+import { songsInView, isMine, normalizeView, MY_SONGS, selectionBook, wholeBookDelete, viewName, removeFromBookPlan } from '../utils/books.js';
 import { shortDuration } from '../utils/duration.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
@@ -2715,7 +2715,22 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
   function handleDeleteSelected() {
     if (!selected.size) return;
     const ids = [...selected];
-    setSongDeleteConfirm({ ids, source: 'bulk', whole: wholeBookDelete(ids, songs, books) });
+    // In a book's own list, Delete takes the songs out of that book; the same
+    // window still offers to delete them everywhere.
+    const fromBook = shownView.kind === 'book' ? { ...removeFromBookPlan(ids, songs, shownView.id), name: viewName(shownView, books) } : null;
+    setSongDeleteConfirm({ ids, source: 'bulk', fromBook, whole: fromBook ? null : wholeBookDelete(ids, songs, books) });
+  }
+
+  // Out of the book being shown: the songs elsewhere just leave it, the ones
+  // only in it go. An emptied book goes too (dropEmptyBooks), and the Library
+  // then shows My songs on its own (normalizeView).
+  async function removeFromShownBook() {
+    const { patches, remove } = songDeleteConfirm.fromBook;
+    setSongDeleteConfirm(null);
+    setSelected(new Set());
+    await putSongsInBooks(patches);
+    if (remove.length) await onDeleteSongs(remove);
+    else { await dropEmptyBooks(); await onRefresh(); }
   }
 
   // Delete, ticked all of a book, keeping the songs you've used: as deleting
@@ -2974,7 +2989,9 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                     : dark ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'
                 }`}
               >
-                <Sparkles size={14} /> AI
+                {/* Icon only in a narrow column: with Add to Book beside Add to
+                    Set, the label pushed Delete past the column's edge. */}
+                <Sparkles size={14} /> <span className="hidden @[26rem]:inline">AI</span>
               </button>
               {aiMenuOpen && (
                 <>
@@ -3496,6 +3513,39 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
         const plan = songDeleteConfirm.source === 'dupExtras' ? songDeleteConfirm.plan : null;
         const whole = songDeleteConfirm.whole;
         const used = whole?.used.length ?? 0;
+        const fromBook = songDeleteConfirm.fromBook;
+        const strong = dark ? 'text-gray-200 font-medium' : 'text-gray-700 font-medium';
+        if (fromBook) {
+          const { kept, remove } = fromBook;
+          const k = (c, one, many) => (c === 1 ? one : many);
+          return (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" {...dismissOnOutside(() => setSongDeleteConfirm(null))}>
+              <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
+                <div className="flex flex-col gap-1">
+                  <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+                    Take {n === 1 ? 'this song' : `${n} songs`} out of “{fromBook.name}”?
+                  </h2>
+                  <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {kept ? <><span className={strong}>{kept === n ? k(n, 'It', 'They') : `${kept}`}</span> {k(kept, 'is', 'are')} also in My songs or another book, and {k(kept, 'stays', 'stay')} there.</> : null}
+                    {kept && remove.length ? ' ' : null}
+                    {remove.length ? <><span className={strong}>{remove.length === n ? k(n, 'It', 'They') : `${remove.length}`}</span> {k(remove.length, 'is', 'are')} only in this book, so {k(remove.length, 'it', 'they')}’ll be deleted.</> : null}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button onClick={removeFromShownBook}
+                    className={`w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium text-white rounded-full transition-colors ${remove.length ? 'bg-red-600 hover:bg-red-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}>
+                    {remove.length ? <Trash2 size={18} /> : null} Take out of the book
+                  </button>
+                  <button onClick={performSongDelete}
+                    className={`w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full border transition-colors ${dark ? 'border-red-800 text-red-400 hover:bg-red-950/40' : 'border-red-300 text-red-600 hover:bg-red-50'}`}>
+                    Delete everywhere instead
+                  </button>
+                  <button onClick={() => setSongDeleteConfirm(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" {...dismissOnOutside(() => setSongDeleteConfirm(null))}>
             <div className={`w-80 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
