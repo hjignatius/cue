@@ -51,7 +51,7 @@ import AiRetryLink from '../components/AiRetryLink.jsx';
 import SongSuggestionsDialog from '../components/SongSuggestionsDialog.jsx';
 import RowMenu from '../components/RowMenu.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
-import { mergedSongIds, mergeCounts, defaultMergeTargetId } from '../utils/mergeSets.js';
+import { mergedSongIds, mergeCounts } from '../utils/mergeSets.js';
 import BooksMenu from '../components/BooksMenu.jsx';
 import BookDialog from '../components/BookDialog.jsx';
 import AddToBookDialog from '../components/AddToBookDialog.jsx';
@@ -376,7 +376,7 @@ function SharedWithMeRow({ share, dark, border, subtitle, onOpen, onPassOn, onRe
   );
 }
 
-function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenting, border }) {
+function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefresh, onShowBook, presenting, border }) {
   // chordColor/accidentals/instrument feed the set PDF export (render lens +
   // which chord library); without them the PDF branch throws a ReferenceError.
   const { theme, chordColor, accidentals, instrument } = usePrefs();
@@ -756,27 +756,41 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
     setSelectedSets(new Set());
   }
 
-  // ---- Merge two sets ------------------------------------------------------
-  // Exactly two at a time, deliberately. "B's songs go on the end of A" has no
-  // visible answer for three or more: `selectedSets` is a Set, so its order is
-  // the order the boxes were TICKED — invisible, and not the order on screen.
-  // Merging twice gives the same result and shows you each step.
+  // ---- Add to… : Set… (merge) / Book… ---------------------------------------
+  // One "Add to…" pill, like the Library's (Howard, 2026-11-12). Copy only: the
+  // ticked sets are never changed or deleted.
   //
-  // null | { targetId, name } — the set that survives, and what to call it.
+  // Set… merges ONE ticked set into another you pick from a list. One at a
+  // time, deliberately: "these songs go on the end" has no visible answer for
+  // several, since `selectedSets` keeps the order the boxes were TICKED.
+  // Only your own sets are offered — a Shared with me set is someone else's,
+  // a link Cue can't edit.
+  //
+  // null | { sourceId, targetId, name } — the set merged, the one that gains
+  // its songs (null until picked), and what to call it.
   const [mergeDialog, setMergeDialog] = useState(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  // Book…: the ticked sets' songs into a book (AddToBookDialog), from one set
+  // or several. null | { ids, setIds }.
+  const [toBook, setToBook] = useState(null);
 
   function handleMerge() {
-    const chosen = [...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean);
-    if (chosen.length !== 2) return;
-    const targetId = defaultMergeTargetId(chosen, id => !!publishedSets[id]);
-    setMergeDialog({ targetId, name: chosen.find(x => x.id === targetId)?.name || '' });
+    if (selectedSets.size !== 1) return;
+    setMergeDialog({ sourceId: [...selectedSets][0], targetId: null, name: '' });
+  }
+
+  function handleSetsToBook() {
+    const chosen = sets.filter(s => selectedSets.has(s.id));
+    if (!chosen.length) return;
+    const have = new Set(songs.map(s => s.id));
+    const ids = [...new Set(chosen.flatMap(s => s.songIds || []))].filter(id => have.has(id));
+    setToBook({ ids, setIds: chosen.map(s => s.id) });
   }
 
   async function performMerge() {
-    const chosen = [...selectedSets].map(id => sets.find(s => s.id === id)).filter(Boolean);
-    const target = chosen.find(x => x.id === mergeDialog?.targetId);
-    const source = chosen.find(x => x.id !== mergeDialog?.targetId);
-    if (!target || !source) { setMergeDialog(null); return; }
+    const source = sets.find(x => x.id === mergeDialog?.sourceId);
+    const target = sets.find(x => x.id === mergeDialog?.targetId);
+    if (!target || !source || target.id === source.id) { setMergeDialog(null); return; }
     await saveSet({
       ...target,
       name: mergeDialog.name.trim() || target.name,
@@ -835,78 +849,102 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
           </div>
         );
       })()}
-      {/* Merge — no dimmed backdrop: the dialog is about the two sets behind it,
-          and it destroys nothing on confirm. Both sets survive; only the target
-          gains songs. */}
+      {/* Merge — no dimmed backdrop. It destroys nothing on confirm: the
+          ticked set is unchanged; only the set picked here gains songs. */}
       {mergeDialog && (() => {
-        const chosen = [...selectedSets].map(id => sets.find(x => x.id === id)).filter(Boolean);
-        const target = chosen.find(x => x.id === mergeDialog.targetId);
-        const source = chosen.find(x => x.id !== mergeDialog.targetId);
-        if (!target || !source) return null;
-        const { added, skipped } = mergeCounts(target.songIds, source.songIds);
-        const isPublished = !!publishedSets[target.id];
-        const rowCls = (on) => `w-full text-left px-3 py-2 rounded-xl border transition-colors ${on
+        const source = sets.find(x => x.id === mergeDialog.sourceId);
+        if (!source) return null;
+        const target = sets.find(x => x.id === mergeDialog.targetId) || null;
+        const others = sets.filter(x => x.id !== source.id)
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        const { added, skipped } = target ? mergeCounts(target.songIds, source.songIds) : { added: 0, skipped: 0 };
+        const isPublished = !!(target && publishedSets[target.id]);
+        const rowCls = (on) => `w-full text-left px-3 py-2 rounded-xl border transition-colors select-none ${on
           ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
           : dark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'}`;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setMergeDialog(null))}>
             <div className={`w-96 max-w-full max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
               <div className="flex flex-col gap-1">
-                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Merge sets</h2>
-                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Which set do you want to keep? It keeps its songs, their order, and its share link.</p>
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Merge &ldquo;{source.name}&rdquo; into…</h2>
+                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Pick the set to add its songs to. That set keeps its songs, their order, and its share link.</p>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {chosen.map(s2 => (
-                  <button key={s2.id} type="button" onClick={() => setMergeDialog({ targetId: s2.id, name: s2.name })} className={rowCls(s2.id === mergeDialog.targetId)}>
-                    <span className={`text-sm font-medium block truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{s2.name}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {s2.songIds.length} {s2.songIds.length === 1 ? 'song' : 'songs'}
-                      {publishedSets[s2.id] && ' · published'}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              {others.length === 0 ? (
+                <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>You have no other set to merge it into.</p>
+              ) : (
+                <div className="flex flex-col gap-2 max-h-64 overflow-y-auto -mx-1 px-1">
+                  {others.map(s2 => (
+                    <button key={s2.id} type="button" onClick={() => setMergeDialog(m => ({ ...m, targetId: s2.id, name: s2.name }))} className={rowCls(s2.id === mergeDialog.targetId)}>
+                      <span className={`text-sm font-medium block truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{s2.name}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {s2.songIds.length} {s2.songIds.length === 1 ? 'song' : 'songs'}
+                        {publishedSets[s2.id] && ' · shared'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500 uppercase tracking-wide">Name</span>
-                <input
-                  value={mergeDialog.name}
-                  onChange={e => setMergeDialog(m => ({ ...m, name: e.target.value }))}
-                  placeholder={target.name}
-                  className={`w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                />
-              </label>
+              {target && (
+                <>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-gray-500 uppercase tracking-wide">Name</span>
+                    <input
+                      value={mergeDialog.name}
+                      onChange={e => setMergeDialog(m => ({ ...m, name: e.target.value }))}
+                      placeholder={target.name}
+                      className={`w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-indigo-500 ${dark ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                    />
+                  </label>
 
-              {/* Real numbers, because there is no undo — unpicking a merge you
-                  did not mean is deleting songs one at a time. */}
-              <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-                Adds <strong>{added}</strong> {added === 1 ? 'song' : 'songs'} from &ldquo;{source.name}&rdquo; to the end of &ldquo;{target.name}&rdquo;.
-                {skipped > 0 && <> {skipped} already {skipped === 1 ? 'is' : 'are'} there and will be skipped.</>}
-                {target.sortMode === 'alpha' && <> This set is on A&ndash;Z, so they&rsquo;ll sort in by title.</>}
-              </p>
+                  {/* Real numbers, because there is no undo — unpicking a merge you
+                      did not mean is deleting songs one at a time. */}
+                  <p className={`text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Adds <strong>{added}</strong> {added === 1 ? 'song' : 'songs'} from &ldquo;{source.name}&rdquo; to the end of &ldquo;{target.name}&rdquo;.
+                    {skipped > 0 && <> {skipped} already {skipped === 1 ? 'is' : 'are'} there and will be skipped.</>}
+                    {target.sortMode === 'alpha' && <> This set is on A&ndash;Z, so they&rsquo;ll sort in by title.</>}
+                  </p>
+                  {isPublished && (
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      &ldquo;{target.name}&rdquo; is shared. Anyone with the link keeps seeing the old version until you send changes.
+                    </p>
+                  )}
+                  {target.copiedFrom && (
+                    <p className="text-xs text-amber-600 dark:text-amber-500">
+                      This set came from a shared link. Adding songs makes it differ from that share.
+                    </p>
+                  )}
+                </>
+              )}
               <p className="text-xs text-gray-500 dark:text-gray-400">&ldquo;{source.name}&rdquo; is not changed and not deleted.</p>
 
-              {isPublished && (
-                <p className="text-xs text-amber-600 dark:text-amber-500">
-                  &ldquo;{target.name}&rdquo; is published. Anyone with the link keeps seeing the old version until you send changes.
-                </p>
-              )}
-              {target.copiedFrom && (
-                <p className="text-xs text-amber-600 dark:text-amber-500">
-                  This set came from a shared link. Adding songs makes it differ from that share.
-                </p>
-              )}
-
               <div className="flex flex-col gap-2">
-                <button onClick={performMerge} disabled={added === 0}
+                <button onClick={performMerge} disabled={!target || added === 0}
                   className="w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white rounded-full transition-colors">
-                  {added === 0 ? 'Nothing to add' : `Merge into "${mergeDialog.name.trim() || target.name}"`}
+                  {!target ? 'Pick a set' : added === 0 ? 'Nothing to add' : `Merge into "${mergeDialog.name.trim() || target.name}"`}
                 </button>
                 <button onClick={() => setMergeDialog(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {/* Book… — the ticked sets' songs into a book, copied: the sets keep
+          them and so does My songs. */}
+      {toBook && (() => {
+        const chosen = toBook.setIds.map(id => sets.find(x => x.id === id)).filter(Boolean);
+        const one = chosen.length === 1 ? chosen[0] : null;
+        return (
+          <AddToBookDialog
+            dark={dark} records={books} songs={songs} sets={sets}
+            ids={toBook.ids} from={{ kind: 'set' }} startName={one?.name || ''}
+            fromName={one ? `the set “${one.name}”` : 'your sets'}
+            onDone={async () => { setSelectedSets(new Set()); await onRefresh(); }}
+            onShow={(bookId) => { setToBook(null); onShowBook?.(bookId); }}
+            onClose={() => setToBook(null)}
+          />
         );
       })()}
 
@@ -1010,13 +1048,51 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
             old colour-dot legend is gone. */}
         <div className="flex-1" />
 
-        {/* Right: Merge, then Delete. */}
-        <HeaderPill
-          dark={dark} icon={Merge} label="Merge" hideLabelWhenNarrow
-          title={selectedSets.size === 2 ? 'Merge these two sets' : 'Tick exactly two sets to merge them'}
-          disabled={selectedSets.size !== 2}
-          onActivate={handleMerge}
-        />
+        {/* Right: Add to… (Set… merges one set into another, Book… copies the
+            ticked sets' songs into a book), then Delete. */}
+        <div className="relative shrink-0">
+          <HeaderPill
+            dark={dark} icon={ListPlus} label="Add to…" hideLabelWhenNarrow
+            title="Merge into another set, or copy into a book"
+            active={addMenuOpen}
+            disabled={selectedSets.size === 0}
+            onActivate={() => selectedSets.size && setAddMenuOpen(v => !v)}
+          />
+          {addMenuOpen && selectedSets.size > 0 && (
+            <>
+              <div className="fixed inset-0 z-10" {...dismissOnOutside(() => setAddMenuOpen(false))} />
+              <div role="menu" className="absolute right-0 top-full mt-1 z-20 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden py-1">
+                <button role="menuitem"
+                  disabled={selectedSets.size !== 1}
+                  onClick={() => { setAddMenuOpen(false); handleMerge(); }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <Merge size={15} className="opacity-70 shrink-0" />
+                  <span className="flex flex-col leading-tight">
+                    Set…
+                    {selectedSets.size !== 1 && <span className="text-xs text-gray-500 dark:text-gray-400">Tick one set to merge it</span>}
+                  </span>
+                </button>
+                {(() => {
+                  const empty = !sets.some(x => selectedSets.has(x.id) && x.songIds?.length);
+                  return (
+                    <button role="menuitem"
+                      disabled={empty}
+                      onClick={() => { setAddMenuOpen(false); handleSetsToBook(); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <BookPlus size={15} className="opacity-70 shrink-0" />
+                      <span className="flex flex-col leading-tight">
+                        Book…
+                        {empty && <span className="text-xs text-gray-500 dark:text-gray-400">No songs to add</span>}
+                      </span>
+                    </button>
+                  );
+                })()}
+              </div>
+            </>
+          )}
+        </div>
         <RoundButton
           size={ROUND_SIZE_COMPACT}
           label={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : 'Delete'}
@@ -3161,6 +3237,8 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
           <SetsColumn
             sets={sets}
             songs={songs}
+            books={books}
+            onShowBook={(bookId) => { if (bookId) setLibView({ kind: 'book', id: bookId }); setPhonePanel('library'); }}
             activeSetId={activeSetId}
             onSelectSet={handleSelectSet}
             onRefresh={onRefresh}

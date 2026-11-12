@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BookPlus } from 'lucide-react';
 import BookChoice, { startBook, bookChoice } from './BookChoice.jsx';
 import { CloseCircle } from './CornerClose.jsx';
-import { addToBookPlan, books as booksIn } from '../utils/books.js';
+import { addToBookPlan, bookNamed, books as booksIn } from '../utils/books.js';
 import { saveBookChoice, putSongsInBooks } from '../utils/storage.js';
 
 // Add to Book — Book… in the Library action bar's Add to… menu (Howard,
@@ -13,19 +13,27 @@ import { saveBookChoice, putSongsInBooks } from '../utils/storage.js';
 // ticked in My songs or a single book; a song in one of your sets is never
 // taken out of My songs. No song is ever duplicated or deleted here.
 //
-// `from` is the Library's view. The outcome is said here, in the window, as in
+// `from` is the Library's view, or { kind: 'set' } for Book… in the Sets
+// column's Add to… menu: a set's songs, copied only (a set is never emptied
+// here, and My songs keeps them). `startName` there is the one ticked set's
+// name, offered as a new book — or that book, if you already have one so named.
+// The outcome is said here, in the window, as in
 // Cue's other tools; onDone refreshes the Library and clears the ticks.
 // No dimmed backdrop, as everywhere in Cue.
 
-function firstInto(records, from) {
+function firstInto(records, from, startName = '') {
+  if (startName.trim()) {
+    const have = bookNamed(records, startName);
+    return have ? startBook(true, '', have.id) : startBook(true, startName.trim());
+  }
   const other = booksIn(records)
     .filter(b => b.id !== (from?.kind === 'book' ? from.id : null))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))[0];
   return other ? startBook(true, '', other.id) : startBook(true, '');
 }
 
-export default function AddToBookDialog({ dark, records = [], songs = [], ids = [], sets = [], from, fromName, onDone, onShow, onClose }) {
-  const [into, setInto] = useState(() => firstInto(records, from));
+export default function AddToBookDialog({ dark, records = [], songs = [], ids = [], sets = [], from, fromName, startName = '', onDone, onShow, onClose }) {
+  const [into, setInto] = useState(() => firstInto(records, from, startName));
   const [move, setMove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null); // { added, already, keptForSets, moved, where, bookId }
@@ -35,7 +43,9 @@ export default function AddToBookDialog({ dark, records = [], songs = [], ids = 
   const songsWord = (k) => `${k.toLocaleString()} song${k === 1 ? '' : 's'}`;
   const making = into.on && !into.bookId;
   const ready = !making || (into.name.trim() && (into.shelfId !== '__new' || into.newShelf.trim()));
-  const destName = !into.on ? 'My songs' : into.bookId ? `“${records.find(r => r.id === into.bookId)?.name || 'the book'}”` : `“${into.name.trim()}”`;
+  const destName = !into.on ? 'My songs' : into.bookId ? `“${records.find(r => r.id === into.bookId)?.name || 'the book'}”` : into.name.trim() ? `“${into.name.trim()}”` : 'a new book';
+  const unnamed = making && !into.name.trim();
+  const inBookName = unnamed ? 'a new book' : `the book ${destName}`;
 
   async function apply() {
     if (!ready || busy) return;
@@ -79,7 +89,9 @@ export default function AddToBookDialog({ dark, records = [], songs = [], ids = 
             <p className={`text-xs ${muted}`}>
               {move && canMove
                 ? <>{They}’ll be in {destName} and no longer in {fromName}.{from?.kind === 'mine' ? ' A song in one of your sets stays in My songs too.' : ''}</>
-                : <>{n === 1 ? 'It stays' : 'They stay'} in {fromName} and {n === 1 ? 'is' : 'are'} in {destName} too, {n === 1 ? 'still one song' : 'each still one song'}, so an edit shows in both.</>}
+                : from?.kind === 'set'
+                  ? <>{n === 1 ? 'It stays' : 'They stay'} in {fromName} and {n === 1 ? 'is' : 'are'} in {inBookName} too, {n === 1 ? 'still one song' : 'each still one song'}, so an edit shows everywhere.</>
+                  : <>{n === 1 ? 'It stays' : 'They stay'} in {fromName} and {n === 1 ? 'is' : 'are'} in {destName} too, {n === 1 ? 'still one song' : 'each still one song'}, so an edit shows in both.</>}
             </p>
             <div className="flex gap-2">
               <button onClick={onClose} className={secondary}>Cancel</button>

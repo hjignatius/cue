@@ -171,7 +171,7 @@ function manualHTML() {
     <li class="toc-h1">4. Sets &amp; Setlist</li>
     <li class="toc-h2">Creating &amp; Managing Sets</li>
     <li class="toc-h2">Adding Songs to a Set</li>
-    <li class="toc-h2">Merging Two Sets</li>
+    <li class="toc-h2">Merging Sets &amp; Making a Book</li>
     <li class="toc-h2">Selecting Sets</li>
     <li class="toc-h2">Searching &amp; Sorting Sets</li>
     <li class="toc-h2">The Setlist Column</li>
@@ -396,15 +396,19 @@ function manualHTML() {
 <p>To <strong>duplicate</strong> a set, tap the copy icon on its row. Cue creates a new set with the same songs under a <em>"(2)"</em> name — the songs are shared, not copied, so nothing is added to your library. The duplicate is a fresh local set: it is <em>not</em> published, even if the original was, so you can edit it and publish it separately when ready.</p>
 <p>To delete a set, check its box and tap <strong>Delete</strong> (see <em>Selecting Sets</em> below). Songs stay in your library.</p>
 
-<h2>Merging Two Sets</h2>
-<p>Check <strong>exactly two</strong> sets and tap <strong>Merge</strong>. Cue asks which of the two you want to <em>keep</em> — that set survives the merge, and the other set's songs are added to it.</p>
-<p>The set you keep holds on to everything: its songs, the order they are in, its name (you can change it in the dialog if you like) and, if it was published, its <strong>share link</strong>. The other set's songs go on the end. Any song that is already in the set you kept is <strong>skipped</strong> rather than added twice, and it stays where it already was &mdash; merging never reorders songs you already had. If the set you kept is sorted <strong>A&ndash;Z</strong>, the new songs sort in by title like everything else.</p>
-<p><strong>Nothing is deleted.</strong> The other set is still there afterwards, unchanged, and no song leaves your library.</p>
-<p>If one of the two sets is published, Cue offers that one as the set to keep, because the share link belongs to the set itself rather than to its name &mdash; keeping it is what lets the link carry on working and start serving the combined set. The dialog tells you how many songs will be added and how many will be skipped before you commit, and warns you that a published set needs <strong>Send changes</strong> before anyone holding the link sees the new version. There is no undo, so the numbers are worth a glance.</p>
-<p>To merge three sets, merge two and then merge the result with the third.</p>
+<h2>Merging Sets &amp; Making a Book</h2>
+<p>Check a set and tap <strong>Add to…</strong> in the action bar. Its menu has two choices. Both only <em>copy</em>: the sets you checked are never changed or deleted.</p>
+<ul>
+  <li><strong>Set…</strong> &mdash; merges the checked set into another. Cue lists your other sets, with the shared ones marked; pick the one to add its songs to. This works with <strong>one</strong> set checked at a time.</li>
+  <li><strong>Book…</strong> &mdash; copies the songs of the checked set (or several sets) into a book: one you have, or a new one on a shelf. From one set, Cue offers a new book with the set's name. A song in more than one of the sets goes in once. The songs stay in your sets, and wherever else they were &mdash; still one song each, so an edit shows everywhere. A book lists its songs in the Library's sort order, not the set's running order.</li>
+</ul>
+<p>The set you merge <em>into</em> holds on to everything: its songs, the order they are in, its name (you can change it in the window if you like) and, if it is shared, its <strong>share link</strong>. The other set's songs go on the end. Any song that is already there is <strong>skipped</strong> rather than added twice, and it stays where it already was &mdash; merging never reorders songs you already had. If that set is sorted <strong>A&ndash;Z</strong>, the new songs sort in by title like everything else.</p>
+<p><strong>Nothing is deleted.</strong> The set you checked is still there afterwards, unchanged, and no song leaves your library.</p>
+<p>The window tells you how many songs will be added and how many skipped before you commit, and warns you that a shared set needs <strong>Send changes</strong> before anyone holding the link sees the new version. There is no undo, so the numbers are worth a glance. Only your own sets are offered: a set in <em>Shared with me</em> belongs to someone else, so Cue can't change it &mdash; copy it into your sets first if you want to merge into it.</p>
+<p>To merge three sets, merge one into another and then the third into the same set.</p>
 
 <h2>Selecting Sets</h2>
-<p>Like the Library, every set row has an always-visible <strong>checkbox</strong>. Tapping a set's <em>body</em> still <em>activates</em> it (its songs show in the Setlist); the checkbox is only for multi-select, so a set can be both active and checked. The action bar's Export and Delete light up once at least one set is checked; <strong>Merge</strong> lights up only when exactly two are.</p>
+<p>Like the Library, every set row has an always-visible <strong>checkbox</strong>. Tapping a set's <em>body</em> still <em>activates</em> it (its songs show in the Setlist); the checkbox is only for multi-select, so a set can be both active and checked. The action bar's Export, <strong>Add to…</strong> and Delete light up once at least one set is checked; in the Add to… menu, <strong>Set…</strong> (merge) needs exactly one.</p>
 <ul>
   <li><strong>Select-all checkbox</strong> — ticks / clears all listed sets (respects any active search filter); "<strong>N selected · ✕</strong>" shows the count and clears it.</li>
   <li><strong>Export ▾</strong> (in the header, beside <strong>New Set</strong>) — one set or many as PDF, PDF + Chord Charts, a JSON bundle, or (single set) a Setlist <code>.csv</code>. Where your device can share a file, <strong>Share… (email .json)</strong> also appears to email the bundle as an attachment.</li>
