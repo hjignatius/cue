@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Merge, Save, Trash2 } from 'lucide-react';
-import { shelves, removeBookPlan } from '../utils/books.js';
+import { shelves, removeBookPlan, inBook } from '../utils/books.js';
 import { CloseCircle } from './CornerClose.jsx';
 import RoundButton, { ROUND_FILL_DANGER, ROUND_SIZE_ACTION } from './RoundButton.jsx';
 
@@ -24,7 +24,7 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
   const [confirming, setConfirming] = useState(false);
   const others = isBook && !isNew ? records.filter(r => r.kind === 'book' && r.id !== record.id).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) : [];
   const [mergeInto, setMergeInto] = useState(null); // the other book's id, while choosing
-  const songCount = isBook && !isNew ? songs.filter(s => s.bookId === record.id).length : 0;
+  const songCount = isBook && !isNew ? songs.filter(s => inBook(s, record.id)).length : 0;
   const plan = isBook && !isNew ? removeBookPlan(record.id, songs) : null;
   const onShelf = !isBook && !isNew ? records.filter(r => r.kind === 'book' && r.shelfId === record.id).length : 0;
 
@@ -105,7 +105,8 @@ export default function BookDialog({ dark, record, records, songs, onSave, onRem
             <p className={`text-sm ${muted}`}>
               {isBook
                 ? <>{plan.remove.length ? <>{n(plan.remove.length, 'song')} you haven’t used will be deleted.</> : <>Every song in it is one you’ve used.</>}{' '}
-                    {plan.keep.length ? <>{n(plan.keep.length, 'song')} you’ve put in a set, inked or added to My songs {plan.keep.length === 1 ? 'stays' : 'stay'}, in My songs.</> : null}</>
+                    {plan.keep.length - plan.elsewhere.length ? <>{n(plan.keep.length - plan.elsewhere.length, 'song')} you’ve put in a set, inked or added to My songs {plan.keep.length - plan.elsewhere.length === 1 ? 'stays' : 'stay'}, in My songs.</> : null}{' '}
+                    {plan.elsewhere.length ? <>{n(plan.elsewhere.length, 'song')} also in another book {plan.elsewhere.length === 1 ? 'stays' : 'stay'} there.</> : null}</>
                 : <>{onShelf ? <>Its {n(onShelf, 'book')} {onShelf === 1 ? 'stays' : 'stay'}, on no shelf.</> : <>There are no books on it.</>} No songs are removed.</>}
             </p>
             <div className="flex gap-2">

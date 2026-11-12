@@ -289,12 +289,20 @@ function manualHTML() {
   <li><strong>A shelf</strong> — the songs of every book on that shelf. Shelves are yours to name, such as Club or Christmas. Tap <strong>New shelf</strong> to make one. A book doesn't have to be on a shelf.</li>
 </ul>
 <p><strong>How a song from a book becomes one of My songs.</strong> It does so when you put it in a set of your own, ink it, or choose <strong>Add to My songs</strong> from its ⋮ menu (<strong>Take out of My songs</strong> undoes that). Editing it does not. It stays in its book as well: it is one song, seen in both places.</p>
-<p><strong>Books get there in three ways:</strong> from a songbook PDF (see <em>Importing PDFs</em>), by putting a single PDF song into a book as you import it, or by choosing a book when you copy someone's shared set.</p>
+<p><strong>Books get there in four ways:</strong> from a songbook PDF (see <em>Importing PDFs</em>), by putting a single PDF song into a book as you import it, by choosing a book when you copy someone's shared set, or with <strong>Add to Book</strong>.</p>
+<p><strong>Add to Book</strong> sits next to <strong>Add to Set</strong> under the song list. Tick the songs you want in whichever list you're in, tap it, and choose where they go in <strong>Add to</strong>: a book you have, or <strong>New book…</strong> with a shelf if you like. Ticked in a book, you can also choose <strong>My songs</strong>.</p>
+<ul>
+  <li><strong>Copy</strong> is what it does to start with. The songs stay where they were and are in the book too. It is still <em>one</em> song in both places, never a duplicate, so an edit shows in every place it's in. A song can be in as many books as you like.</li>
+  <li>Tick <strong>Remove them from My songs</strong> (or from the book you're in) and the button becomes <strong>Move</strong>: the songs leave that list as they go into the new one. A song in one of your sets always stays in My songs too, so a set never plays a song you can't find.</li>
+  <li>Nothing is deleted or duplicated by Add to Book, and it never counts as editing a song, so a published set doesn't show <strong>SEND CHANGES</strong>.</li>
+  <li>The window says what it did, and <strong>Open the book</strong> takes you there.</li>
+</ul>
+<p>Removing a song from the Library with <strong>Delete</strong> deletes it everywhere, in every book it's in. Deleting a <em>book</em> only takes the songs that are in no other book and that you haven't used.</p>
 <p><strong>A book's or shelf's ⋮ menu</strong> in the switch opens its window. There you can rename it, and put a book on a shelf, a new one included. The buttons on one line below that are:</p>
 <ul>
   <li><strong>Merge…</strong> — moves every song of this book into another book and removes this one. No songs are removed.</li>
   <li><strong>Save</strong> — keeps your changes. The X in the corner leaves without saving.</li>
-  <li><strong>Trash</strong> — asks first and says exactly what will happen. Deleting a book deletes the songs you never used. The ones you did use stay, in My songs. Removing a shelf removes no songs: its books stay, on no shelf.</li>
+  <li><strong>Trash</strong> — asks first and says exactly what will happen. Deleting a book deletes the songs you never used. The ones you did use stay, in My songs, and a song that's also in another book stays in that one. Removing a shelf removes no songs: its books stay, on no shelf.</li>
 </ul>
 <p>A book also goes by itself when its last song is deleted.</p>
 

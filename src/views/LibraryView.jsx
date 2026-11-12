@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode, UserPlus, UserMinus } from 'lucide-react';
+import { Search, XCircle, Plus, Upload, Trash2, Merge, ChevronRight, Music, Download, GripVertical, Pencil, DownloadCloud, Link2, Settings, Archive, SquarePen, Tv, Copy, UploadCloud, CloudOff, Share, ListPlus, Sparkles, Loader2, Library, FileStack, FileText, Scissors, ArrowDownAZ, Columns2, QrCode as QrCodeIcon, ScanQrCode, UserPlus, UserMinus, BookPlus } from 'lucide-react';
 import { CloseCircle } from '../components/CornerClose.jsx';
 import { hasApiKey, suggestSetOrder, estimateSetTime, suggestSongsToLearn, findDuplicateSongs, suggestSongsForSet, escalatedTierLabel } from '../lib/ai.js';
 import { AiCaution, AiProgress } from '../components/AiCaution.jsx';
@@ -54,7 +54,8 @@ import { dismissOnOutside } from '../utils/overlayDismiss.js';
 import { mergedSongIds, mergeCounts, defaultMergeTargetId } from '../utils/mergeSets.js';
 import BooksMenu from '../components/BooksMenu.jsx';
 import BookDialog from '../components/BookDialog.jsx';
-import { songsInView, isMine, normalizeView, MY_SONGS, selectionBook, wholeBookDelete } from '../utils/books.js';
+import AddToBookDialog from '../components/AddToBookDialog.jsx';
+import { songsInView, isMine, normalizeView, MY_SONGS, selectionBook, wholeBookDelete, viewName } from '../utils/books.js';
 import { shortDuration } from '../utils/duration.js';
 
 // Compact pill in the round-button language, shared by the panel/toolbar
@@ -2307,6 +2308,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
   const [songDeleteConfirm, setSongDeleteConfirm] = useState(null); // null | { ids, source, plan }
   const [exportDropOpen, setExportDropOpen] = useState(false);
   const [addToSetOpen, setAddToSetOpen] = useState(false); // create/select-target dialog
+  const [addToBookOpen, setAddToBookOpen] = useState(false); // AddToBookDialog, for the ticked songs
   const [newSetName, setNewSetName]     = useState('');
   const [setPickerSearch, setSetPickerSearch] = useState(''); // filter for the picker list
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -3008,6 +3010,14 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
               disabled={selected.size === 0}
               onActivate={handleAddSelectedToSet}
             />
+            {/* Add to Book: the ticked songs into a book (or, ticked in a book,
+                into My songs) — copied, or moved out of this list. */}
+            <HeaderPill
+              dark={dark} icon={BookPlus} label="Add to Book" hideLabelWhenNarrow
+              title="Add selected songs to a book"
+              disabled={selected.size === 0}
+              onActivate={() => selected.size && setAddToBookOpen(true)}
+            />
             <RoundButton
               size={ROUND_SIZE_COMPACT}
               label={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : 'Delete'}
@@ -3384,6 +3394,17 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
 
       {/* Add-to-Set target picker — shown when the toolbar button is used with no
           set selected. Create a new set from the selection, or add to an existing. */}
+      {addToBookOpen && (
+        <AddToBookDialog
+          dark={dark} records={books} songs={songs} sets={sets}
+          ids={[...selected]} from={shownView}
+          fromName={shownView.kind === 'book' ? `“${viewName(shownView, books)}”` : viewName(shownView, books)}
+          onDone={async () => { setSelected(new Set()); await onRefresh(); }}
+          onShow={(bookId) => { setAddToBookOpen(false); setLibView(bookId ? { kind: 'book', id: bookId } : MY_SONGS); }}
+          onClose={() => setAddToBookOpen(false)}
+        />
+      )}
+
       {addToSetOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setAddToSetOpen(false))}>
           <div

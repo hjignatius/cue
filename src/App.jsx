@@ -11,7 +11,7 @@ import BookChoice, { startBook, bookChoice } from './components/BookChoice.jsx';
 import { loadSongs, loadSets, saveSong, saveSet, deleteSong, removeSongFromAllSets, clearDraft, clearLibrary, savePdfBlob, restorePdfBackup, loadBooks, saveBookRecord, saveBookChoice, dropEmptyBooks } from './utils/storage.js';
 import { APP_VERSION, isNewerVersion } from './utils/appVersion.js';
 import { normalizeTitle } from './utils/contentHash.js';
-import { bookName } from './utils/books.js';
+import { bookName, inBook } from './utils/books.js';
 import { parseCho, mergeCustomChords, replaceCustomChords, restoreChordLibraries } from './utils/fileIO.js';
 import { restoreAnnotations } from './utils/annotations.js';
 import { restoreSavedShares } from './utils/sharedBookmarks.js';
@@ -204,7 +204,7 @@ export default function App() {
     const inThisBook = new Map();
     if (bookId) {
       for (const s of await loadSongs()) {
-        if (s.bookId === bookId && s.source) inThisBook.set(sameSong(s.source.book, s.source.page, s.metadata?.title), s.id);
+        if (inBook(s, bookId) && s.source) inThisBook.set(sameSong(s.source.book, s.source.page, s.metadata?.title), s.id);
       }
     }
     let already = 0;

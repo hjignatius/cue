@@ -35,11 +35,13 @@ export function bookChoice(value) {
   return { name: value.name.trim(), shelfId: making || value.shelfId === '__new' ? null : value.shelfId || null, newShelf: making ? value.newShelf.trim() : null };
 }
 
-export default function BookChoice({ dark, records, value, onChange, one = false, into = false, label = null }) {
+// `noMine` leaves My songs out of the `into` menu and `exclude` a book — Add to
+// Book, where those are the list the songs were ticked in.
+export default function BookChoice({ dark, records, value, onChange, one = false, into = false, label = null, noMine = false, exclude = null }) {
   const head = dark ? 'text-gray-100' : 'text-gray-900';
   const field = `rounded-lg px-3 py-2 text-sm border ${dark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`;
   const set = (patch) => onChange({ ...value, ...patch });
-  const have = one || into ? byName(records) : [];
+  const have = one || into ? byName(records).filter(b => b.id !== exclude) : [];
   const newBook = value.on && !value.bookId && (
     <>
       <div className="flex gap-2">
@@ -64,9 +66,9 @@ export default function BookChoice({ dark, records, value, onChange, one = false
       <div className="flex flex-col gap-2">
         <label className={`flex items-center gap-2 text-sm font-medium ${head}`}>
           <span className="shrink-0">{label || 'Copy into'}</span>
-          <select value={where} aria-label="Copy into" className={`${field} flex-1 min-w-0`}
+          <select value={where} aria-label={label || 'Copy into'} className={`${field} flex-1 min-w-0`}
             onChange={e => { const v = e.target.value; set(v === '__mine' ? { on: false } : v === '__new' ? { on: true, bookId: '' } : { on: true, bookId: v }); }}>
-            <option value="__mine">My songs</option>
+            {!noMine && <option value="__mine">My songs</option>}
             {have.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             <option value="__new">New book…</option>
           </select>

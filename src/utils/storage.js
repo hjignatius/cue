@@ -1,6 +1,6 @@
 import { openDB } from 'idb';
 import { sanitizeMetadata } from './songMetadata.js';
-import { bookNamed, booksFromSources, removeBookPlan } from './books.js';
+import { bookNamed, booksFromSources, removeBookPlan, booksOf, inBook, placeIn } from './books.js';
 
 const DB_NAME    = 'cue-db';
 const DB_VERSION = 5;
@@ -263,7 +263,7 @@ const KNOWN_SONG_FIELDS = new Set([
   'copiedFrom', 'type', 'pedalActive', 'pdf', 'fullPage', 'embed', 'condensed',
 ]);
 
-export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source, bookId, mine, pdfRotate, pdfPageTurns }) {
+export async function saveSong({ id, metadata, text, chordStyle, previewMode, diagramScale, chordPrefs, displayKey, createdAt: givenCreatedAt, updatedAt: givenUpdatedAt, copiedFrom, type, pedalActive, pdf, fullPage, embed, condensed, source, bookId, moreBooks, mine, pdfRotate, pdfPageTurns }) {
   const d = await getDB();
   const songId = id || crypto.randomUUID();
   const now = new Date().toISOString();
@@ -293,6 +293,9 @@ export async function saveSong({ id, metadata, text, chordStyle, previewMode, di
   // The book it is in, and whether it is yours (books.js). Like `source`, given
   // by an import or a restore and otherwise carried forward untouched.
   if (bookId       !== undefined) entry.bookId       = bookId;
+  // The other books it is in (books.js, booksOf). Named here so a backup restore
+  // of a NEW song keeps it: `preserved` only carries fields of a song already saved.
+  if (moreBooks    !== undefined) entry.moreBooks    = moreBooks;
   if (mine         !== undefined) entry.mine         = mine;
   // A pdf song's quarter turns clockwise (0/90/180/270) — for a sheet that was
   // scanned upside down or sideways. Given by the editor; otherwise carried
@@ -644,6 +647,24 @@ export async function saveBookChoice(book, file = null) {
   return (await saveBookRecord({ kind: 'book', name: book.name, shelfId: shelfId || null, file })).id;
 }
 
+// Add to Book (books.js, addToBookPlan): the songs as the plan has them, put
+// straight in. Like setSongMine, it leaves their edit time alone — which books
+// a song is in is not an edit, and must not read as changes to send.
+export async function putSongsInBooks(patches = []) {
+  if (!patches.length) return;
+  const d = await getDB();
+  const tx = d.transaction('songs', 'readwrite');
+  for (const p of patches) {
+    const song = await tx.store.get(p.id);
+    if (!song) continue;
+    const next = placeIn(song, booksOf(p));
+    if (p.mine !== undefined) next.mine = p.mine; else delete next.mine;
+    await tx.store.put(next);
+    if (next.mine) _usedKnown.add(p.id); else _usedKnown.delete(p.id);
+  }
+  await tx.done;
+}
+
 // One book into another: every song of `fromId` moves to `intoId`, used or
 // not, and `fromId` is gone. Returns the number of songs moved.
 export async function mergeBooks(fromId, intoId) {
@@ -652,7 +673,7 @@ export async function mergeBooks(fromId, intoId) {
   const tx = d.transaction(['songs', 'books'], 'readwrite');
   let moved = 0;
   for (const song of await tx.objectStore('songs').getAll()) {
-    if (song.bookId === fromId) { tx.objectStore('songs').put({ ...song, bookId: intoId }); moved++; }
+    if (inBook(song, fromId)) { tx.objectStore('songs').put(placeIn(song, booksOf(song).map(id => (id === fromId ? intoId : id)))); moved++; }
   }
   tx.objectStore('books').delete(fromId);
   await tx.done;
@@ -660,7 +681,8 @@ export async function mergeBooks(fromId, intoId) {
 }
 
 // A book away: its songs you never used go (with their PDFs), the ones you did
-// stay, as My songs in no book. Returns { removed, kept } counts.
+// stay, as My songs, and the ones in another book stay in that one. Returns
+// { removed, kept } counts.
 export async function removeBook(bookId) {
   const d = await getDB();
   const songs = await d.getAll('songs');
@@ -673,8 +695,8 @@ export async function removeBook(bookId) {
     tx.objectStore('annotations').delete(id);
   }
   for (const id of keep) {
-    const { bookId: _, ...rest } = byId.get(id);
-    tx.objectStore('songs').put(rest);
+    const song = byId.get(id);
+    tx.objectStore('songs').put(placeIn(song, booksOf(song).filter(b => b !== bookId)));
   }
   tx.objectStore('books').delete(bookId);
   await tx.done;
@@ -688,7 +710,7 @@ export async function removeBook(bookId) {
 // songs). Shelves stay, even empty. Returns how many books went.
 export async function dropEmptyBooks() {
   const d = await getDB();
-  const used = new Set((await d.getAll('songs')).map(s => s.bookId).filter(Boolean));
+  const used = new Set((await d.getAll('songs')).flatMap(booksOf));
   const tx = d.transaction('books', 'readwrite');
   let dropped = 0;
   for (const r of await tx.store.getAll()) {

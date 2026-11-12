@@ -3,7 +3,7 @@
 // how songs imported before books existed are sorted into them.
 //
 // Run: node scripts/booksCheck.mjs
-import { bookNamed, isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName, wholeBooks, selectionBook, wholeBookDelete } from '../src/utils/books.js';
+import { bookNamed, isMine, mineIn, songsInView, viewName, normalizeView, shelfTree, removeBookPlan, booksFromSources, bookName, wholeBooks, selectionBook, wholeBookDelete, booksOf, inBook, placeIn, addToBookPlan } from '../src/utils/books.js';
 
 let pass = 0, fail = 0;
 const check = (label, got, want) => {
@@ -60,8 +60,8 @@ check('an empty shelf is still listed', shelfTree([{ id: 's', kind: 'shelf', nam
 
 // ---- 4. removing a book --------------------------------------------------------
 check('removing a book takes the songs you never used and keeps the ones you did',
-  removeBookPlan('fm', songs), { remove: ['b'], keep: ['c'] });
-check('…and touches no other book', removeBookPlan('mos', songs), { remove: ['d'], keep: [] });
+  removeBookPlan('fm', songs), { remove: ['b'], keep: ['c'], elsewhere: [] });
+check('…and touches no other book', removeBookPlan('mos', songs), { remove: ['d'], keep: [], elsewhere: [] });
 
 // ---- 5. songs from before books --------------------------------------------------
 let n = 0;
@@ -93,6 +93,54 @@ check('…nor when it’s only part of the book', wholeBookDelete(['c'], songs, 
 const named = [{ id: 's', kind: 'shelf', name: 'Club' }, { id: 'b', kind: 'book', name: 'Holiday Book' }];
 check('a book is found by its name, whatever its capitals or spaces', bookNamed(named, ' holiday  BOOK')?.id, 'b');
 check('…never a shelf of that name, and nothing for no name', [bookNamed(named, 'Club'), bookNamed(named, '')], [null, null]);
+
+// ---- several books (Add to Book) -------------------------------------------
+const multi = [
+  { id: 'a' },                                              // typed in, yours
+  { id: 'm', bookId: 'fm', moreBooks: ['wed'] },            // in two books, never used
+  { id: 'u', bookId: 'fm', moreBooks: ['mos'], mine: true },// in two books and yours
+  { id: 'x', bookId: 'jim' },
+];
+check('every book a song is in, the one it came in with first', [booksOf(multi[1]), booksOf(multi[0]), booksOf({ bookId: 'fm', moreBooks: ['fm', 'wed'] })], [['fm', 'wed'], [], ['fm', 'wed']]);
+check('…and in each one', [inBook(multi[1], 'wed'), inBook(multi[1], 'fm'), inBook(multi[1], 'mos'), inBook(multi[0], null)], [true, true, false, false]);
+check('placing a song keeps the book it came in with first while it stays in it',
+  [placeIn(multi[1], ['wed', 'fm', 'jim']), placeIn(multi[1], ['wed']), placeIn(multi[1], [])],
+  [{ id: 'm', bookId: 'fm', moreBooks: ['wed', 'jim'] }, { id: 'm', bookId: 'wed' }, { id: 'm' }]);
+check('a book shows every song in it, wherever it came in', ids(songsInView(multi, { kind: 'book', id: 'wed' }, records)), ['m']);
+check('a shelf shows a song in two of its books once', ids(songsInView(multi, { kind: 'shelf', id: 'club' }, records)), ['m', 'u']);
+const mtree = shelfTree(records, multi);
+check('the switch counts a song in each book it is in, and once on a shelf',
+  [mtree.shelves.find(s => s.shelf.id === 'club').count, mtree.shelves.find(s => s.shelf.id === 'club').books.map(b => b.count), mtree.loose.map(b => b.count)],
+  [2, [2, 1], [1]]);
+check('removing a book keeps a song that is also in another, in that one',
+  removeBookPlan('fm', multi), { remove: [], keep: ['m', 'u'], elsewhere: ['m', 'u'] });
+check('…and a song only in it goes, unless used', removeBookPlan('jim', multi), { remove: ['x'], keep: [], elsewhere: [] });
+check('a song whose books are all gone is yours; one still in a book here is not',
+  [mineIn(records)({ id: 'q', bookId: 'gone', moreBooks: ['gone2'] }), mineIn(records)({ id: 'q', bookId: 'gone', moreBooks: ['wed'] })], [true, false]);
+check('a selection is a whole book counting the songs added to it', wholeBooks(['m'], multi).sort(), ['wed']);
+
+const plan = (tickedIds, opts) => addToBookPlan(tickedIds, multi, opts);
+check('copy from My songs into a book: still yours, now in the book too',
+  plan(['a'], { intoId: 'wed', from: { kind: 'mine' } }), { patches: [{ id: 'a', bookId: 'wed', mine: true }], added: 1, already: 0, keptForSets: 0 });
+check('move from My songs: in the book only',
+  plan(['a'], { intoId: 'wed', from: { kind: 'mine' }, move: true }).patches, [{ id: 'a', bookId: 'wed', mine: false }]);
+check('…but a song in one of your sets stays in My songs',
+  plan(['a'], { intoId: 'wed', from: { kind: 'mine' }, move: true, inSets: new Set(['a']) }), { patches: [{ id: 'a', bookId: 'wed', mine: true }], added: 1, already: 0, keptForSets: 1 });
+check('copy from one book to another: one song in both',
+  plan(['x'], { intoId: 'wed', from: { kind: 'book', id: 'jim' } }).patches, [{ id: 'x', bookId: 'jim', moreBooks: ['wed'], mine: false }]);
+check('move from one book to another: out of the first',
+  plan(['x'], { intoId: 'wed', from: { kind: 'book', id: 'jim' }, move: true }).patches, [{ id: 'x', bookId: 'wed', mine: false }]);
+check('a song already in the book is counted, not changed',
+  plan(['m'], { intoId: 'wed', from: { kind: 'book', id: 'fm' } }), { patches: [], added: 0, already: 1, keptForSets: 0 });
+check('…though moving still takes it out of the book it was ticked in',
+  plan(['m'], { intoId: 'wed', from: { kind: 'book', id: 'fm' }, move: true }).patches, [{ id: 'm', bookId: 'wed', mine: false }]);
+check('into My songs from a book: copy makes it yours and keeps it in the book',
+  plan(['x'], { intoId: null, from: { kind: 'book', id: 'jim' } }).patches, [{ id: 'x', bookId: 'jim', mine: true }]);
+check('…move takes it out of the book, leaving a plain song of yours',
+  plan(['x'], { intoId: null, from: { kind: 'book', id: 'jim' }, move: true }).patches, [{ id: 'x' }]);
+check('from All songs nothing is taken out, even asked',
+  plan(['x'], { intoId: 'wed', from: { kind: 'all' }, move: true }).patches, [{ id: 'x', bookId: 'jim', moreBooks: ['wed'], mine: false }]);
+check('songs not ticked are left alone', plan([], { intoId: 'wed', from: { kind: 'mine' } }), { patches: [], added: 0, already: 0, keptForSets: 0 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

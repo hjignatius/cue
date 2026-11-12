@@ -14,7 +14,7 @@ import PresentationView from './PresentationView.jsx';
 import EditorView from './EditorView.jsx';
 import VersionPicker from '../components/VersionPicker.jsx';
 import { readPlayChoices, otherVersions, pickedCopy, playsMine, copyStanding, newerThan, legacyCopyState } from '../utils/shareVersions.js';
-import { isMine, bookNamed } from '../utils/books.js';
+import { isMine, bookNamed, inBook } from '../utils/books.js';
 import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Cloud, Equal, EqualNot, ArrowLeft, ArrowRight } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
@@ -744,7 +744,7 @@ export default function SharedSetView() {
       const bookId = plan.mine ? plan.bookId : (book && adding ? await saveBookChoice(book) : null);
       const bookFields = bookId ? { bookId, mine: false } : NO_BOOK;
       // Titles only clash inside the place they go.
-      const pool = plan.mine ? localSongs : bookId ? localSongs.filter(ls => ls.bookId === bookId) : localSongs.filter(isMine);
+      const pool = plan.mine ? localSongs : bookId ? localSongs.filter(ls => inBook(ls, bookId)) : localSongs.filter(isMine);
       const allTitles = new Set(pool.map(ls => normalizeTitle(ls.metadata?.title)));
 
       for (const item of plan.songs) {
@@ -1540,7 +1540,7 @@ const takeAction = (state) => state === 'add' ? 'add' : state === 'update' ? 'up
 function poolFor(book, localSongs, records) {
   if (!book?.on) return localSongs.filter(isMine);
   const id = book.bookId || bookNamed(records, book.name)?.id;
-  return id ? localSongs.filter(ls => ls.bookId === id) : [];
+  return id ? localSongs.filter(ls => inBook(ls, id)) : [];
 }
 
 // Where the list's copies go before you choose: the book this share's earlier

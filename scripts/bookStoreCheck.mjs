@@ -174,5 +174,27 @@ await saveBookChoice({ name: 'Holiday Book', shelfId: null, newShelf: 'Christmas
 check('…one on a shelf stays there, and no shelf is made for nothing',
   [(await loadBooks()).find(b => b.id === first).shelfId === clubId, (await loadBooks()).some(b => b.name === 'Christmas')], [true, false]);
 
+// ---- several books (Add to Book) ---------------------------------------------
+await clearLibrary();
+const one = (await saveBookRecord({ kind: 'book', name: 'One' })).id;
+const two = (await saveBookRecord({ kind: 'book', name: 'Two' })).id;
+const three = (await saveBookRecord({ kind: 'book', name: 'Three' })).id;
+await saveSong(song('both', { bookId: one, mine: false, updatedAt: OLD }));
+await saveSong(song('solo', { bookId: one, mine: false, updatedAt: OLD }));
+await S.putSongsInBooks([{ id: 'both', bookId: one, moreBooks: [two], mine: false }]);
+s = await byId();
+check('Add to Book puts a song in a second book and leaves its edit time', [s.get('both').bookId, s.get('both').moreBooks, s.get('both').updatedAt], [one, [two], OLD]);
+await saveSong({ ...s.get('both'), text: '[C]edited' });
+check('an edit keeps the books it is in', (await byId()).get('both').moreBooks, [two]);
+await mergeBooks(two, three);
+check('merging a book moves a song added to it', (await byId()).get('both').moreBooks, [three]);
+const gone = await removeBook(one);
+s = await byId();
+check('deleting its first book keeps a song that is in another, now first there',
+  [gone, s.has('solo'), s.get('both')?.bookId, s.get('both')?.moreBooks], [{ removed: 1, kept: 1 }, false, three, undefined]);
+check('a book with only songs added to it is not empty', [await dropEmptyBooks(), (await loadBooks()).some(b => b.id === three)], [0, true]);
+await saveSong({ ...song('restored', { bookId: three, moreBooks: [one], mine: false }) });
+check('a new song saved with its other books (a restore) keeps them', (await byId()).get('restored').moreBooks, [one]);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
