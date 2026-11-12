@@ -204,6 +204,10 @@ function SelectCheckbox({ checked, indeterminate = false, onToggle, ariaLabel })
 // checkbox, the drag handle or the ⋮ and its menu (a portal, whose events still
 // bubble here), where two quick clicks mean something else. The word the
 // double-click selected is let go, so it isn't left highlighted.
+// Song, set and setlist rows are select-none. A row's text is never meant to
+// be highlighted, and on the Mac (and iPad with a pointer) any highlight brings
+// up Siri's "Ask Siri" bubble right beside it — over the row's ⋮ button, where
+// it swallowed the clicks meant for the menu. No highlight, no bubble.
 function openOnDoubleClick(e, open) {
   if (e.target.closest?.('button, input, a, [role="menu"], [role="menuitem"]')) return;
   window.getSelection?.()?.removeAllRanges();
@@ -215,7 +219,7 @@ function SongRow({ song, dark, onOpen, onPresent, onDuplicate, onMine, onRetryPd
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-800 cursor-pointer group transition-colors ${
+      className={`flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-800 cursor-pointer select-none group transition-colors ${
         selected    ? 'bg-indigo-100 dark:bg-indigo-950/60'
         : highlighted ? 'bg-indigo-50 dark:bg-indigo-950/40'
         : 'hover:bg-gray-100 dark:hover:bg-gray-900'
@@ -1076,7 +1080,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
           return (
             <div
               key={set.id}
-              className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-3 border-b ${border} group transition-colors cursor-pointer select-none ${
                 isSelected ? 'bg-indigo-100 dark:bg-indigo-950/60' : isActive ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
               }`}
               onClick={() => {
@@ -1117,7 +1121,7 @@ function SetsColumn({ sets, songs, activeSetId, onSelectSet, onRefresh, presenti
                             if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
                           }}
                           onClick={e => e.stopPropagation()}
-                          className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5"
+                          className="w-full bg-transparent border-b border-indigo-500 outline-none text-sm font-medium text-gray-900 dark:text-white py-0.5 select-text"
                         />
                       ) : (
                         /* The NAME no longer carries sync state. Indigo here means
@@ -1483,7 +1487,7 @@ function SortableSongRow({ song, idx, draggable, isSelected, isOver, onSelect, o
       style={style}
       onClick={onSelect}
       onDoubleClick={(e) => openOnDoubleClick(e, onPresent)}
-      className={`flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-800 group transition-colors cursor-pointer ${
+      className={`flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-800 group transition-colors cursor-pointer select-none ${
         isSelected ? 'bg-indigo-50 dark:bg-indigo-950/40' : isOver ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-900'
       }`}
     >
