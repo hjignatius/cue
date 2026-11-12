@@ -3,6 +3,29 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.4 — 2026-11-12
+
+### Add to Book
+
+- **A new Add to Book button** next to Add to Set. Tick songs in My songs or
+  in a book, and put them in a book you have or a new one, on a shelf if you
+  like. Ticked in a book, they can go into My songs too.
+- **Copy to start with.** The songs stay where they were and are in the book
+  as well. It's still one song in both places, so an edit shows in each.
+- **A song can be in several books** at once.
+- **Remove them from…** turns Copy into Move: the songs leave the list they
+  were ticked in. A song in one of your sets always stays in My songs.
+- **Nothing is deleted or duplicated,** and it doesn't count as an edit, so a
+  published set doesn't show SEND CHANGES.
+- **Deleting a book** keeps a song that's also in another book, in that one.
+
+### Fixes
+
+- **PDF export prints each song in its own Format.** An Inline song prints
+  with its chords in brackets, as in Preview and Present.
+- **The ⋮ menus in the Library lists work with Siri on.** The rows can't be
+  highlighted any more, so Siri's bubble no longer covers the menu.
+
 ## v2.0.3 — 2026-11-10
 
 ### Copying a shared set
