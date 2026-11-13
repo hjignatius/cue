@@ -3,6 +3,22 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.7 — 2026-11-13
+
+### Library
+
+- **Add to Book says what it does.** The button reads **Add** for a book you
+  already have, **Create book** for a new one, and **Move** when you take the
+  songs out of where they were. It used to say Copy, but nothing is copied:
+  it's one song in each place.
+
+### Windows
+
+- **One way out.** A window with the round ✕ no longer has a Cancel, Close
+  or Done beside it that did the same thing: Add to Book, Scan QR code, Fill
+  in details, Add missing chord shapes, Other ways to play it, Suggested set
+  order and Estimated set time.
+
 ## v2.0.6 — 2026-11-13
 
 ### Chords
