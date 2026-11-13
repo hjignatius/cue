@@ -220,9 +220,9 @@ export const UKULELE_CHORDS = [
   { name: 'D#dim', type: 'dim', frets: [2, 3, 2, 3] },
   { name: 'Ebdim', type: 'dim', frets: [2, 3, 2, 3] },
   { name: 'Edim',  type: 'dim', frets: [3, 4, 3, 4] },
-  { name: 'Fdim',  type: 'dim', frets: [1, 2, 4, 2] },
-  { name: 'F#dim', type: 'dim', frets: [2, 3, 5, 3] },
-  { name: 'Gbdim', type: 'dim', frets: [2, 3, 5, 3] },
+  { name: 'Fdim',  type: 'dim', frets: [1, 2, 1, 2] },  // was [1,2,4,2], which has no F
+  { name: 'F#dim', type: 'dim', frets: [2, 3, 2, 3] },  // was [2,3,5,3], which has no F#
+  { name: 'Gbdim', type: 'dim', frets: [2, 3, 2, 3] },  // was [2,3,5,3], which has no Gb
   { name: 'Gdim',  type: 'dim', frets: [0, 1, 3, 1] },
   { name: 'G#dim', type: 'dim', frets: [1, 2, 4, 2] },
   { name: 'Abdim', type: 'dim', frets: [1, 2, 4, 2] },
@@ -230,6 +230,29 @@ export const UKULELE_CHORDS = [
   { name: 'A#dim', type: 'dim', frets: [3, 4, 3, 4] },
   { name: 'Bbdim', type: 'dim', frets: [3, 4, 3, 4] },
   { name: 'Bdim',  type: 'dim', frets: [1, 2, 1, 2] },
+
+  // ── dim7 ───────────────────────────────────────────────────────────────────
+  // Added 2026-11-13: no library had a dim7, so every one went to the AI, which
+  // once drew an F for Gbdim7. A dim7 is four notes a minor 3rd apart, so there
+  // are only three shapes and each serves four roots; this is the lowest one,
+  // root included. The comment on each line is what it sounds.
+  { name: 'Cdim7',  type: 'dim', frets: [2, 3, 2, 3] },  // A D# F# C
+  { name: 'C#dim7', type: 'dim', frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'Dbdim7', type: 'dim', frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'Ddim7',  type: 'dim', frets: [1, 2, 1, 2] },  // G# D F B
+  { name: 'D#dim7', type: 'dim', frets: [2, 3, 2, 3] },  // A D# F# C
+  { name: 'Ebdim7', type: 'dim', frets: [2, 3, 2, 3] },  // A D# F# C
+  { name: 'Edim7',  type: 'dim', frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'Fdim7',  type: 'dim', frets: [1, 2, 1, 2] },  // G# D F B
+  { name: 'F#dim7', type: 'dim', frets: [2, 3, 2, 3] },  // A D# F# C
+  { name: 'Gbdim7', type: 'dim', frets: [2, 3, 2, 3] },  // A D# F# C
+  { name: 'Gdim7',  type: 'dim', frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'G#dim7', type: 'dim', frets: [1, 2, 1, 2] },  // G# D F B
+  { name: 'Abdim7', type: 'dim', frets: [1, 2, 1, 2] },  // G# D F B
+  { name: 'Adim7',  type: 'dim', frets: [2, 3, 2, 3] },  // A D# F# C
+  { name: 'A#dim7', type: 'dim', frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'Bbdim7', type: 'dim', frets: [0, 1, 0, 1] },  // G C# E A#
+  { name: 'Bdim7',  type: 'dim', frets: [1, 2, 1, 2] },  // G# D F B
 
   // ── 6th ────────────────────────────────────────────────────────────────────
   { name: 'C6',  type: '6th', frets: [0, 0, 0, 0] },

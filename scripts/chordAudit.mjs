@@ -18,38 +18,9 @@ import { GUITAR_CHORDS } from '../src/data/guitarChords.js';
 import { CHORD_LIBRARIES } from '../src/data/chordLibraries.js';
 import { notePitchClass } from '../src/utils/notes.js';
 
-// Semitones above the root that each quality is allowed to use. The 5th is
-// included everywhere it belongs even when players drop it — this is the set of
-// notes a shape may contain, not the set it must.
-const QUALITIES = {
-  '':       [0, 4, 7],
-  'm':      [0, 3, 7],
-  '5':      [0, 7],
-  '6':      [0, 4, 7, 9],
-  'm6':     [0, 3, 7, 9],
-  '7':      [0, 4, 7, 10],
-  'maj7':   [0, 4, 7, 11],
-  'm7':     [0, 3, 7, 10],
-  'm7b5':   [0, 3, 6, 10],
-  // Libraries commonly file the four-note dim7 shape under "dim"; allow both.
-  'dim':    [0, 3, 6, 9],
-  'aug':    [0, 4, 8],
-  'sus2':   [0, 2, 7],
-  'sus4':   [0, 5, 7],
-  '7sus4':  [0, 5, 7, 10],
-  '9':      [0, 2, 4, 7, 10],
-  'add9':   [0, 2, 4, 7],
-  '13':     [0, 2, 4, 7, 9, 10],
-  '7#5':    [0, 4, 8, 10],
-  '7b9':    [0, 1, 4, 7, 10],
-  '7#9':    [0, 3, 4, 7, 10],   // the #9 sounds as the minor 3rd
-};
-// The notes that MAKE the chord what it is — reported when absent, never failed.
-const DEFINING = {
-  '6': [9], 'm6': [9], '7': [10], 'maj7': [11], 'm7': [10], 'm7b5': [6, 10],
-  'aug': [8], '7#5': [8, 10], '7b9': [1, 10], '7#9': [3, 4, 10], '9': [2, 10],
-  'add9': [2], '13': [9, 10], 'sus2': [2], 'sus4': [5], '7sus4': [5, 10],
-};
+// The quality table lives in src/utils/chordFormula.js, shared with the AI
+// chord tools so shipped shapes and a model's shapes meet the same rule.
+import { QUALITIES, DEFINING, ROOT_REQUIRED } from '../src/utils/chordFormula.js';
 
 const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const split = (name) => {
@@ -88,7 +59,16 @@ const soundedPCs = (tuning, frets) =>
     // not a clean bill of health.
     ['E7#9', [1, 2, 0, 2], false, true],
     ['E7#9', [1, 2, 3, 2], false, false],   // G# D G B — the real thing
+    // A dim shape without its root: no wrong note (it is G#dim), but no F.
+    ['Fdim', [1, 2, 4, 2], false, false],
   ];
+  {
+    const [, root] = /^([A-G][b#]?)/.exec('Fdim');
+    if (soundedPCs(t, [1, 2, 4, 2]).includes(notePitchClass(root)) || !ROOT_REQUIRED.has('dim')) {
+      console.log('SELF-CHECK FAILED: the rootless Fdim probe was not seen as rootless');
+      process.exit(2);
+    }
+  }
   for (const [name, frets, wantForeign, wantLacking] of cases) {
     const got = probe(name, frets);
     if (got.foreign !== wantForeign || got.lacking !== wantLacking) {
@@ -116,6 +96,13 @@ for (const [libId, chords] of [['ukulele_gcea', UKULELE_CHORDS], ['baritone_dgbe
     const ok = new Set(allowed.map(i => (root + i) % 12));
     const foreign = pcs.filter(p => !ok.has(p));
 
+    if (!foreign.length && ROOT_REQUIRED.has(parts.suffix) && !pcs.includes(root)) {
+      // Not a wrong note — it is a diminished chord on another root, which is
+      // just as wrong to look up. Four shipped dim shapes were (2026-11-13).
+      errors++;
+      report.push(`  ${libId.padEnd(14)} ${c.name.padEnd(7)} [${c.frets.join(' ')}]  sounds ${pcs.map(p => NOTE[p]).join(' ')} — no ${parts.root}, its own root`);
+      continue;
+    }
     if (foreign.length) {
       errors++;
       // Would another root make this shape correct? A shape that is right a
@@ -137,6 +124,6 @@ for (const [libId, chords] of [['ukulele_gcea', UKULELE_CHORDS], ['baritone_dgbe
 }
 
 console.log(report.join('\n'));
-console.log(`\n${checked} shapes checked · ${errors} with notes that do not belong · ${missing} missing a defining note`);
+console.log(`\n${checked} shapes checked · ${errors} with notes that do not belong or no root where one is needed · ${missing} missing a defining note`);
 if (unknown.size) console.log(`not checked (unknown quality): ${[...unknown].join(' ')}`);
 process.exit(errors ? 1 : 0);   // a missing note is a finding, not a failure

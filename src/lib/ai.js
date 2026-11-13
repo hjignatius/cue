@@ -17,6 +17,7 @@
 // JSON/Backup exports, and a secret must never travel in those. It lives under
 // its own localStorage key that nothing exports.
 
+import { shapeFitsChord } from '../utils/chordFormula.js';
 import { timeSigOrEmpty } from '../utils/timeSig.js';
 import { notePitchClass } from '../utils/notes.js';
 import { mmss } from '../utils/duration.js';
@@ -1156,6 +1157,11 @@ For each chord name given, provide ONE common, easy-to-play ${instrument} voicin
     const frets = Array.isArray(o?.frets) ? o.frets.map((f) => Number(f)) : null;
     if (!name || !frets || frets.length !== n) return null;
     if (frets.some((f) => !Number.isInteger(f) || f < -1 || f > 15)) return null;
+    // The notes those frets really sound, against the name. A model once drew
+    // an F for Gbdim7; a shape with a note not in the chord, or without the
+    // note that makes it this chord, is dropped rather than drawn. A name the
+    // formula table can't read is let through.
+    if (shapeFitsChord(name, frets, tuning) === false) return null;
     return { name, frets };
   }).filter(Boolean);
 }
@@ -1331,6 +1337,10 @@ export function sanitizeVoicings(arr, { name, strings, known = [], tuning = null
     // the notes it drew — and drawing it anyway is how somebody ends up playing
     // a different chord and blaming their ear.
     if (tuning && !notesMatchFrets(o?.notes, frets, tuning)) continue;
+    // And those notes against the CHORD: the check above only proves the model
+    // read its own frets right. A labelled simpler shape may leave a note out;
+    // it may not add one that isn't in the chord.
+    if (tuning && shapeFitsChord(name, frets, tuning, { allowLacking: true }) === false) continue;
     const label = typeof o?.label === 'string' ? o.label.trim().slice(0, 40) : '';
     out.push({ name, frets, label });
   }
