@@ -3,6 +3,24 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.6 — 2026-11-13
+
+### Chords
+
+- **dim7 chords have diagrams** on ukulele, baritone and guitar, for every
+  root. Before, Cue had none and asked the AI, which could get them wrong.
+- **Four dim shapes fixed.** Ukulele Fdim and F#dim/Gbdim, and baritone Cdim
+  and C#dim/Dbdim, didn't contain their own root note.
+- **AI chord shapes are checked before you see them.** Cue works out the
+  notes a shape plays and compares them with the chord's name. A shape with a
+  wrong note is dropped, so an F can't be offered for a Gbdim7.
+
+### Fixes
+
+- **Menus work with Siri on, everywhere.** No button, menu or checkbox label
+  can be highlighted any more, so Siri's bubble can't cover a menu — the
+  Library's My songs / shelves / books menu was the one still doing it.
+
 ## v2.0.5 — 2026-11-12
 
 ### Add to…
