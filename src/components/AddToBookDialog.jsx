@@ -7,9 +7,11 @@ import { saveBookChoice, putSongsInBooks } from '../utils/storage.js';
 
 // Add to Book — Book… in the Library action bar's Add to… menu (Howard,
 // 2026-11-12): the ticked songs go into a book — one you have, or a new one on
-// a shelf — or, ticked in a book, into My songs. COPY by default: a song stays
+// a shelf — or, ticked in a book, into My songs. ADD by default: a song stays
 // where it was and is in the book too, ONE song in both, so an edit shows in
-// each. "Remove them from …" makes it a move, offered only where the songs were
+// each. Nothing is copied, so the button never says Copy: it says Add, Create
+// book for a new one, or Move (Howard, 2026-11-13). The round X is the only
+// way out — no Cancel or Done beside it. "Remove them from …" makes it a move, offered only where the songs were
 // ticked in My songs or a single book; a song in one of your sets is never
 // taken out of My songs. No song is ever duplicated or deleted here.
 //
@@ -56,7 +58,7 @@ export default function AddToBookDialog({ dark, records = [], songs = [], ids = 
       const inSets = new Set(sets.flatMap(s => s.songIds || []));
       const plan = addToBookPlan(ids, songs, { intoId, from, move: canMove && move, inSets });
       await putSongsInBooks(plan.patches);
-      setResult({ ...plan, moved: canMove && move, where: destName, bookId: intoId });
+      setResult({ ...plan, moved: canMove && move, created: making, where: destName, bookId: intoId });
       await onDone?.();
     } finally {
       setBusy(false);
@@ -65,14 +67,13 @@ export default function AddToBookDialog({ dark, records = [], songs = [], ids = 
 
   const muted = dark ? 'text-gray-400' : 'text-gray-500';
   const head = dark ? 'text-white' : 'text-gray-900';
-  const primary = 'flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full transition-colors';
-  const secondary = `flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full border transition-colors ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`;
+  const primary = 'w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full transition-colors';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" onClick={onClose}>
       <div className={`w-[24rem] max-w-full rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className={`text-base font-semibold ${head}`}>{result ? (result.moved ? 'Moved' : 'Copied') : `Add ${songsWord(n)} to a book`}</h2>
+          <h2 className={`text-base font-semibold ${head}`}>{result ? (result.moved ? 'Moved' : result.created ? 'Book created' : 'Added') : `Add ${songsWord(n)} to a book`}</h2>
           <CloseCircle dark={dark} label="Close" onClick={onClose} className="-mt-3 -mb-1 -mr-4" />
         </div>
 
@@ -93,12 +94,9 @@ export default function AddToBookDialog({ dark, records = [], songs = [], ids = 
                   ? <>{n === 1 ? 'It stays' : 'They stay'} in {fromName} and {n === 1 ? 'is' : 'are'} in {inBookName} too, {n === 1 ? 'still one song' : 'each still one song'}, so an edit shows everywhere.</>
                   : <>{n === 1 ? 'It stays' : 'They stay'} in {fromName} and {n === 1 ? 'is' : 'are'} in {destName} too, {n === 1 ? 'still one song' : 'each still one song'}, so an edit shows in both.</>}
             </p>
-            <div className="flex gap-2">
-              <button onClick={onClose} className={secondary}>Cancel</button>
-              <button onClick={apply} disabled={!ready || busy} className={primary}>
-                <BookPlus size={18} /> {move && canMove ? 'Move' : 'Copy'}
-              </button>
-            </div>
+            <button onClick={apply} disabled={!ready || busy} className={primary}>
+              <BookPlus size={18} /> {move && canMove ? 'Move' : making ? 'Create book' : 'Add'}
+            </button>
           </>
         )}
 
@@ -111,12 +109,9 @@ export default function AddToBookDialog({ dark, records = [], songs = [], ids = 
             {result.keptForSets > 0 && (
               <p className={`text-sm ${muted}`}>{songsWord(result.keptForSets)} in your sets {result.keptForSets === 1 ? 'stays' : 'stay'} in My songs too.</p>
             )}
-            <div className="flex gap-2">
-              <button onClick={onClose} className={secondary}>Done</button>
-              <button onClick={() => onShow?.(result.bookId)} className={primary}>
-                {result.bookId ? 'Open the book' : 'Open My songs'}
-              </button>
-            </div>
+            <button onClick={() => onShow?.(result.bookId)} className={primary}>
+              {result.bookId ? 'Open the book' : 'Open My songs'}
+            </button>
           </>
         )}
       </div>

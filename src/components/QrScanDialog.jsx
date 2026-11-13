@@ -178,12 +178,6 @@ export default function QrScanDialog({ onToken, onClose }) {
             <p className={`text-xs ${muted}`}>The set opens as soon as the code is read, and is added to Shared with me.</p>
           )}
 
-          <button
-            onClick={onClose}
-            className={`w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-          >
-            Cancel
-          </button>
         </div>
       </div>
     </div>

@@ -2035,7 +2035,6 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
               </ol>
               <div className="flex gap-2">
                 <button onClick={() => applyOrder(orderResult.order)} className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">Apply</button>
-                <button onClick={() => closeOrder()} className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Close</button>
               </div>
             </>)}
           </div>
@@ -2095,12 +2094,8 @@ function SetlistColumn({ set, songs, onUpdateSet, onUpdateSong, onOpenSettings, 
                   <AiCaution dark={dark}>AI can get things wrong — these lengths are estimates, so treat the total as a guide.</AiCaution>
                   <div className="flex gap-2">
                     <button onClick={saveEstimates} className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors">Save song estimates</button>
-                    <button onClick={() => closeTime()} className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Close</button>
                   </div>
                 </>)}
-                {d.songs.length === 0 && (
-                  <button onClick={() => closeTime()} className={`min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}>Close</button>
-                )}
               </>)}
             </div>
           </div>

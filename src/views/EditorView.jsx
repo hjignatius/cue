@@ -2103,12 +2103,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             >
               {chosen.length === 0 ? 'Nothing ticked' : `Check ${chosen.length} detail${chosen.length === 1 ? '' : 's'}`}
             </button>
-            <button
-              onClick={() => setFillAsk(false)}
-              className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-            >
-              Cancel
-            </button>
           </div>
         </div>
       </div>
@@ -2313,16 +2307,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               >
                 {allApplied ? (appliedNow ? 'All applied' : 'Nothing to change') : 'Apply all'}
               </button>
-              <button
-                onClick={() => closeFill()}
-                className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors ${
-                  picking
-                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                    : `border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`
-                }`}
-              >
-                {appliedNow ? 'Done' : 'Close'}
-              </button>
             </div>
           </>);
         })()}
@@ -2456,12 +2440,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
             Every chord in this song already has a diagram for {chordLibraryToInstrument(instrument)}.
             There is nothing to add.
           </p>
-          <button
-            onClick={() => closeChords()}
-            className={`min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-          >
-            Close
-          </button>
         </>)}
         {/* Everything offered was taken. Says so, and says WHERE it went: these
             go to the instrument's chord library, not into the song — which is
@@ -2511,12 +2489,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
               className="flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors"
             >
               Add all
-            </button>
-            <button
-              onClick={() => closeChords()}
-              className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-            >
-              Close
             </button>
           </div>
         </>)}
@@ -2676,12 +2648,6 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
                   className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
                 >
                   Another chord
-                </button>
-                <button
-                  onClick={() => closeVoicings()}
-                  className={`flex-1 min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium rounded-full transition-colors border ${dark ? 'border-gray-600 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-                >
-                  Close
                 </button>
               </div>
             )}
