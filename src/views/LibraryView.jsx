@@ -883,9 +883,12 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6" {...dismissOnOutside(() => setMergeDialog(null))}>
             <div className={`w-96 max-w-full max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl p-6 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`} onClick={e => e.stopPropagation()}>
-              <div className="flex flex-col gap-1">
-                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Merge &ldquo;{source.name}&rdquo; into…</h2>
-                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Create a new set or choose an existing one.</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>Merge &ldquo;{source.name}&rdquo; into…</h2>
+                  <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Create a new set or choose an existing one.</p>
+                </div>
+                <CloseCircle dark={dark} onClick={() => setMergeDialog(null)} className="-mt-4 -mr-4" />
               </div>
 
               {/* Create new — a set with the ticked set's songs. */}
@@ -982,7 +985,6 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
                     {added === 0 ? 'Nothing to add' : `Merge into "${mergeDialog.name.trim() || target.name}"`}
                   </button>
                 )}
-                <button onClick={() => setMergeDialog(null)} className={`text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}>Cancel</button>
               </div>
             </div>
           </div>
@@ -3583,11 +3585,14 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
             className={`w-80 max-h-[80vh] rounded-2xl shadow-2xl p-5 flex flex-col gap-4 ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex flex-col gap-1">
-              <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
-                Add {selected.size} {selected.size === 1 ? 'song' : 'songs'} to a set
-              </h2>
-              <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Create a new set or choose an existing one.</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1 min-w-0">
+                <h2 className={`text-base font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+                  Add {selected.size} {selected.size === 1 ? 'song' : 'songs'} to a set
+                </h2>
+                <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Create a new set or choose an existing one.</p>
+              </div>
+              <CloseCircle dark={dark} onClick={() => setAddToSetOpen(false)} className="-mt-3 -mr-3" />
             </div>
 
             {/* Create new */}
@@ -3650,13 +3655,6 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
                 </>
               );
             })()}
-
-            <button
-              onClick={() => setAddToSetOpen(false)}
-              className={`w-full py-2 text-sm rounded-lg transition-colors ${dark ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'}`}
-            >
-              Cancel
-            </button>
           </div>
         </div>
       )}
