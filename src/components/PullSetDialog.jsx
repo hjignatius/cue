@@ -5,6 +5,7 @@ import { downloadPdfBlob } from '../lib/pdfSync.js';
 import { mergeTaggedSongCustoms } from '../utils/fileIO.js';
 import { usePrefs } from '../context/PrefsContext.jsx';
 import { dismissOnOutside } from '../utils/overlayDismiss.js';
+import { CloseCircle } from './CornerClose.jsx';
 
 function fmtDate(iso) {
   try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
@@ -215,7 +216,6 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
   const wide  = `w-96 max-h-[80vh] flex flex-col rounded-2xl shadow-2xl ${dark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`;
   const btnIndigo = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-colors`;
   const btnAmber  = `w-full min-h-11 px-4 py-1.5 inline-flex items-center justify-center gap-2 text-center text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-full transition-colors`;
-  const btnGhost  = `text-xs py-1 text-center transition-colors ${dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`;
 
   const dismissable = phase !== 'running';
 
@@ -224,11 +224,14 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center" {...dismissOnOutside(onClose)}>
         <div className={wide} onClick={e => e.stopPropagation()}>
-          <div className={`px-6 pt-5 pb-4 shrink-0 border-b ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
-            <h2 className={h2}>Pull a set from the cloud</h2>
-            <p className={`text-xs mt-0.5 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-              Overwrites the local copy if you already have one.
-            </p>
+          <div className={`px-6 pt-5 pb-4 shrink-0 border-b flex items-start justify-between gap-3 ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
+            <div className="min-w-0">
+              <h2 className={h2}>Pull a set from the cloud</h2>
+              <p className={`text-xs mt-0.5 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Overwrites the local copy if you already have one.
+              </p>
+            </div>
+            <CloseCircle dark={dark} onClick={onClose} className="-mt-3 -mr-4" />
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
             {errMsg && <p className="text-xs text-red-500">{errMsg}</p>}
@@ -250,9 +253,6 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
               ))
             )}
           </div>
-          <div className={`px-6 py-4 shrink-0 border-t ${dark ? 'border-gray-800' : 'border-gray-100'}`}>
-            <button onClick={onClose} className={btnGhost}>Cancel</button>
-          </div>
         </div>
       </div>
     );
@@ -271,7 +271,10 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
         {phase === 'confirm' && fetched && (
           <>
             <div className="flex flex-col gap-1">
-              <h2 className={h2}>{localSet ? 'Overwrite local set?' : 'Add set to this device?'}</h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className={h2}>{localSet ? 'Overwrite local set?' : 'Add set to this device?'}</h2>
+                <CloseCircle dark={dark} onClick={onClose} className="-mt-4 -mr-4" />
+              </div>
               <p className={sub}>
                 <span className={em}>"{fetched.set.name}"</span>{' '}
                 {localSet
@@ -288,7 +291,6 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
               <button onClick={run} className={localIsNewer ? btnAmber : btnIndigo}>
                 {localIsNewer ? 'Pull anyway' : localSet ? 'Overwrite local copy' : 'Add to device'}
               </button>
-              <button onClick={onClose} className={btnGhost}>Cancel</button>
             </div>
           </>
         )}
@@ -300,7 +302,10 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
         {phase === 'success' && summary && (
           <>
             <div className="flex flex-col gap-1">
-              <h2 className={h2}>Pulled</h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className={h2}>Pulled</h2>
+                <CloseCircle dark={dark} onClick={onClose} className="-mt-4 -mr-4" />
+              </div>
               <p className={sub}>
                 <span className={em}>"{fetched.set.name}"</span> is up to date on this device.
                 <span className="block mt-1">
@@ -311,19 +316,20 @@ export default function PullSetDialog({ setId = null, localSets, localSongs, use
                 </span>
               </p>
             </div>
-            <button onClick={onClose} className={btnIndigo}>Done</button>
           </>
         )}
 
         {phase === 'error' && (
           <>
             <div className="flex flex-col gap-1">
-              <h2 className={h2}>Pull failed</h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className={h2}>Pull failed</h2>
+                <CloseCircle dark={dark} onClick={onClose} className="-mt-4 -mr-4" />
+              </div>
               <p className={sub}>{errMsg}</p>
             </div>
             <div className="flex flex-col gap-2">
               {fetched && <button onClick={run} className={btnIndigo}>Try again</button>}
-              <button onClick={onClose} className={btnGhost}>Close</button>
             </div>
           </>
         )}
