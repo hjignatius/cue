@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.8 — 2026-11-14
+
+### Windows
+
+- **The round ✕ in more windows.** Add to Set, Merge into a set, and every
+  step of Pull a set from the cloud now close with the round ✕ in the
+  corner, like Cue's other windows. The Cancel, Done or Close at the bottom
+  is gone.
+
 ## v2.0.7 — 2026-11-13
 
 ### Library
