@@ -61,7 +61,7 @@ export default function SupportCard({ dark }) {
   return (
     <div className={`rounded-xl border p-3 flex flex-col gap-3 ${dark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
       <p className={`text-xs ${muted}`}>
-        Cue is free to use. Support it if it earns its keep, and tell us what would make it better.
+        Cue is free to use. Help support Cue development and tell us how to make it better.
       </p>
 
       <div className="flex items-center gap-2">
