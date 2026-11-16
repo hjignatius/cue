@@ -793,15 +793,48 @@ export function pickerStart(report, pages = []) {
     if (!found && titleOverArtist && !split && p > 1 && marks[p - 1] === 'start') marks[p - 1] = 'same';
     titles[p] = found || { title: `Page ${p}`, artist: '', key: '' };
   }
-  // A contents or index page, wherever the report or the page itself names it.
+  // A contents or index page, wherever the report or the page itself names it,
+  // and the pages after the last song.
   if (!split) {
     for (const s of report.songs) if (NOT_A_SONG.test(s.title)) marks[s.firstPage - 1] = 'skip';
     for (let p = 1; p <= n; p++) if (NOT_A_SONG.test(titles[p].title)) marks[p - 1] = 'skip';
+    for (const p of backPages(content, titles)) marks[p - 1] = 'skip';
   }
   const chances = pageChances(pages);
   // A book that reads badly starts as PDFs, each one still a tap from a chart.
   const asPdf = report.score?.level === 'low' ? chances.flatMap((c, i) => (c ? [i + 1] : [])) : [];
   return { marks, titles, chances, doubts: pageDoubts(pages), asPdf, texts: content.map(c => c.map(l => l.text.replace(/\[[^\]]*\]/g, '')).join(' ')) };
+}
+
+// THE BACK OF A BOOK. After its last song a book often has pages that are no
+// song: thanks, a page about the author, one for notes, a chord chart. The Happy
+// Ukulele Songbook ends with five (2026-11-16): two pages of chord diagrams,
+// pictures with no text, then "Thanks to these Amazing people…", "About Satya"
+// and "Notes:". Words-per-line can't tell its thanks from a lyric — some of its
+// songs run longer lines — but a heading can.
+//
+// From the last page back: pages with such a heading and no chords, a chord
+// chart's heading whatever is under it, and pages with no text at all, which
+// can't be told from a chord chart. They're left out only when one of them is
+// named: a book that ends in pictures alone may end in songs. A picture of a
+// song just before a thank-you page is left out with it — the picker shows it,
+// and one tap brings it back.
+const BACK_MATTER = /^(?:notes?|(?:special |many |big )?thanks\b.*|thank you\b.*|acknowledge?ments?|credits|sources|afterword|glossary|about (?:the )?(?:authors?|editors?|compilers?|book|this book|us|me))\W*$/i;
+const ABOUT_NAME = /^About \p{Lu}\p{Ll}+(?: \p{Lu}\p{Ll}+)?\W*$/u;
+const CHORD_CHART = /^(?:(?:ukulele|uke|guitar) )?chord (?:charts?|choir|diagrams?|library|reference|dictionary|finder|fingerings?)\W*$/i;
+function backPages(content, titles) {
+  const out = [];
+  let named = false;
+  for (let p = content.length; p >= 1; p--) {
+    const lines = content[p - 1];
+    if (!lines.length) { out.push(p); continue; }
+    const title = titles[p]?.title || '';
+    const chords = lines.some(l => BRACKET_CHORD.test(l.text) || isChordLine(l.text));
+    if (!CHORD_CHART.test(title) && (chords || !(BACK_MATTER.test(title) || ABOUT_NAME.test(title)))) break;
+    out.push(p);
+    named = true;
+  }
+  return named ? out : [];
 }
 
 /**

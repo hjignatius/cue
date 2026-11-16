@@ -418,6 +418,25 @@ check('…or from its bookmarks, leaving the contents out', fromMarks.marks, ['s
 const shortBook = [page([['Index', 16], ['1. Pearly Shells'], ['2. Edelweiss']]), overPage('Pearly Shells'), sheetOf('Edelweiss', 'blossom'), sheetOf('Tiny Bubbles', 'wine')];
 check('a short PDF with songs on several pages is a book', isBook(bookReport(shortBook)), true);
 check('…and the picker leaves its index out', pickerStart(bookReport(shortBook), shortBook).marks, ['skip', 'start', 'start', 'start']);
+// The Happy Ukulele Songbook ends with two pictures of chord diagrams, then
+// thanks, a page about its author and one for notes: none of them a song.
+const thanks = page([['Thanks to these Amazing people...', 30], ['Many thanks to all the awesome ukulele lovers listed below for their work'], ['Doctor Uke: very complete arrangements, often at a more advanced level']]);
+const about = page([['About Satya', 30], ['Satya Colombo is a writer, artist, healer and consultant']]);
+const notes = page([['Notes:', 30]]);
+const startOf = (pages) => pickerStart(bookReport(pages), pages).marks;
+check('the picker leaves out the pages after the last song',
+  startOf([overPage('One'), overPage('Two'), overPage('Three'), page([]), page([]), thanks, about, notes]),
+  ['start', 'start', 'start', 'skip', 'skip', 'skip', 'skip', 'skip']);
+check('…and a chord chart there, read or not',
+  startOf([overPage('One'), overPage('Two'), overPage('Three'), page([['Ukulele Chord Chart', 30], ['C     G     Am    F'], ['D     A     Em    Bb']])]),
+  ['start', 'start', 'start', 'skip']);
+check('…but not pictures alone at the end: they may be songs',
+  startOf([overPage('One'), overPage('Two'), overPage('Three'), page([])]), ['start', 'start', 'start', 'start']);
+check('…nor a song called Thank You, with its chords',
+  startOf([overPage('One'), overPage('Two'), page([T('Thank You'), ['D        A       Bm'], ['My tea is gone cold'], ['G        D'], ['I wonder why']]), notes]),
+  ['start', 'start', 'start', 'skip']);
+check('…nor the same heading before the last song',
+  startOf([overPage('One'), thanks, overPage('Two'), overPage('Three')]), ['start', 'start', 'start', 'start']);
 check('…one song over two pages is not', isBook(bookReport([overPage('Ripple'), page([['G     C'], ['more of it']])])), false);
 check('…nor is one song with a picture page', isBook(bookReport([overPage('Ripple'), page([])])), false);
 
