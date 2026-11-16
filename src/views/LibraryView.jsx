@@ -18,7 +18,7 @@ const TIME_STAGE    = { idleLabel: 'Working out the timing…',  writeLabel: 'Ad
 const SUGGEST_STAGE = { idleLabel: 'Finding songs…',           writeLabel: 'Picking songs…',         unit: 'song' };
 import { saveSong, saveSet, deleteSet, newestLocalAt, reidSong, loadSongs, loadSets, loadPdfBlob, savePdfBlob, setPdfUploaded, saveBookRecord, removeBook, removeShelf, mergeBooks, setSongMine, putSongsInBooks, dropEmptyBooks } from '../utils/storage.js';
 import { uploadPdfBlob } from '../lib/pdfSync.js';
-import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT } from '../components/RoundButton.jsx';
+import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_FILL_ACTIVE, ROUND_FILL_DANGER, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, ROUND_DISABLED_NIGHT } from '../components/RoundButton.jsx';
 import { loadAnnotatedSongIds, flushAllAnnotationQueues } from '../utils/annotations.js';
 import { forgetShareState } from '../utils/storage.js';
 import { isEditedCopy, matchLibrarySong } from '../utils/contentHash.js';
@@ -71,6 +71,7 @@ function HeaderPill({ dark, icon: Icon, label, title, active = false, disabled =
       size={ROUND_SIZE_COMPACT} pill
       label={label} title={title ?? label}
       fill={fill} active={active} disabled={disabled}
+      disabledOpacity={dark ? ROUND_DISABLED_NIGHT : undefined}
       onActivate={onActivate}
     >
       {Icon && <Icon size={14} />}
@@ -1159,6 +1160,7 @@ function SetsColumn({ sets, songs, books = [], activeSetId, onSelectSet, onRefre
           title={selectedSets.size > 0 ? `Delete ${selectedSets.size} ${selectedSets.size === 1 ? 'set' : 'sets'}` : undefined}
           fill={selectedSets.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
           disabled={selectedSets.size === 0}
+          disabledOpacity={dark ? ROUND_DISABLED_NIGHT : undefined}
           onActivate={handleDeleteSelected}
         >
           <Trash2 size={20} />
@@ -3196,6 +3198,7 @@ export default function LibraryView({ songs, sets, books = [], onNewSong, onOpen
               title={selected.size > 0 ? `Delete ${selected.size} ${selected.size === 1 ? 'song' : 'songs'}` : undefined}
               fill={selected.size > 0 ? ROUND_FILL_DANGER : (dark ? ROUND_FILL_NIGHT : ROUND_FILL_DAY_CHROME)}
               disabled={selected.size === 0}
+              disabledOpacity={dark ? ROUND_DISABLED_NIGHT : undefined}
               onActivate={handleDeleteSelected}
             >
               <Trash2 size={20} />

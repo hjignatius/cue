@@ -23,6 +23,13 @@ export const ROUND_FILL_DANGER = '#dc2626'; // red-600
 // NIGHT unchanged — it composites to ~#4e5055, 8:1, already fine.)
 export const ROUND_FILL_DAY_CHROME = '#374151';
 
+// How far a waiting control fades on night chrome — Export, Add to… and Delete
+// before anything is ticked. The usual 0.3 suits the opaque day fill, but on the
+// translucent night fill it left a grey barely off the background, and Howard
+// couldn't see them (2026-11-16). At 0.55 they still read as not yet, and can
+// be found.
+export const ROUND_DISABLED_NIGHT = 0.55;
+
 // iOS minimum touch target (44pt = 44 CSS px). A control smaller than this keeps
 // its visual size and pads the hit area out to meet it.
 export const MIN_TOUCH_TARGET = 44;
