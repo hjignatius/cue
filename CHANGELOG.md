@@ -3,6 +3,20 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.9 — 2026-11-16
+
+### Songbooks
+
+- **The back of a book is left out.** When Cue can't split a songbook and
+  you pick its songs page by page, the pages after the last song — thanks,
+  a page about the author, notes, a chord chart, and pictures among them —
+  now start left out, as the contents and cover already did.
+
+### Settings
+
+- **Support card.** It now says Cue is free to use, and asks you to help
+  support Cue's development and tell us how to make it better.
+
 ## v2.0.8 — 2026-11-14
 
 ### Windows
