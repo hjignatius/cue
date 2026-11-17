@@ -3,6 +3,20 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.10 — 2026-11-17
+
+### Editor
+
+- **Delete works on shapes the AI just added.** A chord shape from Add missing
+  chord shapes or Other ways to play it now disappears as soon as you press its
+  ✕. Before, it went from your library but stayed on screen until you left the
+  editor. Editing one no longer leaves the old shape showing beside the new.
+
+### Library
+
+- **Easier to see in Dark mode.** Export, Add to… and Delete in the Library and
+  Sets columns are no longer nearly invisible before anything is ticked.
+
 ## v2.0.9 — 2026-11-16
 
 ### Songbooks
