@@ -1875,6 +1875,7 @@ export default function EditorView({ song, onBack, onSaved, onPresent, onReturn,
       chordPrefs={chordPrefs}
       onChordPrefsChange={prefs => { setChordPrefs(prefs); setIsDirty(true); }}
       extraCustomChords={addedChords}
+      onCustomRemoved={(name, frets) => setAddedChords(prev => prev.filter(c => !(c.name === name && (c.frets || []).join(',') === frets.join(','))))}
       bottomInset={oneAtATime ? PILL_CLEARANCE : undefined}
     />
   );

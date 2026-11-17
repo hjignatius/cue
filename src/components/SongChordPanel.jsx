@@ -132,7 +132,7 @@ function CustomChordForm({ onSave, onCancel, theme, tuning, initialName = '', in
 
 // ---- SongChordPanel --------------------------------------------------------
 
-export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [], bottomInset }) {
+export default function SongChordPanel({ text, semitones = 0, useFlats = false, sizeLevel = 2, onSizeLevelChange, readonly = false, chordPrefs = {}, onChordPrefsChange, extraCustomChords = [], onCustomRemoved, bottomInset }) {
   const { theme, chordColor, instrument, chordLabelScale } = usePrefs();
   const dark = theme === 'dark';
   const tuning = getActiveTuning(instrument);
@@ -232,6 +232,7 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
       }
       return updated;
     }));
+    if (editingChord?.isCustom) onCustomRemoved?.(editingChord.originalName, editingChord.originalFrets);
     setEditingChord(null);
   }
 
@@ -291,6 +292,11 @@ export default function SongChordPanel({ text, semitones = 0, useFlats = false, 
     const key = frets.join(',');
     setCustomChords(mutateCustomChords(instrument, cur =>
       cur.filter(c => !(c.name === name && c.frets.join(',') === key))));
+    // The editor shows the shapes its AI tools added this session through
+    // extraCustomChords as well. Gone from the library but still in that list,
+    // a deleted shape stayed on screen until the editor was left (Howard,
+    // 2026-11-17), so the editor is told to drop it too.
+    onCustomRemoved?.(name, frets);
     const next = { ...chordPrefs };
     delete next[chordPrefKey(instrument, name)];
     onChordPrefsChange?.(next);
