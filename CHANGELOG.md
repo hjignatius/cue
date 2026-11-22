@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.11 — 2026-11-22
+
+### Present
+
+- **Move the song with a finger while the pedal pages it.** With pedal paging
+  set to Screen, you can drag a text song to bring a verse into view, and the
+  next pedal press pages on from wherever you left it. Touching the song while
+  it glides stops it where it is. Full Page PDF songs still turn a page at a time.
+
 ## v2.0.10 — 2026-11-17
 
 ### Editor
