@@ -837,6 +837,15 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
     pagingIdleTimer.current = setTimeout(() => { pagingTargetRef.current = null; }, glideMs + 250);
   }, [glideMs]);
   useEffect(() => () => { clearTimeout(pagingIdleTimer.current); cancelAnimationFrame(pageAnimRef.current); }, []);
+  // A finger or wheel on the sheet takes over from the pedal: stop any glide in
+  // flight (it would fight the finger) and forget its target, so the next press
+  // pages on from wherever the sheet was left, not from where the glide meant
+  // to land. Howard asked for finger scrolling with the pedal on, 2026-11-22.
+  const takeOverFromGlide = useCallback(() => {
+    cancelAnimationFrame(pageAnimRef.current);
+    clearTimeout(pagingIdleTimer.current);
+    pagingTargetRef.current = null;
+  }, []);
   // A song change resets the destination and cancels any glide — the new song
   // loads at its top (an instant cut). PDF paging resets to page 1.
   useEffect(() => {
@@ -1425,7 +1434,7 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
           scrolls with the pages; strokes are anchored per-page so they line up in
           Full Page mode too. */}
       {songIsPdf && mode === 'scroll' && (
-        <div ref={scrollRef} className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} px-4 md:px-8 py-4`}>
+        <div ref={scrollRef} onTouchStart={takeOverFromGlide} onWheel={takeOverFromGlide} className="absolute inset-0 overflow-y-auto px-4 md:px-8 py-4">
           <div className="relative">
             <PdfPageStack songId={song?.id} turn={song?.pdfRotate} pageTurns={song?.pdfPageTurns} onReady={setPdfCount} dark={dark} />
             {song?.id && !inkOff && (
@@ -1462,14 +1471,17 @@ export default function PresentationView({ songs, startIndex = 0, onExit, onEdit
               already cleared the gutter. The padding sits on the inner wrapper,
               which holds lyricColWidth on wide, so the scroller itself can be
               wider than the lyrics. */}
-          {/* Manual (touch) scroll is disabled while the pedal drives a text
-              song, so the reader can't drift off the pedal's position; the glide
-              still moves scrollTop programmatically. Pedal-off keeps auto. */}
+          {/* A finger scrolls the sheet with the pedal on too: the pedal pages
+              on from wherever the sheet is (takeOverFromGlide). It was locked
+              until 2026-11-22, to keep a stray touch on stage from moving it;
+              Howard chose being able to nudge a verse into view. */}
           <div
             ref={scrollRef}
             onPointerDownCapture={onLyricPointerDown}
             onPointerUpCapture={onLyricPointerUp}
-            className={`absolute inset-0 ${advancesWithinSong ? 'overflow-y-hidden' : 'overflow-y-auto'} py-6`}
+            onTouchStart={takeOverFromGlide}
+            onWheel={takeOverFromGlide}
+            className="absolute inset-0 overflow-y-auto py-6"
           >
             <div className="pl-14 pr-6 md:px-12" style={isNarrow ? undefined : { width: lyricColWidth }}>
             {/* relative wrapper so the canvas can use position:absolute inset-0 */}

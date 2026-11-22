@@ -727,7 +727,7 @@ Bb,8-10-11-10,1243</pre>
 <p>For songs that <em>aren't</em> Full Page (ordinary scrolling songs, text or PDF), this one global setting decides what the pedal / ◀ ▶ / keys do:</p>
 <ul>
   <li><strong>Songs</strong> (default) — Next / Previous jump song-to-song; you read each song by scrolling, and auto-scroll is available.</li>
-  <li><strong>Screen</strong> — Next moves down the current song by about one screen (keeping a line or two of overlap so you don't lose your place); Previous moves back up. At the bottom it rolls to the next song, at the top to the previous — no wrap-around. Auto-scroll is off in this mode.</li>
+  <li><strong>Screen</strong> — Next moves down the current song by about one screen (keeping a line or two of overlap so you don't lose your place); Previous moves back up. At the bottom it rolls to the next song, at the top to the previous — no wrap-around. Auto-scroll is off in this mode. You can still move the song with a finger to bring a verse into view; the next press pages on from wherever you left it.</li>
 </ul>
 <p>In <strong>Screen</strong> mode two extra controls appear in the same panel: <strong>Page turn size</strong> (full / three-quarter / half screen) and <strong>Page turn glide</strong> (0–2000&nbsp;ms — 0 jumps instantly, higher glides smoothly; default 550&nbsp;ms). Crossing into a new song is always an instant cut.</p>
 <div class="tip"><strong>Note:</strong> A <strong>Full Page</strong> song always turns whole pages regardless of the Screen/Songs setting. The global setting applies to the on-screen ◀ / ▶ and the keyboard too, not just a pedal. Leave it on <strong>Songs</strong> for the usual scroll-and-skip behavior.</div>
