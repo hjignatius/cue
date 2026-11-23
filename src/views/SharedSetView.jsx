@@ -15,7 +15,7 @@ import EditorView from './EditorView.jsx';
 import VersionPicker from '../components/VersionPicker.jsx';
 import { readPlayChoices, otherVersions, pickedCopy, playsMine, copyStanding, newerThan, legacyCopyState } from '../utils/shareVersions.js';
 import { isMine, bookNamed, inBook } from '../utils/books.js';
-import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, CloudOff, Award, ArrowDownAZ, ChevronLeft, Plus, Cloud, Equal, EqualNot, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Library, Settings, Tv, Copy, Check, CloudOff, Award, ArrowDownAZ, House, Plus, Cloud, Equal, EqualNot, ArrowLeft, ArrowRight } from 'lucide-react';
 import RoundButton, { ROUND_FILL_NIGHT, ROUND_FILL_DAY_CHROME, ROUND_SIZE_ACTION, ROUND_SIZE_COMPACT, GLASS, MIN_TOUCH_TARGET } from '../components/RoundButton.jsx';
 import SettingsPanel from '../components/SettingsPanel.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
@@ -884,11 +884,11 @@ export default function SharedSetView() {
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
           <RoundButton
             size={ROUND_SIZE_ACTION}
-            label="Leave this shared set" title="Leave this shared set"
+            label="Go to my Library" title="Go to my Library"
             glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
             onActivate={() => navigate('/')}
           >
-            <ChevronLeft size={26} strokeWidth={2.5} />
+            <House size={22} />
           </RoundButton>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -917,11 +917,11 @@ export default function SharedSetView() {
         <header className={`px-6 py-4 border-b ${bdr} shrink-0`}>
           <RoundButton
             size={ROUND_SIZE_ACTION}
-            label="Leave this shared set" title="Leave this shared set"
+            label="Go to my Library" title="Go to my Library"
             glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
             onActivate={() => navigate('/')}
           >
-            <ChevronLeft size={26} strokeWidth={2.5} />
+            <House size={22} />
           </RoundButton>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -1082,22 +1082,22 @@ export default function SharedSetView() {
       {/* Header */}
       <header className={`px-6 py-4 border-b ${bdr} flex items-center justify-between shrink-0`}>
         <div className="flex items-center gap-3 min-w-0">
-          {/* The way out, matching Present and the editor: same glass circle, same
-              corner, same chevron. NOT called "Back" — for someone who arrived
-              from a link there is nowhere to go back TO, and "Leave this shared
-              set" is true for them and for you.
+          {/* The way out, in the same glass circle and corner as Present and the
+              editor, but a house rather than their chevron (Howard, 2026-11-23).
+              A chevron means "back where I came from", and someone who arrived
+              from a link came from a message: there is no such page in Cue. This
+              goes to the Library whoever presses it. Not the Library glyph — Copy
+              uses that on this page.
 
-              It keeps handleOpenCue, which is why the chevron suits it better
-              than the Cue mark did: that handler already stops and asks when you
-              have neither bookmarked nor copied anything, exactly as the editor's
-              exit asks about unsaved changes. The logo advertised none of that. */}
+              handleOpenCue still stops and asks when you have neither bookmarked
+              nor copied anything. */}
           <RoundButton
             size={ROUND_SIZE_ACTION}
-            label="Leave this shared set" title="Leave this shared set"
+            label="Go to my Library" title="Go to my Library"
             glass fill={GLASS(dark).fill} border={GLASS(dark).border} color={GLASS(dark).ink}
             onActivate={handleOpenCue}
           >
-            <ChevronLeft size={26} strokeWidth={2.5} />
+            <House size={22} />
           </RoundButton>
           <h1 className={`text-base font-semibold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{set.name}</h1>
         </div>

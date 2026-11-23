@@ -3,6 +3,15 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.12 — 2026-11-23
+
+### Sharing
+
+- **A house takes you to your Library.** The arrow at the top left of a shared
+  set is now a house, since it goes to your Library rather than back to where
+  you came from. It still asks first if you haven't bookmarked the set or copied
+  anything from it.
+
 ## v2.0.11 — 2026-11-22
 
 ### Present

@@ -871,7 +871,7 @@ Pulling will discard them. Continue?</pre>
   <li><strong>Keep these as a book</strong> — when you copy a set, you can put its songs in a book. They then stay out of My songs until you use them. Otherwise they go straight into My songs.</li>
   <li><strong>Bookmark</strong> — save the link to a <em>Shared with me</em> list for quick access later.</li>
   <li><strong>⚙ Settings</strong> — theme, chord color, and chord label size, applied immediately.</li>
-  <li><strong>‹ Leave this shared set</strong> — top left, the same glass back button as Present and the editor. If you have neither bookmarked the set nor copied anything from it, Cue asks first, since you would have no way back to the link.</li>
+  <li><strong>Go to my Library</strong> (a house) — top left. If you have neither bookmarked the set nor copied anything from it, Cue asks first, since you would have no way back to the link.</li>
 </ul>
 <div class="tip"><strong>Note:</strong> Viewing a shared set is entirely read-only. Nothing the viewer does (key changes, bookmarks, copies) is written back to the shared set or the publisher's account.</div>
 
