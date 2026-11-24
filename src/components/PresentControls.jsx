@@ -57,6 +57,11 @@ const GRID_ROWS = 4; // A−/A+ · Prev/Next · D−/D+ · Count-in/Scroll
 // stage is easy to lose.
 const COLLAPSED_W = PRESENT_CONTROL_BUTTON_SIZE;
 const COLLAPSED_H = PRESENT_CONTROL_BUTTON_SIZE;
+// Where auto-scroll is available the pill grows a second half: the arrow that
+// opens the panel on top, Scroll/Pause below it (Howard, 2026-11-24). Pausing
+// mid-song is one tap instead of two, and the way to the panel stays in sight.
+// Where it isn't (Full Page, pedal paging) the pill is the opener alone, as ever.
+const OPENER_H = 44;
 
 // Which tab the panel is showing. Persisted: between songs you carry on where
 // you left off, rather than the panel resetting under you every time.
@@ -287,6 +292,15 @@ export default function PresentControls(props) {
     clearTimeout(togFlashT.current);
     togFlashT.current = setTimeout(() => setTogFlash(false), FLASH_MS);
   }, []);
+  const [pillFlash, setPillFlash] = useState(false);
+  const pillFlashT = useRef(null);
+  useEffect(() => () => clearTimeout(pillFlashT.current), []);
+  const pulsePill = useCallback((fn) => {
+    fn?.();
+    setPillFlash(true);
+    clearTimeout(pillFlashT.current);
+    pillFlashT.current = setTimeout(() => setPillFlash(false), FLASH_MS);
+  }, []);
   // No tools wired (the shared viewer passes none) → no selector, no tools tab.
   const hasTools = !!props.toolsSlot;
   const showTools = hasTools && tab === 'tools';
@@ -326,7 +340,8 @@ export default function PresentControls(props) {
   const expandedH = headerH + m.gap + bodyH + m.padding * 2 + PANEL_BORDER * 2;
   const expandedW = m.button * 2 + m.gap + m.padding * 2;
   const width  = collapsed ? COLLAPSED_W : expandedW;
-  const height = collapsed ? COLLAPSED_H : expandedH;
+  const scrollPill = !props.scrollDisabled;
+  const height = collapsed ? COLLAPSED_H + (scrollPill ? OPENER_H : 0) : expandedH;
 
   const defaultPos = useCallback(
     ({ vw, vh, width: w, height: h, margin }) => ({ x: vw - w - margin, y: vh - h - margin }),
@@ -339,7 +354,8 @@ export default function PresentControls(props) {
     height,
     margin: PRESENT_CONTROL_EDGE_MARGIN,
     defaultPos,
-    // Collapse toward the right corner of where the panel sat, not the left.
+    // Collapse toward the top-right corner of where the panel sat (Howard tried
+    // the bottom-right, 2026-11-24, and wanted it back).
     anchorX: 'right',
   });
 
@@ -411,16 +427,37 @@ export default function PresentControls(props) {
       }}
     >
       {collapsed ? (
-        <button
-          type="button"
-          aria-label="Expand floating controls"
-          aria-expanded={false}
-          onClick={() => setCollapsedByUser(false)}
-          className="w-full h-full rounded-full flex items-center justify-center shadow-xl backdrop-blur-md border"
-          style={{ background: PILL_BG, borderColor: PILL_BORDER, color: '#ffffff', touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
+        <div
+          className="w-full h-full rounded-full overflow-hidden flex flex-col shadow-xl backdrop-blur-md border"
+          style={{ background: PILL_BG, borderColor: PILL_BORDER, color: '#ffffff' }}
         >
-          <ChevronUp size={26} strokeWidth={2.5} />
-        </button>
+          <button
+            type="button"
+            aria-label="Show the control panel"
+            aria-expanded={false}
+            onClick={() => setCollapsedByUser(false)}
+            className="w-full flex-1 flex items-center justify-center"
+            style={{ touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
+          >
+            <ChevronUp size={scrollPill ? 22 : 26} strokeWidth={2.5} />
+          </button>
+          {scrollPill && (
+            <button
+              type="button"
+              aria-label={props.scrolling ? 'Pause auto-scroll' : 'Start auto-scroll'}
+              aria-pressed={!!props.scrolling}
+              onClick={() => pulsePill(props.onToggleScroll)}
+              className="w-full flex items-center justify-center shrink-0 border-t"
+              style={{
+                height: COLLAPSED_H - PANEL_BORDER, borderColor: PILL_BORDER,
+                background: pillFlash ? 'rgba(255,255,255,0.28)' : 'transparent',
+                touchAction: 'none', WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {props.scrolling ? <Pause size={26} fill="currentColor" /> : <ArrowDown size={28} strokeWidth={2.5} />}
+            </button>
+          )}
+        </div>
       ) : (
         <div
           className="relative w-full h-full rounded-2xl shadow-xl backdrop-blur-md border flex flex-col"

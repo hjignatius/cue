@@ -655,8 +655,8 @@ Bb,8-10-11-10,1243</pre>
 <h3>Moving, hiding and fading</h3>
 <ul>
   <li><strong>Drag it anywhere.</strong> Press and drag from any part of the panel — including the buttons. A tap is never mistaken for a drag. Its position is saved on this device and stays on-screen if you rotate or resize.</li>
-  <li><strong>Collapse it.</strong> The small chevron in the panel's top-right corner shrinks it to a single blue pill. Tap the pill to bring it back. Collapsed or expanded is remembered.</li>
-  <li><strong>It fades when idle.</strong> After about 4 seconds without input the panel dims so it does not compete with the lyrics. Any touch brings it straight back to full strength.</li>
+  <li><strong>Collapse it.</strong> The small chevron in the panel's top-right corner shrinks it to a small blue button with two halves. The <strong>arrow</strong> on top brings the panel back; below it, <strong>↓ / ❚❚</strong> starts and pauses auto-scroll, so pausing mid-song is one tap. On a Full Page song, or with pedal paging set to Screen, there is no auto-scroll, so it is a single round button that brings the panel back. Collapsed or expanded is remembered.</li>
+  <li><strong>It fades when idle.</strong> After a few seconds without input (<strong>Controls fade delay</strong> in Present settings) the panel collapses to the blue button and dims, so it does not compete with the lyrics. Any touch brings the button back to full strength; its arrow brings back the panel.</li>
 </ul>
 <p>The keyboard shortcuts still work too: <code>+</code> / <code>−</code> for text size, the arrow keys (or Page Up / Page Down) for songs, and <code>space</code> for auto-scroll. A page-turner pedal uses these same keys — see <em>Page-Turner Pedals</em>.</p>
 <div class="tip"><strong>Note:</strong> On a narrow screen the chord sidebar opens as a panel over the song and covers the floating controls. Close it with its <strong>✕</strong> — or the <strong>Chords</strong> button on the panel's Tools tab — to reach them again.</div>
@@ -689,7 +689,7 @@ Bb,8-10-11-10,1243</pre>
 <p>Tempo and time signature are read directly from the song — 4/4 counts 8 beats across 2 measures, 3/4 counts 6, 6/8 counts 4 (two dotted-quarter pulses a bar), 12/8 counts 8. Set them in the editor and they are used automatically when presenting. With no tempo set, the button is dimmed. In a compound signature the <strong>Tempo</strong> you enter is the pulse you count, not the eighth note.</p>
 
 <h2>Auto-Scroll</h2>
-<p>Tap the <strong>↓</strong> button on the floating panel — or press <code>space</code> — to start scrolling. The button becomes <strong>❚❚</strong> while running.</p>
+<p>Tap the <strong>↓</strong> button on the floating panel, or on the blue button it collapses to — or press <code>space</code> — to start scrolling. The button becomes <strong>❚❚</strong> while running.</p>
 <ul>
   <li><strong>With Duration set</strong> — Cue scrolls at exactly the pace needed to reach the bottom as the song ends.</li>
   <li><strong>Without Duration</strong> — a slow fixed speed is used instead. Set a Duration on the song for pacing that matches the music.</li>
@@ -715,7 +715,7 @@ Bb,8-10-11-10,1243</pre>
 <table>
   <tr><th>Setting</th><th>What it does</th></tr>
   <tr><td><strong>Controls fade delay</strong></td><td>0–5 seconds before the floating controls and side buttons dim and collapse. 0 hides them straight away. <strong>Keep controls up (practice mode)</strong> stops them fading at all.</td></tr>
-  <tr><td><strong>Panel size</strong></td><td><strong>Full</strong> or <strong>80%</strong> — the size of the floating controls and tools panel. 80% is as small as it goes, because that is where the buttons reach the smallest size that is still a reliable tap. The collapsed blue pill stays full size. Set on each device separately, so a phone and an iPad can differ.</td></tr>
+  <tr><td><strong>Panel size</strong></td><td><strong>Full</strong> or <strong>80%</strong> — the size of the floating controls and tools panel. 80% is as small as it goes, because that is where the buttons reach the smallest size that is still a reliable tap. The collapsed blue button stays full size. Set on each device separately, so a phone and an iPad can differ.</td></tr>
   <tr><td><strong>Scroll start delay</strong></td><td>0–10 seconds of lead-in after you press the scroll button before auto-scroll actually begins — time to get your hands to the instrument.</td></tr>
   <tr><td><strong>Count-in</strong></td><td><strong>♪ Sound</strong> clicks out loud; <strong>⚡ Visual</strong> flashes the button instead, for a quiet stage.</td></tr>
   <tr><td><strong>Pedal paging mode</strong></td><td>See below.</td></tr>
@@ -944,7 +944,7 @@ Pulling will discard them. Continue?</pre>
   <li><strong>YouTube URL</strong> — paste a YouTube link into the metadata bar to keep a reference track alongside the song. Tap the YouTube button in the editor or Present mode toolbar to open it in an overlay player. Useful for learning a song or playing along during rehearsal. The button is grayed out when no URL is set.</li>
   <li><strong>Non-destructive key changes</strong> — use View Key in the editor to render a song in a different key for you or your bandmates. It changes only how the song displays in the preview, Present mode, and the exported set PDF, never the stored chords, and is saved per song so it reopens the same way.</li>
   <li><strong>Waltzes, jigs and slow 12/8 blues</strong> — pick the signature in the Tempo row (3/4, 6/8, 12/8 …) and save. The metronome and flash mode count the right pulse when you present it, with no further setup.</li>
-  <li><strong>Floating controls in Present mode</strong> — text size, song navigation, count-in and auto-scroll sit on a draggable panel of large round buttons. Drag it wherever suits your stage setup; it fades when idle and wakes on any touch. Collapse it to a single pill if you want the screen clear.</li>
+  <li><strong>Floating controls in Present mode</strong> — text size, song navigation, count-in and auto-scroll sit on a draggable panel of large round buttons. Drag it wherever suits your stage setup; it fades when idle and wakes on any touch. Collapse it to the small blue button if you want the screen clear; auto-scroll still starts and pauses from there.</li>
   <li><strong>Starting a set at any song</strong> — tap a song row in the Setlist column to select it (highlighted in indigo), then tap <strong>Present</strong>. Presentation starts from that song and continues forward; the set does not restart from the top.</li>
   <li><strong>iPad editing space</strong> — use the <strong>Preview</strong> and <strong>Chords</strong> toggle buttons to hide panels and give the text editor more room.</li>
   <li><strong>Set PDF with chord charts</strong> — select the set in the Sets panel, then tap <strong>Export ▾ → PDF + Chord Charts</strong> in the Setlist column. Every song becomes a page, and a single chord reference page listing all unique chords across the set is added at the end — useful as a printed reference for rehearsals.</li>

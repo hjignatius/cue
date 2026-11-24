@@ -3,6 +3,17 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.13 — 2026-11-24
+
+### Present
+
+- **Scroll and pause from the small blue button.** When the control panel
+  shrinks, the blue button now has two halves: the arrow on top opens the panel,
+  and ↓ / ❚❚ below it starts and pauses auto-scroll in one tap. If you're used
+  to tapping the blue button to open the panel, tap the arrow now. On a Full
+  Page song, or with pedal paging set to Screen, it is the single round button
+  it was before.
+
 ## v2.0.12 — 2026-11-23
 
 ### Sharing
