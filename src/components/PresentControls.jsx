@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { beatsPerBar } from '../utils/timeSig.js';
-import { ArrowDown, ChevronDown, ChevronUp, Gauge, Pause, Wrench } from 'lucide-react';
+import { ArrowDown, ChevronUp, Gauge, Pause, Wrench } from 'lucide-react';
 import { useDraggablePanel } from '../hooks/useDraggablePanel.js';
 import { panelMetrics, panelGlyph } from '../utils/presentPanelSize.js';
 import RoundButton, {
@@ -84,10 +84,12 @@ const TAB_KEY       = 'cue:present_controls_tab';
 // tucked close under the selector, because those two rows are pure chrome and
 // every pixel they take comes off the controls in landscape.
 // The collapse caret is pinned in the panel's top-right corner and positioned
-// absolutely, so it takes no room in the header row at all. Its glyph is small
-// but its hit box is not — the corner is easy to aim at, and the pill you get
-// back is 54px, so only the way IN is small.
-const CARET_HIT     = 34;
+// absolutely, so it takes no room in the header row at all. It points up because
+// the panel shrinks up into that corner. At 80% its hit box would run into the
+// toggle, so the toggle gives up the few px (see toggleW below): a tap meant for
+// the wrench must not close the panel.
+const CARET_HIT     = 44;
+const CARET_CLEAR   = 4;
 
 const POS_KEY       = 'cue:present_controls_pos';
 const COLLAPSED_KEY = 'cue:present_controls_collapsed';
@@ -340,6 +342,7 @@ export default function PresentControls(props) {
   const expandedH = headerH + m.gap + bodyH + m.padding * 2 + PANEL_BORDER * 2;
   const expandedW = m.button * 2 + m.gap + m.padding * 2;
   const width  = collapsed ? COLLAPSED_W : expandedW;
+  const toggleW = Math.min(m.toggleW, expandedW - PANEL_BORDER * 2 - m.padding - 1 - CARET_HIT - CARET_CLEAR);
   const scrollPill = !props.scrollDisabled;
   const height = collapsed ? COLLAPSED_H + (scrollPill ? OPENER_H : 0) : expandedH;
 
@@ -433,13 +436,18 @@ export default function PresentControls(props) {
         >
           <button
             type="button"
-            aria-label="Show the control panel"
+            aria-label={showTools ? 'Show the tools' : 'Show the controls'}
             aria-expanded={false}
             onClick={() => setCollapsedByUser(false)}
             className="w-full flex-1 flex items-center justify-center"
             style={{ touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
           >
-            <ChevronUp size={scrollPill ? 22 : 26} strokeWidth={2.5} />
+            {/* The tab it will open, under the header toggle's own rule: the icon
+                is where it takes you. Not a chevron — a down one over the scroll's
+                ↓ reads as the same thing twice (Howard, 2026-11-24). */}
+            {showTools
+              ? <Wrench size={scrollPill ? 24 : 28} strokeWidth={2} />
+              : <Gauge  size={scrollPill ? 24 : 28} strokeWidth={2} />}
           </button>
           {scrollPill && (
             <button
@@ -475,7 +483,7 @@ export default function PresentControls(props) {
               onClick={() => pulseToggle(() => changeTab(showTools ? 'controls' : 'tools'))}
               className="self-start flex items-center justify-center shrink-0 relative bg-transparent border-0"
               style={{
-                width: m.toggleW, height: m.toggleHitH,
+                width: toggleW, height: m.toggleHitH,
                 margin: `${(m.toggleH - m.toggleHitH) / 2}px 0`,
                 color: togFlash ? '#ffffff' : toggleTint,
                 touchAction: 'none', WebkitTapHighlightColor: 'transparent',
@@ -485,7 +493,7 @@ export default function PresentControls(props) {
                 aria-hidden="true"
                 className="absolute rounded-full border"
                 style={{
-                  width: m.toggleW, height: m.toggleH,
+                  width: toggleW, height: m.toggleH,
                   // No colour transition, deliberately: RoundButton transitions
                   // only transform and filter, so its flash snaps to full indigo.
                   // A 120ms ease inside a 180ms flash never reaches the colour
@@ -527,7 +535,7 @@ export default function PresentControls(props) {
               className="w-full flex items-center justify-center rounded-lg shrink-0"
               style={{ height: m.handleH, color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent' }}
             >
-              <ChevronDown size={20} strokeWidth={2.5} />
+              <ChevronUp size={20} strokeWidth={2.5} />
             </button>
           )}
           {/* Collapse — pinned in the top-right corner, out of the flow, so the
@@ -541,11 +549,11 @@ export default function PresentControls(props) {
               onClick={() => setCollapsedByUser(true)}
               className="absolute flex items-center justify-center rounded-lg"
               style={{
-                top: 1, right: 1, width: CARET_HIT, height: CARET_HIT,
+                top: m.padding + (m.toggleH - CARET_HIT) / 2, right: 1, width: CARET_HIT, height: CARET_HIT,
                 color: handleTint, touchAction: 'none', WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <ChevronDown size={16} strokeWidth={2.5} />
+              <ChevronUp size={24} strokeWidth={2.5} />
             </button>
           )}
           {showTools

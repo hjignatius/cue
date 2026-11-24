@@ -3,6 +3,16 @@
 All notable user-facing changes to Cue. The running version is shown under the
 "Cue" title on the Library screen and is defined by `version` in `package.json`.
 
+## v2.0.14 — 2026-11-24
+
+### Present
+
+- **A dial or wrench opens the control panel.** The top half of the small blue
+  button shows the dial when it will open the controls and the wrench when it
+  will open the tools, instead of an arrow.
+- **Easier to close the panel.** Its closing arrow is larger, with a bigger area
+  to tap, and points up, the way the panel shrinks.
+
 ## v2.0.13 — 2026-11-24
 
 ### Present
